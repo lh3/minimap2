@@ -14,13 +14,13 @@ typedef khash_t(idx) idxhash_t;
 
 #define kroundup64(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, (x)|=(x)>>32, ++(x))
 
-mm_idx_t *mm_idx_init(int w, int k, int b)
+mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc)
 {
 	mm_idx_t *mi;
 	if (k*2 < b) b = k * 2;
 	if (w < 1) w = 1;
 	mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
-	mi->w = w, mi->k = k, mi->b = b;
+	mi->w = w, mi->k = k, mi->b = b, mi->is_hpc = is_hpc;
 	mi->B = (mm_idx_bucket_t*)calloc(1<<b, sizeof(mm_idx_bucket_t));
 	return mi;
 }
@@ -151,7 +151,7 @@ static void mm_idx_post(mm_idx_t *mi, int n_threads)
 #include "bseq.h"
 
 typedef struct {
-	int mini_batch_size, keep_name, is_hpc;
+	int mini_batch_size, keep_name;
 	uint64_t batch_size;
 	bseq_file_t *fp;
 	mm_idx_t *mi;
@@ -225,7 +225,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
         step_t *s = (step_t*)in;
 		for (i = 0; i < s->n_seq; ++i) {
 			bseq1_t *t = &s->seq[i];
-			mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->is_hpc, &s->a);
+			mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->is_hpc, &s->a);
 			free(t->seq); free(t->name);
 		}
 		free(s->seq); s->seq = 0;
@@ -244,11 +244,10 @@ mm_idx_t *mm_idx_gen(bseq_file_t *fp, int w, int k, int b, int is_hpc, int mini_
 	memset(&pl, 0, sizeof(pipeline_t));
 	pl.mini_batch_size = mini_batch_size;
 	pl.keep_name = keep_name;
-	pl.is_hpc = is_hpc;
 	pl.batch_size = batch_size;
 	pl.fp = fp;
 	if (pl.fp == 0) return 0;
-	pl.mi = mm_idx_init(w, k, b);
+	pl.mi = mm_idx_init(w, k, b, is_hpc);
 
 	kt_pipeline(n_threads < 3? n_threads : 3, worker_pipeline, &pl, 3);
 	if (mm_verbose >= 3)
@@ -280,11 +279,11 @@ mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads) 
 
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 {
-	uint32_t x[4];
+	uint32_t x[5];
 	int i;
-	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->n_seq;
+	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->n_seq, x[4] = mi->is_hpc;
 	fwrite(MM_IDX_MAGIC, 1, 4, fp);
-	fwrite(x, 4, 4, fp);
+	fwrite(x, 4, 5, fp);
 	for (i = 0; i < mi->n_seq; ++i) {
 		uint8_t l;
 		l = strlen(mi->seq[i].name);
@@ -314,12 +313,12 @@ mm_idx_t *mm_idx_load(FILE *fp)
 {
 	int i;
 	char magic[4];
-	uint32_t x[4];
+	uint32_t x[5];
 	mm_idx_t *mi;
 	if (fread(magic, 1, 4, fp) != 4) return 0;
 	if (strncmp(magic, MM_IDX_MAGIC, 4) != 0) return 0;
-	if (fread(x, 4, 4, fp) != 6) return 0;
-	mi = mm_idx_init(x[0], x[1], x[2]);
+	if (fread(x, 4, 5, fp) != 6) return 0;
+	mi = mm_idx_init(x[0], x[1], x[2], x[4]);
 	mi->n_seq = x[3];
 	mi->seq = (mm_idx_seq_t*)calloc(mi->n_seq, sizeof(mm_idx_seq_t));
 	for (i = 0; i < mi->n_seq; ++i) {

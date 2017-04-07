@@ -16,7 +16,7 @@ all:$(PROG)
 
 extra:all $(PROG_EXTRA)
 
-minimap2:libminimap2.a
+minimap2:main.o libminimap2.a
 		$(CC) $(CFLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
 
 libminimap2.a:$(OBJS)

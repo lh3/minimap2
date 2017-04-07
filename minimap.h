@@ -35,7 +35,7 @@ typedef struct {
 } mm_idx_seq_t;
 
 typedef struct {
-	int32_t b, w, k;
+	int32_t b, w, k, is_hpc;
 	uint64_t sum_len;   // sum of lengths
 	uint32_t n_seq;     // number of reference sequences
 	mm_idx_seq_t *seq;  // sequence name, length and offset
@@ -79,7 +79,7 @@ extern "C" {
 void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p);
 
 // minimizer indexing
-mm_idx_t *mm_idx_init(int w, int k, int b);
+mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc);
 void mm_idx_destroy(mm_idx_t *mi);
 mm_idx_t *mm_idx_gen(struct bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
 void mm_idx_set_max_occ(mm_idx_t *mi, float f);
