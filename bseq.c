@@ -7,8 +7,6 @@
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
-extern unsigned char seq_nt4_table[256];
-
 struct bseq_file_s {
 	int is_eof;
 	gzFile fp;

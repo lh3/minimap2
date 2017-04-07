@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include "bseq.h"
 
 #define MM_IDX_DEF_B    14
 #define MM_DEREP_Q50    5.0
@@ -30,13 +29,18 @@ typedef struct {
 } mm_idx_bucket_t;
 
 typedef struct {
-	int b, w, k;
-	uint32_t n;   // number of reference sequences
-	mm_idx_bucket_t *B;
-	uint32_t max_occ;
-	float freq_thres;
-	int32_t *len; // length of each reference sequence
-	char **name;  // TODO: if this uses too much RAM, switch to one concatenated string
+	char *name;      // name of the db sequence
+	uint64_t offset; // offset in mm_idx_t::seq16
+	uint32_t len;    // length
+} mm_idx_seq_t;
+
+typedef struct {
+	int32_t b, w, k;
+	uint64_t sum_len;   // sum of lengths
+	uint32_t n_seq;     // number of reference sequences
+	mm_idx_seq_t *seq;  // sequence name, length and offset
+	uint32_t *S;        // 4-bit packed sequence
+	mm_idx_bucket_t *B; // index
 } mm_idx_t;
 
 typedef struct {
@@ -62,6 +66,11 @@ extern double mm_realtime0;
 struct mm_tbuf_s;
 typedef struct mm_tbuf_s mm_tbuf_t;
 
+struct bseq_file_s;
+
+#define mm_seq4_set(s, i, c) ((s)[(i)>>8] |= (uint32_t)(c) << (((i)&7)<<2))
+#define mm_seq4_get(s, i)    ((s)[(i)>>8] >> (((i)&7)<<2) & 0xf)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -72,11 +81,11 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 // minimizer indexing
 mm_idx_t *mm_idx_init(int w, int k, int b);
 void mm_idx_destroy(mm_idx_t *mi);
-mm_idx_t *mm_idx_gen(bseq_file_t *fp, int w, int k, int b, int tbatch_size, int n_threads, uint64_t ibatch_size, int keep_name);
+mm_idx_t *mm_idx_gen(struct bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
 void mm_idx_set_max_occ(mm_idx_t *mi, float f);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 
-mm_idx_t *mm_idx_build(const char *fn, int w, int k, int n_threads);
+mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
 
 // minimizer index I/O
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
