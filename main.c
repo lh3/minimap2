@@ -38,6 +38,9 @@ int main(int argc, char *argv[])
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
+		else if (c == 'H') is_hpc = 1;
+		else if (c == 'l') is_idx = 1;
+		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.radius = atoi(optarg);
 		else if (c == 'c') opt.min_cnt = atoi(optarg);
 		else if (c == 'm') opt.merge_frac = atof(optarg);
@@ -46,8 +49,6 @@ int main(int argc, char *argv[])
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
 		else if (c == 'N') keep_name = 0;
-		else if (c == 'd') fnw = optarg;
-		else if (c == 'l') is_idx = 1;
 		else if (c == 'R') opt.flag |= MM_F_WITH_REP;
 		else if (c == 'P') opt.flag &= ~MM_F_WITH_REP;
 		else if (c == 'D') opt.flag |= MM_F_NO_SELF;
@@ -79,15 +80,16 @@ int main(int argc, char *argv[])
 	if (w < 0) w = (int)(.6666667 * k + .499);
 
 	if (argc == optind) {
-		fprintf(stderr, "Usage: minimap [options] <target.fa> [query.fa] [...]\n");
+		fprintf(stderr, "Usage: minimap2 [options] <target.fa> [query.fa] [...]\n");
 		fprintf(stderr, "Options:\n");
 		fprintf(stderr, "  Indexing:\n");
 		fprintf(stderr, "    -k INT     k-mer size [%d]\n", k);
 		fprintf(stderr, "    -w INT     minizer window size [{-k}*2/3]\n");
 		fprintf(stderr, "    -I NUM     split index for every ~NUM input bases [4G]\n");
 		fprintf(stderr, "    -d FILE    dump index to FILE []\n");
+		fprintf(stderr, "    -H         use homopolymer-compressed k-mer\n");
 		fprintf(stderr, "    -l         the 1st argument is a index file (overriding -k, -w and -I)\n");
-//		fprintf(stderr, "    -b INT     bucket bits [%d]\n", b); // most users would not care about this
+//		fprintf(stderr, "    -b INT     bucket bits [%d]\n", b); // most users wouldn't care about this
 		fprintf(stderr, "  Mapping:\n");
 		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", f);
 		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.radius);
@@ -109,7 +111,7 @@ int main(int argc, char *argv[])
 //		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);
 //		fprintf(stderr, "    -N         use integer as target names\n");
 		fprintf(stderr, "    -V         show version number\n");
-		fprintf(stderr, "\nSee minimap.1 for detailed description of the command-line options.\n");
+		fprintf(stderr, "\nSee minimap2.1 for detailed description of the command-line options.\n");
 		return 1;
 	}
 
@@ -125,11 +127,12 @@ int main(int argc, char *argv[])
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
-		mm_idx_set_max_occ(mi, f);
 		if (fpw) mm_idx_dump(fpw, mi);
+		/*
 		for (i = optind + 1; i < argc; ++i)
 			mm_map_file(mi, argv[i], &opt, n_threads, mini_batch_size);
 		mm_idx_destroy(mi);
+		*/
 	}
 	if (fpw) fclose(fpw);
 	if (fpr) fclose(fpr);

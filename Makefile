@@ -2,7 +2,7 @@ CC=			gcc
 CFLAGS=		-g -Wall -O2 -Wc++-compat -Wno-unused-function
 CPPFLAGS=
 INCLUDES=	-I.
-OBJS=		kalloc.o kthread.o misc.o bseq.o sketch.o sdust.o index.o
+OBJS=		kalloc.o kthread.o misc.o bseq.o sketch.o sdust.o index.o map.o
 PROG=		minimap2
 PROG_EXTRA=	sdust
 LIBS=		-lm -lz -lpthread
@@ -22,7 +22,7 @@ minimap2:main.o libminimap2.a
 libminimap2.a:$(OBJS)
 		$(AR) -csru $@ $(OBJS)
 
-sdust:sdust.c kalloc.o kdq.h kvec.h kseq.h sdust.h
+sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< kalloc.o -o $@ -lz
 
 clean:
