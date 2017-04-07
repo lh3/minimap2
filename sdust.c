@@ -50,11 +50,9 @@ struct sdust_buf_s {
 	void *km;      // memory pool
 };
 
-sdust_buf_t *sdust_buf_init(void)
+sdust_buf_t *sdust_buf_init(void *km)
 {
 	sdust_buf_t *buf;
-	void *km;
-	km = km_init();
 	buf = (sdust_buf_t*)kcalloc(km, 1, sizeof(sdust_buf_t));
 	buf->km = km;
 	buf->w = kdq_init(int, buf->km);
@@ -64,9 +62,7 @@ sdust_buf_t *sdust_buf_init(void)
 void sdust_buf_destroy(sdust_buf_t *buf)
 {
 	if (buf == 0) return;
-	if (buf->km == 0) { // then fall back to the default allocator for which we need free all arrays manually
-		kfree(buf->km, buf->P.a); kfree(buf->km, buf->res.a); kfree(buf->km, buf);
-	} else km_destroy(buf->km); // This deallocate all memory allocated from buf->km
+	kfree(buf->km, buf->P.a); kfree(buf->km, buf->res.a); kfree(buf->km, buf);
 }
 
 static inline void shift_window(int t, kdq_t(int) *w, int T, int W, int *L, int *rw, int *rv, int *cw, int *cv)
@@ -165,11 +161,11 @@ const uint64_t *sdust_core(const uint8_t *seq, int l_seq, int T, int W, int *n, 
 	return buf->res.a;
 }
 
-uint64_t *sdust(const uint8_t *seq, int l_seq, int T, int W, int *n)
+uint64_t *sdust(void *km, const uint8_t *seq, int l_seq, int T, int W, int *n)
 {
 	uint64_t *ret;
 	sdust_buf_t *buf;
-	buf = sdust_buf_init();
+	buf = sdust_buf_init(km);
 	ret = (uint64_t*)sdust_core(seq, l_seq, T, W, n, buf);
 	buf->res.a = 0;
 	sdust_buf_destroy(buf);
@@ -202,7 +198,7 @@ int main(int argc, char *argv[])
 	while (kseq_read(ks) >= 0) {
 		uint64_t *r;
 		int i, n;
-		r = sdust((uint8_t*)ks->seq.s, -1, T, W, &n);
+		r = sdust(0, (uint8_t*)ks->seq.s, -1, T, W, &n);
 		for (i = 0; i < n; ++i)
 			printf("%s\t%d\t%d\n", ks->name.s, (int)(r[i]>>32), (int)r[i]);
 		free(r);
