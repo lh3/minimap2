@@ -83,11 +83,11 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: minimap2 [options] <target.fa> [query.fa] [...]\n");
 		fprintf(stderr, "Options:\n");
 		fprintf(stderr, "  Indexing:\n");
+		fprintf(stderr, "    -H         use homopolymer-compressed k-mer\n");
 		fprintf(stderr, "    -k INT     k-mer size [%d]\n", k);
 		fprintf(stderr, "    -w INT     minizer window size [{-k}*2/3]\n");
 		fprintf(stderr, "    -I NUM     split index for every ~NUM input bases [4G]\n");
 		fprintf(stderr, "    -d FILE    dump index to FILE []\n");
-		fprintf(stderr, "    -H         use homopolymer-compressed k-mer\n");
 		fprintf(stderr, "    -l         the 1st argument is a index file (overriding -k, -w and -I)\n");
 //		fprintf(stderr, "    -b INT     bucket bits [%d]\n", b); // most users wouldn't care about this
 		fprintf(stderr, "  Mapping:\n");
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "               ava10k: -Sw5 -L100 -m0 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "  Input/Output:\n");
 		fprintf(stderr, "    -t INT     number of threads [%d]\n", n_threads);
-//		fprintf(stderr, "    -B NUM     process ~NUM bp in each batch [100M]\n");
+//		fprintf(stderr, "    -B NUM     process ~NUM bp in each mini-batch [100M]\n");
 //		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);
 //		fprintf(stderr, "    -N         use integer as target names\n");
 		fprintf(stderr, "    -V         show version number\n");
