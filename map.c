@@ -49,8 +49,8 @@ const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_r
 		const uint64_t *dreg;
 		dreg = sdust_core((const uint8_t*)seq, l_seq, opt->sdust_thres, 64, &n_dreg, b->sdb);
 		for (j = k = 0; j < b->mini.n; ++j) {
-			int32_t qpos = (uint32_t)b->mini.a[j].y>>1;
-			int32_t s = qpos - (mi->k - 1), e = s + mi->k;
+			int32_t qpos = (uint32_t)b->mini.a[j].y>>1, span = b->mini.a[j].x&0xff;
+			int32_t s = qpos - (span - 1), e = s + span;
 			while (u < n_dreg && (uint32_t)dreg[u] <= s) ++u;
 			if (u < n_dreg && dreg[u]>>32 < e) {
 				int v, l = 0;
