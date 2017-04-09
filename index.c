@@ -167,7 +167,7 @@ static void mm_idx_add(mm_idx_t *mi, int n, const mm128_t *a)
 {
 	int i, mask = (1<<mi->b) - 1;
 	for (i = 0; i < n; ++i) {
-		mm128_v *p = &mi->B[a[i].x&mask].a;
+		mm128_v *p = &mi->B[a[i].x>>8&mask].a;
 		kv_push(mm128_t, 0, *p, a[i]);
 	}
 }
@@ -201,7 +201,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			}
 			// populate p->mi->seq
 			for (i = 0; i < s->n_seq; ++i) {
-				mm_idx_seq_t *seq = &p->mi->seq[p->mi->n_seq++];
+				mm_idx_seq_t *seq = &p->mi->seq[p->mi->n_seq];
 				uint32_t j;
 				if (p->keep_name) {
 					assert(strlen(s->seq[i].name) <= 254); // a long query name breaks BAM
