@@ -49,7 +49,7 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 	if (h == 0) return 0;
 	k = kh_get(idx, h, minier>>mi->b<<1);
 	if (k == kh_end(h)) return 0;
-	if (kh_key(h, k)&1) {
+	if (kh_key(h, k)&1) { // special casing when there is only one k-mer
 		*n = 1;
 		return &kh_val(h, k);
 	} else {
@@ -123,6 +123,7 @@ static void worker_post(void *g, long i, int tid)
 				int k;
 				for (k = 0; k < n; ++k)
 					b->p[start_p + k] = b->a.a[start_a + k].y;
+				radix_sort_64(&b->p[start_p], &b->p[start_p + n]); // sort by position; needed as in-place radix_sort_128x() is not stable
 				kh_val(h, itr) = (uint64_t)start_p<<32 | n;
 				start_p += n;
 			}
