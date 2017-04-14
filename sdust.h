@@ -1,6 +1,8 @@
 #ifndef SDUST_H
 #define SDUST_H
 
+#include <stdint.h>
+
 struct sdust_buf_s;
 typedef struct sdust_buf_s sdust_buf_t;
 

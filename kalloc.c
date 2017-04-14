@@ -140,7 +140,7 @@ void *krealloc(void *_km, void *ap, size_t n_bytes)
 	n_units = 1 + (n_bytes + sizeof(size_t) - 1) / sizeof(size_t);
 	p = (size_t*)ap - 1;
 	if (*p >= n_units) return ap;
-	q = kmalloc(km, n_bytes);
+	q = (size_t*)kmalloc(km, n_bytes);
 	if (q != ap) memcpy(q, ap, (*p - 1) * sizeof(size_t));
 	kfree(km, ap);
 	return q;
@@ -182,7 +182,7 @@ void *kmalloc(void *_km, size_t n_bytes)
 void *kcalloc(void *_km, size_t count, size_t size)
 {
 	kmem_t *km = (kmem_t*)_km;
-	char *p;
+	void *p;
 	if (size == 0 || count == 0) return 0;
 	if (km == 0) return calloc(count, size);
 	p = kmalloc(km, count * size);

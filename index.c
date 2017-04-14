@@ -36,7 +36,7 @@ void mm_idx_destroy(mm_idx_t *mi)
 	}
 	for (i = 0; i < mi->n_seq; ++i)
 		free(mi->seq[i].name);
-	free(mi->seq); free(mi->B); free(mi);
+	free(mi->seq); free(mi->B); free(mi->S); free(mi);
 }
 
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)

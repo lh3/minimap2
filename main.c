@@ -131,8 +131,8 @@ int main(int argc, char *argv[])
 		/*
 		for (i = optind + 1; i < argc; ++i)
 			mm_map_file(mi, argv[i], &opt, n_threads, mini_batch_size);
-		mm_idx_destroy(mi);
 		*/
+		mm_idx_destroy(mi);
 	}
 	if (fpw) fclose(fpw);
 	if (fpr) fclose(fpr);
