@@ -36,7 +36,6 @@ typedef struct {
 
 typedef struct {
 	int32_t b, w, k, is_hpc;
-	uint64_t sum_len;   // sum of lengths
 	uint32_t n_seq;     // number of reference sequences
 	mm_idx_seq_t *seq;  // sequence name, length and offset
 	uint32_t *S;        // 4-bit packed sequence

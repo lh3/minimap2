@@ -127,7 +127,11 @@ int main(int argc, char *argv[])
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
-		if (fpw) mm_idx_dump(fpw, mi);
+		if (fpw) {
+			mm_idx_dump(fpw, mi);
+			if (mm_verbose >= 2)
+				fprintf(stderr, "[M::%s::%.3f*%.2f] dumpped the (partial) index to disk\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
+		}
 		/*
 		for (i = optind + 1; i < argc; ++i)
 			mm_map_file(mi, argv[i], &opt, n_threads, mini_batch_size);

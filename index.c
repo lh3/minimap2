@@ -153,7 +153,7 @@ static void mm_idx_post(mm_idx_t *mi, int n_threads)
 
 typedef struct {
 	int mini_batch_size, keep_name;
-	uint64_t batch_size;
+	uint64_t batch_size, sum_len;
 	bseq_file_t *fp;
 	mm_idx_t *mi;
 } pipeline_t;
@@ -179,7 +179,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     pipeline_t *p = (pipeline_t*)shared;
     if (step == 0) { // step 0: read sequences
         step_t *s;
-		if (p->mi->sum_len > p->batch_size) return 0;
+		if (p->sum_len > p->batch_size) return 0;
         s = (step_t*)calloc(1, sizeof(step_t));
 		s->seq = bseq_read(p->fp, p->mini_batch_size, &s->n_seq); // read a mini-batch
 		if (s->seq) {
@@ -193,8 +193,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				p->mi->seq = (mm_idx_seq_t*)realloc(p->mi->seq, m * sizeof(mm_idx_seq_t));
 			// make room for p->mi->S
 			for (i = 0, sum_len = 0; i < s->n_seq; ++i) sum_len += s->seq[i].l_seq;
-			old_max_len = (p->mi->sum_len + 7) / 8;
-			max_len = (p->mi->sum_len + sum_len + 7) / 8;
+			old_max_len = (p->sum_len + 7) / 8;
+			max_len = (p->sum_len + sum_len + 7) / 8;
 			kroundup64(old_max_len); kroundup64(max_len);
 			if (old_max_len != max_len) {
 				p->mi->S = (uint32_t*)realloc(p->mi->S, max_len * 4);
@@ -209,15 +209,15 @@ static void *worker_pipeline(void *shared, int step, void *in)
 					seq->name = strdup(s->seq[i].name);
 				} else seq->name = 0;
 				seq->len = s->seq[i].l_seq;
-				seq->offset = p->mi->sum_len;
+				seq->offset = p->sum_len;
 				// copy the sequence
 				for (j = 0; j < seq->len; ++j) { // TODO: this is not the fastest way, but let's first see if speed matters here
-					uint64_t o = p->mi->sum_len + j;
+					uint64_t o = p->sum_len + j;
 					int c = seq_nt4_table[(uint8_t)s->seq[i].seq[j]];
 					mm_seq4_set(p->mi->S, o, c);
 				}
-				// update p->mi->{sum_len,n_seq}
-				p->mi->sum_len += seq->len;
+				// update p->sum_len and p->mi->n_seq
+				p->sum_len += seq->len;
 				s->seq[i].rid = p->mi->n_seq++;
 			}
 			return s;
@@ -280,8 +280,10 @@ mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads) 
 
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 {
+	uint64_t sum_len = 0;
 	uint32_t x[5];
 	int i;
+
 	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->n_seq, x[4] = mi->is_hpc;
 	fwrite(MM_IDX_MAGIC, 1, 4, fp);
 	fwrite(x, 4, 5, fp);
@@ -291,6 +293,7 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 		fwrite(&l, 1, 1, fp);
 		fwrite(mi->seq[i].name, 1, l, fp);
 		fwrite(&mi->seq[i].len, 4, 1, fp);
+		sum_len += mi->seq[i].len;
 	}
 	for (i = 0; i < 1<<mi->b; ++i) {
 		mm_idx_bucket_t *b = &mi->B[i];
@@ -308,6 +311,8 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 			fwrite(x, 8, 2, fp);
 		}
 	}
+	fwrite(mi->S, 4, (sum_len + 7) / 8, fp);
+	fflush(fp);
 }
 
 mm_idx_t *mm_idx_load(FILE *fp)
@@ -315,7 +320,9 @@ mm_idx_t *mm_idx_load(FILE *fp)
 	int i;
 	char magic[4];
 	uint32_t x[5];
+	uint64_t sum_len = 0;
 	mm_idx_t *mi;
+
 	if (fread(magic, 1, 4, fp) != 4) return 0;
 	if (strncmp(magic, MM_IDX_MAGIC, 4) != 0) return 0;
 	if (fread(x, 4, 5, fp) != 6) return 0;
@@ -324,11 +331,13 @@ mm_idx_t *mm_idx_load(FILE *fp)
 	mi->seq = (mm_idx_seq_t*)calloc(mi->n_seq, sizeof(mm_idx_seq_t));
 	for (i = 0; i < mi->n_seq; ++i) {
 		uint8_t l;
+		mm_idx_seq_t *s = &mi->seq[i];
 		fread(&l, 1, 1, fp);
-		mi->seq[i].name = (char*)malloc(l + 1);
-		fread(mi->seq[i].name, 1, l, fp);
-		mi->seq[i].name[l] = 0;
-		fread(&mi->seq[i].len, 4, 1, fp);
+		s->name = (char*)malloc(l + 1);
+		fread(s->name, 1, l, fp);
+		s->name[l] = 0;
+		fread(&s->len, 4, 1, fp);
+		sum_len += s->len;
 	}
 	for (i = 0; i < 1<<mi->b; ++i) {
 		mm_idx_bucket_t *b = &mi->B[i];
@@ -351,5 +360,7 @@ mm_idx_t *mm_idx_load(FILE *fp)
 			kh_val(h, k) = x[1];
 		}
 	}
+	mi->S = (uint32_t*)malloc((sum_len + 7) / 8 * 4);
+	fread(mi->S, 4, (sum_len + 7) / 8, fp);
 	return mi;
 }
