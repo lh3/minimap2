@@ -8,7 +8,6 @@
 #define MM_IDX_DEF_B    14
 #define MM_DEREP_Q50    5.0
 
-#define MM_F_WITH_REP  0x1
 #define MM_F_NO_SELF   0x2
 #define MM_F_NO_ISO    0x4
 #define MM_F_AVA       0x8
@@ -87,6 +86,7 @@ mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc);
 void mm_idx_destroy(mm_idx_t *mi);
 mm_idx_t *mm_idx_gen(struct bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
 uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
+void mm_idx_stat(const mm_idx_t *idx);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);

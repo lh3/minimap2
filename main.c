@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:c:f:Vv:NOg:I:d:lRPST:L:Dx:H")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:c:f:Vv:NOg:I:d:lST:L:Dx:H")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
@@ -48,8 +48,6 @@ int main(int argc, char *argv[])
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
 		else if (c == 'N') keep_name = 0;
-		else if (c == 'R') opt.flag |= MM_F_WITH_REP;
-		else if (c == 'P') opt.flag &= ~MM_F_WITH_REP;
 		else if (c == 'D') opt.flag |= MM_F_NO_SELF;
 		else if (c == 'O') opt.flag |= MM_F_NO_ISO;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
@@ -98,8 +96,6 @@ int main(int argc, char *argv[])
 //		fprintf(stderr, "    -D         skip self mappings but keep dual mappings\n"); // too confusing to expose to end users
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
 		fprintf(stderr, "    -O         drop isolated hits before chaining (EXPERIMENTAL)\n");
-		fprintf(stderr, "    -P         filtering potential repeats after mapping (EXPERIMENTAL)\n");
-//		fprintf(stderr, "    -R         skip post-mapping repeat filtering\n"); // deprecated option for backward compatibility
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "               ava10k: -Sw5 -L100 -m0 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "  Input/Output:\n");
@@ -130,6 +126,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "[M::%s::%.3f*%.2f] dumpped the (partial) index to disk\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 		}
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
+		if (mm_verbose >= 3) mm_idx_stat(mi);
 		for (i = optind + 1; i < argc; ++i)
 			mm_map_file(mi, argv[i], &opt, n_threads, mini_batch_size);
 		mm_idx_destroy(mi);

@@ -18,7 +18,6 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_gap = 10000;
 	opt->min_cnt = 4;
 	opt->min_match = 40;
-	opt->flag = MM_F_WITH_REP;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)

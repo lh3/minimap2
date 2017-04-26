@@ -58,6 +58,26 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 	}
 }
 
+void mm_idx_stat(const mm_idx_t *mi)
+{
+	int i, n = 0;
+	uint64_t sum = 0, len = 0;
+	for (i = 0; i < mi->n_seq; ++i)
+		len += mi->seq[i].len;
+	for (i = 0; i < 1<<mi->b; ++i)
+		if (mi->B[i].h) n += kh_size((idxhash_t*)mi->B[i].h);
+	for (i = 0; i < 1<<mi->b; ++i) {
+		idxhash_t *h = (idxhash_t*)mi->B[i].h;
+		khint_t k;
+		if (h == 0) continue;
+		for (k = 0; k < kh_end(h); ++k)
+			if (kh_exist(h, k))
+				sum += kh_key(h, k)&1? 1 : (uint32_t)kh_val(h, k);
+	}
+	fprintf(stderr, "[M::%s::%.3f*%.2f] distinct minimizers: %d; average occurrences: %.3lf; average spacing: %.3lf\n",
+			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), n, (double)sum / n, (double)len / sum);
+}
+
 uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 {
 	int i;
