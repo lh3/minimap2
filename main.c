@@ -7,7 +7,7 @@
 #include "bseq.h"
 #include "minimap.h"
 
-#define MM_VERSION "0.2-r124-dirty"
+#define MM_VERSION "2.0-r14-pre"
 
 void liftrlimit()
 {
@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:c:f:Vv:NOg:I:d:lRPST:m:L:Dx:H")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:c:f:Vv:NOg:I:d:lRPST:L:Dx:H")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
@@ -43,7 +43,6 @@ int main(int argc, char *argv[])
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.radius = atoi(optarg);
 		else if (c == 'c') opt.min_cnt = atoi(optarg);
-		else if (c == 'm') opt.merge_frac = atof(optarg);
 		else if (c == 'f') f = atof(optarg);
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
@@ -72,7 +71,6 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 				opt.min_match = 100;
-				opt.merge_frac = 0.0;
 				w = 5;
 			}
 		}
@@ -93,7 +91,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "  Mapping:\n");
 		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", f);
 		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.radius);
-		fprintf(stderr, "    -m FLOAT   merge two chains if FLOAT fraction of minimizers are shared [%.2f]\n", opt.merge_frac);
 		fprintf(stderr, "    -c INT     retain a mapping if it consists of >=INT minimizers [%d]\n", opt.min_cnt);
 		fprintf(stderr, "    -L INT     min matching length [%d]\n", opt.min_match);
 		fprintf(stderr, "    -g INT     split a mapping if there is a gap longer than INT [%d]\n", opt.max_gap);
@@ -129,13 +126,12 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (fpw) {
 			mm_idx_dump(fpw, mi);
-			if (mm_verbose >= 2)
+			if (mm_verbose >= 3)
 				fprintf(stderr, "[M::%s::%.3f*%.2f] dumpped the (partial) index to disk\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 		}
-		/*
+		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		for (i = optind + 1; i < argc; ++i)
 			mm_map_file(mi, argv[i], &opt, n_threads, mini_batch_size);
-		*/
 		mm_idx_destroy(mi);
 	}
 	if (fpw) fclose(fpw);

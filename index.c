@@ -325,7 +325,7 @@ mm_idx_t *mm_idx_load(FILE *fp)
 
 	if (fread(magic, 1, 4, fp) != 4) return 0;
 	if (strncmp(magic, MM_IDX_MAGIC, 4) != 0) return 0;
-	if (fread(x, 4, 5, fp) != 6) return 0;
+	if (fread(x, 4, 5, fp) != 5) return 0;
 	mi = mm_idx_init(x[0], x[1], x[2], x[4]);
 	mi->n_seq = x[3];
 	mi->seq = (mm_idx_seq_t*)calloc(mi->n_seq, sizeof(mm_idx_seq_t));

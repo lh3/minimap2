@@ -50,13 +50,18 @@ typedef struct {
 } mm_reg1_t;
 
 typedef struct {
+	int n_frag_mini;
+	float max_occ_frac;
+	float mid_occ_frac;
+	int sdust_thres;  // score threshold for SDUST; 0 to disable
+	int flag;    // see MM_F_* macros
 	int radius;  // bandwidth to cluster hits
 	int max_gap; // break a chain if there are no minimizers in a max_gap window
 	int min_cnt; // minimum number of minimizers to start a chain
 	int min_match;
-	int sdust_thres;  // score threshold for SDUST; 0 to disable
-	int flag;    // see MM_F_* macros
-	float merge_frac; // merge two chains if merge_frac fraction of minimzers are shared between the chains
+
+	int max_occ;
+	int mid_occ;
 } mm_mapopt_t;
 
 extern int mm_verbose;
@@ -81,7 +86,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc);
 void mm_idx_destroy(mm_idx_t *mi);
 mm_idx_t *mm_idx_gen(struct bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
-void mm_idx_set_max_occ(mm_idx_t *mi, float f);
+uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
@@ -92,6 +97,7 @@ mm_idx_t *mm_idx_load(FILE *fp);
 
 // mapping
 void mm_mapopt_init(mm_mapopt_t *opt);
+void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
 mm_tbuf_t *mm_tbuf_init(void);
 void mm_tbuf_destroy(mm_tbuf_t *b);
 const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
