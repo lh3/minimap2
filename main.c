@@ -25,7 +25,6 @@ int main(int argc, char *argv[])
 	int i, c, k = 15, w = -1, b = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx = 0, is_hpc = 0;
 	int mini_batch_size = 100000000;
 	uint64_t batch_size = 4000000000ULL;
-	float f = 0.001;
 	bseq_file_t *fp = 0;
 	char *fnw = 0;
 	FILE *fpr = 0, *fpw = 0;
@@ -43,7 +42,7 @@ int main(int argc, char *argv[])
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.radius = atoi(optarg);
 		else if (c == 'c') opt.min_cnt = atoi(optarg);
-		else if (c == 'f') f = atof(optarg);
+		else if (c == 'f') opt.mid_occ_frac = atof(optarg);
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
@@ -87,7 +86,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -l         the 1st argument is a index file (overriding -k, -w and -I)\n");
 //		fprintf(stderr, "    -b INT     bucket bits [%d]\n", b); // most users wouldn't care about this
 		fprintf(stderr, "  Mapping:\n");
-		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", f);
+		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", opt.mid_occ_frac);
 		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.radius);
 		fprintf(stderr, "    -c INT     retain a mapping if it consists of >=INT minimizers [%d]\n", opt.min_cnt);
 		fprintf(stderr, "    -L INT     min matching length [%d]\n", opt.min_match);

@@ -11,7 +11,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	opt->n_frag_mini = 100;
 	opt->max_occ_frac = 1e-5f;
-	opt->mid_occ_frac = 1e-3f;
+	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0;
 
 	opt->radius = 500;
@@ -108,7 +108,7 @@ int mm_pair_thin_core(mm_tbuf_t *b, uint64_t x, int radius, int rel, int st0, in
 		for (i = st; i < en; ++i) {
 			uint64_t y = z[i];
 			if (((x ^ y) & 1) == rel) {
-				printf("* %d,%d\n", (uint32_t)x>>1, (uint32_t)y>>1);
+//				printf("* %d,%d\n", (uint32_t)x>>1, (uint32_t)y>>1);
 				kv_push(uint64_t, b->km_fixed, *a, y);
 			}
 		}
@@ -148,7 +148,7 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 	}
 	for (i = 0; i < 2; ++i)
 		m[i]->n = a[i].n, m[i]->x.r = a[i].a, m[i]->is_alloc = 1;
-	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
+//	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
 }
 
 void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en)
@@ -167,8 +167,10 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		m[i].span = p->x & 0xff;
 		m[i].x.cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
-		if (i) printf("; ");
-		if (mm_verbose >= 5) printf("%d,%d", m[i].qpos>>1, t);
+		if (mm_verbose >= 5) {
+			if (i) printf("; ");
+			printf("%d,%d", m[i].qpos>>1, t);
+		}
 	}
 	if (mm_verbose >= 5) printf("\n");
 
@@ -178,15 +180,26 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		if (m[i].n >= opt->mid_occ) {
 			if (last2 < 0) last2 = i;
 			if (last < 0 || m[last].n < m[i].n) last = i;
-			if (last >= 0 && (m[last].qpos>>1) + (m[last].span>>1) <= m[i].qpos>>1) {
+			if (last >= 0 && (m[last].qpos>>1) + (m[last].span>>0) <= m[i].qpos>>1) {
 				mm_pair_thin(b, opt->radius, &m[last], &m[i]);
 				last2 = last = -1;
-			} else if (last2 >= 0 && (m[last2].qpos>>1) + (m[last2].span>>1) <= m[i].qpos>>1) {
+			} else if (last2 >= 0 && (m[last2].qpos>>1) + (m[last2].span>>0) <= m[i].qpos>>1) {
 				mm_pair_thin(b, opt->radius, &m[last2], &m[i]);
 				last2 = last = -1;
 			}
 		}
 	}
+
+	int n_tot = 0, n_low = 0, s_low = 0;
+	for (i = 0; i < n; ++i) {
+		if (m[i].n > 0) ++n_tot;
+		if (m[i].n > 0 && m[i].n < opt->mid_occ) ++n_low, s_low += m[i].n;
+	}
+	printf("%d\t%d\t%d\t%d\n", n_tot, n_low, s_low, n);
+
+	// free
+	for (i = 0; i < n; ++i)
+		if (m[i].is_alloc) kfree(b->km_fixed, m[i].x.r);
 	kfree(b->km_fixed, m);
 }
 
