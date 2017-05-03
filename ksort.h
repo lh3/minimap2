@@ -39,32 +39,6 @@ typedef struct {
 #define KSORT_SWAP(type_t, a, b) { register type_t t=(a); (a)=(b); (b)=t; }
 
 #define KSORT_INIT(name, type_t, __sort_lt)								\
-	size_t ks_lis_##name(size_t n, const type_t *a, size_t *b, size_t *_p) \
-	{ /* translated from: http://www.algorithmist.com/index.php/Longest_Increasing_Subsequence.cpp */ \
-		size_t i, u, v, *top = b, *p; \
-		if (n == 0) return 0; \
-		p = _p? _p : (size_t*)calloc(n, sizeof(size_t)); \
-		*top++ = 0; \
-		for (i = 1; i < n; i++) { \
-			if (__sort_lt(a[*(top-1)], a[i])) { \
-				p[i] = *(top-1); \
-				*top++ = i; \
-				continue; \
-			} \
-			for (u = 0, v = top - b - 1; u < v;) { \
-				size_t c = (u + v) >> 1; \
-				if (__sort_lt(a[b[c]], a[i])) u = c + 1; \
-				else v = c; \
-			} \
-			if (__sort_lt(a[i], a[b[u]])) { \
-				if (u > 0) p[i] = b[u-1]; \
-				b[u] = i; \
-			} \
-		} \
-		for (u = top - b, v = *(top-1); u--; v = p[v]) b[u] = v; \
-		if (!_p) free(p); \
-		return top - b; \
-	} \
 	type_t ks_ksmall_##name(size_t n, type_t arr[], size_t kk)			\
 	{																	\
 		type_t *low, *high, *k, *ll, *hh, *mid;							\

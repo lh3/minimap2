@@ -13,10 +13,10 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_occ_frac = 1e-5f;
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0;
-
+	opt->min_cnt = 2;
 	opt->radius = 500;
+
 	opt->max_gap = 10000;
-	opt->min_cnt = 4;
 	opt->min_match = 40;
 }
 
@@ -151,10 +151,49 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 //	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
 }
 
-void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en)
+int mm_liss(int d, int min_L, void *km, int n, mm128_t *a, int *b)
 {
-	int i, n = m_en - m_st, last = -1, last2 = -1;
+	int i, o = 0, L = 0, *M, *P, m = 0, off = 0;
+	M = (int*)kmalloc(km, (n + 1) * sizeof(int));
+	P = (int*)kmalloc(km, n * sizeof(int));
+	for (i = 0; i <= n; ++i) {
+		int lo, hi, newL;
+		if (L > 0 || i == n) {
+			int reset = 0, j = M[L]; // _j_ is the index of the last element in the longest chain
+			if (i == n) reset = 1; // reaching the end
+			else if (a[i].x - a[j].x > d) reset = 1; // large gap on target
+			else if ((uint32_t)a[i].y > (uint32_t)a[j].y && (uint32_t)a[i].y - (uint32_t)a[j].y > d) reset = 1; // large gap on query
+			if (reset) {
+				if (L >= min_L) { // save the chain if long enough
+					int k;
+					for (k = L - 1; k >= 0; --k)
+						a[o + k] = a[j], j = P[j];
+					o += L;
+					b[m++] = L;
+				}
+				off = i, L = 0; // reset
+			}
+			if (i == n) break;
+		}
+		lo = off + 1, hi = off + L; // a binary search; see wiki
+		while (lo <= hi) {
+			int mid = (lo + hi + 1) >> 1;
+			if (a[M[mid - off]].x < a[i].x) lo = mid + 1;
+			else hi = mid - 1;
+		}
+		newL = lo - off, P[i] = M[newL - 1], M[newL] = i;
+		if (newL > L) L = newL;
+	}
+	kfree(km, M);
+	kfree(km, P);
+	return m;
+}
+
+void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen)
+{
+	int i, n = m_en - m_st, last = -1, last2 = -1, j, n_a, *t, n_t;
 	mm_match_t *m;
+	mm128_t *a;
 
 	// convert to local representation
 	m = (mm_match_t*)kmalloc(b->km_fixed, n * sizeof(mm_match_t));
@@ -176,7 +215,6 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 
 	// pair k-mer thinning
 	for (i = 0; i < n; ++i) {
-//		if (m[i].n >= opt->mid_occ && m[i].n < opt->max_occ) {
 		if (m[i].n >= opt->mid_occ) {
 			if (last2 < 0) last2 = i;
 			if (last < 0 || m[last].n < m[i].n) last = i;
@@ -190,30 +228,68 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		}
 	}
 
+	// find the length of _a_
+	for (i = 0, n_a = 0; i < n; ++i)
+		if (m[i].n < opt->mid_occ) n_a += m[i].n;
+
+	// fill the _a_ array
+	a = kmalloc(b->km_fixed, n_a * sizeof(mm128_t));
+	for (i = j = 0; i < n; ++i) {
+		mm_match_t *q = &m[i];
+		const uint64_t *r = q->x.cr;
+		int k;
+		if (q->n >= opt->mid_occ) continue;
+		for (k = 0; k < q->n; ++k) {
+			int32_t rpos = (uint32_t)r[k] >> 1;
+			mm128_t *p;
+			if (qname && (opt->flag&MM_F_NO_SELF) && strcmp(qname, mi->seq[r[k]>>32].name) == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
+				continue;
+			if (qname && (opt->flag&MM_F_AVA) && strcmp(qname, mi->seq[r[k]>>32].name) > 0) // all-vs-all mode: map once
+				continue;
+			p = &a[j++];
+			if ((r[k]&1) == (q->qpos&1)) { // forward strand
+				p->x = r[k];
+				p->y = (uint64_t)i << 32 | q->qpos >> 1;
+			} else { // reverse strand
+				p->x = 1ULL<<63 | r[k];
+				p->y = (uint64_t)i << 32 | (qlen - ((q->qpos>>1) + 1 - q->span) - 1);
+			}
+		}
+	}
+	radix_sort_128x(a, a + n_a);
+//	for (i = 0; i < n_a; ++i) printf("%c\t%d\t%d\n", "+-"[a[i].x>>63], (uint32_t)a[i].x>>1, (uint32_t)a[i].y);
+
+	t = kmalloc(b->km_fixed, (n_a + opt->min_cnt - 1) / opt->min_cnt * sizeof(int));
+	n_t = mm_liss(opt->radius, opt->min_cnt, b->km_fixed, n_a, a, t);
+
 	int n_tot = 0, n_low = 0, s_low = 0;
 	for (i = 0; i < n; ++i) {
 		if (m[i].n > 0) ++n_tot;
 		if (m[i].n > 0 && m[i].n < opt->mid_occ) ++n_low, s_low += m[i].n;
 	}
-	printf("%d\t%d\t%d\t%d\n", n_tot, n_low, s_low, n);
+	printf("%d\t%d\t%d\t%d\t%d", n_tot, n_low, s_low, n, n_t);
+	for (i = 0; i < n_t; ++i) printf("\t%d", t[i]);
+	printf("\n");
 
 	// free
 	for (i = 0; i < n; ++i)
 		if (m[i].is_alloc) kfree(b->km_fixed, m[i].x.r);
 	kfree(b->km_fixed, m);
+	kfree(b->km_fixed, a);
+	kfree(b->km_fixed, t);
 }
 
-const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name)
+const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	uint32_t proc_mini = 0;
-	if (mm_verbose >= 5) printf("=====> %s <=====\n", name);
+	if (mm_verbose >= 5) printf("=====> %s <=====\n", qname);
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
 		mm_dust_minier(&b->mini, l_seq, seq, opt->sdust_thres, b->sdb);
 	while (proc_mini < b->mini.n) {
 		uint32_t n = b->mini.n - proc_mini < opt->n_frag_mini * 1.5f? b->mini.n - proc_mini : opt->n_frag_mini;
-		mm_map_frag(opt, mi, b, proc_mini, proc_mini + n);
+		mm_map_frag(opt, mi, b, proc_mini, proc_mini + n, qname, l_seq);
 		proc_mini += n;
 	}
 	*n_regs = b->reg.n;
