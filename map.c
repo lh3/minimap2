@@ -10,7 +10,7 @@
 void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
-	opt->n_frag_mini = 100;
+	opt->n_frag_mini = 1000;
 	opt->max_occ_frac = 1e-5f;
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0;
@@ -261,7 +261,7 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		}
 	}
 	radix_sort_128x(a, a + n_a);
-//	for (i = 0; i < n_a; ++i) printf("%c\t%d\t%d\n", "+-"[a[i].x>>63], (uint32_t)a[i].x>>1, (uint32_t)a[i].y);
+	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x>>1, (uint32_t)a[i].y);
 
 	t = (int*)kmalloc(b->km_fixed, (n_a + opt->min_cnt - 1) / opt->min_cnt * sizeof(int));
 	n_t = mm_liss(opt->radius, opt->min_cnt, b->km_fixed, n_a, a, t);
@@ -278,7 +278,9 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		else if (t[i] > max2) max2 = t[i];
 		off += t[i];
 	}
-	printf("%s\t%d\t%d\t", qname, max, max2);
+	if (a_st) printf("%s:%d-%d", qname, (uint32_t)a_st->y, (uint32_t)(a_en-1)->y);
+	else printf("%s:*", qname);
+	printf("\t%d\t%d\t", max, max2);
 	if (max_i >= 0) printf("%s:%d-%d", mi->seq[a_st->x<<1>>33].name, (uint32_t)a_st->x>>1, (uint32_t)(a_en-1)->x>>1);
 	else printf("*");
 	printf("\t%d\t%d\t%d\t%d\t%d\n", n_tot, n_low, s_low, n, n_t);
