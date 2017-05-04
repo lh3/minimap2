@@ -22,7 +22,7 @@ void liftrlimit()
 int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
-	int i, c, k = 15, w = -1, b = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx = 0, is_hpc = 0;
+	int i, c, k = 17, w = -1, b = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx = 0, is_hpc = 0;
 	int mini_batch_size = 100000000;
 	uint64_t batch_size = 4000000000ULL;
 	bseq_file_t *fp = 0;
