@@ -10,7 +10,7 @@
 void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
-	opt->n_frag_mini = 1000;
+	opt->n_frag_mini = 100000;
 	opt->max_occ_frac = 1e-5f;
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0;
@@ -218,13 +218,13 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 
 	// pair k-mer thinning
 	for (i = 0; i < n; ++i) {
-		if (m[i].n >= opt->mid_occ) {
+		if (m[i].n >= opt->mid_occ && m[i].n < opt->max_occ) {
 			if (last2 < 0) last2 = i;
 			if (last < 0 || m[last].n < m[i].n) last = i;
-			if (last >= 0 && (m[last].qpos>>1) + (m[last].span>>0) <= m[i].qpos>>1) {
+			if (last >= 0 && (m[last].qpos>>1) + (m[last].span>>1) <= m[i].qpos>>1) {
 				mm_pair_thin(b, opt->radius, &m[last], &m[i]);
 				last2 = last = -1;
-			} else if (last2 >= 0 && (m[last2].qpos>>1) + (m[last2].span>>0) <= m[i].qpos>>1) {
+			} else if (last2 >= 0 && (m[last2].qpos>>1) + (m[last2].span>>1) <= m[i].qpos>>1) {
 				mm_pair_thin(b, opt->radius, &m[last2], &m[i]);
 				last2 = last = -1;
 			}
