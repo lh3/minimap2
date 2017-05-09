@@ -60,7 +60,7 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 
 void mm_idx_stat(const mm_idx_t *mi)
 {
-	int i, n = 0;
+	int i, n = 0, n1 = 0;
 	uint64_t sum = 0, len = 0;
 	for (i = 0; i < mi->n_seq; ++i)
 		len += mi->seq[i].len;
@@ -71,11 +71,13 @@ void mm_idx_stat(const mm_idx_t *mi)
 		khint_t k;
 		if (h == 0) continue;
 		for (k = 0; k < kh_end(h); ++k)
-			if (kh_exist(h, k))
+			if (kh_exist(h, k)) {
 				sum += kh_key(h, k)&1? 1 : (uint32_t)kh_val(h, k);
+				if (kh_key(h, k)&1) ++n1;
+			}
 	}
-	fprintf(stderr, "[M::%s::%.3f*%.2f] distinct minimizers: %d; average occurrences: %.3lf; average spacing: %.3lf\n",
-			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), n, (double)sum / n, (double)len / sum);
+	fprintf(stderr, "[M::%s::%.3f*%.2f] distinct minimizers: %d (%.2f%% are singletons); average occurrences: %.3lf; average spacing: %.3lf\n",
+			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), n, 100.0*n1/n, (double)sum / n, (double)len / sum);
 }
 
 uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)

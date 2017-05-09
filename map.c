@@ -16,8 +16,8 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->sdust_thres = 0;
 	opt->min_cnt = 2;
 	opt->radius = 500;
-
 	opt->max_gap = 10000;
+
 	opt->min_match = 40;
 }
 
@@ -192,9 +192,59 @@ int mm_liss(int d, int min_L, void *km, int n, mm128_t *a, int *b)
 	return m;
 }
 
+static const char LogTable256[256] = {
+#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
+    -1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+    LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
+    LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
+};
+
+static inline int ilog2_32(uint32_t v)
+{
+	register uint32_t t, tt;
+	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
+	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
+}
+
+#define MM_MATCH_SCORE 31
+
+void mm_chain_dp(int d, int bw, void *km, int n, mm128_t *a)
+{
+	int32_t i, j, *f, *p, *t;
+	f = (int32_t*)kmalloc(km, n * 4);
+	p = (int32_t*)kmalloc(km, n * 4);
+	t = (int32_t*)kmalloc(km, n * 4);
+	memset(t, 0, n * 4);
+	for (i = 0; i < n; ++i) {
+		uint64_t ri = a[i].x;
+		int32_t qi = (int32_t)a[i].y;
+		int32_t max_f = -INT32_MAX, max_j = -1;
+		for (j = i - 1; j >= 0; --j) {
+			int64_t dr = ri - a[j].x;
+			int32_t dq = qi - (int32_t)a[j].y, dd, pen, sc;
+			if (dr > d) break;
+			if (dq <= 0 || dq > d) continue;
+			if (t[j] == i) {
+				if (p[j] >= 0) t[p[j]] = i;
+				continue;
+			}
+			dd = dr > dq? dr - dq : dq - dr;
+			if (dd > bw) continue;
+			pen = ilog2_32(dd);
+			sc = f[j] + MM_MATCH_SCORE - pen;
+			if (sc > max_f) max_f = sc, max_j = j;
+		}
+		if (max_j >= 0) f[i] = max_f, p[i] = max_j;
+		else f[i] = MM_MATCH_SCORE, p[i] = -1;
+	}
+	kfree(km, f);
+	kfree(km, p);
+	kfree(km, t);
+}
+
 void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen)
 {
-	int i, n = m_en - m_st, last = -1, last2 = -1, j, n_a, *t, n_t;
+	int i, n = m_en - m_st, last = -1, last2 = -1, j, n_a, *t = 0, n_t;
 	mm_match_t *m;
 	mm128_t *a;
 
@@ -252,10 +302,10 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 				continue;
 			p = &a[j++];
 			if ((r[k]&1) == (q->qpos&1)) { // forward strand
-				p->x = r[k];
+				p->x = (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
 				p->y = (uint64_t)i << 32 | q->qpos >> 1;
 			} else { // reverse strand
-				p->x = 1ULL<<63 | r[k];
+				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
 				p->y = (uint64_t)i << 32 | (qlen - ((q->qpos>>1) + 1 - q->span) - 1);
 			}
 		}
@@ -263,6 +313,7 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	radix_sort_128x(a, a + n_a);
 	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x>>1, (uint32_t)a[i].y);
 
+#if 0
 	t = (int*)kmalloc(b->km_fixed, (n_a + opt->min_cnt - 1) / opt->min_cnt * sizeof(int));
 	n_t = mm_liss(opt->radius, opt->min_cnt, b->km_fixed, n_a, a, t);
 
@@ -281,9 +332,12 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	if (a_st) printf("%s:%d-%d", qname, (uint32_t)a_st->y, (uint32_t)(a_en-1)->y);
 	else printf("%s:*", qname);
 	printf("\t%d\t%d\t", max, max2);
-	if (max_i >= 0) printf("%s:%d-%d", mi->seq[a_st->x<<1>>33].name, (uint32_t)a_st->x>>1, (uint32_t)(a_en-1)->x>>1);
+	if (max_i >= 0) printf("%s:%d-%d", mi->seq[a_st->x<<1>>33].name, (uint32_t)a_st->x, (uint32_t)(a_en-1)->x);
 	else printf("*");
 	printf("\t%d\t%d\t%d\t%d\t%d\n", n_tot, n_low, s_low, n, n_t);
+#else
+	mm_chain_dp(opt->max_gap, opt->radius, b->km_fixed, n_a, a);
+#endif
 
 	// free
 	for (i = 0; i < n; ++i)
