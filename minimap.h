@@ -54,10 +54,10 @@ typedef struct {
 	float mid_occ_frac;
 	int sdust_thres;  // score threshold for SDUST; 0 to disable
 	int flag;    // see MM_F_* macros
-	int radius;  // bandwidth to cluster hits
+	int bw;  // bandwidth
 	int max_gap; // break a chain if there are no minimizers in a max_gap window
-	int min_cnt; // minimum number of minimizers to start a chain
-	int min_match;
+	int max_skip;
+	int min_score;
 
 	int max_occ;
 	int mid_occ;

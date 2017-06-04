@@ -33,15 +33,14 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:c:f:Vv:NOg:I:d:lST:L:Dx:H")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:NOg:I:d:lST:s:Dx:H")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
 		else if (c == 'l') is_idx = 1;
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
-		else if (c == 'r') opt.radius = atoi(optarg);
-		else if (c == 'c') opt.min_cnt = atoi(optarg);
+		else if (c == 'r') opt.bw = atoi(optarg);
 		else if (c == 'f') opt.mid_occ_frac = atof(optarg);
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
@@ -51,7 +50,7 @@ int main(int argc, char *argv[])
 		else if (c == 'O') opt.flag |= MM_F_NO_ISO;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
-		else if (c == 'L') opt.min_match = atoi(optarg);
+		else if (c == 's') opt.min_score = atoi(optarg);
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -67,7 +66,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-				opt.min_match = 100;
+				opt.min_score = 100;
 				w = 5;
 			}
 		}
@@ -87,9 +86,8 @@ int main(int argc, char *argv[])
 //		fprintf(stderr, "    -b INT     bucket bits [%d]\n", b); // most users wouldn't care about this
 		fprintf(stderr, "  Mapping:\n");
 		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", opt.mid_occ_frac);
-		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.radius);
-		fprintf(stderr, "    -c INT     retain a mapping if it consists of >=INT minimizers [%d]\n", opt.min_cnt);
-		fprintf(stderr, "    -L INT     min matching length [%d]\n", opt.min_match);
+		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.bw);
+		fprintf(stderr, "    -s INT     min score [%d]\n", opt.min_score);
 		fprintf(stderr, "    -g INT     split a mapping if there is a gap longer than INT [%d]\n", opt.max_gap);
 		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres);
 //		fprintf(stderr, "    -D         skip self mappings but keep dual mappings\n"); // too confusing to expose to end users
