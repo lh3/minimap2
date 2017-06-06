@@ -94,11 +94,11 @@ int main(int argc, char *argv[])
 	if (w < 0) w = (int)(.6666667 * k + .499);
 
 	if (argc == optind) {
-		fprintf(stderr, "Usage: minimap2 [options] <target.fa> [query.fa] [...]\n");
+		fprintf(stderr, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
 		fprintf(stderr, "Options:\n");
 		fprintf(stderr, "  Indexing:\n");
 		fprintf(stderr, "    -H         use homopolymer-compressed k-mer\n");
-		fprintf(stderr, "    -k INT     k-mer size [%d]\n", k);
+		fprintf(stderr, "    -k INT     k-mer size (no larger than 28) [%d]\n", k);
 		fprintf(stderr, "    -w INT     minizer window size [{-k}*2/3]\n");
 		fprintf(stderr, "    -I NUM     split index for every ~NUM input bases [4G]\n");
 		fprintf(stderr, "    -d FILE    dump index to FILE []\n");

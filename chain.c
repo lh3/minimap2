@@ -69,11 +69,15 @@ int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, i
 		if (t[i] == 0 && f[i] >= min_sc)
 			u[n_u++] = (uint64_t)f[i] << 32 | i;
 	radix_sort_64(u, u + n_u);
+	for (i = 0; i < n_u>>1; ++i) { // reverse, s.t. the highest scoring chain is the first
+		uint64_t t = u[i];
+		u[i] = u[n_u - 1], u[n_u - 1] = t;
+	}
 
 	// backtrack
 	memset(t, 0, n * 4);
 	v = (int32_t*)kmalloc(km, n * 4);
-	for (i = n_u - 1, n_v = k = 0; i >= 0; --i) { // starting from the highest score
+	for (i = n_v = k = 0; i < n_u; ++i) { // starting from the highest score
 		int32_t n_v0 = n_v;
 		j = (int32_t)u[i];
 		do {

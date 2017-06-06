@@ -63,6 +63,7 @@ void mm_idx_stat(const mm_idx_t *mi)
 {
 	int i, n = 0, n1 = 0;
 	uint64_t sum = 0, len = 0;
+	fprintf(stderr, "[M::%s] kmer size: %d; skip: %d; is_HPC: %d; #seq: %d\n", __func__, mi->k, mi->w, mi->is_hpc, mi->n_seq);
 	for (i = 0; i < mi->n_seq; ++i)
 		len += mi->seq[i].len;
 	for (i = 0; i < 1<<mi->b; ++i)
