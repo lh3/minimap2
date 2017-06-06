@@ -21,7 +21,7 @@ static inline int ilog2_32(uint32_t v)
 
 int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *a, uint64_t **_u, void *km)
 {
-	int32_t st = 0, i, j, k, *p, *f, *t, *v, n_u, n_v;
+	int32_t st = 0, i, j, k, *f, *p, *t, *v, n_u, n_v;
 	uint64_t *u;
 	mm128_t *b;
 
@@ -71,7 +71,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 	radix_sort_64(u, u + n_u);
 	for (i = 0; i < n_u>>1; ++i) { // reverse, s.t. the highest scoring chain is the first
 		uint64_t t = u[i];
-		u[i] = u[n_u - 1], u[n_u - 1] = t;
+		u[i] = u[n_u - i - 1], u[n_u - i - 1] = t;
 	}
 
 	// backtrack
@@ -105,6 +105,6 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 		for (j = 0; j < (int32_t)u[i]; ++j)
 			b[k] = a[v[k]], ++k;
 	memcpy(a, b, n_v * sizeof(mm128_t));
-	kfree(km, b);
+	kfree(km, v); kfree(km, b);
 	return n_u;
 }

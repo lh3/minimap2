@@ -231,7 +231,7 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	printf("%s\t%d", qname, n_u);
 	for (i = j = 0; i < n_u; ++i) {
 		int n = (uint32_t)u[i];
-		printf("\t%d@%s:%d-%d", (uint32_t)(u[i]>>32), mi->seq[a[j].x<<1>>33].name, (uint32_t)a[j].x, (uint32_t)a[j+n-1].x);
+		printf("\t%d/%d@%s:%d-%d", (uint32_t)(u[i]>>32), n, mi->seq[a[j].x<<1>>33].name, (uint32_t)a[j].x, (uint32_t)a[j+n-1].x);
 		j += n;
 	}
 	printf("\n");
