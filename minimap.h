@@ -12,6 +12,8 @@
 #define MM_F_NO_ISO    0x4
 #define MM_F_AVA       0x8
 
+#define MM_IDX_MAGIC   "MMI\2"
+
 typedef struct {
  	uint64_t x, y;
 } mm128_t;

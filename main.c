@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <fcntl.h>
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
@@ -20,10 +21,29 @@ void liftrlimit()
 #endif
 }
 
+static int test_idx(const char *fn)
+{
+	int fd, is_idx = 0;
+	off_t ret;
+	char magic[4];
+
+	if (strcmp(fn, "-") == 0) return 0; // read from pipe; not an index
+	fd = open(fn, O_RDONLY);
+	if (fd < 0) return -1; // error
+	if ((ret = lseek(fd, 0, SEEK_END)) >= 4) {
+		lseek(fd, 0, SEEK_SET);
+		read(fd, magic, 4);
+		if (strncmp(magic, MM_IDX_MAGIC, 4) == 0)
+			is_idx = 1;
+	}
+	close(fd);
+	return is_idx;
+}
+
 int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
-	int i, c, k = 17, w = -1, b = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx = 0, is_hpc = 0;
+	int i, c, k = 17, w = -1, b = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0;
 	int mini_batch_size = 100000000;
 	uint64_t batch_size = 4000000000ULL;
 	bseq_file_t *fp = 0;
@@ -34,12 +54,11 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:NOg:I:d:lST:s:Dx:H")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:NOg:I:d:ST:s:Dx:H")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
-		else if (c == 'l') is_idx = 1;
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.bw = atoi(optarg);
 		else if (c == 'f') opt.mid_occ_frac = atof(optarg);
@@ -83,7 +102,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -w INT     minizer window size [{-k}*2/3]\n");
 		fprintf(stderr, "    -I NUM     split index for every ~NUM input bases [4G]\n");
 		fprintf(stderr, "    -d FILE    dump index to FILE []\n");
-		fprintf(stderr, "    -l         the 1st argument is a index file (overriding -k, -w and -I)\n");
 //		fprintf(stderr, "    -b INT     bucket bits [%d]\n", b); // most users wouldn't care about this
 		fprintf(stderr, "  Mapping:\n");
 		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", opt.mid_occ_frac);
@@ -106,6 +124,11 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	is_idx = test_idx(argv[optind]);
+	if (is_idx < 0) {
+		fprintf(stderr, "[E::%s] failed to open file '%s'\n", __func__, argv[optind]);
+		return 1;
+	}
 	if (is_idx) fpr = fopen(argv[optind], "rb");
 	else fp = bseq_open(argv[optind]);
 	if (fnw) fpw = fopen(fnw, "wb");

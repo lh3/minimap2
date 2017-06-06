@@ -299,8 +299,6 @@ mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads) 
  * index I/O *
  *************/
 
-#define MM_IDX_MAGIC "MMI\2"
-
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 {
 	uint64_t sum_len = 0;

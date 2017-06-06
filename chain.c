@@ -19,11 +19,13 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *a, uint64_t **_u, int32_t **_v, void *km)
+int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *a, uint64_t **_u, void *km)
 {
-	int32_t st = 0, i, j, k, *p, *f, *t, *idx, *v, n_u, n_v;
+	int32_t st = 0, i, j, k, *p, *f, *t, *v, n_u, n_v;
 	uint64_t *u;
+	mm128_t *b;
 
+	if (_u) *_u = 0;
 	f = (int32_t*)kmalloc(km, n * 4);
 	p = (int32_t*)kmalloc(km, n * 4);
 	t = (int32_t*)kmalloc(km, n * 4);
@@ -54,12 +56,6 @@ int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, i
 		else f[i] = match_len, p[i] = -1;
 	}
 
-	// free the a[] array
-	for (i = 0; i < n; ++i) t[i] = a[i].y>>32;
-	kfree(km, a);
-	idx = (int32_t*)kmalloc(km, n * 4);
-	for (i = 0; i < n; ++i) idx[i] = t[i];
-
 	// find the ending positions of chains
 	memset(t, 0, n * 4);
 	for (i = 0; i < n; ++i)
@@ -67,6 +63,7 @@ int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, i
 	for (i = n_u = 0; i < n; ++i)
 		if (t[i] == 0 && f[i] >= min_sc)
 			++n_u;
+	if (n_u == 0) return 0;
 	u = (uint64_t*)kmalloc(km, n_u * 8);
 	for (i = n_u = 0; i < n; ++i)
 		if (t[i] == 0 && f[i] >= min_sc)
@@ -80,22 +77,30 @@ int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, i
 		int32_t n_v0 = n_v;
 		j = (int32_t)u[i];
 		do {
-			v[n_v++] = idx[j];
+			v[n_v++] = j;
 			t[j] = 1;
 			j = p[j];
 		} while (j >= 0 && t[j] == 0);
 		if (j < 0) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
 		else if ((u[i]>>32) - f[j] >= min_sc) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
 		else n_v0 = n_v;
-		for (j = 0; j < (n_v - n_v0) >> 1; ++j) {
+		for (j = 0; j < (n_v - n_v0) >> 1; ++j) { // reverse v[] such that the smallest index comes the first
 			int32_t t = v[n_v0 + j];
 			v[n_v0 + j] = v[n_v - 1 - j];
 			v[n_v - 1 - j] = t;
 		}
 	}
-	n_u = k, *_u = u, *_v = v;
+	n_u = k, *_u = u;
 
 	// free
-	kfree(km, f); kfree(km, p); kfree(km, t); kfree(km, idx);
+	kfree(km, f); kfree(km, p); kfree(km, t);
+
+	// write the result to _a_
+	b = kmalloc(km, n_v * sizeof(mm128_t));
+	for (i = 0, k = 0; i < n_u; ++i)
+		for (j = 0; j < (int32_t)u[i]; ++j)
+			b[k] = a[v[k]], ++k;
+	memcpy(a, b, n_v * sizeof(mm128_t));
+	kfree(km, b);
 	return n_u;
 }

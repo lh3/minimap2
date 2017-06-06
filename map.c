@@ -155,8 +155,7 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 
 void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen)
 {
-	int i, n = m_en - m_st, last = -1, last2 = -1, j, n_a, n_u;
-	int32_t *v;
+	int i, n = m_en - m_st, j, n_a, n_u;
 	uint64_t *u;
 	mm_match_t *m;
 	mm128_t *a;
@@ -178,6 +177,7 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	}
 	if (mm_verbose >= 5) printf("\n");
 #if 0
+	int last = -1, last2 = -1;
 	// pair k-mer thinning
 	for (i = 0; i < n; ++i) {
 		if (m[i].n >= opt->mid_occ && m[i].n < opt->max_occ) {
@@ -214,10 +214,10 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 			p = &a[j++];
 			if ((r[k]&1) == (q->qpos&1)) { // forward strand
 				p->x = (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
-				p->y = (uint64_t)i << 32 | q->qpos >> 1;
+				p->y = (uint64_t)q_span << 32 | q->qpos >> 1;
 			} else { // reverse strand
 				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
-				p->y = (uint64_t)i << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
+				p->y = (uint64_t)q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
 			}
 		}
 	}
@@ -227,11 +227,18 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	kfree(b->km_fixed, m);
 	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x>>1, (uint32_t)a[i].y);
 
-	n_u = mm_chain_dp(mi->k, opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, &v, b->km_fixed);
+	n_u = mm_chain_dp(mi->k, opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km_fixed);
+	printf("%s\t%d", qname, n_u);
+	for (i = j = 0; i < n_u; ++i) {
+		int n = (uint32_t)u[i];
+		printf("\t%d@%s:%d-%d", (uint32_t)(u[i]>>32), mi->seq[a[j].x<<1>>33].name, (uint32_t)a[j].x, (uint32_t)a[j+n-1].x);
+		j += n;
+	}
+	printf("\n");
 
 	// free
+	kfree(b->km_fixed, a);
 	kfree(b->km_fixed, u);
-	kfree(b->km_fixed, v);
 }
 
 const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
