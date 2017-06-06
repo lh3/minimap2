@@ -227,7 +227,7 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	kfree(b->km_fixed, m);
 	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x>>1, (uint32_t)a[i].y);
 
-	n_u = mm_chain_dp(mi->k, opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km_fixed);
+	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km_fixed);
 	printf("%s\t%d", qname, n_u);
 	for (i = j = 0; i < n_u; ++i) {
 		int n = (uint32_t)u[i];

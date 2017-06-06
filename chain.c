@@ -19,7 +19,7 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *a, uint64_t **_u, void *km)
+int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *a, uint64_t **_u, void *km)
 {
 	int32_t st = 0, i, j, k, *p, *f, *t, *v, n_u, n_v;
 	uint64_t *u;
@@ -34,7 +34,7 @@ int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, i
 	// fill the score and backtrack arrays
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
-		int32_t qi = (int32_t)a[i].y;
+		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32;
 		int32_t max_f = -INT32_MAX, max_j = -1, n_skip = 0;
 		while (st < i && ri - a[st].x > max_dist) ++st;
 		for (j = i - 1; j >= st; --j) {
@@ -48,12 +48,12 @@ int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, i
 			}
 			dd = dr > dq? dr - dq : dq - dr;
 			if (dd > bw) continue;
-			sc = dq > match_len && dr > match_len? match_len : dq < dr? dq : dr;
-			sc = f[j] + sc - ilog2_32(dd);
+			sc = dq > q_span && dr > q_span? q_span : dq < dr? dq : dr;
+			sc = f[j] + sc - (dd? ilog2_32(dd) : 0);
 			if (sc > max_f) max_f = sc, max_j = j;
 		}
 		if (max_j >= 0) f[i] = max_f, p[i] = max_j;
-		else f[i] = match_len, p[i] = -1;
+		else f[i] = q_span, p[i] = -1;
 	}
 
 	// find the ending positions of chains
