@@ -4,6 +4,7 @@
 #include "kthread.h"
 #include "bseq.h"
 #include "minimap.h"
+#include "mmpriv.h"
 #include "kvec.h"
 #include "khash.h"
 

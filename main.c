@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include "bseq.h"
 #include "minimap.h"
+#include "mmpriv.h"
 
 #define MM_VERSION "2.0-r14-pre"
 

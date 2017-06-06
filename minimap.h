@@ -1,5 +1,5 @@
-#ifndef MINIMAP_H
-#define MINIMAP_H
+#ifndef MINIMAP2_H
+#define MINIMAP2_H
 
 #include <stdint.h>
 #include <stdio.h>
@@ -104,15 +104,8 @@ const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_r
 
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads, int tbatch_size);
 
-// private functions (may be moved to a "mmpriv.h" in future)
-double cputime(void);
-double realtime(void);
-void radix_sort_128x(mm128_t *beg, mm128_t *end);
-void radix_sort_64(uint64_t *beg, uint64_t *end);
-uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
-
 #ifdef __cplusplus
 }
 #endif
 
-#endif
+#endif // MINIMAP2_H

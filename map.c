@@ -5,6 +5,7 @@
 #include "kalloc.h"
 #include "sdust.h"
 #include "minimap.h"
+#include "mmpriv.h"
 #include "bseq.h"
 
 void mm_mapopt_init(mm_mapopt_t *opt)
@@ -31,8 +32,8 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 }
 
 typedef struct {
-	uint32_t n, is_alloc;
-	uint32_t qpos, span;
+	uint32_t n:31, is_alloc:1;
+	uint32_t qpos;
 	union {
 		const uint64_t *cr;
 		uint64_t *r;
@@ -152,99 +153,6 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 //	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
 }
 
-/////////// DP based chaining ///////////
-
-static const char LogTable256[256] = {
-#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-    -1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-    LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
-    LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
-};
-
-static inline int ilog2_32(uint32_t v)
-{
-	register uint32_t t, tt;
-	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
-}
-
-int mm_chain_dp(int match_len, int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *a, uint64_t **_u, int32_t **_v, void *km)
-{
-	int32_t st = 0, i, j, k, *p, *f, *t, *idx, *v, n_u, n_v;
-	uint64_t *u;
-
-	f = (int32_t*)kmalloc(km, n * 4);
-	p = (int32_t*)kmalloc(km, n * 4);
-	t = (int32_t*)kmalloc(km, n * 4);
-	memset(t, 0, n * 4);
-
-	// fill the score and backtrack arrays
-	for (i = 0; i < n; ++i) {
-		uint64_t ri = a[i].x;
-		int32_t qi = (int32_t)a[i].y;
-		int32_t max_f = -INT32_MAX, max_j = -1, n_skip = 0;
-		while (st < i && ri - a[st].x > max_dist) ++st;
-		for (j = i - 1; j >= st; --j) {
-			int64_t dr = ri - a[j].x;
-			int32_t dq = qi - (int32_t)a[j].y, dd, sc;
-			if (dq <= 0 || dq > max_dist) continue;
-			if (t[j] == i) {
-				if (p[j] >= 0) t[p[j]] = i;
-				if (++n_skip > max_skip) break;
-				continue;
-			}
-			dd = dr > dq? dr - dq : dq - dr;
-			if (dd > bw) continue;
-			sc = dq > match_len && dr > match_len? match_len : dq < dr? dq : dr;
-			sc = f[j] + sc - ilog2_32(dd);
-			if (sc > max_f) max_f = sc, max_j = j;
-		}
-		if (max_j >= 0) f[i] = max_f, p[i] = max_j;
-		else f[i] = match_len, p[i] = -1;
-	}
-
-	// free the a[] array
-	for (i = 0; i < n; ++i) t[i] = a[i].y>>32;
-	kfree(km, a);
-	idx = (int32_t*)kmalloc(km, n * 4);
-	for (i = 0; i < n; ++i) idx[i] = t[i];
-
-	// find the ending positions of chains
-	memset(t, 0, n * 4);
-	for (i = 0; i < n; ++i)
-		if (p[i] >= 0) t[p[i]] = 1;
-	for (i = n_u = 0; i < n; ++i)
-		if (t[i] == 0 && f[i] >= min_sc)
-			++n_u;
-	u = (uint64_t*)kmalloc(km, n_u * 8);
-	for (i = n_u = 0; i < n; ++i)
-		if (t[i] == 0 && f[i] >= min_sc)
-			u[n_u++] = (uint64_t)f[i] << 32 | i;
-	radix_sort_64(u, u + n_u);
-
-	// backtrack
-	memset(t, 0, n * 4);
-	v = (int32_t*)kmalloc(km, n * 4);
-	for (i = n_u - 1, n_v = k = 0; i >= 0; --i) { // starting from the highest score
-		int32_t n_v_old = n_v;
-		j = (int32_t)u[i];
-		do {
-			v[n_v++] = idx[j];
-			t[j] = 1;
-			j = p[j];
-		} while (j >= 0 && t[j] == 0);
-		if (j < 0) u[k++] = u[i]>>32<<32 | (n_v - n_v_old);
-		else if ((u[i]>>32) - f[j] >= min_sc) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v_old);
-		else n_v_old = n_v;
-	}
-	n_u = k;
-	*_u = u, *_v = v;
-
-	// free
-	kfree(km, f); kfree(km, p); kfree(km, t); kfree(km, idx);
-	return n_u;
-}
-
 void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen)
 {
 	int i, n = m_en - m_st, last = -1, last2 = -1, j, n_a, n_u;
@@ -261,7 +169,6 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		mm128_t *p = &b->mini.a[i + m_st];
 		m[i].is_alloc = 0;
 		m[i].qpos = (uint32_t)p->y;
-		m[i].span = p->x & 0xff;
 		m[i].x.cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
 		if (mm_verbose >= 5) {
@@ -270,7 +177,7 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		}
 	}
 	if (mm_verbose >= 5) printf("\n");
-
+#if 0
 	// pair k-mer thinning
 	for (i = 0; i < n; ++i) {
 		if (m[i].n >= opt->mid_occ && m[i].n < opt->max_occ) {
@@ -285,17 +192,16 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 			}
 		}
 	}
-
-	// find the length of _a_
-	for (i = 0, n_a = 0; i < n; ++i)
-		if (m[i].n < opt->mid_occ) n_a += m[i].n;
-
+#endif
 	// fill the _a_ array
+	for (i = 0, n_a = 0; i < n; ++i) // find the length of a[]
+		if (m[i].n < opt->mid_occ) n_a += m[i].n;
 	a = (mm128_t*)kmalloc(b->km_fixed, n_a * sizeof(mm128_t));
 	for (i = j = 0; i < n; ++i) {
+		mm128_t *p = &b->mini.a[i + m_st];
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->x.cr;
-		int k;
+		int k, q_span = p->x & 0xff;
 		if (q->n >= opt->mid_occ) continue;
 		for (k = 0; k < q->n; ++k) {
 			const char *tname = mi->seq[r[k]>>32].name;
@@ -311,19 +217,19 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 				p->y = (uint64_t)i << 32 | q->qpos >> 1;
 			} else { // reverse strand
 				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
-				p->y = (uint64_t)i << 32 | (qlen - ((q->qpos>>1) + 1 - q->span) - 1);
+				p->y = (uint64_t)i << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
 			}
 		}
 	}
 	radix_sort_128x(a, a + n_a);
+	for (i = 0; i < n; ++i)
+		if (m[i].is_alloc) kfree(b->km_fixed, m[i].x.r);
+	kfree(b->km_fixed, m);
 	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x>>1, (uint32_t)a[i].y);
 
 	n_u = mm_chain_dp(mi->k, opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, &v, b->km_fixed);
 
 	// free
-	for (i = 0; i < n; ++i)
-		if (m[i].is_alloc) kfree(b->km_fixed, m[i].x.r);
-	kfree(b->km_fixed, m);
 	kfree(b->km_fixed, u);
 	kfree(b->km_fixed, v);
 }
