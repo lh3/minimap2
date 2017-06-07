@@ -9,7 +9,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r14-pre"
+#define MM_VERSION "2.0-r34-pre"
 
 void liftrlimit()
 {
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:NOg:I:d:ST:s:Dx:H")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:H")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
@@ -67,7 +67,6 @@ int main(int argc, char *argv[])
 		else if (c == 'g') opt.max_gap = atoi(optarg);
 		else if (c == 'N') keep_name = 0;
 		else if (c == 'D') opt.flag |= MM_F_NO_SELF;
-		else if (c == 'O') opt.flag |= MM_F_NO_ISO;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 's') opt.min_score = atoi(optarg);
@@ -111,7 +110,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres);
 //		fprintf(stderr, "    -D         skip self mappings but keep dual mappings\n"); // too confusing to expose to end users
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
-		fprintf(stderr, "    -O         drop isolated hits before chaining (EXPERIMENTAL)\n");
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "               ava10k: -Sw5 -L100 -m0 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "  Input/Output:\n");

@@ -6,10 +6,8 @@
 #include <sys/types.h>
 
 #define MM_IDX_DEF_B    14
-#define MM_DEREP_Q50    5.0
 
 #define MM_F_NO_SELF   0x2
-#define MM_F_NO_ISO    0x4
 #define MM_F_AVA       0x8
 
 #define MM_IDX_MAGIC   "MMI\2"
