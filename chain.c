@@ -89,7 +89,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 			j = p[j];
 		} while (j >= 0 && t[j] == 0);
 		if (j < 0) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
-		else if ((u[i]>>32) - f[j] >= min_sc) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
+		else if ((int32_t)(u[i]>>32) - f[j] >= min_sc) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
 		else n_v0 = n_v;
 		for (j = 0; j < (n_v - n_v0) >> 1; ++j) { // reverse v[] such that the smallest index comes the first
 			int32_t t = v[n_v0 + j];
