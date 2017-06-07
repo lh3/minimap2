@@ -188,7 +188,6 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 
 	// convert to local representation
 	m = (mm_match_t*)kmalloc(b->km, n * sizeof(mm_match_t));
-	if (mm_verbose >= 5) printf("%d\t", n);
 	for (i = 0; i < n; ++i) {
 		int t;
 		mm128_t *p = &b->mini.a[i + m_st];
@@ -196,12 +195,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 		m[i].qpos = (uint32_t)p->y;
 		m[i].x.cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
-		if (mm_verbose >= 5) {
-			if (i) printf("; ");
-			printf("%d,%d", m[i].qpos>>1, t);
-		}
 	}
-	if (mm_verbose >= 5) printf("\n");
 #if 0
 	int last = -1, last2 = -1;
 	// pair k-mer thinning
@@ -265,7 +259,6 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	if (mm_verbose >= 5) printf("=====> %s <=====\n", qname);
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
