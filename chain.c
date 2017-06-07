@@ -63,7 +63,10 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 	for (i = n_u = 0; i < n; ++i)
 		if (t[i] == 0 && f[i] >= min_sc)
 			++n_u;
-	if (n_u == 0) return 0;
+	if (n_u == 0) {
+		kfree(km, f); kfree(km, p); kfree(km, t);
+		return 0;
+	}
 	u = (uint64_t*)kmalloc(km, n_u * 8);
 	for (i = n_u = 0; i < n; ++i)
 		if (t[i] == 0 && f[i] >= min_sc)
@@ -100,7 +103,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 	kfree(km, f); kfree(km, p); kfree(km, t);
 
 	// write the result to _a_
-	b = kmalloc(km, n_v * sizeof(mm128_t));
+	b = (mm128_t*)kmalloc(km, n_v * sizeof(mm128_t));
 	for (i = 0, k = 0; i < n_u; ++i)
 		for (j = 0; j < (int32_t)u[i]; ++j)
 			b[k] = a[v[k]], ++k;

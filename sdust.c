@@ -62,6 +62,7 @@ sdust_buf_t *sdust_buf_init(void *km)
 void sdust_buf_destroy(sdust_buf_t *buf)
 {
 	if (buf == 0) return;
+	kdq_destroy(int, buf->w);
 	kfree(buf->km, buf->P.a); kfree(buf->km, buf->res.a); kfree(buf->km, buf);
 }
 

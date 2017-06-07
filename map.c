@@ -60,6 +60,8 @@ mm_tbuf_t *mm_tbuf_init(void)
 void mm_tbuf_destroy(mm_tbuf_t *b)
 {
 	if (b == 0) return;
+	kfree(b->km, b->mini.a);
+	sdust_buf_destroy(b->sdb);
 	km_destroy(b->km_fixed);
 	km_destroy(b->km);
 	free(b);
