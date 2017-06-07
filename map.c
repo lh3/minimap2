@@ -43,8 +43,7 @@ typedef struct {
 struct mm_tbuf_s {
 	sdust_buf_t *sdb;
 	mm128_v mini;
-	kvec_t(mm_reg1_t) reg;
-	void *km, *km_fixed;
+	void *km;
 };
 
 mm_tbuf_t *mm_tbuf_init(void)
@@ -52,7 +51,6 @@ mm_tbuf_t *mm_tbuf_init(void)
 	mm_tbuf_t *b;
 	b = (mm_tbuf_t*)calloc(1, sizeof(mm_tbuf_t));
 	b->km = km_init();
-	b->km_fixed = km_init();
 	b->sdb = sdust_buf_init(b->km);
 	return b;
 }
@@ -62,7 +60,6 @@ void mm_tbuf_destroy(mm_tbuf_t *b)
 	if (b == 0) return;
 	kfree(b->km, b->mini.a);
 	sdust_buf_destroy(b->sdb);
-	km_destroy(b->km_fixed);
 	km_destroy(b->km);
 	free(b);
 }
@@ -113,7 +110,7 @@ int mm_pair_thin_core(mm_tbuf_t *b, uint64_t x, int radius, int rel, int st0, in
 			uint64_t y = z[i];
 			if (((x ^ y) & 1) == rel) {
 //				printf("* %d,%d\n", (uint32_t)x>>1, (uint32_t)y>>1);
-				kv_push(uint64_t, b->km_fixed, *a, y);
+				kv_push(uint64_t, b->km, *a, y);
 			}
 		}
 		return en;
@@ -133,7 +130,7 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 		z[i] = m[i]->x.cr;
 		k[i] = 0;
 		kv_init(a[i]);
-		kv_resize(uint64_t, b->km_fixed, a[i], 256);
+		kv_resize(uint64_t, b->km, a[i], 256);
 	}
 	while (k[0] < n[0] && k[1] < n[1]) {
 		//printf("%d; %d,%d\n", u, k[0], k[1]);
@@ -146,7 +143,7 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 		x = x>>32<<32 | tpos<<1 | (x&1);
 		last = a[v].n;
 		k[v] = mm_pair_thin_core(b, x, radius, rel, k[v], n[v], z[v], &a[v]);
-		if (a[v].n > last) kv_push(uint64_t, b->km_fixed, a[u], z[u][k[u]]);
+		if (a[v].n > last) kv_push(uint64_t, b->km, a[u], z[u][k[u]]);
 		++k[u];
 		u ^= 1;
 	}
@@ -155,15 +152,42 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 //	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
 }
 
-void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen)
+mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
+{
+	mm_reg1_t *r;
+	int i, k;
+	r = (mm_reg1_t*)calloc(n_u, sizeof(mm_reg1_t));
+	for (i = k = 0; i < n_u; ++i) {
+		mm_reg1_t *ri = &r[i];
+		ri->parent = -1; // not set
+		ri->score = u[i]>>32;
+		ri->cnt = (int32_t)u[i];
+		ri->rev = a[k].x>>63;
+		ri->rid = a[k].x<<1>>33;
+		ri->rs = (int32_t)a[k].x + 1 > (int32_t)(a[k].y>>32)? (int32_t)a[k].x + 1 - (int32_t)(a[k].y>>32) : 0;
+		ri->re = (int32_t)a[k + ri->cnt - 1].x + 1;
+		if (!ri->rev) {
+			ri->qs = (int32_t)a[k].y + 1 - (int32_t)(a[k].y>>32);
+			ri->qe = (int32_t)a[k + ri->cnt - 1].y + 1;
+		} else {
+			ri->qs = qlen - ((int32_t)a[k + ri->cnt - 1].y + 1);
+			ri->qe = qlen - ((int32_t)a[k].y + 1 - (int32_t)(a[k].y>>32));
+		}
+		k += ri->cnt;
+	}
+	return r;
+}
+
+mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, int *n_regs)
 {
 	int i, n = m_en - m_st, j, n_a, n_u;
 	uint64_t *u;
 	mm_match_t *m;
 	mm128_t *a;
+	mm_reg1_t *reg;
 
 	// convert to local representation
-	m = (mm_match_t*)kmalloc(b->km_fixed, n * sizeof(mm_match_t));
+	m = (mm_match_t*)kmalloc(b->km, n * sizeof(mm_match_t));
 	if (mm_verbose >= 5) printf("%d\t", n);
 	for (i = 0; i < n; ++i) {
 		int t;
@@ -198,7 +222,7 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	// fill the _a_ array
 	for (i = 0, n_a = 0; i < n; ++i) // find the length of a[]
 		if (m[i].n < opt->mid_occ) n_a += m[i].n;
-	a = (mm128_t*)kmalloc(b->km_fixed, n_a * sizeof(mm128_t));
+	a = (mm128_t*)kmalloc(b->km, n_a * sizeof(mm128_t));
 	for (i = j = 0; i < n; ++i) {
 		mm128_t *p = &b->mini.a[i + m_st];
 		mm_match_t *q = &m[i];
@@ -225,11 +249,14 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 	}
 	radix_sort_128x(a, a + n_a);
 	for (i = 0; i < n; ++i)
-		if (m[i].is_alloc) kfree(b->km_fixed, m[i].x.r);
-	kfree(b->km_fixed, m);
+		if (m[i].is_alloc) kfree(b->km, m[i].x.r);
+	kfree(b->km, m);
 	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x, (uint32_t)a[i].y);
 
-	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km_fixed);
+	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km);
+	reg = mm_gen_reg(qlen, n_u, u, a);
+	*n_regs = n_u;
+	/*
 	printf("%s\t%d", qname, n_u);
 	for (i = j = 0; i < n_u; ++i) {
 		int n = (uint32_t)u[i];
@@ -237,27 +264,22 @@ void mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint3
 		j += n;
 	}
 	printf("\n");
+	*/
 
 	// free
-	kfree(b->km_fixed, a);
-	kfree(b->km_fixed, u);
+	kfree(b->km, a);
+	kfree(b->km, u);
+	return reg;
 }
 
-const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	uint32_t proc_mini = 0;
 	if (mm_verbose >= 5) printf("=====> %s <=====\n", qname);
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
 		mm_dust_minier(&b->mini, l_seq, seq, opt->sdust_thres, b->sdb);
-	while (proc_mini < b->mini.n) {
-		uint32_t n = b->mini.n - proc_mini < opt->n_frag_mini * 1.5f? b->mini.n - proc_mini : opt->n_frag_mini;
-		mm_map_frag(opt, mi, b, proc_mini, proc_mini + n, qname, l_seq);
-		proc_mini += n;
-	}
-	*n_regs = b->reg.n;
-	return b->reg.a;
+	return mm_map_frag(opt, mi, b, 0, b->mini.n, qname, l_seq, n_regs);
 }
 
 /**************************
@@ -283,15 +305,7 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *step = (step_t*)_data;
-	const mm_reg1_t *regs;
-	int n_regs;
-
-	regs = mm_map(step->p->mi, step->seq[i].l_seq, step->seq[i].seq, &n_regs, step->buf[tid], step->p->opt, step->seq[i].name);
-	step->n_reg[i] = n_regs;
-	if (n_regs > 0) {
-		step->reg[i] = (mm_reg1_t*)malloc(n_regs * sizeof(mm_reg1_t));
-		memcpy(step->reg[i], regs, n_regs * sizeof(mm_reg1_t));
-	}
+	step->reg[i] = mm_map(step->p->mi, step->seq[i].l_seq, step->seq[i].seq, &step->n_reg[i], step->buf[tid], step->p->opt, step->seq[i].name);
 }
 
 static void *worker_pipeline(void *shared, int step, void *in)
@@ -325,11 +339,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
-				if (r->len < p->opt->min_score) continue;
 				printf("%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
 				if (mi->seq[r->rid].name) fputs(mi->seq[r->rid].name, stdout);
 				else printf("%d", r->rid + 1);
-				printf("\t%d\t%d\t%d\t%d\t%d\t255\tcm:i:%d\n", mi->seq[r->rid].len, r->rs, r->re, r->len,
+				printf("\t%d\t%d\t%d\t%d\t%d\t255\tcm:i:%d\n", mi->seq[r->rid].len, r->rs, r->re, r->score,
 						r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs, r->cnt);
 			}
 			free(s->reg[i]);

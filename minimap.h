@@ -46,7 +46,8 @@ typedef struct {
 typedef struct {
 	uint32_t cnt:31, rev:1;
 	uint32_t rid:31, rep:1;
-	uint32_t len;
+	uint32_t score;
+	int32_t parent;
 	int32_t qs, qe, rs, re;
 } mm_reg1_t;
 
@@ -102,7 +103,7 @@ void mm_mapopt_init(mm_mapopt_t *opt);
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
 mm_tbuf_t *mm_tbuf_init(void);
 void mm_tbuf_destroy(mm_tbuf_t *b);
-const mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
+mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
 
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads, int tbatch_size);
 
