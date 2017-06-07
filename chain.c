@@ -90,12 +90,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 		} while (j >= 0 && t[j] == 0);
 		if (j < 0) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
 		else if ((int32_t)(u[i]>>32) - f[j] >= min_sc) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
-		else n_v0 = n_v;
-		for (j = 0; j < (n_v - n_v0) >> 1; ++j) { // reverse v[] such that the smallest index comes the first
-			int32_t t = v[n_v0 + j];
-			v[n_v0 + j] = v[n_v - 1 - j];
-			v[n_v - 1 - j] = t;
-		}
+		else n_v = n_v0;
 	}
 	n_u = k, *_u = u;
 
@@ -104,9 +99,11 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 
 	// write the result to _a_
 	b = (mm128_t*)kmalloc(km, n_v * sizeof(mm128_t));
-	for (i = 0, k = 0; i < n_u; ++i)
-		for (j = 0; j < (int32_t)u[i]; ++j)
-			b[k] = a[v[k]], ++k;
+	for (i = 0, k = 0; i < n_u; ++i) {
+		int32_t k0 = k, ni = (int32_t)u[i];
+		for (j = 0; j < ni; ++j)
+			b[k] = a[v[k0 + (ni - j - 1)]], ++k;
+	}
 	memcpy(a, b, n_v * sizeof(mm128_t));
 	kfree(km, v); kfree(km, b);
 	return n_u;
