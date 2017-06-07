@@ -256,15 +256,6 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km);
 	reg = mm_gen_reg(qlen, n_u, u, a);
 	*n_regs = n_u;
-	/*
-	printf("%s\t%d", qname, n_u);
-	for (i = j = 0; i < n_u; ++i) {
-		int n = (uint32_t)u[i];
-		printf("\t%d/%d@%s:%d-%d", (uint32_t)(u[i]>>32), n, mi->seq[a[j].x<<1>>33].name, (uint32_t)a[j].x, (uint32_t)a[j+n-1].x);
-		j += n;
-	}
-	printf("\n");
-	*/
 
 	// free
 	kfree(b->km, a);
