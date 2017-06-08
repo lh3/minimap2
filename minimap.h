@@ -44,9 +44,9 @@ typedef struct {
 typedef struct {
 	uint32_t cnt:31, rev:1;
 	uint32_t rid:31, rep:1;
-	uint32_t score;
-	int32_t parent;
+	int32_t score;
 	int32_t qs, qe, rs, re;
+	int32_t parent, subsc;
 } mm_reg1_t;
 
 typedef struct {
@@ -59,6 +59,8 @@ typedef struct {
 	int max_gap; // break a chain if there are no minimizers in a max_gap window
 	int max_skip;
 	int min_score;
+	float pri_ratio;
+	float mask_level;
 
 	int max_occ;
 	int mid_occ;

@@ -20,6 +20,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->bw = 500;
 	opt->max_gap = 10000;
 	opt->max_skip = 15;
+
+	opt->pri_ratio = 2.0f;
+	opt->mask_level = 0.5f;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
@@ -159,7 +162,7 @@ mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
 	r = (mm_reg1_t*)calloc(n_u, sizeof(mm_reg1_t));
 	for (i = k = 0; i < n_u; ++i) {
 		mm_reg1_t *ri = &r[i];
-		ri->parent = -1; // not set
+		ri->parent = -1, ri->subsc = 0;
 		ri->score = u[i]>>32;
 		ri->cnt = (int32_t)u[i];
 		ri->rev = a[k].x>>63;
@@ -176,6 +179,49 @@ mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
 		k += ri->cnt;
 	}
 	return r;
+}
+
+static void mm_set_subsc(float mask_level, int n, mm_reg1_t *r, void *km)
+{
+	int i, j, k, *w;
+	if (n <= 0) return;
+	w = (int*)kmalloc(km, n * sizeof(int));
+	w[0] = 0, r[0].parent = 0;
+	for (i = 1, k = 1; i < n; ++i) {
+		int si = r[i].qs, ei = r[i].qe;
+		for (j = 0; j < k; ++j) {
+			int sj = r[w[j]].qs, ej = r[w[j]].qe;
+			int min = ej - sj < ei - si? ej - sj : ei - si;
+			int ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si);
+			if (ol > mask_level * min) {
+				r[i].parent = r[w[j]].parent;
+				if (r[w[j]].subsc < r[i].score)
+					r[w[j]].subsc = r[i].score;
+				break;
+			}
+		}
+		if (j == k) w[k++] = i, r[i].parent = i;
+	}
+	kfree(km, w);
+}
+
+void mm_select_sub(float mask_level, float pri_ratio, int *n_, mm_reg1_t *r, void *km)
+{
+	if (pri_ratio > 0.0f && *n_ > 0) {
+		int i, k, *tmp, n = *n_;
+		mm_set_subsc(mask_level, n, r, km);
+		tmp = (int*)kmalloc(km, n * sizeof(int));
+		for (i = 0; i < n; ++i) tmp[i] = -1;
+		for (i = k = 0; i < n; ++i)
+			if (r[i].parent == i || r[i].score >= r[r[i].parent].score * pri_ratio)
+				tmp[i] = k, r[k++] = r[i];
+		n = k;
+		for (i = 0; i < n; ++i)
+			if (tmp[r[i].parent] >= 0)
+				r[i].parent = tmp[r[i].parent];
+		kfree(km, tmp);
+		*n_ = n;
+	}
 }
 
 mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, int *n_regs)
@@ -259,11 +305,14 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
+	mm_reg1_t *regs;
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
 		mm_dust_minier(&b->mini, l_seq, seq, opt->sdust_thres, b->sdb);
-	return mm_map_frag(opt, mi, b, 0, b->mini.n, qname, l_seq, n_regs);
+	regs = mm_map_frag(opt, mi, b, 0, b->mini.n, qname, l_seq, n_regs);
+	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
+	return regs;
 }
 
 /**************************
@@ -326,8 +375,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				printf("%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
 				if (mi->seq[r->rid].name) fputs(mi->seq[r->rid].name, stdout);
 				else printf("%d", r->rid + 1);
-				printf("\t%d\t%d\t%d\t%d\t%d\t255\tcm:i:%d\n", mi->seq[r->rid].len, r->rs, r->re, r->score,
+				printf("\t%d\t%d\t%d\t%d\t%d\t255\tcm:i:%d", mi->seq[r->rid].len, r->rs, r->re, r->score,
 						r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs, r->cnt);
+				if (r->parent == j) printf("\tss:i:%d", r->subsc);
+				putchar('\n');
 			}
 			free(s->reg[i]);
 			free(s->seq[i].seq); free(s->seq[i].name);
