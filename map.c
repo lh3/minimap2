@@ -89,7 +89,7 @@ static void mm_dust_minier(mm128_v *mini, int l_seq, const char *seq, int sdust_
 	}
 	mini->n = k;
 }
-
+#if 0
 int mm_pair_thin_core(mm_tbuf_t *b, uint64_t x, int radius, int rel, int st0, int n, const uint64_t *z, uint64_v *a)
 {
 	int i, st = st0, en = n, mid = en - 1;
@@ -154,7 +154,7 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 		m[i]->n = a[i].n, m[i]->x.r = a[i].a, m[i]->is_alloc = 1;
 //	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
 }
-
+#endif
 mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
 {
 	mm_reg1_t *r;
