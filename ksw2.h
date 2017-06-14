@@ -1,6 +1,8 @@
 #ifndef KSW2_H_
 #define KSW2_H_
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -23,7 +25,9 @@ extern "C" {
  *
  * @return          score of the alignment
  */
-int ksw_global(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int *n_cigar_, uint32_t **cigar_);
+int ksw_global(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int gapo, int gape, int w, int *n_cigar, uint32_t **cigar);
+
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b);
 
 #ifdef __cplusplus
 }

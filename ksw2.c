@@ -11,6 +11,20 @@
 #define kfree(km, ptr) free((ptr))
 #endif
 
+void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
+{
+	int i, j;
+	a = a < 0? -a : a;
+	b = b > 0? -b : b;
+	for (i = 0; i < m - 1; ++i) {
+		for (j = 0; j < m - 1; ++j)
+			mat[i * m + j] = i == j? a : b;
+		mat[i * m + m - 1] = 0;
+	}
+	for (j = 0; j < m; ++j)
+		mat[(m - 1) * m + j] = 0;
+}
+
 typedef struct {
 	int32_t h, e;
 } eh_t;
@@ -170,8 +184,13 @@ int ksw_global(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t
 	for (i = 0; i < tlen; ++i) { // target sequence is in the outer loop
 		int32_t f = NEG_INF, h1, st, en, max = NEG_INF;
 		int8_t *q = &qp[target[i] * qlen];
+		#if 0
 		st = max_j > w? max_j - w : 0;
 		en = max_j + w + 1 < qlen? max_j + w + 1 : qlen;
+		#else
+		st = i > w? i - w : 0;
+		en = i + w + 1 < qlen? i + w + 1 : qlen;
+		#endif
 		h1 = st > 0? NEG_INF : -gapoe - gape * (i + 1);
 		f  = st > 0? NEG_INF : -gapoe - gapoe - gape * i; // similarly, -gapoe*2: one del followed by one ins
 		off[i] = st;
