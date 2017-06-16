@@ -175,9 +175,9 @@ int ksw_global(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t
 	}
 
 	// fill the first row
-	eh[0].h = 0, eh[0].e = -gapoe - gapoe; // -gapoe*2: one deletion followed by one insertion
+	eh[0].h = 0, eh[0].e = -gapoe - gapo;
 	for (j = 1; j <= qlen && j <= w; ++j)
-		eh[j].h = -(gapo + gape * j), eh[j].e = eh[j-1].e - gape;
+		eh[j].h = -(gapo + gape * j), eh[j].e = -(gapoe + gapo + gape * j);
 	for (; j <= qlen; ++j) eh[j].h = eh[j].e = NEG_INF; // everything is -inf outside the band
 
 	// DP loop
@@ -191,8 +191,8 @@ int ksw_global(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t
 		st = i > w? i - w : 0;
 		en = i + w + 1 < qlen? i + w + 1 : qlen;
 		#endif
-		h1 = st > 0? NEG_INF : -gapoe - gape * (i + 1);
-		f  = st > 0? NEG_INF : -gapoe - gapoe - gape * i; // similarly, -gapoe*2: one del followed by one ins
+		h1 = st > 0? NEG_INF : -(gapo + gape * i);
+		f  = st > 0? NEG_INF : -(gapoe + gapo + gape * i);
 		off[i] = st;
 		if (n_cigar_ && cigar_) {
 			uint8_t *zi = &z[(long)i * n_col];
