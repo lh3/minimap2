@@ -144,8 +144,8 @@ x_{rt}&=&\max\{0,x_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+q\}\\
 y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}
 \end{eqnarray*}
 Due to the definition of $r$ and $t$, the following inequation must stand:
-\[0\le r-t<\ell_q\]
-\[0\le t<\ell_t\]
+\[0\le r-t \le\ell_q-1\]
+\[0\le t \le\ell_t-1\]
 where $\ell_t$ is the length of the sequence indexed by $i$ and $\ell_q$ the
 length indexed by $j$. In case of banded alignment with a fixed diagonal band
 of size $w$,
@@ -153,12 +153,17 @@ of size $w$,
 In the $(r,t)$ coordinate, it is:
 \[\frac{r-w}{2}\le t\le \frac{r+w}{2}\]
 Putting these together:
-\[0\le r< \ell_q+\ell_t\]
+\[0\le r\le \ell_q+\ell_t-2\]
 \[\max\left\{0,r-\ell_q+1,\frac{r-w}{2}\right\}\le t\le\min\left\{\ell_t-1,r,\frac{r+w}{2}\right\}\]
 
 \subsubsection{Initial conditions}
 \[x_{r-1,-1}=x''_{-1,r}=E'_{-1,r}-H_{-1,r}+q+e=0\]
+\[y_{r-1,r}=y''_{r,-1}=0\]
 \[v_{r-1,-1}=v''_{-1,r}=H_{-1,r}-H_{-1,r-1}+q+e=\left\{\begin{array}{ll}
+  q & (r>0) \\
+  0 & (r=0)
+\end{array}\right.\]
+\[u_{r-1,r}=u''_{r,-1}=H_{r,-1}-H_{r-1,-1}+q+e=\left\{\begin{array}{ll}
   q & (r>0) \\
   0 & (r=0)
 \end{array}\right.\]

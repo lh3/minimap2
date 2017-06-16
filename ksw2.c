@@ -278,7 +278,7 @@ int ksw_global(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t
 #include <stdio.h>
 int ksw_global2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int m, const int8_t *mat, int8_t q, int8_t e, int w, int *n_cigar_, uint32_t **cigar_)
 {
-	int qe = q + e, qe2 = qe + qe, r, t, n_col, *off;
+	int qe = q + e, qe2 = qe + qe, r, t, n_col, *off, score;
 	int8_t *u, *v, *x, *y, *s;
 	uint8_t *p, *qr;
 
@@ -286,25 +286,37 @@ int ksw_global2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_
 	v = (int8_t*)kcalloc(km, tlen + 1, 1);
 	x = (int8_t*)kcalloc(km, tlen + 1, 1);
 	y = (int8_t*)kcalloc(km, tlen + 1, 1);
-	s = (int8_t*)kmalloc(km, tlen, 1);
-	qr = (uint8_t*)kmalloc(km, qlen, 1);
-	n_col = 2 * w < tlen + 1? 2 * w : tlen + 1;
+	s = (int8_t*)kmalloc(km, tlen);
+	qr = (uint8_t*)kmalloc(km, qlen);
+	n_col = w + 1 < tlen? w + 1 : tlen;
 	p = (uint8_t*)kmalloc(km, (qlen + tlen) * n_col);
+	off = (int*)kmalloc(km, (qlen + tlen) * sizeof(int));
 
 	for (t = 0; t < qlen; ++t)
 		qr[t] = query[qlen - 1 - t];
 
-	for (r = 0; r <= qlen + tlen; ++r) {
-		int st = 0, en = tlen;
-		int8_t x1 = 0, v1 = 0;
+	for (r = 0; r < qlen + tlen - 1; ++r) {
+		int st = 0, en = tlen - 1;
+		int8_t x1, v1;
 		uint8_t *pr = p + r * n_col;
-		if (st < r - qlen) st = r - qlen;
+		// find the boundaries
+		if (st < r - qlen + 1) st = r - qlen + 1;
 		if (en > r) en = r;
 		if (st < (r-w+1)>>1) st = (r-w+1)>>1; // take the ceil
 		if (en > (r+w)>>1) en = (r+w)>>1; // take the floor
 		off[r] = st;
+		// set boundary conditions
+		if (st != 0) {
+			if (r > st + st + w - 1) x1 = v1 = 0;
+			else x1 = x[st-1], v1 = v[st-1]; // (r-1, st-1) in the band
+		} else x1 = 0, v1 = r? q : 0;
+		if (en != r) {
+			if (r < en + en - w - 1) y[en] = u[en] = 0; // (r-1,en) out of the band; TODO: is this line necessary?
+		} else y[r] = 0, u[r] = r? q : 0;
+		// loop fission: set scores first
 		for (t = st; t <= en; ++t)
 			s[t] = mat[target[t] * m + qr[t + qlen - 1 - r]];
+		// core loop
 		for (t = st; t <= en; ++t) {
 			/* At the beginning of the loop, v1=v(r-1,t-1), x1=x(r-1,t-1), u[t]=u(r-1,t), v[t]=v(r-1,t), x[t]=x(r-1,t), y[t]=y(r-1,t)
 			   a      = x(r-1,t-1) + v(r-1,t-1)
@@ -339,10 +351,11 @@ int ksw_global2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_
 			pr[t - st] = d;
 		}
 	}
-	if (n_cigar_ && cigar_) {
-		int n_cigar = 0, m_cigar = 0, which = 0, i, j;
+	kfree(km, u); kfree(km, v); kfree(km, x); kfree(km, y); kfree(km, s); kfree(km, qr);
+	{ // backtrack
+		int n_cigar = 0, m_cigar = 0, which = 0, i, j, k, l;
 		uint32_t *cigar = 0, tmp;
-		i = tlen - 1, j = qlen - 1; // (i,k) points to the last cell;
+		i = tlen - 1, j = qlen - 1;
 		while (i >= 0 && j >= 0) {
 			r = i + j;
 			tmp = p[r * n_col + i - off[r]];
@@ -358,7 +371,23 @@ int ksw_global2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_
 		for (i = 0; i < n_cigar>>1; ++i) // reverse CIGAR
 			tmp = cigar[i], cigar[i] = cigar[n_cigar-1-i], cigar[n_cigar-1-i] = tmp;
 		*n_cigar_ = n_cigar, *cigar_ = cigar;
+
+		// compute score
+		for (k = 0, score = 0, i = j = 0; k < n_cigar; ++k) {
+			int op = cigar[k] & 0xf, len = cigar[k] >> 4;
+			if (op == 0) {
+				for (l = 0; l < len; ++l)
+					score += mat[target[i + l] * m + query[j + l]];
+				i += len, j += len;
+			} else if (op == 1) {
+				score -= q + len * e;
+				j += len;
+			} else if (op == 2) {
+				score -= q + len * e;
+				i += len;
+			}
+		}
 	}
-	kfree(km, u); kfree(km, v); kfree(km, x); kfree(km, y); kfree(km, s); kfree(km, qr); kfree(km, p);
-	return 0;
+	kfree(km, p); kfree(km, off);
+	return score;
 }
