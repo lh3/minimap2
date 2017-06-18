@@ -302,6 +302,7 @@ int ksw_global2_sse(void *km, int qlen, const uint8_t *query, int tlen, const ui
 	w = (w + 1 + 15) / 16 * 16 - 1;
 	tlen16 = (tlen + 15) / 16 * 16;
 	n_col = w + 1 < tlen16? w + 1 : tlen16; // number of columns in the backtrack matrix
+	n_col += 16, tlen16 += 16; // leave enough space at the end
 
 	mem = (uint8_t*)kcalloc(km, tlen16 * 5 + 15, 1);
 	u = (int8_t*)(((size_t)mem + 15) >> 4 << 4); // 16-byte aligned (though not necessary)
