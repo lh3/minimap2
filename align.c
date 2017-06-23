@@ -113,7 +113,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (i == r->cnt - 1 || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
-			#if 1
+			#if 0
 			fprintf(stderr, "===> [%d] %d-%d %c (%s:%d-%d) <===\n", i, qs, qe, "+-"[rev], mi->seq[rid].name, rs, re);
 			for (k = 0; k < re - rs; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
 			for (k = 0; k < qe - qs; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
@@ -123,14 +123,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			} else {
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			}
-			for (i = 0; i < r->cigar->n; ++i) fprintf(stderr, "%d%c", r->cigar->cigar[i]>>4, "MID"[r->cigar->cigar[i]&0xf]); fputc('\n', stderr);
+			//for (k = 0; k < r->cigar->n; ++k) fprintf(stderr, "%d%c", r->cigar->cigar[k]>>4, "MID"[r->cigar->cigar[k]&0xf]); fputc('\n', stderr);
 			rs = re, qs = qe;
 		}
 	}
 
 	if (i == r->cnt) {
 	}
-//	fprintf(stderr, "%d,%d\n", rs1, qs1); for (i = 0; i < r->cigar->n; ++i) fprintf(stderr, "%d%c", r->cigar->cigar[i]>>4, "MID"[r->cigar->cigar[i]&0xf]); fputc('\n', stderr);
+	for (i = 0; i < r->cigar->n; ++i) fprintf(stderr, "%d%c", r->cigar->cigar[i]>>4, "MID"[r->cigar->cigar[i]&0xf]); fputc('\n', stderr);
 	kfree(km, tseq);
 }
 
