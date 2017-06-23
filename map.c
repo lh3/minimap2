@@ -385,6 +385,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 						r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs, r->cnt);
 				if (r->parent == j) printf("\tss:i:%d", r->subsc);
 				putchar('\n');
+				free(r->cigar);
 			}
 			free(s->reg[i]);
 			free(s->seq[i].seq); free(s->seq[i].name);
