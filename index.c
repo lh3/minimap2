@@ -82,6 +82,18 @@ void mm_idx_stat(const mm_idx_t *mi)
 			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), n, 100.0*n1/n, (double)sum / n, (double)len / sum);
 }
 
+int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq)
+{
+	uint64_t i, st1, en1;
+	if (rid >= mi->n_seq || st >= mi->seq[rid].len) return -1;
+	if (en > mi->seq[rid].len) en = mi->seq[rid].len;
+	st1 = mi->seq[rid].offset + st;
+	en1 = mi->seq[rid].offset + en;
+	for (i = st1; i < en1; ++i)
+		seq[i - st1] = mm_seq4_get(mi->S, i);
+	return en - st;
+}
+
 uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 {
 	int i;

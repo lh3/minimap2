@@ -11,7 +11,6 @@
 void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
-	opt->n_frag_mini = 100000;
 	opt->max_occ_frac = 1e-5f;
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0;
@@ -176,6 +175,7 @@ mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
 			ri->qs = qlen - ((int32_t)a[k + ri->cnt - 1].y + 1);
 			ri->qe = qlen - ((int32_t)a[k].y + 1 - (int32_t)(a[k].y>>32));
 		}
+		ri->as = k;
 		k += ri->cnt;
 	}
 	return r;
@@ -224,13 +224,13 @@ void mm_select_sub(float mask_level, float pri_ratio, int *n_, mm_reg1_t *r, voi
 	}
 }
 
-mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, int *n_regs)
+mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
 {
 	int i, n = m_en - m_st, j, n_a, n_u;
 	uint64_t *u;
 	mm_match_t *m;
 	mm128_t *a;
-	mm_reg1_t *reg;
+	mm_reg1_t *regs;
 
 	// convert to local representation
 	m = (mm_match_t*)kmalloc(b->km, n * sizeof(mm_match_t));
@@ -294,13 +294,15 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x, (uint32_t)a[i].y);
 
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km);
-	reg = mm_gen_reg(qlen, n_u, u, a);
+	regs = mm_gen_reg(qlen, n_u, u, a);
 	*n_regs = n_u;
+	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
+	mm_align_skeleton(b->km, opt, mi, qlen, seq, *n_regs, regs, a);
 
 	// free
 	kfree(b->km, a);
 	kfree(b->km, u);
-	return reg;
+	return regs;
 }
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
@@ -310,8 +312,8 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, m
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
 		mm_dust_minier(&b->mini, l_seq, seq, opt->sdust_thres, b->sdb);
-	regs = mm_map_frag(opt, mi, b, 0, b->mini.n, qname, l_seq, n_regs);
-	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
+	regs = mm_map_frag(opt, mi, b, 0, b->mini.n, qname, l_seq, seq, n_regs);
+//	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
 	return regs;
 }
 

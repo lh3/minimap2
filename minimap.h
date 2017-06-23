@@ -29,7 +29,7 @@ typedef struct {
 
 typedef struct {
 	char *name;      // name of the db sequence
-	uint64_t offset; // offset in mm_idx_t::seq16
+	uint64_t offset; // offset in mm_idx_t::S
 	uint32_t len;    // length
 } mm_idx_seq_t;
 
@@ -47,10 +47,10 @@ typedef struct {
 	int32_t score;
 	int32_t qs, qe, rs, re;
 	int32_t parent, subsc;
+	int32_t as;
 } mm_reg1_t;
 
 typedef struct {
-	int n_frag_mini;
 	float max_occ_frac;
 	float mid_occ_frac;
 	int sdust_thres;  // score threshold for SDUST; 0 to disable
@@ -91,6 +91,7 @@ mm_idx_t *mm_idx_gen(struct bseq_file_s *fp, int w, int k, int b, int is_hpc, in
 uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 void mm_idx_stat(const mm_idx_t *idx);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
+int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
 
