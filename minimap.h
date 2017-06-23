@@ -61,9 +61,11 @@ typedef struct {
 	int min_score;
 	float pri_ratio;
 	float mask_level;
+	int a, b, q, e; // matching score, mismatch, gap-open and gap-ext penalties
 
 	int max_occ;
 	int mid_occ;
+	int min_ksw_len;
 } mm_mapopt_t;
 
 extern int mm_verbose;

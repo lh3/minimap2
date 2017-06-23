@@ -22,6 +22,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->pri_ratio = 2.0f;
 	opt->mask_level = 0.5f;
+
+	opt->a = 1, opt->b = 1, opt->q = 1, opt->e = 1;
+	opt->min_ksw_len = 100;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
