@@ -5,7 +5,7 @@
 void mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	extern unsigned char seq_nt4_table[256];
-	int i, reg;
+	int i, k, reg;
 	uint8_t *qseq0[2];
 
 	qseq0[0] = (uint8_t*)kmalloc(km, qlen);
@@ -30,6 +30,9 @@ void mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int
 			qseq = &qseq0[rev][qs];
 			ret = mm_idx_getseq(mi, rid, rs, re, tseq);
 			assert(ret > 0);
+			fprintf(stderr, "===> %d,%d (%s:%d-%d) <===\n", reg, i, mi->seq[rid].name, rs, re);
+			for (k = 0; k < re - rs; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
+			for (k = 0; k < qe - qs; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
 		}
 		kfree(km, tseq);
 	}
