@@ -30,7 +30,7 @@ void mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int
 			qseq = &qseq0[rev][qs];
 			ret = mm_idx_getseq(mi, rid, rs, re, tseq);
 			assert(ret > 0);
-			fprintf(stderr, "===> %d,%d (%s:%d-%d) <===\n", reg, i, mi->seq[rid].name, rs, re);
+			fprintf(stderr, "===> [%d,%d] %d-%d %c (%s:%d-%d) <===\n", reg, i, qs, qe, "+-"[rev], mi->seq[rid].name, rs, re);
 			for (k = 0; k < re - rs; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
 			for (k = 0; k < qe - qs; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
 		}

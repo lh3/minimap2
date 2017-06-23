@@ -74,8 +74,8 @@ typedef struct mm_tbuf_s mm_tbuf_t;
 
 struct bseq_file_s;
 
-#define mm_seq4_set(s, i, c) ((s)[(i)>>4] |= (uint32_t)(c) << (((i)&7)<<2))
-#define mm_seq4_get(s, i)    ((s)[(i)>>4] >> (((i)&7)<<2) & 0xf)
+#define mm_seq4_set(s, i, c) ((s)[(i)>>3] |= (uint32_t)(c) << (((i)&7)<<2))
+#define mm_seq4_get(s, i)    ((s)[(i)>>3] >> (((i)&7)<<2) & 0xf)
 
 #ifdef __cplusplus
 extern "C" {
