@@ -42,7 +42,7 @@ typedef struct {
 } mm_idx_t;
 
 typedef struct {
-	uint32_t n_cigar, m_cigar;
+	uint32_t n, m;
 	uint32_t cigar[];
 } mm_cigar_t;
 

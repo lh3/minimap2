@@ -10,6 +10,8 @@
 #define KSW_EZ_GENERIC_SC  0x04 // without this flag: match/mismatch only; last symbol is a wildcard
 #define KSW_EZ_GLOBAL_ONLY 0x08 // don't record best score and ignore z-drop; significantly faster
 #define KSW_EZ_DYN_BAND    0x10 // once used, ksw_extz_t::{mqe,mte} may be wrong
+#define KSW_EZ_EXTZ_ONLY   0x20 // only perform extension
+#define KSW_EZ_REV_CIGAR   0x40 // reverse CIGAR in the output
 
 typedef struct {
 	int max, max_q, max_t; // max extension score and coordinate
@@ -88,7 +90,7 @@ static inline uint32_t *ksw_push_cigar(void *km, int *n_cigar, int *m_cigar, uin
 	return cigar;
 }
 
-static inline void ksw_backtrack(void *km, int is_rot, const uint8_t *p, const int *off, int n_col, int i0, int j0, int *m_cigar_, int *n_cigar_, uint32_t **cigar_)
+static inline void ksw_backtrack(void *km, int is_rot, int is_rev, const uint8_t *p, const int *off, int n_col, int i0, int j0, int *m_cigar_, int *n_cigar_, uint32_t **cigar_)
 {
 	int n_cigar = 0, m_cigar = *m_cigar_, which = 0, i = i0, j = j0, r;
 	uint32_t *cigar = *cigar_, tmp;
@@ -104,8 +106,9 @@ static inline void ksw_backtrack(void *km, int is_rot, const uint8_t *p, const i
 	}
 	if (i >= 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 2, i + 1); // first deletion
 	if (j >= 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 1, j + 1); // first insertion
-	for (i = 0; i < n_cigar>>1; ++i) // reverse CIGAR
-		tmp = cigar[i], cigar[i] = cigar[n_cigar-1-i], cigar[n_cigar-1-i] = tmp;
+	if (!is_rev)
+		for (i = 0; i < n_cigar>>1; ++i) // reverse CIGAR
+			tmp = cigar[i], cigar[i] = cigar[n_cigar-1-i], cigar[n_cigar-1-i] = tmp;
 	*m_cigar_ = m_cigar, *n_cigar_ = n_cigar, *cigar_ = cigar;
 }
 

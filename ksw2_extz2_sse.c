@@ -272,8 +272,11 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	kfree(km, mem);
 	if (with_max) kfree(km, H);
 	if (with_cigar) { // backtrack
-		if (ez->score > KSW_NEG_INF) ksw_backtrack(km, 1, (uint8_t*)p, off, n_col_*16, tlen-1, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
-		else ksw_backtrack(km, 1, (uint8_t*)p, off, n_col_*16, ez->max_t, ez->max_q, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+		int rev_cigar = !!(flag & KSW_EZ_REV_CIGAR);
+		if (ez->score > KSW_NEG_INF && !(flag&KSW_EZ_EXTZ_ONLY))
+			ksw_backtrack(km, 1, rev_cigar, (uint8_t*)p, off, n_col_*16, tlen-1, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+		else if (ez->max_t >= 0 && ez->max_q >= 0)
+			ksw_backtrack(km, 1, rev_cigar, (uint8_t*)p, off, n_col_*16, ez->max_t, ez->max_q, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
 		kfree(km, mem2); kfree(km, off);
 	}
 }

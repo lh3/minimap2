@@ -2,7 +2,8 @@ CC=			gcc
 CFLAGS=		-g -Wall -O2 -Wc++-compat -Wno-unused-function
 CPPFLAGS=
 INCLUDES=	-I.
-OBJS=		kalloc.o kthread.o misc.o bseq.o sketch.o chain.o align.o sdust.o index.o map.o
+OBJS=		kalloc.o kthread.o misc.o bseq.o sketch.o chain.o align.o sdust.o \
+			index.o map.o ksw2_extz2_sse.o
 PROG=		minimap2
 PROG_EXTRA=	sdust
 LIBS=		-lm -lz -lpthread

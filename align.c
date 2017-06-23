@@ -1,6 +1,25 @@
 #include <assert.h>
+#include <string.h>
 #include "minimap.h"
 #include "ksw2.h"
+
+#ifndef kroundup32
+#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
+#endif
+
+static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
+{
+	int i, j;
+	a = a < 0? -a : a;
+	b = b > 0? -b : b;
+	for (i = 0; i < m - 1; ++i) {
+		for (j = 0; j < m - 1; ++j)
+			mat[i * m + j] = i == j? a : b;
+		mat[i * m + m - 1] = 0;
+	}
+	for (j = 0; j < m; ++j)
+		mat[(m - 1) * m + j] = 0;
+}
 
 static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
 {
@@ -10,13 +29,31 @@ static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
 		t = seq[i], seq[i] = seq[len - 1 - i], seq[len - 1 - i] = t;
 }
 
-static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a)
+static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // TODO: this calls the libc realloc()
+{
+	if (r->cigar == 0) {
+		uint32_t m_cigar = n_cigar + 2;
+		kroundup32(m_cigar);
+		r->cigar = (mm_cigar_t*)malloc(m_cigar * 4);
+		r->cigar->n = 0, r->cigar->m = m_cigar;
+	} else if (r->cigar->n + n_cigar > r->cigar->m - 2) {
+		kroundup32(r->cigar->m);
+		r->cigar->m = r->cigar->n + n_cigar;
+		r->cigar = (mm_cigar_t*)realloc(r->cigar, r->cigar->m * 4);
+	}
+	memcpy(r->cigar->cigar + r->cigar->n, cigar, n_cigar * 4);
+	r->cigar->n += n_cigar;
+}
+
+static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a, ksw_extz_t *ez)
 {
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63;
 	uint8_t *tseq, *qseq;
 	int32_t i, k, l, rs0, re0, qs0, qe0;
 	int32_t rs, re, qs, qe, ret;
-	mm_reg1_t r1;
+	int8_t mat[25];
+
+	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 
 	rs = (int32_t)a[r->as].x + 1; // NB: this is the same as r->{rs,re}
 	re = (int32_t)a[r->as + r->cnt - 1].x + 1;
@@ -53,8 +90,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		fprintf(stderr, "===> [-1] %d-%d %c (%s:%d-%d) <===\n", qs0, qs, "+-"[rev], mi->seq[rid].name, rs0, rs);
 		for (k = 0; k < tl; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
 		for (k = 0; k < ql; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
+		ksw_extz2_sse(km, ql, qseq, tl, tseq, 5, mat, opt->q, opt->e, (int)(opt->bw * 1.5 + .499), opt->zdrop, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		mm_seq_rev(ql, qseq);
+		mm_append_cigar(r, ez->n_cigar, ez->cigar);
 	}
+	for (i = 0; i < r->cigar->n; ++i) fprintf(stderr, "%d%c", r->cigar->cigar[i]>>4, "MID"[r->cigar->cigar[i]&0xf]); fputc('\n', stderr);
 /*
 	for (i = 1; i < r->cnt; ++i) {
 		re = (int32_t)a[r->as + i].x + 1;
@@ -79,7 +119,9 @@ void mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int
 	extern unsigned char seq_nt4_table[256];
 	int i, reg;
 	uint8_t *qseq0[2];
+	ksw_extz_t ez;
 
+	memset(&ez, 0, sizeof(ksw_extz_t));
 	qseq0[0] = (uint8_t*)kmalloc(km, qlen);
 	qseq0[1] = (uint8_t*)kmalloc(km, qlen);
 	for (i = 0; i < qlen; ++i) {
@@ -89,8 +131,8 @@ void mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int
 
 	for (reg = 0; reg < n_regs; ++reg) {
 		mm_reg1_t r2;
-		mm_align1(km, opt, mi, qlen, qseq0, &regs[reg], &r2, a);
+		mm_align1(km, opt, mi, qlen, qseq0, &regs[reg], &r2, a, &ez);
 	}
 
-	kfree(km, qseq0[0]); kfree(km, qseq0[1]);
+	kfree(km, qseq0[0]); kfree(km, qseq0[1]); kfree(km, ez.cigar);
 }
