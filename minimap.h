@@ -62,6 +62,7 @@ typedef struct {
 	float pri_ratio;
 	float mask_level;
 	int a, b, q, e; // matching score, mismatch, gap-open and gap-ext penalties
+	int zdrop;
 
 	int max_occ;
 	int mid_occ;
