@@ -81,6 +81,28 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 	}
 }
 
+static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *qseq0[2], uint8_t *tseq0, mm128_t *a, int32_t *r, int32_t *q)
+{
+	if (mi->is_hpc && 1) {
+		int span, rev, i, r0, c;
+		rev = a->x >> 63;
+		*q = (int32_t)a->y;
+		for (i = *q - 1, c = qseq0[rev][*q]; i > 0; --i)
+			if (qseq0[rev][i] != c) break;
+		*q = i + 1;
+		span = a->y >> 32;
+		*r = (int32_t)a->x;
+		r0 = *r + 1 >= 256? *r + 1 - 256 : 0;
+		mm_idx_getseq(mi, a->x<<1>>33, r0, *r + 1, tseq0);
+		for (i = *r - 1 - r0, c = tseq0[*r - r0]; i > 0; --i)
+			if (tseq0[i] != c) break;
+		*r = i + r0 + 1;
+	} else {
+		*r = (int32_t)a->x + 1;
+		*q = (int32_t)a->y + 1;
+	}
+}
+
 static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a, ksw_extz_t *ez)
 {
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63;
@@ -93,10 +115,16 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	bw = (int)(opt->bw * 1.5 + 1.);
 
+	/*
 	rs = (int32_t)a[r->as].x + 1; // NB: this is the same as r->{rs,re}
 	re = (int32_t)a[r->as + r->cnt - 1].x + 1;
 	qs = (int32_t)a[r->as].y + 1; // NB: this is the coordinate on the reverse strand; r->{qs,qe} are on the reverse strand
 	qe = (int32_t)a[r->as + r->cnt - 1].y + 1;
+	*/
+	tseq = (uint8_t*)kmalloc(km, 256);
+	mm_adjust_minier(mi, qseq0, tseq, &a[r->as], &rs, &qs);
+	mm_adjust_minier(mi, qseq0, tseq, &a[r->as + r->cnt - 1], &re, &qe);
+	kfree(km, tseq);
 
 	if (qs > 0 && rs > 0) {
 		l = qs < opt->max_gap? qs : opt->max_gap;
@@ -116,7 +144,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		re0 = re + l;
 	} else re0 = re, qe0 = qe;
 
-	tseq = (uint8_t*)kmalloc(km, re0 - rs0); // TODO: we can allocate a smaller size
+	tseq = (uint8_t*)kmalloc(km, re0 - rs0 > 256? re0 - rs0 : 256); // TODO: we can allocate a smaller size
 
 	if (qs > 0 && rs > 0) { // left extension
 		uint32_t ql = qs - qs0, tl = rs - rs0;
@@ -140,8 +168,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < r->cnt; ++i) { // gap filling
-		re = (int32_t)a[r->as + i].x + 1;
-		qe = (int32_t)a[r->as + i].y + 1;
+		mm_adjust_minier(mi, qseq0, tseq, &a[r->as + i], &re, &qe);
 		if (i == r->cnt - 1 || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);

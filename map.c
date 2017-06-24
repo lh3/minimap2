@@ -25,7 +25,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->a = 1, opt->b = 1, opt->q = 1, opt->e = 1;
 	opt->zdrop = 100;
-	opt->min_ksw_len = 100;
+	opt->min_ksw_len = 1000;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
