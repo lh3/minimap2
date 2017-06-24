@@ -42,9 +42,13 @@ typedef struct {
 } mm_idx_t;
 
 typedef struct {
-	uint32_t n, m;
+	uint32_t capacity;
+	int32_t score;
+	uint32_t blen;
+	uint32_t n_diff, n_ambi;
+	uint32_t n_cigar;
 	uint32_t cigar[];
-} mm_cigar_t;
+} mm_extra_t;
 
 typedef struct {
 	uint32_t cnt:31, rev:1;
@@ -53,7 +57,7 @@ typedef struct {
 	int32_t qs, qe, rs, re;
 	int32_t parent, subsc;
 	int32_t as;
-	mm_cigar_t *cigar;
+	mm_extra_t *p;
 } mm_reg1_t;
 
 typedef struct {

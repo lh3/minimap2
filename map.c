@@ -16,7 +16,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->sdust_thres = 0;
 
 	opt->min_score = 40;
-	opt->bw = 500;
+	opt->bw = 1000;
 	opt->max_gap = 10000;
 	opt->max_skip = 15;
 
@@ -381,11 +381,14 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				printf("%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
 				if (mi->seq[r->rid].name) fputs(mi->seq[r->rid].name, stdout);
 				else printf("%d", r->rid + 1);
-				printf("\t%d\t%d\t%d\t%d\t%d\t255\tcm:i:%d", mi->seq[r->rid].len, r->rs, r->re, r->score,
-						r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs, r->cnt);
+				printf("\t%d\t%d\t%d", mi->seq[r->rid].len, r->rs, r->re);
+				if (r->p) printf("\t%d\t%d\t255", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
+				else printf("\t%d\t%d\t255", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
+				printf("\tcm:i:%d", r->cnt);
 				if (r->parent == j) printf("\tss:i:%d", r->subsc);
+				if (r->p) printf("\tNM:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->score, r->p->n_ambi);
 				putchar('\n');
-				free(r->cigar);
+				free(r->p);
 			}
 			free(s->reg[i]);
 			free(s->seq[i].seq); free(s->seq[i].name);
