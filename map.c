@@ -386,7 +386,12 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				else printf("\t%d\t%d\t255", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
 				printf("\tcm:i:%d", r->cnt);
 				if (r->parent == j) printf("\tss:i:%d", r->subsc);
-				if (r->p) printf("\tNM:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->score, r->p->n_ambi);
+				if (r->p) {
+					uint32_t k;
+					printf("\tNM:i:%d\tAS:i:%d\tnn:i:%d\tcg:Z:", r->p->n_diff, r->p->score, r->p->n_ambi);
+					for (k = 0; k < r->p->n_cigar; ++k)
+						printf("%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
+				}
 				putchar('\n');
 				free(r->p);
 			}

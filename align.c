@@ -63,9 +63,8 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 	if (r->p == 0) {
 		uint32_t capacity = n_cigar + sizeof(mm_extra_t);
 		kroundup32(capacity);
-		r->p = (mm_extra_t*)malloc(capacity * 4);
-		r->p->n_cigar = 0, r->p->capacity = capacity;
-		r->p->n_diff = r->p->n_ambi = 0;
+		r->p = (mm_extra_t*)calloc(capacity, 4);
+		r->p->capacity = capacity;
 	} else if (r->p->n_cigar + n_cigar + sizeof(mm_extra_t) > r->p->capacity) {
 		r->p->capacity = r->p->n_cigar + n_cigar + sizeof(mm_extra_t);
 		kroundup32(r->p->capacity);
