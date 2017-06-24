@@ -385,7 +385,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				if (r->p) printf("\t%d\t%d\t255", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
 				else printf("\t%d\t%d\t255", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
 				printf("\tcm:i:%d", r->cnt);
-				if (r->parent == j) printf("\tss:i:%d", r->subsc);
+				if (r->p) printf("\ts1:i:%d", r->score);
+				if (r->parent == j) printf("\ts2:i:%d", r->subsc);
 				if (r->p) {
 					uint32_t k;
 					printf("\tNM:i:%d\tAS:i:%d\tnn:i:%d\tcg:Z:", r->p->n_diff, r->p->score, r->p->n_ambi);
