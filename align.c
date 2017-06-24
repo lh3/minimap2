@@ -71,7 +71,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (qs > 0 && rs > 0) {
 		l = qs < opt->max_gap? qs : opt->max_gap;
 		qs0 = qs - l;
-		l = (l * opt->a - opt->q) / opt->e;
+		l += (l * opt->a - opt->q) / opt->e;
 		l = l < opt->max_gap? l : opt->max_gap;
 		l = l < rs? l : rs;
 		rs0 = rs - l;
@@ -80,7 +80,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (qe < qlen && re < mi->seq[rid].len) {
 		l = qlen - re < opt->max_gap? qlen - re : opt->max_gap;
 		qe0 = qe + l;
-		l = (l * opt->a - opt->q) / opt->e;
+		l += (l * opt->a - opt->q) / opt->e;
 		l = l < opt->max_gap? l : opt->max_gap;
 		l = l < mi->seq[rid].len - re? l : mi->seq[rid].len - re;
 		re0 = re + l;
@@ -105,7 +105,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		rs1 = rs - (ez->max_t + 1);
 		qs1 = qs - (ez->max_q + 1);
 	} else rs1 = rs, qs1 = qs;
-	fprintf(stderr, "%d,%d\n", rs1, qs1); for (i = 0; i < r->cigar->n; ++i) fprintf(stderr, "%d%c", r->cigar->cigar[i]>>4, "MID"[r->cigar->cigar[i]&0xf]); fputc('\n', stderr);
 
 	for (i = 1; i < r->cnt; ++i) { // gap filling
 		re = (int32_t)a[r->as + i].x + 1;
@@ -120,6 +119,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			#endif
 			ksw_extz2_sse(km, qe-qs, qseq, re-rs, tseq, 5, mat, opt->q, opt->e, (int)(opt->bw * 1.5 + .499), opt->zdrop, KSW_EZ_DYN_BAND, ez);
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
+				abort();
 			} else {
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			}
@@ -128,8 +128,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		}
 	}
 
-	if (i == r->cnt) {
+	if (i == r->cnt) { // right extension
 	}
+
 	for (i = 0; i < r->cigar->n; ++i) fprintf(stderr, "%d%c", r->cigar->cigar[i]>>4, "MID"[r->cigar->cigar[i]&0xf]); fputc('\n', stderr);
 	kfree(km, tseq);
 }
