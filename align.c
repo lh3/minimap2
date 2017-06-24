@@ -132,7 +132,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		ksw_extz2_sse(km, ql, qseq, tl, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		mm_append_cigar(r, ez->n_cigar, ez->cigar);
 		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
-		r->p->score += ez->score;
+		r->p->score += ez->max;
 		rs1 = rs - (ez->max_t + 1);
 		qs1 = qs - (ez->max_q + 1);
 		mm_seq_rev(ql, qseq);
@@ -170,7 +170,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		ksw_extz2_sse(km, qe0-qe, qseq, re0-re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
 		mm_append_cigar(r, ez->n_cigar, ez->cigar);
 		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
-		r->p->score += ez->score;
+		r->p->score += ez->max;
 		re1 = re + (ez->max_t + 1);
 		qe1 = qe + (ez->max_q + 1);
 	} else re1 = re, qe1 = qe;
