@@ -90,10 +90,10 @@ static inline int mm_get_hplen_back(const mm_idx_t *mi, uint32_t rid, uint32_t x
 	return (int)(off - i);
 }
 
-static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *qseq0[2], mm128_t *a, int32_t *r, int32_t *q)
+static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2], mm128_t *a, int32_t *r, int32_t *q)
 {
-	if (mi->is_hpc && 1) {
-		uint8_t *qseq = qseq0[a->x>>63];
+	if (mi->is_hpc) {
+		const uint8_t *qseq = qseq0[a->x>>63];
 		int i, c;
 		*q = (int32_t)a->y;
 		for (i = *q - 1, c = qseq[*q]; i > 0; --i)
