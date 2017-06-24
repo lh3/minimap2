@@ -81,22 +81,26 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 	}
 }
 
-static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *qseq0[2], uint8_t *tseq0, mm128_t *a, int32_t *r, int32_t *q)
+static inline int mm_get_hplen_back(const mm_idx_t *mi, uint32_t rid, uint32_t x)
+{
+	int64_t i, off0 = mi->seq[rid].offset, off = off0 + x;
+	int c = mm_seq4_get(mi->S, off);
+	for (i = off - 1; i >= off0; --i)
+		if (mm_seq4_get(mi->S, i) != c) break;
+	return (int)(off - i);
+}
+
+static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *qseq0[2], mm128_t *a, int32_t *r, int32_t *q)
 {
 	if (mi->is_hpc && 1) {
-		int span, rev, i, r0, c;
-		rev = a->x >> 63;
+		uint8_t *qseq = qseq0[a->x>>63];
+		int i, c;
 		*q = (int32_t)a->y;
-		for (i = *q - 1, c = qseq0[rev][*q]; i > 0; --i)
-			if (qseq0[rev][i] != c) break;
+		for (i = *q - 1, c = qseq[*q]; i > 0; --i)
+			if (qseq[i] != c) break;
 		*q = i + 1;
-		span = a->y >> 32;
-		*r = (int32_t)a->x;
-		r0 = *r + 1 >= 256? *r + 1 - 256 : 0;
-		mm_idx_getseq(mi, a->x<<1>>33, r0, *r + 1, tseq0);
-		for (i = *r - 1 - r0, c = tseq0[*r - r0]; i > 0; --i)
-			if (tseq0[i] != c) break;
-		*r = i + r0 + 1;
+		c = mm_get_hplen_back(mi, a->x<<1>>33, (int32_t)a->x);
+		*r = (int32_t)a->x + 1 - c;
 	} else {
 		*r = (int32_t)a->x + 1;
 		*q = (int32_t)a->y + 1;
@@ -115,18 +119,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	bw = (int)(opt->bw * 1.5 + 1.);
 
-	/*
-	rs = (int32_t)a[r->as].x + 1; // NB: this is the same as r->{rs,re}
-	re = (int32_t)a[r->as + r->cnt - 1].x + 1;
-	qs = (int32_t)a[r->as].y + 1; // NB: this is the coordinate on the reverse strand; r->{qs,qe} are on the reverse strand
-	qe = (int32_t)a[r->as + r->cnt - 1].y + 1;
-	*/
-	tseq = (uint8_t*)kmalloc(km, 256);
-	mm_adjust_minier(mi, qseq0, tseq, &a[r->as], &rs, &qs);
-	mm_adjust_minier(mi, qseq0, tseq, &a[r->as + r->cnt - 1], &re, &qe);
-	kfree(km, tseq);
+	mm_adjust_minier(mi, qseq0, &a[r->as], &rs, &qs);
+	mm_adjust_minier(mi, qseq0, &a[r->as + r->cnt - 1], &re, &qe);
 
-	if (qs > 0 && rs > 0) {
+	if (qs > 0 && rs > 0) { // actually this is always true
 		l = qs < opt->max_gap? qs : opt->max_gap;
 		qs0 = qs - l;
 		l += (l * opt->a - opt->q) / opt->e;
@@ -144,31 +140,25 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		re0 = re + l;
 	} else re0 = re, qe0 = qe;
 
-	tseq = (uint8_t*)kmalloc(km, re0 - rs0 > 256? re0 - rs0 : 256); // TODO: we can allocate a smaller size
+	tseq = (uint8_t*)kmalloc(km, re0 - rs0); // TODO: we can allocate a smaller size
 
 	if (qs > 0 && rs > 0) { // left extension
-		uint32_t ql = qs - qs0, tl = rs - rs0;
 		qseq = &qseq0[rev][qs0];
 		mm_idx_getseq(mi, rid, rs0, rs, tseq);
-		mm_seq_rev(ql, qseq);
-		mm_seq_rev(tl, tseq);
-		#if 0
-		fprintf(stderr, "===> [-1] %d-%d %c (%s:%d-%d) <===\n", qs0, qs, "+-"[rev], mi->seq[rid].name, rs0, rs);
-		for (k = 0; k < tl; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
-		for (k = 0; k < ql; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
-		#endif
-		ksw_extz2_sse(km, ql, qseq, tl, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
+		mm_seq_rev(qs - qs0, qseq);
+		mm_seq_rev(rs - rs0, tseq);
+		ksw_extz2_sse(km, qs - qs0, qseq, rs - rs0, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		mm_append_cigar(r, ez->n_cigar, ez->cigar);
 		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
 		r->p->score += ez->max;
 		rs1 = rs - (ez->max_t + 1);
 		qs1 = qs - (ez->max_q + 1);
-		mm_seq_rev(ql, qseq);
+		mm_seq_rev(qs - qs0, qseq);
 	} else rs1 = rs, qs1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < r->cnt; ++i) { // gap filling
-		mm_adjust_minier(mi, qseq0, tseq, &a[r->as + i], &re, &qe);
+		mm_adjust_minier(mi, qseq0, &a[r->as + i], &re, &qe);
 		if (i == r->cnt - 1 || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
@@ -177,7 +167,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			for (k = 0; k < re - rs; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
 			for (k = 0; k < qe - qs; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
 			#endif
-			ksw_extz2_sse(km, qe-qs, qseq, re-rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_DYN_BAND, ez);
+			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_DYN_BAND, ez);
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
@@ -194,7 +184,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (i == r->cnt && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
 		mm_idx_getseq(mi, rid, re, re0, tseq);
-		ksw_extz2_sse(km, qe0-qe, qseq, re0-re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
+		ksw_extz2_sse(km, qe0 - qe, qseq, re0 - re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
 		mm_append_cigar(r, ez->n_cigar, ez->cigar);
 		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
 		r->p->score += ez->max;
@@ -207,7 +197,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (rev) r->qs = qlen - qe1, r->qe = qlen - qs1;
 	else r->qs = qs1, r->qe = qe1;
 
-//	for (i = 0; i < r->p->n_cigar; ++i) fprintf(stderr, "%d%c", r->p->cigar[i]>>4, "MID"[r->p->cigar[i]&0xf]); fputc('\n', stderr);
 	kfree(km, tseq);
 }
 
