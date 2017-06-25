@@ -164,12 +164,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		mm_idx_getseq(mi, rid, rs0, rs, tseq);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
+		fprintf(stderr, "%d,%d\n", rs, qs);
 		ksw_extz2_sse(km, qs - qs0, qseq, rs - rs0, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		mm_append_cigar(r, ez->n_cigar, ez->cigar);
 		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
 		r->p->score += ez->max;
 		rs1 = rs - (ez->max_t + 1);
 		qs1 = qs - (ez->max_q + 1);
+		fprintf(stderr, "%d,%d => %d,%d\n", rs, qs, rs1, qs1);
 		mm_seq_rev(qs - qs0, qseq);
 	} else rs1 = rs, qs1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
@@ -190,7 +192,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
 				int j;
-				abort();
 				for (j = i - 1; j >= 0; --j)
 					if ((int32_t)a[r->as + j].x < re + ez->max_t)
 						break;
@@ -207,7 +208,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		}
 	}
 
-	if (i == r->cnt && qe < qe0 && re < re0) { // right extension
+	if (r2->cnt == 0 && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
 		mm_idx_getseq(mi, rid, re, re0, tseq);
 		ksw_extz2_sse(km, qe0 - qe, qseq, re0 - re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
@@ -216,7 +217,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		r->p->score += ez->max;
 		re1 = re + (ez->max_t + 1);
 		qe1 = qe + (ez->max_q + 1);
-	} else re1 = re, qe1 = qe;
+	} else if (r2->cnt == 0) {
+		re1 = re, qe1 = qe;
+	}
 	assert(qe1 <= qlen);
 
 	r->rs = rs1, r->re = re1;
@@ -245,13 +248,14 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 		mm_reg1_t r2;
 		mm_align1(km, opt, mi, qlen, qseq0, &regs[r], &r2, a, &ez);
 		if (r2.cnt > 0) {
-			regs = (mm_reg1_t*)realloc(regs, n_regs + 1); // this should be very rare
+			regs = (mm_reg1_t*)realloc(regs, (n_regs + 1) * sizeof(mm_reg1_t)); // this should be very rare
 			if (r + 1 != n_regs)
 				memmove(&regs[r + 2], &regs[r + 1], sizeof(mm_reg1_t) * (n_regs - r - 1));
 			regs[r + 1] = r2;
 			++n_regs;
 		}
 	}
+	*n_regs_ = n_regs;
 
 	kfree(km, qseq0[0]); kfree(km, qseq0[1]); kfree(km, ez.cigar);
 	return regs;
