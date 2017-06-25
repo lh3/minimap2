@@ -180,6 +180,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
 			#if 0
+			int k;
 			fprintf(stderr, "===> [%d] %d-%d %c (%s:%d-%d) <===\n", i, qs, qe, "+-"[rev], mi->seq[rid].name, rs, re);
 			for (k = 0; k < re - rs; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
 			for (k = 0; k < qe - qs; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
@@ -189,6 +190,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
 				int j;
+				abort();
 				for (j = i - 1; j >= 0; --j)
 					if ((int32_t)a[r->as + j].x < re + ez->max_t)
 						break;

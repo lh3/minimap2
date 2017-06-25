@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:Hp:m:")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:Hp:m:z:")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
@@ -72,6 +72,7 @@ int main(int argc, char *argv[])
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 's') opt.min_score = atoi(optarg);
+		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -113,6 +114,7 @@ int main(int argc, char *argv[])
 //		fprintf(stderr, "    -D         skip self mappings but keep dual mappings\n"); // too confusing to expose to end users
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
+		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "               ava10k: -Sw5 -L100 -m0 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "  Input/Output:\n");
