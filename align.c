@@ -45,10 +45,13 @@ static void mm_reg_split(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *
 	r->split = r2->split = 1;
 }
 
-static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, uint32_t n_cigar, uint32_t *cigar)
+static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, uint32_t n_cigar, uint32_t *cigar, int rev_cigar)
 {
-	uint32_t k, l, toff = 0, qoff = 0;
-	for (k = 0; k < n_cigar; ++k) {
+	uint32_t l, toff = 0, qoff = 0;
+	int32_t k, step, st, en;
+	if (rev_cigar) step = -1, st = n_cigar - 1, en = -1;
+	else step = 1, st = 0, en = n_cigar;
+	for (k = st; k != en; k += step) {
 		uint32_t op = cigar[k]&0xf, len = cigar[k]>>4;
 		if (op == 0) {
 			for (l = 0; l < len; ++l) {
@@ -164,14 +167,12 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		mm_idx_getseq(mi, rid, rs0, rs, tseq);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
-		fprintf(stderr, "%d,%d\n", rs, qs);
 		ksw_extz2_sse(km, qs - qs0, qseq, rs - rs0, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		mm_append_cigar(r, ez->n_cigar, ez->cigar);
-		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
+		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 1);
 		r->p->score += ez->max;
 		rs1 = rs - (ez->max_t + 1);
 		qs1 = qs - (ez->max_q + 1);
-		fprintf(stderr, "%d,%d => %d,%d\n", rs, qs, rs1, qs1);
 		mm_seq_rev(qs - qs0, qseq);
 	} else rs1 = rs, qs1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
@@ -189,7 +190,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			#endif
 			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_DYN_BAND, ez);
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
-			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
+			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
 				int j;
 				for (j = i - 1; j >= 0; --j)
@@ -213,7 +214,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		mm_idx_getseq(mi, rid, re, re0, tseq);
 		ksw_extz2_sse(km, qe0 - qe, qseq, re0 - re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
 		mm_append_cigar(r, ez->n_cigar, ez->cigar);
-		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
+		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
 		r->p->score += ez->max;
 		re1 = re + (ez->max_t + 1);
 		qe1 = qe + (ez->max_q + 1);
