@@ -188,12 +188,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (i == r->cnt - 1 || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
-			#if 0
-			int k;
-			fprintf(stderr, "===> [%d] %d-%d %c (%s:%d-%d) <===\n", i, qs, qe, "+-"[rev], mi->seq[rid].name, rs, re);
-			for (k = 0; k < re - rs; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
-			for (k = 0; k < qe - qs; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
-			#endif
 			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_DYN_BAND, ez);
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
@@ -210,7 +204,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			} else {
 				r->p->score += ez->score;
 			}
-			//for (k = 0; k < r->cigar->n; ++k) fprintf(stderr, "%d%c", r->cigar->cigar[k]>>4, "MID"[r->cigar->cigar[k]&0xf]); fputc('\n', stderr);
 			rs = re, qs = qe;
 		}
 	}
