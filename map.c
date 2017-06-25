@@ -168,18 +168,8 @@ mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
 		ri->parent = -1, ri->subsc = 0;
 		ri->score = u[i]>>32;
 		ri->cnt = (int32_t)u[i];
-		ri->rev = a[k].x>>63;
-		ri->rid = a[k].x<<1>>33;
-		ri->rs = (int32_t)a[k].x + 1 > (int32_t)(a[k].y>>32)? (int32_t)a[k].x + 1 - (int32_t)(a[k].y>>32) : 0;
-		ri->re = (int32_t)a[k + ri->cnt - 1].x + 1;
-		if (!ri->rev) {
-			ri->qs = (int32_t)a[k].y + 1 - (int32_t)(a[k].y>>32);
-			ri->qe = (int32_t)a[k + ri->cnt - 1].y + 1;
-		} else {
-			ri->qs = qlen - ((int32_t)a[k + ri->cnt - 1].y + 1);
-			ri->qe = qlen - ((int32_t)a[k].y + 1 - (int32_t)(a[k].y>>32));
-		}
 		ri->as = k;
+		mm_reg_set_coor(ri, qlen, a);
 		k += ri->cnt;
 	}
 	return r;

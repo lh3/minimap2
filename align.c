@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "minimap.h"
+#include "mmpriv.h"
 #include "ksw2.h"
 
 #ifndef kroundup32
@@ -27,6 +28,21 @@ static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
 	uint8_t t;
 	for (i = 0; i < len>>1; ++i)
 		t = seq[i], seq[i] = seq[len - 1 - i], seq[len - 1 - i] = t;
+}
+
+static void mm_reg_split(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
+{
+	if (n <= 0 || n >= r->cnt) return;
+	*r2 = *r;
+	r2->p = 0;
+	r2->cnt = r->cnt - n;
+	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
+	r2->as = r->as + n;
+	mm_reg_set_coor(r2, qlen, a);
+	r->cnt -= r2->cnt;
+	r->score -= r2->score;
+	mm_reg_set_coor(r, qlen, a);
+	r->split = r2->split = 1;
 }
 
 static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, uint32_t n_cigar, uint32_t *cigar)
@@ -119,6 +135,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	bw = (int)(opt->bw * 1.5 + 1.);
 
+	r2->cnt = 0;
 	mm_adjust_minier(mi, qseq0, &a[r->as], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[r->as + r->cnt - 1], &re, &qe);
 
@@ -171,8 +188,15 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar);
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
+				int j;
+				for (j = i - 1; j >= 0; --j)
+					if ((int32_t)a[r->as + j].x < re + ez->max_t)
+						break;
 				r->p->score += ez->max;
-				abort();
+				re1 = re + (ez->max_t + 1);
+				qe1 = qe + (ez->max_q + 1);
+				mm_reg_split(r, r2, j + 1, qlen, a);
+				break;
 			} else {
 				r->p->score += ez->score;
 			}
