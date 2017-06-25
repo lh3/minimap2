@@ -224,10 +224,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	kfree(km, tseq);
 }
 
-void mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int n_regs, mm_reg1_t *regs, mm128_t *a)
+mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
 {
 	extern unsigned char seq_nt4_table[256];
-	int i, reg;
+	int i, r, n_regs = *n_regs_;
 	uint8_t *qseq0[2];
 	ksw_extz_t ez;
 
@@ -239,10 +239,18 @@ void mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int
 		qseq0[1][qlen - 1 - i] = qseq0[0][i] < 4? 3 - qseq0[0][i] : 4;
 	}
 
-	for (reg = 0; reg < n_regs; ++reg) {
+	for (r = 0; r < n_regs; ++r) {
 		mm_reg1_t r2;
-		mm_align1(km, opt, mi, qlen, qseq0, &regs[reg], &r2, a, &ez);
+		mm_align1(km, opt, mi, qlen, qseq0, &regs[r], &r2, a, &ez);
+		if (r2.cnt > 0) {
+			regs = (mm_reg1_t*)realloc(regs, n_regs + 1); // this should be very rare
+			if (r + 1 != n_regs)
+				memmove(&regs[r + 2], &regs[r + 1], sizeof(mm_reg1_t) * (n_regs - r - 1));
+			regs[r + 1] = r2;
+			++n_regs;
+		}
 	}
 
 	kfree(km, qseq0[0]); kfree(km, qseq0[1]); kfree(km, ez.cigar);
+	return regs;
 }

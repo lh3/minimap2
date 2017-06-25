@@ -291,7 +291,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	regs = mm_gen_reg(qlen, n_u, u, a);
 	*n_regs = n_u;
 	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
-	mm_align_skeleton(b->km, opt, mi, qlen, seq, *n_regs, regs, a);
+	regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a);
 
 	// free
 	kfree(b->km, a);
