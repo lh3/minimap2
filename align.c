@@ -142,15 +142,21 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	mm_adjust_minier(mi, qseq0, &a[r->as], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[r->as + r->cnt - 1], &re, &qe);
 
-	if (qs > 0 && rs > 0) { // actually this is always true
-		l = qs < opt->max_gap? qs : opt->max_gap;
-		qs0 = qs - l;
-		l += (l * opt->a - opt->q) / opt->e;
-		l = l < opt->max_gap? l : opt->max_gap;
-		l = l < rs? l : rs;
-		rs0 = rs - l;
-	} else rs0 = rs, qs0 = qs;
+	// compute rs0 and qs0
+	if (r->split && r->as > 0) {
+		mm_adjust_minier(mi, qseq0, &a[r->as-1], &rs0, &qs0);
+	} else {
+		if (qs > 0 && rs > 0) { // actually this is always true
+			l = qs < opt->max_gap? qs : opt->max_gap;
+			qs0 = qs - l;
+			l += (l * opt->a - opt->q) / opt->e;
+			l = l < opt->max_gap? l : opt->max_gap;
+			l = l < rs? l : rs;
+			rs0 = rs - l;
+		} else rs0 = rs, qs0 = qs;
 
+	}
+	// compute re0 and qe0
 	if (qe < qlen && re < mi->seq[rid].len) {
 		l = qlen - qe < opt->max_gap? qlen - qe : opt->max_gap;
 		qe0 = qe + l;
