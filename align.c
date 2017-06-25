@@ -4,10 +4,6 @@
 #include "mmpriv.h"
 #include "ksw2.h"
 
-#ifndef kroundup32
-#define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
-#endif
-
 static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
 {
 	int i, j;

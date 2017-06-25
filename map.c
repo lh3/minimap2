@@ -4,7 +4,6 @@
 #include "kvec.h"
 #include "kalloc.h"
 #include "sdust.h"
-#include "minimap.h"
 #include "mmpriv.h"
 #include "bseq.h"
 
@@ -320,6 +319,7 @@ typedef struct {
 	const mm_mapopt_t *opt;
 	bseq_file_t *fp;
 	const mm_idx_t *mi;
+	kstring_t str;
 } pipeline_t;
 
 typedef struct {
@@ -368,22 +368,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
-				printf("%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
-				if (mi->seq[r->rid].name) fputs(mi->seq[r->rid].name, stdout);
-				else printf("%d", r->rid + 1);
-				printf("\t%d\t%d\t%d", mi->seq[r->rid].len, r->rs, r->re);
-				if (r->p) printf("\t%d\t%d\t255", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
-				else printf("\t%d\t%d\t255", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
-				printf("\tcm:i:%d", r->cnt);
-				if (r->p) printf("\ts1:i:%d", r->score);
-				if (r->parent == j) printf("\ts2:i:%d", r->subsc);
-				if (r->p) {
-					uint32_t k;
-					printf("\tNM:i:%d\tAS:i:%d\tnn:i:%d\tcg:Z:", r->p->n_diff, r->p->score, r->p->n_ambi);
-					for (k = 0; k < r->p->n_cigar; ++k)
-						printf("%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
-				}
-				putchar('\n');
+				mm_write_paf(&p->str, mi, t, j, r);
+				puts(p->str.s);
 				free(r->p);
 			}
 			free(s->reg[i]);
