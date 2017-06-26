@@ -248,7 +248,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			}
 			if (r == qlen + tlen - 2 && en0 == tlen - 1)
 				ez->score = H[tlen - 1];
-			if (flag & KSW_EZ_DYN_BAND) { // update band width
+			if (flag & KSW_EZ_DYN_BAND & 0) { // FIXME: don't use - buggy!
 				int lq, lt, l;
 				lt = tlen - st0, lq = qlen - (r - st0);
 				l = lt < lq? lt : lq;

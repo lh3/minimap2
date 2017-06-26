@@ -184,7 +184,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (i == r->cnt - 1 || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
-			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_DYN_BAND, ez);
+			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, 0, ez);
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
