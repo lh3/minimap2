@@ -9,7 +9,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r36-pre"
+#define MM_VERSION "2.0-r74-pre"
 
 void liftrlimit()
 {
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:Hp:m:z:F:")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:Hcp:m:z:F:")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
@@ -68,6 +68,7 @@ int main(int argc, char *argv[])
 		else if (c == 'N') keep_name = 0;
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'm') opt.mask_level = atof(optarg);
+		else if (c == 'c') opt.flag |= MM_F_CIGAR;
 		else if (c == 'D') opt.flag |= MM_F_NO_SELF;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
@@ -86,7 +87,7 @@ int main(int argc, char *argv[])
 			if (c == 'B') mini_batch_size = (uint64_t)(x + .499);
 			else batch_size = (uint64_t)(x + .499);
 		} else if (c == 'F') {
-			if (strcmp(optarg, "sam") == 0) opt.flag |= MM_F_OUT_SAM;
+			if (strcmp(optarg, "sam") == 0) opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 			else if (strcmp(optarg, "paf") == 0) opt.flag &= ~MM_F_OUT_SAM;
 			else {
 				fprintf(stderr, "[E::%s] unknown output format '%s'\n", __func__, optarg);
@@ -125,6 +126,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "               ava10k: -Sw5 -L100 -m0 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "  Input/Output:\n");
+		fprintf(stderr, "    -F STR     output format: sam or paf [paf]\n");
+		fprintf(stderr, "    -c         output CIGAR in PAF\n");
 		fprintf(stderr, "    -t INT     number of threads [%d]\n", n_threads);
 //		fprintf(stderr, "    -B NUM     process ~NUM bp in each mini-batch [100M]\n");
 //		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);

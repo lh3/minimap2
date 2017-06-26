@@ -9,7 +9,8 @@
 
 #define MM_F_NO_SELF   0x01
 #define MM_F_AVA       0x02
-#define MM_F_OUT_SAM   0x04
+#define MM_F_CIGAR     0x04
+#define MM_F_OUT_SAM   0x08
 
 #define MM_IDX_MAGIC   "MMI\2"
 
