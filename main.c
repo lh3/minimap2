@@ -1,4 +1,5 @@
 #include <getopt.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -9,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r74-pre"
+#define MM_VERSION "2.0-r76-pre"
 
 void liftrlimit()
 {
@@ -44,6 +45,7 @@ static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
 	{ "mb-size",        required_argument, 0, 0 },
 	{ "int-rname",      no_argument,       0, 0 },
+	{ "version",        no_argument,       0, 'V' },
 	{ 0, 0, 0, 0}
 };
 
