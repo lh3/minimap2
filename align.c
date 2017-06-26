@@ -179,10 +179,12 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		qs1 = qs - (ez->max_q + 1);
 		mm_seq_rev(qs - qs0, qseq);
 	} else rs1 = rs, qs1 = qs;
+	re1 = rs, qe1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < r->cnt; ++i) { // gap filling
 		mm_adjust_minier(mi, qseq0, &a[r->as + i], &re, &qe);
+		re1 = re, qe1 = qe;
 		if (i == r->cnt - 1 || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
@@ -197,8 +199,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 					if ((int32_t)a[r->as + j].x < re + ez->max_t)
 						break;
 				r->p->score += ez->max;
-				re1 = re + (ez->max_t + 1);
-				qe1 = qe + (ez->max_q + 1);
+				re1 = rs + (ez->max_t + 1);
+				qe1 = qs + (ez->max_q + 1);
 				mm_reg_split(r, r2, j + 1, qlen, a);
 				break;
 			} else { // FIXME: in rare cases, r->p can be NULL, which leads to a segfault
@@ -219,8 +221,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		}
 		re1 = re + (ez->max_t + 1);
 		qe1 = qe + (ez->max_q + 1);
-	} else if (r2->cnt == 0) {
-		re1 = re, qe1 = qe;
 	}
 	assert(qe1 <= qlen);
 
