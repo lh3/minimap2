@@ -1,4 +1,4 @@
-#include <unistd.h>
+#include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -40,11 +40,18 @@ static int test_idx(const char *fn)
 	return is_idx;
 }
 
+static struct option long_options[] = {
+	{ "bucket-bits",    required_argument, 0, 0 },
+	{ "mb-size",        required_argument, 0, 0 },
+	{ "int-rname",      no_argument,       0, 0 },
+	{ 0, 0, 0, 0}
+};
+
 int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
-	int i, c, k = 17, w = -1, b = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0;
-	int mini_batch_size = 100000000;
+	int i, c, k = 17, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx;
+	int minibatch_size = 100000000;
 	uint64_t batch_size = 4000000000ULL;
 	bseq_file_t *fp = 0;
 	char *fnw = 0;
@@ -54,10 +61,9 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:Hcp:m:z:F:")) >= 0) {
+	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:m:z:F:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
-		else if (c == 'b') b = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.bw = atoi(optarg);
@@ -65,27 +71,27 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
-		else if (c == 'N') keep_name = 0;
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'm') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_CIGAR;
-		else if (c == 'D') opt.flag |= MM_F_NO_SELF;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 's') opt.min_score = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
+		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // bucket-bits
+		else if (c == 0 && long_idx == 2) keep_name = 0; // int-rname
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
-		} else if (c == 'B' || c == 'I') {
+		} else if (c == 'I' || (c == 0 && long_idx == 1)) {
 			double x;
 			char *p;
 			x = strtod(optarg, &p);
 			if (*p == 'G' || *p == 'g') x *= 1e9;
 			else if (*p == 'M' || *p == 'm') x *= 1e6;
 			else if (*p == 'K' || *p == 'k') x *= 1e3;
-			if (c == 'B') mini_batch_size = (uint64_t)(x + .499);
-			else batch_size = (uint64_t)(x + .499);
+			if (c == 'I') batch_size = (uint64_t)(x + .499);
+			else minibatch_size = (uint64_t)(x + .499);
 		} else if (c == 'F') {
 			if (strcmp(optarg, "sam") == 0) opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 			else if (strcmp(optarg, "paf") == 0) opt.flag &= ~MM_F_OUT_SAM;
@@ -112,14 +118,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -w INT     minizer window size [{-k}*2/3]\n");
 		fprintf(stderr, "    -I NUM     split index for every ~NUM input bases [4G]\n");
 		fprintf(stderr, "    -d FILE    dump index to FILE []\n");
-//		fprintf(stderr, "    -b INT     bucket bits [%d]\n", b); // most users wouldn't care about this
 		fprintf(stderr, "  Mapping:\n");
 		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", opt.mid_occ_frac);
 		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.bw);
 		fprintf(stderr, "    -s INT     min score [%d]\n", opt.min_score);
 		fprintf(stderr, "    -g INT     split a mapping if there is a gap longer than INT [%d]\n", opt.max_gap);
 		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres);
-//		fprintf(stderr, "    -D         skip self mappings but keep dual mappings\n"); // too confusing to expose to end users
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
@@ -129,9 +133,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -F STR     output format: sam or paf [paf]\n");
 		fprintf(stderr, "    -c         output CIGAR in PAF\n");
 		fprintf(stderr, "    -t INT     number of threads [%d]\n", n_threads);
-//		fprintf(stderr, "    -B NUM     process ~NUM bp in each mini-batch [100M]\n");
 //		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);
-//		fprintf(stderr, "    -N         use integer as target names\n");
 		fprintf(stderr, "    -V         show version number\n");
 		fprintf(stderr, "\nSee minimap2.1 for detailed description of the command-line options.\n");
 		return 1;
@@ -149,7 +151,7 @@ int main(int argc, char *argv[])
 		mm_idx_t *mi = 0;
 		if (fpr) mi = mm_idx_load(fpr);
 		else if (!bseq_eof(fp))
-			mi = mm_idx_gen(fp, w, k, b, is_hpc, mini_batch_size, n_threads, batch_size, keep_name);
+			mi = mm_idx_gen(fp, w, k, bucket_bits, is_hpc, minibatch_size, n_threads, batch_size, keep_name);
 		if (mi == 0) break;
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
@@ -162,7 +164,7 @@ int main(int argc, char *argv[])
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		for (i = optind + 1; i < argc; ++i)
-			mm_map_file(mi, argv[i], &opt, n_threads, mini_batch_size);
+			mm_map_file(mi, argv[i], &opt, n_threads, minibatch_size);
 		mm_idx_destroy(mi);
 	}
 	if (fpw) fclose(fpw);

@@ -57,7 +57,10 @@ static void mm_sprintf_lite(kstring_t *s, const char *fmt, ...)
 void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_reg1_t *r)
 {
 	s->l = 0;
-	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t%s\t%d\t%d\t%d", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev], mi->seq[r->rid].name, mi->seq[r->rid].len, r->rs, r->re);
+	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
+	if (mi->seq[r->rid].name) mm_sprintf_lite(s, "%s", mi->seq[r->rid].name);
+	else mm_sprintf_lite(s, "%d", r->rid);
+	mm_sprintf_lite(s, "\t%d\t%d\t%d", mi->seq[r->rid].len, r->rs, r->re);
 	if (r->p) mm_sprintf_lite(s, "\t%d\t%d", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
 	else mm_sprintf_lite(s, "\t%d\t%d", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
 	mm_sprintf_lite(s, "\t%d\tcm:i:%d", r->mapq, r->cnt);
