@@ -58,9 +58,9 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_re
 {
 	s->l = 0;
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t%s\t%d\t%d\t%d", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev], mi->seq[r->rid].name, mi->seq[r->rid].len, r->rs, r->re);
-	if (r->p) mm_sprintf_lite(s, "\t%d\t%d\t255", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
-	else mm_sprintf_lite(s, "\t%d\t%d\t255", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
-	mm_sprintf_lite(s, "\tcm:i:%d", r->cnt);
+	if (r->p) mm_sprintf_lite(s, "\t%d\t%d", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
+	else mm_sprintf_lite(s, "\t%d\t%d", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
+	mm_sprintf_lite(s, "\t%d\tcm:i:%d", r->mapq, r->cnt);
 	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
 	if (r->parent == which) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
 	if (r->p) {
@@ -69,4 +69,51 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_re
 		for (k = 0; k < r->p->n_cigar; ++k)
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
 	}
+}
+
+static char comp_tab[] = {
+	  0,   1,	2,	 3,	  4,   5,	6,	 7,	  8,   9,  10,	11,	 12,  13,  14,	15,
+	 16,  17,  18,	19,	 20,  21,  22,	23,	 24,  25,  26,	27,	 28,  29,  30,	31,
+	 32,  33,  34,	35,	 36,  37,  38,	39,	 40,  41,  42,	43,	 44,  45,  46,	47,
+	 48,  49,  50,	51,	 52,  53,  54,	55,	 56,  57,  58,	59,	 60,  61,  62,	63,
+	 64, 'T', 'V', 'G', 'H', 'E', 'F', 'C', 'D', 'I', 'J', 'M', 'L', 'K', 'N', 'O',
+	'P', 'Q', 'Y', 'S', 'A', 'A', 'B', 'W', 'X', 'R', 'Z',	91,	 92,  93,  94,	95,
+	 64, 't', 'v', 'g', 'h', 'e', 'f', 'c', 'd', 'i', 'j', 'm', 'l', 'k', 'n', 'o',
+	'p', 'q', 'y', 's', 'a', 'a', 'b', 'w', 'x', 'r', 'z', 123, 124, 125, 126, 127
+};
+
+static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
+{
+	if (rev) {
+		int i;
+		str_enlarge(s, l);
+		for (i = 0; i < l; ++i) {
+			int c = seq[l - 1 - i];
+			s->s[s->l + i] = c < 128 && comp? comp_tab[c] : c;
+		}
+		s->l += l;
+	} else str_copy(s, seq, seq + l);
+}
+
+void mm_write_sam(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_reg1_t *r)
+{
+	int flag = 0;
+	s->l = 0;
+	if (r->rev) flag |= 0x10;
+	if (r->parent != which) flag |= 0x80;
+	mm_sprintf_lite(s, "%s\t%d\t%s\t%d\t%d\t", t->name, flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
+	if (r->p) { // TODO: using hard clippings
+		uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
+		if (clip_len) mm_sprintf_lite(s, "%dS", clip_len);
+		for (k = 0; k < r->p->n_cigar; ++k)
+			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
+		clip_len = r->rev? r->qs : t->l_seq - r->qe;
+		if (clip_len) mm_sprintf_lite(s, "%dS", clip_len);
+	} else mm_sprintf_lite(s, "*");
+	mm_sprintf_lite(s, "\t*\t0\t0\t");
+	sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
+	mm_sprintf_lite(s, "\t*\tcm:i:%d", r->cnt);
+	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
+	if (r->parent == which) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
+	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->score, r->p->n_ambi);
 }

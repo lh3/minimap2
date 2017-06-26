@@ -306,7 +306,6 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, m
 	if (opt->sdust_thres > 0)
 		mm_dust_minier(&b->mini, l_seq, seq, opt->sdust_thres, b->sdb);
 	regs = mm_map_frag(opt, mi, b, 0, b->mini.n, qname, l_seq, seq, n_regs);
-//	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
 	return regs;
 }
 
@@ -368,7 +367,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
-				mm_write_paf(&p->str, mi, t, j, r);
+				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, j, r);
+				else mm_write_paf(&p->str, mi, t, j, r);
 				puts(p->str.s);
 				free(r->p);
 			}
@@ -389,7 +389,13 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 	if (pl.fp == 0) return -1;
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads, pl.mini_batch_size = mini_batch_size;
+	if (opt->flag & MM_F_OUT_SAM) {
+		uint32_t i;
+		for (i = 0; i < idx->n_seq; ++i)
+			printf("@SQ\tID:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
+	}
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
+	free(pl.str.s);
 	bseq_close(pl.fp);
 	return 0;
 }

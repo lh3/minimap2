@@ -7,8 +7,9 @@
 
 #define MM_IDX_DEF_B    14
 
-#define MM_F_NO_SELF   0x2
-#define MM_F_AVA       0x8
+#define MM_F_NO_SELF   0x01
+#define MM_F_AVA       0x02
+#define MM_F_OUT_SAM   0x04
 
 #define MM_IDX_MAGIC   "MMI\2"
 
@@ -57,6 +58,7 @@ typedef struct {
 	int32_t qs, qe, rs, re;
 	int32_t parent, subsc;
 	int32_t as;
+	int32_t mapq, n_sub; // TODO: n_sub is not used for now
 	mm_extra_t *p;
 } mm_reg1_t;
 

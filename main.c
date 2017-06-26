@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:Hp:m:z:")) >= 0) {
+	while ((c = getopt(argc, argv, "w:k:B:b:t:r:f:Vv:Ng:I:d:ST:s:Dx:Hp:m:z:F:")) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'b') b = atoi(optarg);
@@ -85,6 +85,13 @@ int main(int argc, char *argv[])
 			else if (*p == 'K' || *p == 'k') x *= 1e3;
 			if (c == 'B') mini_batch_size = (uint64_t)(x + .499);
 			else batch_size = (uint64_t)(x + .499);
+		} else if (c == 'F') {
+			if (strcmp(optarg, "sam") == 0) opt.flag |= MM_F_OUT_SAM;
+			else if (strcmp(optarg, "paf") == 0) opt.flag &= ~MM_F_OUT_SAM;
+			else {
+				fprintf(stderr, "[E::%s] unknown output format '%s'\n", __func__, optarg);
+				return 0;
+			}
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
