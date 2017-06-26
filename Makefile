@@ -1,6 +1,6 @@
 CC=			gcc
 CFLAGS=		-g -Wall -O2 -Wc++-compat -Wno-unused-function
-CPPFLAGS=
+CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=	-I.
 OBJS=		kalloc.o kthread.o misc.o bseq.o sketch.o chain.o align.o sdust.o \
 			index.o format.o map.o ksw2_extz2_sse.o
