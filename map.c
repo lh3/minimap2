@@ -55,7 +55,7 @@ mm_tbuf_t *mm_tbuf_init(void)
 {
 	mm_tbuf_t *b;
 	b = (mm_tbuf_t*)calloc(1, sizeof(mm_tbuf_t));
-//	b->km = km_init();
+	b->km = km_init();
 	b->sdb = sdust_buf_init(b->km);
 	return b;
 }
@@ -369,6 +369,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
+				if (r->p && r->p->blen - r->p->n_ambi - r->p->n_diff < p->opt->min_score)
+					continue;
 				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, j, r);
 				else mm_write_paf(&p->str, mi, t, j, r);
 				puts(p->str.s);
