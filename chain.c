@@ -40,7 +40,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
 			int32_t dq = qi - (int32_t)a[j].y, dd, sc;
-			if (dq <= 0 || dq > max_dist) continue;
+			if (dr == 0 || dq <= 0 || dq > max_dist) continue;
 			if (t[j] == i) {
 				if (p[j] >= 0) t[p[j]] = i;
 				if (++n_skip > max_skip) break;

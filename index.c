@@ -371,6 +371,7 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		fread(s->name, 1, l, fp);
 		s->name[l] = 0;
 		fread(&s->len, 4, 1, fp);
+		s->offset = sum_len;
 		sum_len += s->len;
 	}
 	for (i = 0; i < 1<<mi->b; ++i) {

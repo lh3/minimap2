@@ -55,7 +55,7 @@ mm_tbuf_t *mm_tbuf_init(void)
 {
 	mm_tbuf_t *b;
 	b = (mm_tbuf_t*)calloc(1, sizeof(mm_tbuf_t));
-	b->km = km_init();
+//	b->km = km_init();
 	b->sdb = sdust_buf_init(b->km);
 	return b;
 }

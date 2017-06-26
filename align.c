@@ -170,9 +170,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
 		ksw_extz2_sse(km, qs - qs0, qseq, rs - rs0, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
-		mm_append_cigar(r, ez->n_cigar, ez->cigar);
-		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 1);
-		r->p->score += ez->max;
+		if (ez->n_cigar > 0) {
+			mm_append_cigar(r, ez->n_cigar, ez->cigar);
+			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 1);
+			r->p->score += ez->max;
+		}
 		rs1 = rs - (ez->max_t + 1);
 		qs1 = qs - (ez->max_q + 1);
 		mm_seq_rev(qs - qs0, qseq);
@@ -185,8 +187,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
 			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, 0, ez);
-			mm_append_cigar(r, ez->n_cigar, ez->cigar);
-			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
+			if (ez->n_cigar > 0) {
+				mm_append_cigar(r, ez->n_cigar, ez->cigar);
+				mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
+			}
 			if (ez->score == KSW_NEG_INF) { // truncated by Z-drop
 				int j;
 				for (j = i - 1; j >= 0; --j)
@@ -197,7 +201,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				qe1 = qe + (ez->max_q + 1);
 				mm_reg_split(r, r2, j + 1, qlen, a);
 				break;
-			} else {
+			} else { // FIXME: in rare cases, r->p can be NULL, which leads to a segfault
 				r->p->score += ez->score;
 			}
 			rs = re, qs = qe;
@@ -208,9 +212,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		qseq = &qseq0[rev][qe];
 		mm_idx_getseq(mi, rid, re, re0, tseq);
 		ksw_extz2_sse(km, qe0 - qe, qseq, re0 - re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
-		mm_append_cigar(r, ez->n_cigar, ez->cigar);
-		mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
-		r->p->score += ez->max;
+		if (ez->n_cigar > 0) {
+			mm_append_cigar(r, ez->n_cigar, ez->cigar);
+			mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
+			r->p->score += ez->max;
+		}
 		re1 = re + (ez->max_t + 1);
 		qe1 = qe + (ez->max_q + 1);
 	} else if (r2->cnt == 0) {
