@@ -48,7 +48,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	b = _mm_sub_epi8(b, z);
 
 	int r, t, qe = q + e, n_col_, *off = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc;
-	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), with_max = !(flag&KSW_EZ_GLOBAL_ONLY);
+	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
 	__m128i q_, qe2_, zero_, flag1_, flag2_, flag4_, flag32_, sc_mch_, sc_mis_, m1_;
@@ -79,7 +79,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	mem = (uint8_t*)kcalloc(km, tlen_ * 6 + qlen_ + 1, 16);
 	u = (__m128i*)(((size_t)mem + 15) >> 4 << 4); // 16-byte aligned
 	v = u + tlen_, x = v + tlen_, y = x + tlen_, s = y + tlen_, sf = (uint8_t*)(s + tlen_), qr = sf + tlen_ * 16;
-	if (with_max) {
+	if (!approx_max) {
 		H = (int32_t*)kmalloc(km, tlen_ * 16 * 4);
 		for (t = 0; t < tlen_ * 16; ++t) H[t] = KSW_NEG_INF;
 	}
@@ -209,13 +209,14 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				_mm_store_si128(&pr[t], d);
 			}
 		}
-		if (with_max) {
+		if (!approx_max) { // find the exact max with a 32-bit score array
 			int32_t max_H, max_t;
 			// compute H[], max_H and max_t
 			if (r > 0) {
 				int32_t HH[4], tt[4], en1 = st0 + (en0 - st0) / 4 * 4, i;
 				__m128i max_H_, max_t_, qe_;
-				max_H = H[en0] = H[en0-1] + u8[en0] - qe, max_t = en0; // special casing last H
+				max_H = H[en0] = en0 > 0? H[en0-1] + u8[en0] - qe : H[en0] + v8[en0] - qe; // special casing the last element
+				max_t = en0;
 				max_H_ = _mm_set1_epi32(max_H);
 				max_t_ = _mm_set1_epi32(max_t);
 				qe_    = _mm_set1_epi32(q + e);
@@ -263,7 +264,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				l = lt < lq? lt : lq;
 				if (H[en0] + l * max_sc < ez->max - zdrop && wl > 1) --wl;
 			}
-		} else {
+		} else { // find approximate max; Z-drop might be inaccurate, too.
 			if (r > 0) {
 				if (last_H0_t >= st0 && last_H0_t <= en0 && last_H0_t + 1 >= st0 && last_H0_t + 1 <= en0) {
 					int32_t d0 = v8[last_H0_t] - qe;
@@ -284,7 +285,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		//for (t = st0; t <= en0; ++t) printf("(%d,%d)\t(%d,%d,%d,%d)\t%d\n", r, t, ((int8_t*)u)[t], ((int8_t*)v)[t], ((int8_t*)x)[t], ((int8_t*)y)[t], H[t]); // for debugging
 	}
 	kfree(km, mem);
-	if (with_max) kfree(km, H);
+	if (!approx_max) kfree(km, H);
 	if (with_cigar) { // backtrack
 		int rev_cigar = !!(flag & KSW_EZ_REV_CIGAR);
 		if (!ez->zdropped && !(flag&KSW_EZ_EXTZ_ONLY))

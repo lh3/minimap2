@@ -8,7 +8,7 @@
 #define KSW_EZ_SCORE_ONLY  0x01 // don't record alignment path/cigar
 #define KSW_EZ_RIGHT       0x02 // right-align gaps
 #define KSW_EZ_GENERIC_SC  0x04 // without this flag: match/mismatch only; last symbol is a wildcard
-#define KSW_EZ_GLOBAL_ONLY 0x08 // don't record best score and ignore z-drop; significantly faster
+#define KSW_EZ_APPROX_MAX  0x08 // approximate max and Z-drop; this is faster
 #define KSW_EZ_DYN_BAND    0x10 // once used, ksw_extz_t::{mqe,mte} may be wrong
 #define KSW_EZ_EXTZ_ONLY   0x20 // only perform extension
 #define KSW_EZ_REV_CIGAR   0x40 // reverse CIGAR in the output
