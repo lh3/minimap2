@@ -14,7 +14,8 @@
 #define KSW_EZ_REV_CIGAR   0x40 // reverse CIGAR in the output
 
 typedef struct {
-	int max, max_q, max_t; // max extension score and coordinate
+	uint32_t max:31, zdropped:1;
+	int max_q, max_t;      // max extension coordinate
 	int mqe, mqe_t;        // max score when reaching the end of query
 	int mte, mte_q;        // max score when reaching the end of target
 	int score;             // max score reaching both ends; may be KSW_NEG_INF
@@ -112,24 +113,11 @@ static inline void ksw_backtrack(void *km, int is_rot, int is_rev, const uint8_t
 	*m_cigar_ = m_cigar, *n_cigar_ = n_cigar, *cigar_ = cigar;
 }
 
-static inline int ksw_cigar2score(int8_t m, const int8_t *mat, int8_t q, int8_t e, const uint8_t *query, const uint8_t *target, int n_cigar, const uint32_t *cigar)
+static inline void ksw_reset_extz(ksw_extz_t *ez)
 {
-	int i, j, k, l, score;
-	for (k = 0, score = 0, i = j = 0; k < n_cigar; ++k) {
-		int op = cigar[k] & 0xf, len = cigar[k] >> 4;
-		if (op == 0) {
-			for (l = 0; l < len; ++l)
-				score += mat[target[i + l] * m + query[j + l]];
-			i += len, j += len;
-		} else if (op == 1) {
-			score -= q + len * e;
-			j += len;
-		} else if (op == 2) {
-			score -= q + len * e;
-			i += len;
-		}
-	}
-	return score;
+	ez->max_q = ez->max_t = ez->mqe_t = ez->mte_q = -1;
+	ez->max = 0, ez->score = ez->mqe = ez->mte = KSW_NEG_INF;
+	ez->n_cigar = 0, ez->zdropped = 0;
 }
 
 #endif
