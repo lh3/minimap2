@@ -125,8 +125,6 @@ void kfree(void *_km, void *ap)
 	} else km->loop_head = p, q[1] = (size_t)p; /* in two cores, cannot be merged */
 }
 
-#define round_up(v) (--(v), (v)|=(v)>>1, (v)|=(v)>>2, (v)|=(v)>>4, (v)|=(v)>>8, (v)|=(v)>>16, (v)|=(v)>>32, ++(v))
-
 void *krealloc(void *_km, void *ap, size_t n_bytes)
 {
 	kmem_t *km = (kmem_t*)_km;
@@ -139,9 +137,9 @@ void *krealloc(void *_km, void *ap, size_t n_bytes)
 	if (!ap) return kmalloc(km, n_bytes);
 	n_units = 1 + (n_bytes + sizeof(size_t) - 1) / sizeof(size_t);
 	p = (size_t*)ap - 1;
-	if (*p >= n_units) return ap;
+	if (*p >= n_units) return ap; /* TODO: this prevents shrinking */
 	q = (size_t*)kmalloc(km, n_bytes);
-	if (q != ap) memcpy(q, ap, (*p - 1) * sizeof(size_t));
+	memcpy(q, ap, (*p - 1) * sizeof(size_t));
 	kfree(km, ap);
 	return q;
 }
@@ -156,7 +154,6 @@ void *kmalloc(void *_km, size_t n_bytes)
 	/* "n_units" means the number of units. The size of one unit equals to sizeof(kheader_t).
 	 * "1" is the kheader_t of a block, which is always required. */
 	n_units = 1 + (n_bytes + sizeof(size_t) - 1) / sizeof(size_t);
-	round_up(n_units);
 
 	if (!(q = km->loop_head)) { /* the first time when kmalloc() is called, intialization */
 		km->base[1] = (size_t)(km->loop_head = q = km->base); *q = 0;
