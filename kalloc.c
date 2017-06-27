@@ -154,6 +154,7 @@ void *kmalloc(void *_km, size_t n_bytes)
 	/* "n_units" means the number of units. The size of one unit equals to sizeof(kheader_t).
 	 * "1" is the kheader_t of a block, which is always required. */
 	n_units = 1 + (n_bytes + sizeof(size_t) - 1) / sizeof(size_t);
+	if (n_units&1) ++n_units; /* make n_units an even number, or it will segfault if only one unit remains */
 
 	if (!(q = km->loop_head)) { /* the first time when kmalloc() is called, intialization */
 		km->base[1] = (size_t)(km->loop_head = q = km->base); *q = 0;
