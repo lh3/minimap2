@@ -102,6 +102,10 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		if (en > r) en = r;
 		if (st < (r-wr+1)>>1) st = (r-wr+1)>>1; // take the ceil
 		if (en > (r+wl)>>1) en = (r+wl)>>1; // take the floor
+		if (st > en) {
+			ez->zdropped = 1;
+			break;
+		}
 		st0 = st, en0 = en;
 		st = st / 16 * 16, en = (en + 16) / 16 * 16 - 1;
 		// set boundary conditions
