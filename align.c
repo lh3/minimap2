@@ -41,6 +41,41 @@ static void mm_reg_split(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *
 	r->split = r2->split = 1;
 }
 
+static inline int test_zdrop_aux(int32_t score, int i, int j, int32_t *max, int *max_i, int *max_j, int e, int zdrop)
+{
+	if (score < *max) {
+		int li = i - *max_i;
+		int lj = j - *max_j;
+		int diff = li > lj? li - lj : lj - li;
+		if (*max - score > zdrop + diff * e)
+			return 1;
+	} else *max = score, *max_i = i, *max_j = j;
+	return 0;
+}
+
+static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_cigar, uint32_t *cigar, const int8_t *mat, int8_t q, int8_t e, int zdrop)
+{
+	uint32_t k;
+	int32_t score = 0, max = 0, max_i = -1, max_j = -1, i = 0, j = 0;
+	for (k = 0; k < n_cigar; ++k) {
+		uint32_t l, op = cigar[k]&0xf, len = cigar[k]>>4;
+		if (op == 0) {
+			for (l = 0; l < len; ++l) {
+				score += mat[tseq[i + l] * 5 + qseq[j + l]];
+				if (test_zdrop_aux(score, i+l, j+l, &max, &max_i, &max_j, e, zdrop)) return 1;
+			}
+			i += len, j += len;
+		} else if (op == 1) {
+			score -= q + e * len, j += len;
+			if (test_zdrop_aux(score, i, j, &max, &max_i, &max_j, e, zdrop)) return 1;
+		} else if (op == 2) {
+			score -= q + e * len, i += len;
+			if (test_zdrop_aux(score, i, j, &max, &max_i, &max_j, e, zdrop)) return 1;
+		}
+	}
+	return 0;
+}
+
 static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, uint32_t n_cigar, uint32_t *cigar, int rev_cigar)
 {
 	uint32_t l, toff = 0, qoff = 0;
@@ -189,7 +224,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
 			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_GLOBAL_ONLY, ez);
-			if (ez->zdropped || ez->score < 0)
+			if (ez->zdropped || ez->score < 0 || mm_check_zdrop(qseq, tseq, ez->n_cigar, ez->cigar, mat, opt->q, opt->e, opt->zdrop))
 				ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, 0, ez);
 			if (ez->n_cigar > 0) {
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
