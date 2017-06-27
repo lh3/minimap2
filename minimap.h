@@ -71,7 +71,7 @@ typedef struct {
 	int bw;  // bandwidth
 	int max_gap; // break a chain if there are no minimizers in a max_gap window
 	int max_skip;
-	int min_score;
+	int min_cnt, min_score;
 	float pri_ratio;
 	float mask_level;
 	int a, b, q, e; // matching score, mismatch, gap-open and gap-ext penalties

@@ -19,7 +19,7 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *a, uint64_t **_u, void *km)
+int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int n, mm128_t *a, uint64_t **_u, void *km)
 {
 	int32_t st = 0, i, j, k, *f, *p, *t, *v, n_u, n_v;
 	uint64_t *u;
@@ -88,8 +88,10 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_sc, int n, mm128_t *
 			t[j] = 1;
 			j = p[j];
 		} while (j >= 0 && t[j] == 0);
-		if (j < 0) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
-		else if ((int32_t)(u[i]>>32) - f[j] >= min_sc) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
+		if (j < 0 && n_v - n_v0 >= min_cnt)
+			u[k++] = u[i]>>32<<32 | (n_v - n_v0);
+		else if ((int32_t)(u[i]>>32) - f[j] >= min_sc && n_v - n_v0 >= min_cnt)
+			u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
 		else n_v = n_v0;
 	}
 	n_u = k, *_u = u;

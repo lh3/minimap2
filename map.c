@@ -14,8 +14,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0;
 
+	opt->min_cnt = 3;
 	opt->min_score = 40;
-	opt->bw = 1000;
+	opt->bw = 10000;
 	opt->max_gap = 10000;
 	opt->max_skip = 15;
 
@@ -286,7 +287,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	kfree(b->km, m);
 	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x, (uint32_t)a[i].y);
 
-	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_score, n_a, a, &u, b->km);
+	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_cnt, opt->min_score, n_a, a, &u, b->km);
 	regs = mm_gen_reg(qlen, n_u, u, a);
 	*n_regs = n_u;
 	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);

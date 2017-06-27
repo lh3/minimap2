@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r88-pre"
+#define MM_VERSION "2.0-r89-pre"
 
 void liftrlimit()
 {
@@ -46,6 +46,9 @@ static struct option long_options[] = {
 	{ "mb-size",        required_argument, 0, 0 },
 	{ "int-rname",      no_argument,       0, 0 },
 	{ "version",        no_argument,       0, 'V' },
+	{ "min-count",      required_argument, 0, 'n' },
+	{ "min-chain-score",required_argument, 0, 's' },
+	{ "mask-level",     required_argument, 0, 'M' },
 	{ 0, 0, 0, 0}
 };
 
@@ -63,7 +66,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:m:z:F:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:F:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -74,10 +77,11 @@ int main(int argc, char *argv[])
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
-		else if (c == 'm') opt.mask_level = atof(optarg);
+		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_CIGAR;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
+		else if (c == 'n') opt.min_cnt = atoi(optarg);
 		else if (c == 's') opt.min_score = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // bucket-bits
@@ -123,7 +127,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "  Mapping:\n");
 		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", opt.mid_occ_frac);
 		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.bw);
-		fprintf(stderr, "    -s INT     min score [%d]\n", opt.min_score);
+		fprintf(stderr, "    -n INT     minimal number of minimizers [%d]\n", opt.min_cnt);
+		fprintf(stderr, "    -s INT     minimal chaining score (this is not SW score) [%d]\n", opt.min_score);
 		fprintf(stderr, "    -g INT     split a mapping if there is a gap longer than INT [%d]\n", opt.max_gap);
 		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres);
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
