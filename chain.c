@@ -81,7 +81,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	memset(t, 0, n * 4);
 	v = (int32_t*)kmalloc(km, n * 4);
 	for (i = n_v = k = 0; i < n_u; ++i) { // starting from the highest score
-		int32_t n_v0 = n_v;
+		int32_t n_v0 = n_v, k0 = k;
 		j = (int32_t)u[i];
 		do {
 			v[n_v++] = j;
@@ -92,7 +92,8 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			if (n_v - n_v0 >= min_cnt) u[k++] = u[i]>>32<<32 | (n_v - n_v0);
 		} else if ((int32_t)(u[i]>>32) - f[j] >= min_sc) {
 			if (n_v - n_v0 >= min_cnt) u[k++] = ((u[i]>>32) - f[j]) << 32 | (n_v - n_v0);
-		} else n_v = n_v0;
+		}
+		if (k0 == k) n_v = n_v0; // no new chain added, reset
 	}
 	n_u = k, *_u = u;
 
