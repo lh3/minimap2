@@ -99,7 +99,6 @@ static inline void ksw_backtrack(void *km, int is_rot, int is_rev, const uint8_t
 		if (is_rot) r = i + j, tmp = p[r * n_col + i - off[r]];
 		else tmp = p[i * n_col + j - off[i]];
 		which = tmp >> (which << 1) & 3;
-		if (which == 0 && tmp>>6) break;
 		if (which == 0) which = tmp & 3;
 		if (which == 0)      cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 0, 1), --i, --j; // match
 		else if (which == 1) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 2, 1), --i;      // deletion

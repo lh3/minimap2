@@ -95,7 +95,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	for (r = 0, last_st = last_en = -1; r < qlen + tlen - 1; ++r) {
 		int st = 0, en = tlen - 1, st0, en0, st_, en_;
 		int8_t x1, v1;
-		uint8_t *qrr = qr + (qlen - 1 - r), *u8 = (uint8_t*)u, *v8 = (uint8_t*)v;
+		uint8_t *qrr = qr + (qlen - 1 - r), *u8 = (uint8_t*)u, *v8 = (uint8_t*)v, *x8 = (uint8_t*)x, p_en0 = 0;
 		__m128i x1_, v1_;
 		// find the boundaries
 		if (st < r - qlen + 1) st = r - qlen + 1;
@@ -163,6 +163,13 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		} else if (!(flag&KSW_EZ_RIGHT)) { // gap left-alignment
 			__m128i *pr = p + r * n_col_ - st_;
 			off[r] = st;
+			if (en0 < r) { // to avoid backtracking out of the band; this assumes a fixed band
+				int8_t a, z = ((uint8_t*)s)[en0] + 2 * qe;
+				a = x8[en0-1] + v8[en0-1];
+				p_en0 = a > z? 1 : 0;
+				z = a > z? a : z;
+				p_en0 |= a - (z - q) > 0? 1<<2 : 0;
+			}
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, xt1, vt1, ut, tmp;
 				__dp_code_block1;
@@ -189,6 +196,13 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		} else { // gap right-alignment
 			__m128i *pr = p + r * n_col_ - st_;
 			off[r] = st;
+			if (en0 < r) {
+				int8_t a, z = ((uint8_t*)s)[en0] + 2 * qe;
+				a = x8[en0-1] + v8[en0-1];
+				p_en0 = a >= z? 1 : 0;
+				z = a >= z? a : z;
+				p_en0 |= a - (z - q) >= 0? 1<<2 : 0;
+			}
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, xt1, vt1, ut, tmp;
 				__dp_code_block1;
@@ -213,6 +227,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				_mm_store_si128(&pr[t], d);
 			}
 		}
+		if (with_cigar && en0 < r) ((uint8_t*)(p + r * n_col_))[en0 - st] = p_en0;
 		if (!approx_max) { // find the exact max with a 32-bit score array
 			int32_t max_H, max_t;
 			// compute H[], max_H and max_t
