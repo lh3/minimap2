@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r92-pre"
+#define MM_VERSION "2.0-r93-pre"
 
 void liftrlimit()
 {
@@ -47,8 +47,9 @@ static struct option long_options[] = {
 	{ "int-rname",      no_argument,       0, 0 },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
-	{ "min-chain-score",required_argument, 0, 's' },
+	{ "min-chain-score",required_argument, 0, 'm' },
 	{ "mask-level",     required_argument, 0, 'M' },
+	{ "min-dp-score",   required_argument, 0, 's' },
 	{ 0, 0, 0, 0}
 };
 
@@ -66,7 +67,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:F:A:B:O:E:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:F:A:B:O:E:m:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -82,12 +83,13 @@ int main(int argc, char *argv[])
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
-		else if (c == 's') opt.min_score = atoi(optarg);
+		else if (c == 'm') opt.min_chain_score = atoi(optarg);
 		else if (c == 'A') opt.a = atoi(optarg);
 		else if (c == 'B') opt.b = atoi(optarg);
 		else if (c == 'O') opt.q = atoi(optarg);
 		else if (c == 'E') opt.e = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
+		else if (c == 's') opt.min_dp_score = atoi(optarg);
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // bucket-bits
 		else if (c == 0 && long_idx == 2) keep_name = 0; // int-rname
 		else if (c == 'V') {
@@ -112,7 +114,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-				opt.min_score = 100, opt.pri_ratio = 0.0f;
+				opt.min_chain_score = 100, opt.pri_ratio = 0.0f;
 				is_hpc = 1, k = 19, w = 5;
 			}
 		}
@@ -132,19 +134,20 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", opt.mid_occ_frac);
 		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.bw);
 		fprintf(stderr, "    -n INT     minimal number of minimizers [%d]\n", opt.min_cnt);
-		fprintf(stderr, "    -s INT     minimal chaining score (this is not SW score) [%d]\n", opt.min_score);
+		fprintf(stderr, "    -m INT     minimal chaining score [%d]\n", opt.min_chain_score);
 		fprintf(stderr, "    -g INT     split a mapping if there is a gap longer than INT [%d]\n", opt.max_gap);
 		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres);
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -s100 (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT     matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT     mismatch penalty [%d]\n", opt.b);
 		fprintf(stderr, "    -O INT     gap open penalty [%d]\n", opt.q);
 		fprintf(stderr, "    -E INT     gap extension penalty; a k-long gap costs {-O}+k*{-E} [%d]\n", opt.e);
 		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
+		fprintf(stderr, "    -s INT     minimal DP alignment score [%d]\n", opt.min_dp_score);
 		fprintf(stderr, "  Input/Output:\n");
 		fprintf(stderr, "    -F STR     output format: sam or paf [paf]\n");
 		fprintf(stderr, "    -c         output CIGAR in PAF\n");

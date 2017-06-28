@@ -53,13 +53,14 @@ typedef struct {
 } mm_extra_t;
 
 typedef struct {
+	int32_t id;
 	uint32_t cnt:30, rev:1, split:1;
 	uint32_t rid:31, rep:1;
 	int32_t score;
 	int32_t qs, qe, rs, re;
 	int32_t parent, subsc;
 	int32_t as;
-	int32_t mapq, n_sub; // TODO: n_sub is not used for now
+	uint32_t mapq:8, n_sub:24; // TODO: n_sub is not used for now
 	mm_extra_t *p;
 } mm_reg1_t;
 
@@ -70,8 +71,10 @@ typedef struct {
 	int flag;    // see MM_F_* macros
 	int bw;  // bandwidth
 	int max_gap; // break a chain if there are no minimizers in a max_gap window
-	int max_skip;
-	int min_cnt, min_score;
+	int max_chain_skip;
+	int min_cnt;
+	int min_chain_score;
+	int min_dp_score;
 	float pri_ratio;
 	float mask_level;
 	int a, b, q, e; // matching score, mismatch, gap-open and gap-ext penalties

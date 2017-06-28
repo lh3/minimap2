@@ -15,16 +15,17 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->sdust_thres = 0;
 
 	opt->min_cnt = 3;
-	opt->min_score = 40;
+	opt->min_chain_score = 40;
 	opt->bw = 1000;
 	opt->max_gap = 10000;
-	opt->max_skip = 15;
+	opt->max_chain_skip = 15;
 
 	opt->pri_ratio = 2.0f;
 	opt->mask_level = 0.5f;
 
 	opt->a = 1, opt->b = 1, opt->q = 1, opt->e = 1;
 	opt->zdrop = 100;
+	opt->min_dp_score = 0;
 	opt->min_ksw_len = 100;
 }
 
@@ -165,6 +166,7 @@ mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
 	r = (mm_reg1_t*)calloc(n_u, sizeof(mm_reg1_t));
 	for (i = k = 0; i < n_u; ++i) {
 		mm_reg1_t *ri = &r[i];
+		ri->id = i;
 		ri->parent = -1, ri->subsc = 0;
 		ri->score = u[i]>>32;
 		ri->cnt = (int32_t)u[i];
@@ -210,11 +212,12 @@ void mm_select_sub(float mask_level, float pri_ratio, int *n_, mm_reg1_t *r, voi
 			if (r[i].parent == i || r[i].score >= r[r[i].parent].score * pri_ratio)
 				tmp[i] = k, r[k++] = r[i];
 		n = k;
-		for (i = 0; i < n; ++i)
+		for (i = 0; i < n; ++i) // remap mm_reg1_t::parent, as some mappings may have been dropped
 			if (tmp[r[i].parent] >= 0)
 				r[i].parent = tmp[r[i].parent];
 		kfree(km, tmp);
 		*n_ = n;
+		for (i = 0; i < n; ++i) r[i].id = i; // reset mm_reg1_t::id
 	}
 }
 
@@ -286,9 +289,8 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	for (i = 0; i < n; ++i)
 		if (m[i].is_alloc) kfree(b->km, m[i].x.r);
 	kfree(b->km, m);
-	//for (i = 0; i < n_a; ++i) printf("%c\t%s\t%d\t%d\n", "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (uint32_t)a[i].x, (uint32_t)a[i].y);
 
-	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_skip, opt->min_cnt, opt->min_score, n_a, a, &u, b->km);
+	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
 	regs = mm_gen_reg(qlen, n_u, u, a);
 	*n_regs = n_u;
 	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
@@ -371,8 +373,6 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
-				if (r->p && r->p->blen - r->p->n_ambi - r->p->n_diff < p->opt->min_score)
-					continue;
 				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, j, r);
 				else mm_write_paf(&p->str, mi, t, j, r);
 				puts(p->str.s);

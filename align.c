@@ -30,6 +30,7 @@ static void mm_reg_split(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *
 {
 	if (n <= 0 || n >= r->cnt) return;
 	*r2 = *r;
+	r2->id = -1;
 	r2->p = 0;
 	r2->cnt = r->cnt - n;
 	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
@@ -243,7 +244,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				r->p->score += ez->max;
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
-				mm_reg_split(r, r2, j + 1, qlen, a);
+				if (r->cnt - (j + 1) >= opt->min_cnt) {
+					mm_reg_split(r, r2, j + 1, qlen, a);
+					if (j + 1 < opt->min_cnt)
+						r2->id = r->id, r->id = -1;
+				}
 				break;
 			} else { // FIXME: in rare cases, r->p can be NULL, which leads to a segfault
 				r->p->score += ez->score;
@@ -252,7 +257,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		}
 	}
 
-	if (r2->cnt == 0 && qe < qe0 && re < re0) { // right extension
+	if (i == r->cnt && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
 		mm_idx_getseq(mi, rid, re, re0, tseq);
 		ksw_extz2_sse(km, qe0 - qe, qseq, re0 - re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
@@ -276,11 +281,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
 {
 	extern unsigned char seq_nt4_table[256];
-	int i, r, n_regs = *n_regs_;
+	int32_t i, r, n_regs = *n_regs_;
 	uint8_t *qseq0[2];
 	ksw_extz_t ez;
 
-	memset(&ez, 0, sizeof(ksw_extz_t));
+	// encode the query sequence
 	qseq0[0] = (uint8_t*)kmalloc(km, qlen);
 	qseq0[1] = (uint8_t*)kmalloc(km, qlen);
 	for (i = 0; i < qlen; ++i) {
@@ -288,6 +293,8 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 		qseq0[1][qlen - 1 - i] = qseq0[0][i] < 4? 3 - qseq0[0][i] : 4;
 	}
 
+	// align through seed hits
+	memset(&ez, 0, sizeof(ksw_extz_t));
 	for (r = 0; r < n_regs; ++r) {
 		mm_reg1_t r2;
 		mm_align1(km, opt, mi, qlen, qseq0, &regs[r], &r2, a, &ez);
@@ -299,8 +306,36 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 			++n_regs;
 		}
 	}
-	*n_regs_ = n_regs;
+	kfree(km, qseq0[0]); kfree(km, qseq0[1]);
+	kfree(km, ez.cigar);
 
-	kfree(km, qseq0[0]); kfree(km, qseq0[1]); kfree(km, ez.cigar);
+	// filter
+	for (r = i = 0; r < n_regs; ++r) {
+		mm_reg1_t *reg = &regs[r];
+		int flt = 0;
+		if (reg->p->blen - reg->p->n_ambi - reg->p->n_diff < opt->min_chain_score) flt = 1;
+		else if (reg->cnt < opt->min_cnt) flt = 1;
+		else if (reg->p->score < opt->min_dp_score) flt = 1;
+		if (flt) free(reg->p);
+		else if (i < r) regs[i++] = regs[r]; // NB: this also move the regs[r].p pointer
+		else ++i;
+	}
+
+	// remap mm_reg1_t::{id,parent}
+	if (i < n_regs || n_regs != *n_regs_) { // there are region splits or drops
+		int32_t *id;
+		n_regs = i;
+		id = (int32_t*)kmalloc(km, *n_regs_ * 4);
+		for (r = 0; r < *n_regs_; ++r) id[r] = -1;
+		for (r = 0; r < n_regs; ++r) {
+			if (regs[r].id >= 0) id[regs[r].id] = r;
+			regs[r].id = r;
+		}
+		for (r = 0; r < n_regs; ++r)
+			if (regs[r].parent >= 0)
+				regs[r].parent = id[regs[r].parent];
+		kfree(km, id);
+	}
+	*n_regs_ = n_regs;
 	return regs;
 }
