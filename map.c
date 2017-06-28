@@ -16,7 +16,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->min_cnt = 3;
 	opt->min_score = 40;
-	opt->bw = 10000;
+	opt->bw = 1000;
 	opt->max_gap = 10000;
 	opt->max_skip = 15;
 
