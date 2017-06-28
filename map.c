@@ -57,7 +57,7 @@ mm_tbuf_t *mm_tbuf_init(void)
 {
 	mm_tbuf_t *b;
 	b = (mm_tbuf_t*)calloc(1, sizeof(mm_tbuf_t));
-	b->km = km_init();
+	if (mm_verbose < 10) b->km = km_init();
 	b->sdb = sdust_buf_init(b->km);
 	return b;
 }
@@ -306,7 +306,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	mm_reg1_t *regs;
-	if (mm_verbose >= 10) fprintf(stderr, "===> %s <===\n", qname);
+	if (mm_verbose >= 11) fprintf(stderr, "===> %s <===\n", qname);
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
