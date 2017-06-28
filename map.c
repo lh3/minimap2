@@ -281,6 +281,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 			}
 		}
 	}
+	n_a = j;
 	radix_sort_128x(a, a + n_a);
 	for (i = 0; i < n; ++i)
 		if (m[i].is_alloc) kfree(b->km, m[i].x.r);

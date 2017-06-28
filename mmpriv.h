@@ -1,6 +1,7 @@
 #ifndef MMPRIV2_H
 #define MMPRIV2_H
 
+#include <assert.h>
 #include "minimap.h"
 #include "bseq.h"
 
@@ -41,6 +42,7 @@ static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
 	int32_t k = r->as;
 	r->rev = a[k].x>>63;
 	r->rid = a[k].x<<1>>33;
+	assert(r->rid != 0x7fffffff);
 	r->rs = (int32_t)a[k].x + 1 > (int32_t)(a[k].y>>32)? (int32_t)a[k].x + 1 - (int32_t)(a[k].y>>32) : 0;
 	r->re = (int32_t)a[k + r->cnt - 1].x + 1;
 	if (!r->rev) {

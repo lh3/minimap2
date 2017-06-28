@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r90-pre"
+#define MM_VERSION "2.0-r92-pre"
 
 void liftrlimit()
 {
@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-				opt.min_score = 100;
+				opt.min_score = 100, opt.pri_ratio = 0.0f;
 				is_hpc = 1, k = 19, w = 5;
 			}
 		}
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -s100 (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -s100 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT     matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT     mismatch penalty [%d]\n", opt.b);
