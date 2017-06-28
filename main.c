@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:F:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:F:A:B:O:E:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -83,6 +83,10 @@ int main(int argc, char *argv[])
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
 		else if (c == 's') opt.min_score = atoi(optarg);
+		else if (c == 'A') opt.a = atoi(optarg);
+		else if (c == 'B') opt.b = atoi(optarg);
+		else if (c == 'O') opt.q = atoi(optarg);
+		else if (c == 'E') opt.e = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // bucket-bits
 		else if (c == 0 && long_idx == 2) keep_name = 0; // int-rname
@@ -109,7 +113,7 @@ int main(int argc, char *argv[])
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 				opt.min_score = 100;
-				w = 5;
+				is_hpc = 1, k = 19, w = 5;
 			}
 		}
 	}
@@ -133,9 +137,14 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres);
 		fprintf(stderr, "    -S         skip self and dual mappings\n");
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
-		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "               ava10k: -Sw5 -L100 -m0 (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -s100 (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "  Alignment:\n");
+		fprintf(stderr, "    -A INT     matching score [%d]\n", opt.a);
+		fprintf(stderr, "    -B INT     mismatch penalty [%d]\n", opt.b);
+		fprintf(stderr, "    -O INT     gap open penalty [%d]\n", opt.q);
+		fprintf(stderr, "    -E INT     gap extension penalty; a k-long gap costs {-O}+k*{-E} [%d]\n", opt.e);
+		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
 		fprintf(stderr, "  Input/Output:\n");
 		fprintf(stderr, "    -F STR     output format: sam or paf [paf]\n");
 		fprintf(stderr, "    -c         output CIGAR in PAF\n");
