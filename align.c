@@ -240,7 +240,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 				mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
 			}
-			if (ez->zdropped) { // truncated by Z-drop
+			if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.
 				int j;
 				for (j = i - 1; j >= 0; --j)
 					if ((int32_t)a[r->as + j].x < re + ez->max_t)
@@ -261,7 +261,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		}
 	}
 
-	if (i == r->cnt && qe < qe0 && re < re0) { // right extension
+	if (!r->split && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
 		mm_idx_getseq(mi, rid, re, re0, tseq);
 		ksw_extz2_sse(km, qe0 - qe, qseq, re0 - re, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
