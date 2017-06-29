@@ -39,18 +39,17 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 
 static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
 {
-	int32_t k = r->as;
+	int32_t k = r->as, q_span = (int32_t)(a[k].y>>32&0xff);
 	r->rev = a[k].x>>63;
 	r->rid = a[k].x<<1>>33;
-	assert(r->rid != 0x7fffffff);
-	r->rs = (int32_t)a[k].x + 1 > (int32_t)(a[k].y>>32)? (int32_t)a[k].x + 1 - (int32_t)(a[k].y>>32) : 0;
+	r->rs = (int32_t)a[k].x + 1 > q_span? (int32_t)a[k].x + 1 - q_span : 0; // NB: target span may be shorter, so this test is necessary
 	r->re = (int32_t)a[k + r->cnt - 1].x + 1;
 	if (!r->rev) {
-		r->qs = (int32_t)a[k].y + 1 - (int32_t)(a[k].y>>32);
+		r->qs = (int32_t)a[k].y + 1 - q_span;
 		r->qe = (int32_t)a[k + r->cnt - 1].y + 1;
 	} else {
 		r->qs = qlen - ((int32_t)a[k + r->cnt - 1].y + 1);
-		r->qe = qlen - ((int32_t)a[k].y + 1 - (int32_t)(a[k].y>>32));
+		r->qe = qlen - ((int32_t)a[k].y + 1 - q_span);
 	}
 }
 
