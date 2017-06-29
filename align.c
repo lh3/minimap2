@@ -35,6 +35,7 @@ static void mm_reg_split(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *
 	r2->cnt = r->cnt - n;
 	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
 	r2->as = r->as + n;
+	r2->parent = -2;
 	mm_reg_set_coor(r2, qlen, a);
 	r->cnt -= r2->cnt;
 	r->score -= r2->score;

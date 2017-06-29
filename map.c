@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "kthread.h"
 #include "kvec.h"
 #include "kalloc.h"
@@ -284,6 +285,16 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int n_regs, mm_reg
 	kfree(km, aux);
 }
 
+void mm_set_mapq(mm_reg1_t *r, int which)
+{
+	if (r->parent == which) {
+		int mapq;
+		mapq = (int)(30.0 * (1. - (float)r->subsc / r->score) * logf(r->score));
+		mapq = mapq > 0? mapq : 0;
+		r->mapq = mapq < 60? mapq : 60;
+	} else r->mapq = 0;
+}
+
 mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
 {
 	int i, n = m_en - m_st, j, n_u;
@@ -363,6 +374,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	}
 	if (opt->flag & MM_F_CIGAR)
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a);
+	for (i = 0; i < *n_regs; ++i) mm_set_mapq(&regs[i], i);
 
 	// free
 	kfree(b->km, a);
