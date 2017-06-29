@@ -54,7 +54,7 @@ static void mm_sprintf_lite(kstring_t *s, const char *fmt, ...)
 	s->s[s->l] = 0;
 }
 
-void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_reg1_t *r)
+void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, mm_reg1_t *r)
 {
 	s->l = 0;
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
@@ -65,7 +65,7 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_re
 	else mm_sprintf_lite(s, "\t%d\t%d", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
 	mm_sprintf_lite(s, "\t%d\tcm:i:%d", r->mapq, r->cnt);
 	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
-	if (r->parent == which) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
+	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
 	if (r->p) {
 		uint32_t k;
 		mm_sprintf_lite(s, "\tNM:i:%d\tAS:i:%d\tnn:i:%d\tcg:Z:", r->p->n_diff, r->p->score, r->p->n_ambi);
@@ -98,12 +98,12 @@ static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 	} else str_copy(s, seq, seq + l);
 }
 
-void mm_write_sam(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_reg1_t *r)
+void mm_write_sam(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, mm_reg1_t *r)
 {
 	int flag = 0;
 	s->l = 0;
 	if (r->rev) flag |= 0x10;
-	if (r->parent != which) flag |= 0x80;
+	if (r->parent != r->id) flag |= 0x80;
 	mm_sprintf_lite(s, "%s\t%d\t%s\t%d\t%d\t", t->name, flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
 	if (r->p) { // TODO: using hard clippings
 		uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
@@ -117,6 +117,6 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, int which, mm_re
 	sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
 	mm_sprintf_lite(s, "\t*\tcm:i:%d", r->cnt);
 	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
-	if (r->parent == which) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
+	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
 	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->score, r->p->n_ambi);
 }

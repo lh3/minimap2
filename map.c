@@ -322,8 +322,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
 				if (r->cnt == 0) continue;
-				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, j, r);
-				else mm_write_paf(&p->str, mi, t, j, r);
+				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, r);
+				else mm_write_paf(&p->str, mi, t, r);
 				puts(p->str.s);
 				free(r->p);
 			}

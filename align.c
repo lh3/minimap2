@@ -26,23 +26,6 @@ static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
 		t = seq[i], seq[i] = seq[len - 1 - i], seq[len - 1 - i] = t;
 }
 
-static void mm_reg_split(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
-{
-	if (n <= 0 || n >= r->cnt) return;
-	*r2 = *r;
-	r2->id = -1;
-	r2->p = 0;
-	r2->cnt = r->cnt - n;
-	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
-	r2->as = r->as + n;
-	r2->parent = -2;
-	mm_reg_set_coor(r2, qlen, a);
-	r->cnt -= r2->cnt;
-	r->score -= r2->score;
-	mm_reg_set_coor(r, qlen, a);
-	r->split = r2->split = 1;
-}
-
 static inline int test_zdrop_aux(int32_t score, int i, int j, int32_t *max, int *max_i, int *max_j, int e, int zdrop)
 {
 	if (score < *max) {
@@ -250,7 +233,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
 				if (r->cnt - (j + 1) >= opt->min_cnt) {
-					mm_reg_split(r, r2, j + 1, qlen, a);
+					mm_split_reg(r, r2, j + 1, qlen, a);
 					if (j + 1 < opt->min_cnt)
 						r2->id = r->id, r->id = -1;
 				}
@@ -325,22 +308,7 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 		else if (i < r) regs[i++] = regs[r]; // NB: this also move the regs[r].p pointer
 		else ++i;
 	}
-
-	// remap mm_reg1_t::{id,parent}
-	if (i < n_regs || n_regs != *n_regs_) { // there are region splits or drops
-		int32_t *id;
-		n_regs = i;
-		id = (int32_t*)kmalloc(km, *n_regs_ * 4);
-		for (r = 0; r < *n_regs_; ++r) id[r] = -1;
-		for (r = 0; r < n_regs; ++r) {
-			if (regs[r].id >= 0) id[regs[r].id] = r;
-			regs[r].id = r;
-		}
-		for (r = 0; r < n_regs; ++r)
-			if (regs[r].parent >= 0)
-				regs[r].parent = id[regs[r].parent];
-		kfree(km, id);
-	}
 	*n_regs_ = n_regs;
+	mm_sync_regs(km, n_regs, regs);
 	return regs;
 }

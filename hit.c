@@ -22,6 +22,23 @@ mm_reg1_t *mm_gen_regs(int qlen, int n_u, uint64_t *u, mm128_t *a) // convert ch
 	return r;
 }
 
+void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
+{
+	if (n <= 0 || n >= r->cnt) return;
+	*r2 = *r;
+	r2->id = -1;
+	r2->p = 0;
+	r2->cnt = r->cnt - n;
+	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
+	r2->as = r->as + n;
+	if (r->parent == r->id) r2->parent = MM_PARENT_TMP_PRI;
+	mm_reg_set_coor(r2, qlen, a);
+	r->cnt -= r2->cnt;
+	r->score -= r2->score;
+	mm_reg_set_coor(r, qlen, a);
+	r->split = r2->split = 1;
+}
+
 void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
