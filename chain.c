@@ -19,9 +19,10 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int n, mm128_t *a, uint64_t **_u, void *km)
-{
-	int32_t st = 0, i, j, k, *f, *p, *t, *v, n_u, n_v;
+int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int64_t n, mm128_t *a, uint64_t **_u, void *km)
+{ // TODO: make sure this works when n has more than 32 bits
+	int32_t st = 0, j, k, *f, *p, *t, *v, n_u, n_v;
+	int64_t i;
 	uint64_t *u;
 	mm128_t *b;
 

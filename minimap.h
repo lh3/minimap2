@@ -69,20 +69,26 @@ typedef struct {
 	float mid_occ_frac;
 	int sdust_thres;  // score threshold for SDUST; 0 to disable
 	int flag;    // see MM_F_* macros
+
 	int bw;  // bandwidth
 	int max_gap; // break a chain if there are no minimizers in a max_gap window
 	int max_chain_skip;
 	int min_cnt;
 	int min_chain_score;
-	int min_dp_score;
+
 	float pri_ratio;
 	float mask_level;
+
+	int max_join_long, max_join_short;
+	int min_join_flank_sc;
+
 	int a, b, q, e; // matching score, mismatch, gap-open and gap-ext penalties
 	int zdrop;
+	int min_dp_score;
+	int min_ksw_len;
 
 	int max_occ;
 	int mid_occ;
-	int min_ksw_len;
 } mm_mapopt_t;
 
 extern int mm_verbose;

@@ -23,6 +23,10 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->pri_ratio = 2.0f;
 	opt->mask_level = 0.5f;
 
+	opt->max_join_long = 20000;
+	opt->max_join_short = 2000;
+	opt->min_join_flank_sc = 1000;
+
 	opt->a = 1, opt->b = 1, opt->q = 1, opt->e = 1;
 	opt->zdrop = 100;
 	opt->min_dp_score = 0;
@@ -223,7 +227,8 @@ void mm_select_sub(float mask_level, float pri_ratio, int *n_, mm_reg1_t *r, voi
 
 mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
 {
-	int i, n = m_en - m_st, j, n_a, n_u;
+	int i, n = m_en - m_st, j, n_u;
+	int64_t n_a;
 	uint64_t *u;
 	mm_match_t *m;
 	mm128_t *a;
@@ -293,7 +298,8 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
 	regs = mm_gen_reg(qlen, n_u, u, a);
 	*n_regs = n_u;
-	mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
+	if (!(opt->flag & MM_F_AVA)) // don't choose primary mapping(s) for read overlap
+		mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
 	if (opt->flag & MM_F_CIGAR)
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a);
 
