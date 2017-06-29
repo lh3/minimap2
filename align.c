@@ -167,6 +167,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	int32_t rs1, qs1, re1, qe1;
 	int8_t mat[25];
 
+	if (r->cnt == 0) return;
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	bw = (int)(opt->bw * 1.5 + 1.);
 
@@ -221,7 +222,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	for (i = 1; i < r->cnt; ++i) { // gap filling
 		mm_adjust_minier(mi, qseq0, &a[r->as + i], &re, &qe);
 		re1 = re, qe1 = qe;
-		if (i == r->cnt - 1 || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
+		if (i == r->cnt - 1 || (a[r->as+i].y>>40&1) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
+			int bw1 = bw;
+			if (a[r->as+i].y>>40&1)
+				bw1 = qe - qs > re - rs? qe - qs : re - rs;
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
 			#if 0
@@ -229,9 +233,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			for (k = 0; k < tl; ++k) fputc("ACGTN"[tseq[k]], stderr); fputc('\n', stderr);
 			for (k = 0; k < ql; ++k) fputc("ACGTN"[qseq[k]], stderr); fputc('\n', stderr);
 			#endif
-			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, KSW_EZ_APPROX_MAX, ez);
+			ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw1, opt->zdrop, KSW_EZ_APPROX_MAX, ez);
 			if (mm_check_zdrop(qseq, tseq, ez->n_cigar, ez->cigar, mat, opt->q, opt->e, opt->zdrop))
-				ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, 0, ez);
+				ksw_extz2_sse(km, qe - qs, qseq, re - rs, tseq, 5, mat, opt->q, opt->e, bw1, opt->zdrop, 0, ez);
 			if (ez->n_cigar > 0) {
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 				mm_update_extra(r->p, qseq, tseq, ez->n_cigar, ez->cigar, 0);
@@ -313,8 +317,8 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	for (r = i = 0; r < n_regs; ++r) {
 		mm_reg1_t *reg = &regs[r];
 		int flt = 0;
-		if (reg->p->blen - reg->p->n_ambi - reg->p->n_diff < opt->min_chain_score) flt = 1;
-		else if (reg->cnt < opt->min_cnt) flt = 1;
+		if (reg->cnt < opt->min_cnt) flt = 1;
+		else if (reg->p->blen - reg->p->n_ambi - reg->p->n_diff < opt->min_chain_score) flt = 1;
 		else if (reg->p->score < opt->min_dp_score && (reg->qe - reg->qs) * 2 < qlen) flt = 1;
 		if (flt) free(reg->p);
 		else if (i < r) regs[i++] = regs[r]; // NB: this also move the regs[r].p pointer

@@ -225,9 +225,13 @@ void mm_select_sub(float mask_level, float pri_ratio, int *n_, mm_reg1_t *r, voi
 	}
 }
 
-static int mm_squeeze_a_core(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a, const uint64_t *aux)
+static int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
 { // squeeze out regions in a[] that are not referenced by regs[]
-	int i, as = 0;
+	int i, n_aux, as = 0;
+	uint64_t *aux;
+	aux = (uint64_t*)kmalloc(km, n_regs * 8);
+	for (i = n_aux = 0; i < n_regs; ++i)
+		aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		if (r->as != as) {
@@ -236,21 +240,23 @@ static int mm_squeeze_a_core(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a, 
 		}
 		as += r->cnt;
 	}
+	kfree(km, aux);
 	return as;
 }
 
-void mm_join_long(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, mm128_t *a)
+void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	int i, n_aux;
 	uint64_t *aux;
 
 	if (n_regs < 2) return; // nothing to join
+	mm_squeeze_a(km, n_regs, regs, a);
+
 	aux = (uint64_t*)kmalloc(km, n_regs * 8);
 	for (i = n_aux = 0; i < n_regs; ++i)
-		aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
-	assert(n_aux == n_regs); // TODO: may be relaxed in future for other use cases
+		if (regs[i].parent == i || regs[i].parent < 0)
+			aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
 	radix_sort_64(aux, aux + n_aux);
-	mm_squeeze_a_core(km, n_regs, regs, a, aux);
 
 	for (i = n_aux - 1; i >= 1; --i) {
 		mm_reg1_t *r0 = &regs[(int32_t)aux[i-1]], *r1 = &regs[(int32_t)aux[i]];
@@ -351,8 +357,10 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
 	regs = mm_gen_reg(qlen, n_u, u, a);
 	*n_regs = n_u;
-	if (!(opt->flag & MM_F_AVA)) // don't choose primary mapping(s) for read overlap
+	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
+		mm_join_long(b->km, opt, qlen, *n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
+	}
 	if (opt->flag & MM_F_CIGAR)
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a);
 
@@ -432,6 +440,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
+				if (r->cnt == 0) continue;
 				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, j, r);
 				else mm_write_paf(&p->str, mi, t, j, r);
 				puts(p->str.s);
