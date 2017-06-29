@@ -181,7 +181,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (qs > 0 && rs > 0) { // actually this is always true
 			l = qs < opt->max_gap? qs : opt->max_gap;
 			qs0 = qs - l;
-			l += (l * opt->a - opt->q) / opt->e;
+			l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
 			l = l < opt->max_gap? l : opt->max_gap;
 			l = l < rs? l : rs;
 			rs0 = rs - l;
@@ -192,7 +192,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (qe < qlen && re < mi->seq[rid].len) {
 		l = qlen - qe < opt->max_gap? qlen - qe : opt->max_gap;
 		qe0 = qe + l;
-		l += (l * opt->a - opt->q) / opt->e;
+		l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
 		l = l < opt->max_gap? l : opt->max_gap;
 		l = l < mi->seq[rid].len - re? l : mi->seq[rid].len - re;
 		re0 = re + l;
@@ -315,7 +315,7 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 		int flt = 0;
 		if (reg->p->blen - reg->p->n_ambi - reg->p->n_diff < opt->min_chain_score) flt = 1;
 		else if (reg->cnt < opt->min_cnt) flt = 1;
-		else if (reg->p->score < opt->min_dp_score) flt = 1;
+		else if (reg->p->score < opt->min_dp_score && (reg->qe - reg->qs) * 2 < qlen) flt = 1;
 		if (flt) free(reg->p);
 		else if (i < r) regs[i++] = regs[r]; // NB: this also move the regs[r].p pointer
 		else ++i;
