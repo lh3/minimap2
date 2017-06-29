@@ -8,6 +8,10 @@ PROG=		minimap2
 PROG_EXTRA=	sdust
 LIBS=		-lm -lz -lpthread
 
+ifneq ($(sse4),)
+	CFLAGS += -msse4
+endif
+
 .SUFFIXES:.c .o
 
 .c.o:
