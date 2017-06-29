@@ -2,7 +2,7 @@ CC=			gcc
 CFLAGS=		-g -Wall -O2 -Wc++-compat -Wno-unused-function
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=	-I.
-OBJS=		kalloc.o kthread.o misc.o bseq.o sketch.o chain.o align.o sdust.o \
+OBJS=		kalloc.o kthread.o misc.o bseq.o sketch.o chain.o align.o hit.o sdust.o \
 			index.o format.o map.o ksw2_extz2_sse.o
 PROG=		minimap2
 PROG_EXTRA=	sdust
@@ -42,6 +42,7 @@ align.o: minimap.h mmpriv.h bseq.h ksw2.h
 bseq.o: bseq.h kseq.h
 chain.o: minimap.h mmpriv.h bseq.h kalloc.h
 format.o: mmpriv.h minimap.h bseq.h
+hit.o: mmpriv.h minimap.h bseq.h kalloc.h
 index.o: kthread.h bseq.h minimap.h mmpriv.h kvec.h kalloc.h khash.h
 kalloc.o: kalloc.h
 ksw2_extz2_sse.o: ksw2.h

@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
+#include <assert.h>
 #include "kthread.h"
 #include "kvec.h"
 #include "kalloc.h"
@@ -164,137 +164,6 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 //	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
 }
 #endif
-mm_reg1_t *mm_gen_reg(int qlen, int n_u, uint64_t *u, mm128_t *a)
-{
-	mm_reg1_t *r;
-	int i, k;
-	r = (mm_reg1_t*)calloc(n_u, sizeof(mm_reg1_t));
-	for (i = k = 0; i < n_u; ++i) {
-		mm_reg1_t *ri = &r[i];
-		ri->id = i;
-		ri->parent = -1, ri->subsc = 0;
-		ri->score = u[i]>>32;
-		ri->cnt = (int32_t)u[i];
-		ri->as = k;
-		mm_reg_set_coor(ri, qlen, a);
-		k += ri->cnt;
-	}
-	return r;
-}
-
-static void mm_set_subsc(float mask_level, int n, mm_reg1_t *r, void *km)
-{
-	int i, j, k, *w;
-	if (n <= 0) return;
-	w = (int*)kmalloc(km, n * sizeof(int));
-	w[0] = 0, r[0].parent = 0;
-	for (i = 1, k = 1; i < n; ++i) {
-		int si = r[i].qs, ei = r[i].qe;
-		for (j = 0; j < k; ++j) {
-			int sj = r[w[j]].qs, ej = r[w[j]].qe;
-			int min = ej - sj < ei - si? ej - sj : ei - si;
-			int ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si);
-			if (ol > mask_level * min) {
-				r[i].parent = r[w[j]].parent;
-				if (r[w[j]].subsc < r[i].score)
-					r[w[j]].subsc = r[i].score;
-				break;
-			}
-		}
-		if (j == k) w[k++] = i, r[i].parent = i;
-	}
-	kfree(km, w);
-}
-
-void mm_select_sub(float mask_level, float pri_ratio, int *n_, mm_reg1_t *r, void *km)
-{
-	if (pri_ratio > 0.0f && *n_ > 0) {
-		int i, k, *tmp, n = *n_;
-		mm_set_subsc(mask_level, n, r, km);
-		tmp = (int*)kmalloc(km, n * sizeof(int));
-		for (i = 0; i < n; ++i) tmp[i] = -1;
-		for (i = k = 0; i < n; ++i)
-			if (r[i].parent == i || r[i].score >= r[r[i].parent].score * pri_ratio)
-				tmp[i] = k, r[k++] = r[i];
-		n = k;
-		for (i = 0; i < n; ++i) // remap mm_reg1_t::parent, as some mappings may have been dropped
-			if (tmp[r[i].parent] >= 0)
-				r[i].parent = tmp[r[i].parent];
-		kfree(km, tmp);
-		*n_ = n;
-		for (i = 0; i < n; ++i) r[i].id = i; // reset mm_reg1_t::id
-	}
-}
-
-static int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
-{ // squeeze out regions in a[] that are not referenced by regs[]
-	int i, n_aux, as = 0;
-	uint64_t *aux;
-	aux = (uint64_t*)kmalloc(km, n_regs * 8);
-	for (i = n_aux = 0; i < n_regs; ++i)
-		aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
-	for (i = 0; i < n_regs; ++i) {
-		mm_reg1_t *r = &regs[i];
-		if (r->as != as) {
-			memmove(&a[as], &a[r->as], r->cnt * 16);
-			r->as = as;
-		}
-		as += r->cnt;
-	}
-	kfree(km, aux);
-	return as;
-}
-
-void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int n_regs, mm_reg1_t *regs, mm128_t *a)
-{
-	int i, n_aux;
-	uint64_t *aux;
-
-	if (n_regs < 2) return; // nothing to join
-	mm_squeeze_a(km, n_regs, regs, a);
-
-	aux = (uint64_t*)kmalloc(km, n_regs * 8);
-	for (i = n_aux = 0; i < n_regs; ++i)
-		if (regs[i].parent == i || regs[i].parent < 0)
-			aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
-	radix_sort_64(aux, aux + n_aux);
-
-	for (i = n_aux - 1; i >= 1; --i) {
-		mm_reg1_t *r0 = &regs[(int32_t)aux[i-1]], *r1 = &regs[(int32_t)aux[i]];
-		mm128_t *a0e, *a1s;
-		int max_gap, min_gap;
-
-		// test
-		if (r0->as + r0->cnt != r1->as) continue; // not adjacent in a[]
-		if (r0->rid != r1->rid || r0->rev != r1->rev) continue; // make sure on the same target and strand
-		if (r0->score < opt->min_join_flank_sc || r1->score < opt->min_join_flank_sc) continue; // require good flanking chains
-		a0e = &a[r0->as + r0->cnt - 1];
-		a1s = &a[r1->as];
-		if (a1s->x <= a0e->x || (int32_t)a1s->y <= (int32_t)a0e->y) continue; // keep colinearity
-		max_gap = min_gap = (int32_t)a1s->y - (int32_t)a0e->y;
-		max_gap = max_gap > a1s->x - a0e->x? max_gap : a1s->x - a0e->x;
-		min_gap = min_gap < a1s->x - a0e->x? min_gap : a1s->x - a0e->x;
-		if (max_gap > opt->max_join_long || min_gap > opt->max_join_short) continue;
-
-		// all conditions satisfied; join
-		a[r1->as].y |= 1ULL<<40;
-		r0->cnt += r1->cnt, r0->score += r1->score;
-		mm_reg_set_coor(r0, qlen, a);
-		r1->cnt = 0;
-	}
-	kfree(km, aux);
-}
-
-void mm_set_mapq(mm_reg1_t *r, int which)
-{
-	if (r->parent == which) {
-		int mapq;
-		mapq = (int)(30.0 * (1. - (float)r->subsc / r->score) * logf(r->score));
-		mapq = mapq > 0? mapq : 0;
-		r->mapq = mapq < 60? mapq : 60;
-	} else r->mapq = 0;
-}
-
 mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
 {
 	int i, n = m_en - m_st, j, n_u;
@@ -366,15 +235,15 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	kfree(b->km, m);
 
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
-	regs = mm_gen_reg(qlen, n_u, u, a);
+	regs = mm_gen_regs(qlen, n_u, u, a);
 	*n_regs = n_u;
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
-		mm_select_sub(opt->mask_level, opt->pri_ratio, n_regs, regs, b->km);
+		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, n_regs, regs);
 		mm_join_long(b->km, opt, qlen, *n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
 	if (opt->flag & MM_F_CIGAR)
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a);
-	for (i = 0; i < *n_regs; ++i) mm_set_mapq(&regs[i], i);
+	mm_set_mapq(*n_regs, regs);
 
 	// free
 	kfree(b->km, a);
