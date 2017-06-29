@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r98-pre"
+#define MM_VERSION "2.0-r99-pre"
 
 void liftrlimit()
 {
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
 	int i, c, k = 17, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx;
-	int minibatch_size = 100000000;
+	int minibatch_size = 200000000;
 	uint64_t batch_size = 4000000000ULL;
 	bseq_file_t *fp = 0;
 	char *fnw = 0;
