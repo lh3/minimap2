@@ -45,7 +45,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t capacity;
-	int32_t score;
+	int32_t dp_score, dp_max;
 	uint32_t blen;
 	uint32_t n_diff, n_ambi;
 	uint32_t n_cigar;
@@ -84,7 +84,7 @@ typedef struct {
 
 	int a, b, q, e; // matching score, mismatch, gap-open and gap-ext penalties
 	int zdrop;
-	int min_dp_score;
+	int min_dp_max;
 	int min_ksw_len;
 
 	int max_occ;

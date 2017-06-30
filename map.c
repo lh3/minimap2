@@ -30,7 +30,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->a = 1, opt->b = 2, opt->q = 2, opt->e = 1;
 	opt->zdrop = 200;
-	opt->min_dp_score = 0;
+	opt->min_dp_max = opt->min_chain_score;
 	opt->min_ksw_len = 100;
 }
 

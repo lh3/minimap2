@@ -60,7 +60,7 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
 	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
 	if (r->split) mm_sprintf_lite(s, "\tzd:i:%d", r->split);
-	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->score, r->p->n_ambi);
+	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
 }
 
 void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_reg1_t *r)

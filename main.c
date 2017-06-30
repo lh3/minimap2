@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r119-pre"
+#define MM_VERSION "2.0-r120-pre"
 
 void liftrlimit()
 {
@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 		else if (c == 'O') opt.q = atoi(optarg);
 		else if (c == 'E') opt.e = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
-		else if (c == 's') opt.min_dp_score = atoi(optarg);
+		else if (c == 's') opt.min_dp_max = atoi(optarg);
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // bucket-bits
 		else if (c == 0 && long_idx == 2) keep_name = 0; // int-rname
 		else if (c == 'V') {
@@ -147,7 +147,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -O INT     gap open penalty [%d]\n", opt.q);
 		fprintf(stderr, "    -E INT     gap extension penalty; a k-long gap costs {-O}+k*{-E} [%d]\n", opt.e);
 		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
-		fprintf(stderr, "    -s INT     minimal DP alignment score [%d]\n", opt.min_dp_score);
+		fprintf(stderr, "    -s INT     minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(stderr, "  Input/Output:\n");
 		fprintf(stderr, "    -F STR     output format: sam or paf [paf]\n");
 		fprintf(stderr, "    -c         output CIGAR in PAF\n");
