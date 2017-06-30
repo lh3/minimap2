@@ -349,7 +349,7 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 	if (opt->flag & MM_F_OUT_SAM) {
 		uint32_t i;
 		for (i = 0; i < idx->n_seq; ++i)
-			printf("@SQ\tID:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
+			printf("@SQ\tSN:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
 	}
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
 	free(pl.str.s);
