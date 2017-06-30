@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r124-pre"
+#define MM_VERSION "2.0-r125-pre"
 
 void liftrlimit()
 {
@@ -50,6 +50,7 @@ static struct option long_options[] = {
 	{ "min-chain-score",required_argument, 0, 'm' },
 	{ "mask-level",     required_argument, 0, 'M' },
 	{ "min-dp-score",   required_argument, 0, 's' },
+	{ "sam",            no_argument,       0, 'b' },
 	{ 0, 0, 0, 0}
 };
 
@@ -67,7 +68,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "w:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:F:A:B:O:E:m:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "bw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -81,6 +82,7 @@ int main(int argc, char *argv[])
 		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_CIGAR;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
+		else if (c == 'b') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
 		else if (c == 'm') opt.min_chain_score = atoi(optarg);
@@ -104,23 +106,15 @@ int main(int argc, char *argv[])
 			else if (*p == 'K' || *p == 'k') x *= 1e3;
 			if (c == 'I') batch_size = (uint64_t)(x + .499);
 			else minibatch_size = (uint64_t)(x + .499);
-		} else if (c == 'F') {
-			if (strcmp(optarg, "sam") == 0) opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
-			else if (strcmp(optarg, "paf") == 0) opt.flag &= ~MM_F_OUT_SAM;
-			else {
-				fprintf(stderr, "[E::%s] unknown output format '%s'\n", __func__, optarg);
-				return 1;
-			}
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 				opt.min_chain_score = 100, opt.pri_ratio = 0.0f;
 				is_hpc = 1, k = 19, w = 5;
-			} else if (strcmp(optarg, "sam10k") == 0) {
-				opt.flag = MM_F_OUT_SAM | MM_F_CIGAR;
+			} else if (strcmp(optarg, "map10k") == 0) {
 				is_hpc = 1, k = 19;
-			} else if (strcmp(optarg, "paf10k") == 0) {
-				is_hpc = 1, k = 19;
+			} else if (strcmp(optarg, "asm1m") == 0) {
+				k = 19, w = 19;
 			} else {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
 				return 1;
@@ -148,9 +142,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -S         skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100 (PacBio/ONT all-vs-all read mapping)\n");
-		fprintf(stderr, "               sam10k: -Hk19 -Fsam (PacBio/ONT vs reference alignment)\n");
-		fprintf(stderr, "               paf10k: -Hk19 (PacBio/ONT vs reference mapping/alignment)\n");
+		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100  (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "               map10k: -Hk19                 (PacBio/ONT vs reference mapping)\n");
+		fprintf(stderr, "               asm1m:  -k19 -w19             (intra-species assembly to ref mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT     matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT     mismatch penalty [%d]\n", opt.b);
@@ -159,7 +153,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
 		fprintf(stderr, "    -s INT     minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(stderr, "  Input/Output:\n");
-		fprintf(stderr, "    -F STR     output format: sam or paf [paf]\n");
+		fprintf(stderr, "    -b         output in the SAM format (PAF by default)\n");
 		fprintf(stderr, "    -c         output CIGAR in PAF\n");
 		fprintf(stderr, "    -t INT     number of threads [%d]\n", n_threads);
 //		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);
