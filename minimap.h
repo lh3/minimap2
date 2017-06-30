@@ -54,13 +54,13 @@ typedef struct {
 
 typedef struct {
 	int32_t id;
-	uint32_t cnt:30, rev:1, split:1;
+	uint32_t cnt:31, rev:1;
 	uint32_t rid:31, rep:1;
 	int32_t score;
 	int32_t qs, qe, rs, re;
 	int32_t parent, subsc;
 	int32_t as;
-	uint32_t mapq:8, n_sub:24; // TODO: n_sub is not used for now
+	uint32_t mapq:8, split:2, n_sub:22; // TODO: n_sub is not used for now
 	mm_extra_t *p;
 } mm_reg1_t;
 

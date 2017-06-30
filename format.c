@@ -54,7 +54,16 @@ static void mm_sprintf_lite(kstring_t *s, const char *fmt, ...)
 	s->s[s->l] = 0;
 }
 
-void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, mm_reg1_t *r)
+static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
+{
+	mm_sprintf_lite(s, "\tcm:i:%d", r->cnt);
+	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
+	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
+	if (r->split) mm_sprintf_lite(s, "\tzd:i:%d", r->split);
+	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->score, r->p->n_ambi);
+}
+
+void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_reg1_t *r)
 {
 	s->l = 0;
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
@@ -63,12 +72,11 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, mm_reg1_t *r)
 	mm_sprintf_lite(s, "\t%d\t%d\t%d", mi->seq[r->rid].len, r->rs, r->re);
 	if (r->p) mm_sprintf_lite(s, "\t%d\t%d", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
 	else mm_sprintf_lite(s, "\t%d\t%d", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
-	mm_sprintf_lite(s, "\t%d\tcm:i:%d", r->mapq, r->cnt);
-	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
-	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
+	mm_sprintf_lite(s, "\t%d", r->mapq);
+	write_tags(s, r);
 	if (r->p) {
 		uint32_t k;
-		mm_sprintf_lite(s, "\tNM:i:%d\tAS:i:%d\tnn:i:%d\tcg:Z:", r->p->n_diff, r->p->score, r->p->n_ambi);
+		mm_sprintf_lite(s, "cg:Z:");
 		for (k = 0; k < r->p->n_cigar; ++k)
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
 	}
@@ -98,7 +106,7 @@ static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 	} else str_copy(s, seq, seq + l);
 }
 
-void mm_write_sam(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, mm_reg1_t *r)
+void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_reg1_t *r)
 {
 	int flag = 0;
 	s->l = 0;
@@ -115,8 +123,6 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, bseq1_t *t, mm_reg1_t *r)
 	} else mm_sprintf_lite(s, "*");
 	mm_sprintf_lite(s, "\t*\t0\t0\t");
 	sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
-	mm_sprintf_lite(s, "\t*\tcm:i:%d", r->cnt);
-	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
-	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
-	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->score, r->p->n_ambi);
+	mm_sprintf_lite(s, "\t*");
+	write_tags(s, r);
 }

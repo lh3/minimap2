@@ -36,7 +36,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r->cnt -= r2->cnt;
 	r->score -= r2->score;
 	mm_reg_set_coor(r, qlen, a);
-	r->split = r2->split = 1;
+	r->split |= 1, r2->split |= 2;
 }
 
 void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compute mm_reg1_t::subsc
