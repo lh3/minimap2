@@ -60,7 +60,7 @@ typedef struct {
 	int32_t qs, qe, rs, re;
 	int32_t parent, subsc;
 	int32_t as;
-	uint32_t mapq:8, split:2, n_sub:22; // TODO: n_sub is not used for now
+	uint32_t mapq:8, split:2, sam_pri:1, n_sub:21; // TODO: n_sub is not used for now
 	mm_extra_t *p;
 } mm_reg1_t;
 

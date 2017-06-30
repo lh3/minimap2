@@ -27,6 +27,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	if (n <= 0 || n >= r->cnt) return;
 	*r2 = *r;
 	r2->id = -1;
+	r2->sam_pri = 0;
 	r2->p = 0;
 	r2->cnt = r->cnt - n;
 	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
@@ -65,7 +66,7 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compu
 
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,parent} in sync; also reset id
 {
-	int *tmp, i, max_id = -1, n_tmp;
+	int *tmp, i, max_id = -1, n_tmp, n_pri;
 	if (n_regs <= 0) return;
 	for (i = 0; i < n_regs; ++i)
 		max_id = max_id > regs[i].id? max_id : regs[i].id;
@@ -74,7 +75,7 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 	for (i = 0; i < n_tmp; ++i) tmp[i] = -1;
 	for (i = 0; i < n_regs; ++i)
 		if (regs[i].id >= 0) tmp[regs[i].id] = i;
-	for (i = 0; i < n_regs; ++i) {
+	for (i = n_pri = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		r->id = i;
 		if (r->parent == MM_PARENT_TMP_PRI)
@@ -82,6 +83,9 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 		else if (r->parent >= 0 && tmp[r->parent] >= 0)
 			r->parent = tmp[r->parent];
 		else r->parent = MM_PARENT_UNSET;
+		if (r->id == r->parent) {
+			if (n_pri++ == 0) r->sam_pri = 1;
+		}
 	}
 	kfree(km, tmp);
 }

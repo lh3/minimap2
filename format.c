@@ -76,7 +76,7 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 	write_tags(s, r);
 	if (r->p) {
 		uint32_t k;
-		mm_sprintf_lite(s, "cg:Z:");
+		mm_sprintf_lite(s, "\tcg:Z:");
 		for (k = 0; k < r->p->n_cigar; ++k)
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
 	}
@@ -112,7 +112,7 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 	s->l = 0;
 	if (r->rev) flag |= 0x10;
 	if (r->parent != r->id) flag |= 0x100;
-	if (r->id != 0) flag |= 0x800; // TODO: make sure this is always working!
+	else if (!r->sam_pri) flag |= 0x800;
 	mm_sprintf_lite(s, "%s\t%d\t%s\t%d\t%d\t", t->name, flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
 	if (r->p) { // TODO: using hard clippings
 		uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
