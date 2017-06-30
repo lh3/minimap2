@@ -235,7 +235,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	kfree(b->km, m);
 
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
-	regs = mm_gen_regs(qlen, n_u, u, a);
+	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
 	*n_regs = n_u;
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, n_regs, regs);

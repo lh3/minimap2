@@ -125,7 +125,7 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 	} else mm_sprintf_lite(s, "*");
 	mm_sprintf_lite(s, "\t*\t0\t0\t");
 	if ((flag & 0x900) == 0) sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
-	else if (flag & 0x100) mm_sprintf_lite(s, "\t*");
+	else if (flag & 0x100) mm_sprintf_lite(s, "*");
 	else sam_write_sq(s, t->seq + r->qs, r->qe - r->qs, r->rev, r->rev);
 	mm_sprintf_lite(s, "\t*"); // quality
 	write_tags(s, r);

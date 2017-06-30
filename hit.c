@@ -3,22 +3,37 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 
-mm_reg1_t *mm_gen_regs(int qlen, int n_u, uint64_t *u, mm128_t *a) // convert chains to hits
+mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a) // convert chains to hits
 {
+	mm128_t *z, tmp;
 	mm_reg1_t *r;
 	int i, k;
-	r = (mm_reg1_t*)calloc(n_u, sizeof(mm_reg1_t));
+
+	if (n_u == 0) return 0;
+
+	// sort by score
+	z = (mm128_t*)kmalloc(km, n_u * 16);
 	for (i = k = 0; i < n_u; ++i) {
+		z[i].x = u[i] >> 32;
+		z[i].y = (uint64_t)k << 32 | (int32_t)u[i];
+		k += (int32_t)u[i];
+	}
+	radix_sort_128x(z, z + n_u);
+	for (i = 0; i < n_u>>1; ++i) // reverse, s.t. larger score first
+		tmp = z[i], z[i] = z[n_u-1-i], z[n_u-1-i] = tmp;
+
+	// populate r[]
+	r = (mm_reg1_t*)calloc(n_u, sizeof(mm_reg1_t));
+	for (i = 0; i < n_u; ++i) {
 		mm_reg1_t *ri = &r[i];
 		ri->id = i;
 		ri->parent = MM_PARENT_UNSET;
-		ri->subsc = 0;
-		ri->score = u[i]>>32;
-		ri->cnt = (int32_t)u[i];
-		ri->as = k;
+		ri->score = z[i].x;
+		ri->cnt = (int32_t)z[i].y;
+		ri->as = z[i].y >> 32;
 		mm_reg_set_coor(ri, qlen, a);
-		k += ri->cnt;
 	}
+	kfree(km, z);
 	return r;
 }
 

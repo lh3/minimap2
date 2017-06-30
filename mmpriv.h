@@ -36,7 +36,7 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int64_t n, mm128_t *a, uint64_t **_u, void *km);
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a);
 
-mm_reg1_t *mm_gen_regs(int qlen, int n_u, uint64_t *u, mm128_t *a);
+mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a);
 void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a);
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs);
 void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1_t *r);
