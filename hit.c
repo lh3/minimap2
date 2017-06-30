@@ -141,6 +141,7 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1
 		for (i = k = 0; i < n; ++i)
 			if (r[i].parent == i || r[i].score >= r[r[i].parent].score * pri_ratio)
 				r[k++] = r[i];
+			else if (r[i].p) free(r[i].p);
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
 		*n_ = k;
 	}

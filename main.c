@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r122-pre"
+#define MM_VERSION "2.0-r123-pre"
 
 void liftrlimit()
 {
@@ -109,13 +109,21 @@ int main(int argc, char *argv[])
 			else if (strcmp(optarg, "paf") == 0) opt.flag &= ~MM_F_OUT_SAM;
 			else {
 				fprintf(stderr, "[E::%s] unknown output format '%s'\n", __func__, optarg);
-				return 0;
+				return 1;
 			}
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 				opt.min_chain_score = 100, opt.pri_ratio = 0.0f;
 				is_hpc = 1, k = 19, w = 5;
+			} else if (strcmp(optarg, "sam10k") == 0) {
+				opt.flag = MM_F_OUT_SAM | MM_F_CIGAR;
+				is_hpc = 1, k = 19;
+			} else if (strcmp(optarg, "paf10k") == 0) {
+				is_hpc = 1, k = 19;
+			} else {
+				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
+				return 1;
 			}
 		}
 	}
@@ -141,6 +149,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100 (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "               sam10k: -Hk19 -Fsam (PacBio/ONT vs reference alignment)\n");
+		fprintf(stderr, "               paf10k: -Hk19 (PacBio/ONT vs reference mapping/alignment)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT     matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT     mismatch penalty [%d]\n", opt.b);
