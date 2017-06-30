@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r123-pre"
+#define MM_VERSION "2.0-r124-pre"
 
 void liftrlimit()
 {
@@ -139,13 +139,13 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -I NUM     split index for every ~NUM input bases [4G]\n");
 		fprintf(stderr, "    -d FILE    dump index to FILE []\n");
 		fprintf(stderr, "  Mapping:\n");
-		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%.3f]\n", opt.mid_occ_frac);
+		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
+		fprintf(stderr, "    -g INT     split a mapping if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
 		fprintf(stderr, "    -r INT     bandwidth [%d]\n", opt.bw);
 		fprintf(stderr, "    -n INT     minimal number of minimizers [%d]\n", opt.min_cnt);
-		fprintf(stderr, "    -m INT     minimal chaining score [%d]\n", opt.min_chain_score);
-		fprintf(stderr, "    -g INT     split a mapping if there is a gap longer than INT [%d]\n", opt.max_gap);
-		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres);
-		fprintf(stderr, "    -S         skip self and dual mappings\n");
+		fprintf(stderr, "    -m INT     minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
+//		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
+		fprintf(stderr, "    -S         skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100 (PacBio/ONT all-vs-all read mapping)\n");
