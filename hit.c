@@ -79,6 +79,35 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compu
 	kfree(km, w);
 }
 
+void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r) // due to changes to r.{qs,qe} after DP extension
+{
+	int i, j, k, *w, n_pri = 0;
+	if (n <= 0) return;
+	for (i = 0; i < n; ++i)
+		if (r[i].id == r[i].parent) ++n_pri;
+	if (n_pri <= 1) return;
+	w = (int*)kmalloc(km, n_pri * sizeof(int));
+	for (i = j = 0; i < n; ++i) // find the first primary
+		if (r[i].id == r[i].parent) break;
+	for (w[0] = i, i = i + 1, k = 1; i < n; ++i) {
+		int si = r[i].qs, ei = r[i].qe;
+		if (r[i].id != r[i].parent) continue; // only check primary
+		for (j = 0; j < k; ++j) {
+			int sj = r[w[j]].qs, ej = r[w[j]].qe;
+			int min = ej - sj < ei - si? ej - sj : ei - si;
+			int ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si);
+			if (ol > mask_level * min) {
+				r[i].parent = r[w[j]].parent;
+				if (r[w[j]].subsc < r[i].score)
+					r[w[j]].subsc = r[i].score;
+				break;
+			}
+		}
+		if (j == k) w[k++] = i;
+	}
+	kfree(km, w);
+}
+
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,parent} in sync; also reset id
 {
 	int *tmp, i, max_id = -1, n_tmp, n_pri;
@@ -109,7 +138,6 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1
 {
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_;
-		mm_set_parent(km, mask_level, n, r);
 		for (i = k = 0; i < n; ++i)
 			if (r[i].parent == i || r[i].score >= r[r[i].parent].score * pri_ratio)
 				r[k++] = r[i];

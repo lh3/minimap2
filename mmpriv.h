@@ -39,6 +39,8 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a);
 void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a);
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs);
+void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r);
+void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r);
 void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1_t *r);
 void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int n_regs, mm_reg1_t *regs, mm128_t *a);
 void mm_set_mapq(int n_regs, mm_reg1_t *regs);
