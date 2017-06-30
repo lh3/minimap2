@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r113-pre"
+#define MM_VERSION "2.0-r114-pre"
 
 void liftrlimit()
 {

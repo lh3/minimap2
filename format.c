@@ -111,18 +111,22 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 	int flag = 0;
 	s->l = 0;
 	if (r->rev) flag |= 0x10;
-	if (r->parent != r->id) flag |= 0x80;
+	if (r->parent != r->id) flag |= 0x100;
+	if (r->id != 0) flag |= 0x800; // TODO: make sure this is always working!
 	mm_sprintf_lite(s, "%s\t%d\t%s\t%d\t%d\t", t->name, flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
 	if (r->p) { // TODO: using hard clippings
 		uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
-		if (clip_len) mm_sprintf_lite(s, "%dS", clip_len);
+		int clip_char = (flag&0x800)? 'H' : 'S';
+		if (clip_len) mm_sprintf_lite(s, "%d%c", clip_len, clip_char);
 		for (k = 0; k < r->p->n_cigar; ++k)
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
 		clip_len = r->rev? r->qs : t->l_seq - r->qe;
-		if (clip_len) mm_sprintf_lite(s, "%dS", clip_len);
+		if (clip_len) mm_sprintf_lite(s, "%d%c", clip_len, clip_char);
 	} else mm_sprintf_lite(s, "*");
 	mm_sprintf_lite(s, "\t*\t0\t0\t");
-	sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
-	mm_sprintf_lite(s, "\t*");
+	if ((flag & 0x900) == 0) sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
+	else if (flag & 0x100) mm_sprintf_lite(s, "\t*");
+	else sam_write_sq(s, t->seq + r->qs, r->qe - r->qs, r->rev, r->rev);
+	mm_sprintf_lite(s, "\t*"); // quality
 	write_tags(s, r);
 }
