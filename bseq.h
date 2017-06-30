@@ -8,7 +8,7 @@ typedef struct bseq_file_s bseq_file_t;
 
 typedef struct {
 	int l_seq, rid;
-	char *name, *seq;
+	char *name, *seq, *qual;
 } bseq1_t;
 
 bseq_file_t *bseq_open(const char *fn);

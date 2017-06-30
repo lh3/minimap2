@@ -48,6 +48,7 @@ bseq1_t *bseq_read(bseq_file_t *fp, int chunk_size, int *n_)
 		s = &seqs[n];
 		s->name = strdup(ks->name.s);
 		s->seq = strdup(ks->seq.s);
+		s->qual = ks->qual.l? strdup(ks->qual.s) : 0;
 		s->l_seq = ks->seq.l;
 		size += seqs[n++].l_seq;
 		if (size >= chunk_size) break;
