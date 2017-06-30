@@ -120,13 +120,14 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1
 
 int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
 { // squeeze out regions in a[] that are not referenced by regs[]
-	int i, n_aux, as = 0;
+	int i, as = 0;
 	uint64_t *aux;
 	aux = (uint64_t*)kmalloc(km, n_regs * 8);
-	for (i = n_aux = 0; i < n_regs; ++i)
-		aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
+	for (i = 0; i < n_regs; ++i)
+		aux[i] = (uint64_t)regs[i].as << 32 | i;
+	radix_sort_64(aux, aux + n_regs);
 	for (i = 0; i < n_regs; ++i) {
-		mm_reg1_t *r = &regs[i];
+		mm_reg1_t *r = &regs[(int32_t)aux[i]];
 		if (r->as != as) {
 			memmove(&a[as], &a[r->as], r->cnt * 16);
 			r->as = as;
