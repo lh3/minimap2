@@ -309,6 +309,6 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 		else ++i;
 	}
 	*n_regs_ = i;
-	mm_sync_regs(km, n_regs, regs);
+	mm_sync_regs(km, i, regs);
 	return regs;
 }
