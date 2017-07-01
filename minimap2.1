@@ -1,4 +1,4 @@
-.TH minimap 1 "30 June 2017" "minimap2-2.0-r126-pre" "Bioinformatics tools"
+.TH minimap2 1 "30 June 2017" "minimap2-2.0-r126-pre" "Bioinformatics tools"
 
 .SH NAME
 .PP
@@ -45,11 +45,11 @@ minimap2
 .I output.paf
 .RE
 
-* Long read overlap without CIGAR:
+* Long-read overlap without CIGAR:
 .RS 4
 minimap2
 .B -x
-.R ava10k
+ava10k
 .RB [ -t
 .IR nThreads ]
 .I target.fa
@@ -62,6 +62,83 @@ minimap2
 .PP
 Minimap2 is a fast sequence mapping and alignment program that can find
 overlaps between long noisy reads, or map long reads or their assemblies to a
-reference genome optionally with detailed alignment (i.e. CIGAR). It works
-efficiently with query sequences from a few kilobases to ~100 megabases in
-length at a error rate ~15%.
+reference genome optionally with detailed alignment (i.e. CIGAR). At present,
+it works efficiently with query sequences from a few kilobases to ~100
+megabases in length at a error rate ~15%. Minimap2 outputs in the PAF or the
+SAM format.
+
+.SH OPTIONS
+
+.SS Indexing options
+
+.TP 10
+.BI -k \ INT
+Minimizer k-mer length [17]
+
+.TP
+.BI -w \ INT
+Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
+in a window of w consecutive k-mers.
+
+.TP
+.B -H
+Use homopolymer-compressed (HPC) minimizers. An HPC sequence is constructed by
+contracting homopolymer runs to a single base. An HPC minimizer is a minimizer
+on the HPC sequence.
+
+.TP
+.BI -I \ NUM
+Load at most
+.I NUM
+target bases into RAM for indexing [4G]. If there are more than
+.I NUM
+bases in
+.IR target.fa ,
+minimap2 needs to read
+.I query.fa
+multiple times to map it against each batch of target sequences.
+.I NUM
+may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
+multi-part index.
+
+.TP
+.BI -d \ FILE
+Save the minimizer index of
+.I target.fa
+to
+.I FILE
+[no dump]
+
+.SS Mapping options
+
+.TP 10
+.BI -f \ FLOAT
+Ignore top
+.I FLOAT
+fraction of most frequent minimizers [0.0002]
+
+.SH OUTPUT FORMAT
+
+.TS
+center box;
+cb | cb | cb
+r | c | l .
+Col	Type	Description
+_
+1	string	Query sequence name
+2	int	Query sequence length
+3	int	Query start coordinate (0-based)
+4	int	Query end coordinate (0-based)
+5	char	`+' if query and target on the same strand; `-' if opposite
+6	string	Target sequence name
+7	int	Target sequence length
+8	int	Target start coordinate on the original strand
+9	int	Target end coordinate on the original strand
+10	int	Number of matching bases in the mapping
+11	int	Number bases, including gaps, in the mapping
+12	int	Mapping quality (0-255 with 255 for missing)
+.TE
+
+.SH SEE ALSO
+.PP
+miniasm(1), minimap(1), bwa(1).
