@@ -64,7 +64,6 @@ ava10k
 >
 .I output.paf
 .RE
-
 .SH DESCRIPTION
 .PP
 Minimap2 is a fast sequence mapping and alignment program that can find
@@ -73,11 +72,8 @@ reference genome optionally with detailed alignment (i.e. CIGAR). At present,
 it works efficiently with query sequences from a few kilobases to ~100
 megabases in length at a error rate ~15%. Minimap2 outputs in the PAF or the
 SAM format.
-
 .SH OPTIONS
-
 .SS Indexing options
-
 .TP 10
 .BI -k \ INT
 Minimizer k-mer length [17]
@@ -111,9 +107,7 @@ Save the minimizer index of
 to
 .I FILE
 [no dump]
-
 .SS Mapping options
-
 .TP 10
 .BI -f \ FLOAT
 Ignore top
@@ -183,9 +177,7 @@ PacBio/Oxford Nanopore read to reference mapping (-Hk19)
 .B asm1m
 Long assembly to reference mapping (-k19 -w19)
 .RE
-
 .SS Alignment options
-
 .TP 10
 .BI -A \ INT
 Matching score [1]
@@ -212,9 +204,7 @@ the contiguity of the alignment at the cost of poor alignment in the middle
 Minimal peak DP alignment score to output [40]. The peak score is computed from
 the final CIGAR. It is the score of the max scoring segment in the alignment
 and may be different from the total alignment score.
-
 .SS Input/output options
-
 .TP 10
 .B -b
 Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
@@ -232,7 +222,6 @@ takes little CPU time).
 .TP
 .B -V
 Print version number to stdout
-
 .SH OUTPUT FORMAT
 .PP
 Minimap2 outputs mapping positions in the Pairwise mApping Format (PAF) by
@@ -257,7 +246,6 @@ _
 11	int	Number bases, including gaps, in the mapping
 12	int	Mapping quality (0-255 with 255 for missing)
 .TE
-
 .PP
 When alignment is available, column 11 gives the total number of sequence
 matches, mismatches and gaps in the alignment; column 10 divided by column 11
@@ -279,7 +267,6 @@ ms	i	DP score of the max scoring segment in the alignment
 nn	i	Number of ambiguous bases in the alignment
 cg	Z	CIGAR string (only in PAF)
 .TE
-
 .SH SEE ALSO
 .PP
 miniasm(1), minimap(1), bwa(1).
