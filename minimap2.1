@@ -104,7 +104,15 @@ Save the minimizer index of
 .I target.fa
 to
 .I FILE
-[no dump]
+[no dump]. Minimap2 indexing is fast. It can index the human genome in a couple
+of minutes. If even shorter startup time is desired, use this option to save
+the index. Indexing options are fixed in the index file. When an index file is
+provided as the target sequences, options
+.BR -H ,
+.BR -k ,
+.BR -w ,
+.B -I
+will be effectively overridden by the options stored in the index file.
 .SS Mapping options
 .TP 10
 .BI -f \ FLOAT
