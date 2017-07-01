@@ -147,6 +147,31 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1
 	}
 }
 
+void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs)
+{
+	int i, k;
+	for (i = k = 0; i < *n_regs; ++i) {
+		mm_reg1_t *r = &regs[i];
+		int flt = 0;
+		if (r->cnt < opt->min_cnt) flt = 1;
+		else {
+			int blen = r->qe - r->qs < r->re - r->rs? r->qe - r->qs : r->re - r->rs;
+			if (r->score < blen * opt->min_seedcov_ratio) flt = 1;
+		}
+		if (r->p) {
+			if (r->p->blen - r->p->n_ambi - r->p->n_diff < opt->min_chain_score) flt = 1;
+			else if (r->p->dp_max < opt->min_dp_max) flt = 1;
+			if (flt) free(r->p);
+		}
+		if (!flt) {
+			if (k < i) regs[k++] = regs[i];
+			else ++k;
+		}
+	}
+	*n_regs = k;
+	mm_sync_regs(km, k, regs);
+}
+
 int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
 { // squeeze out regions in a[] that are not referenced by regs[]
 	int i, as = 0;

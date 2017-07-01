@@ -304,21 +304,9 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 			++n_regs;
 		}
 	}
+	*n_regs_ = n_regs;
 	kfree(km, qseq0[0]); kfree(km, qseq0[1]);
 	kfree(km, ez.cigar);
-
-	// filter
-	for (r = i = 0; r < n_regs; ++r) {
-		mm_reg1_t *reg = &regs[r];
-		int flt = 0;
-		if (reg->cnt < opt->min_cnt) flt = 1;
-		else if (reg->p->blen - reg->p->n_ambi - reg->p->n_diff < opt->min_chain_score) flt = 1;
-		else if (reg->p->dp_max < opt->min_dp_max) flt = 1;
-		if (flt) free(reg->p);
-		else if (i < r) regs[i++] = regs[r]; // NB: this also move the regs[r].p pointer
-		else ++i;
-	}
-	*n_regs_ = i;
-	mm_sync_regs(km, i, regs);
+	mm_filter_regs(km, opt, n_regs_, regs);
 	return regs;
 }

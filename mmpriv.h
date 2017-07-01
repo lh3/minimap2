@@ -42,6 +42,7 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs);
 void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r);
 void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r);
 void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1_t *r);
+void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs);
 void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int n_regs, mm_reg1_t *regs, mm128_t *a);
 void mm_set_mapq(int n_regs, mm_reg1_t *regs);
 

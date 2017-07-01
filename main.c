@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r125-pre"
+#define MM_VERSION "2.0-r126-pre"
 
 void liftrlimit()
 {
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "bw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "bw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:D:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -79,6 +79,7 @@ int main(int argc, char *argv[])
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
+		else if (c == 'D') opt.min_seedcov_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_CIGAR;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
@@ -109,7 +110,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-				opt.min_chain_score = 100, opt.pri_ratio = 0.0f;
+				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.min_seedcov_ratio = 0.05f;
 				is_hpc = 1, k = 19, w = 5;
 			} else if (strcmp(optarg, "map10k") == 0) {
 				is_hpc = 1, k = 19;
@@ -140,11 +141,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -m INT     minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
 //		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
 		fprintf(stderr, "    -S         skip self and dual mappings (for the all-vs-all mode)\n");
-		fprintf(stderr, "    -p FLOAT   threshold to output a mapping [%g]\n", opt.pri_ratio);
+		fprintf(stderr, "    -p FLOAT   min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
+		fprintf(stderr, "    -D FLOAT   min fraction of seed matches [%g]\n", opt.min_seedcov_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100  (PacBio/ONT all-vs-all read mapping)\n");
-		fprintf(stderr, "               map10k: -Hk19                 (PacBio/ONT vs reference mapping)\n");
-		fprintf(stderr, "               asm1m:  -k19 -w19             (intra-species assembly to ref mapping)\n");
+		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100 -D.05   (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "               map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
+		fprintf(stderr, "               asm1m:  -k19 -w19   (intra-species assembly to ref mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT     matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT     mismatch penalty [%d]\n", opt.b);
