@@ -279,7 +279,7 @@ mm_idx_t *mm_idx_gen(bseq_file_t *fp, int w, int k, int b, int is_hpc, int mini_
 {
 	pipeline_t pl;
 	memset(&pl, 0, sizeof(pipeline_t));
-	pl.mini_batch_size = mini_batch_size;
+	pl.mini_batch_size = mini_batch_size < batch_size? mini_batch_size : batch_size;
 	pl.keep_name = keep_name;
 	pl.batch_size = batch_size;
 	pl.fp = fp;

@@ -53,7 +53,7 @@ bseq1_t *bseq_read(bseq_file_t *fp, int chunk_size, int with_qual, int *n_)
 		size += seqs[n++].l_seq;
 		if (size >= chunk_size) break;
 	}
-	if (n == 0) fp->is_eof = 1;
+	if (size < chunk_size) fp->is_eof = 1;
 	*n_ = n;
 	return seqs;
 }
