@@ -217,7 +217,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
         step_t *s;
 		if (p->sum_len > p->batch_size) return 0;
         s = (step_t*)calloc(1, sizeof(step_t));
-		s->seq = bseq_read(p->fp, p->mini_batch_size, &s->n_seq); // read a mini-batch
+		s->seq = bseq_read(p->fp, p->mini_batch_size, 0, &s->n_seq); // read a mini-batch
 		if (s->seq) {
 			uint32_t old_m, m;
 			uint64_t sum_len, old_max_len, max_len;

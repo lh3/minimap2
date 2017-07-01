@@ -5,7 +5,7 @@
 minimap2 - mapping and alignment between collections of DNA sequences
 
 .SH SYNOPSIS
-* Index the target sequences (optional):
+* Indexing the target sequences (optional):
 .RS 4
 minimap2
 .RB [ -H ]
@@ -13,12 +13,14 @@ minimap2
 .IR kmer ]
 .RB [ -w
 .IR miniWinSize ]
+.RB [ -I
+.IR batchSize ]
 .B -d
 .I target.mmi
 .I target.fa
 .RE
 
-* Align with CIGAR:
+* Long-read alignment with CIGAR:
 .RS 4
 minimap2
 .B -b
@@ -37,6 +39,19 @@ minimap2
 .RB [ -w
 .IR miniWinSize ]
 .RB [ ... ]
+.I target.fa
+.I query.fa
+>
+.I output.paf
+.RE
+
+* Long read overlap without CIGAR:
+.RS 4
+minimap2
+.B -x
+.R ava10k
+.RB [ -t
+.IR nThreads ]
 .I target.fa
 .I query.fa
 >

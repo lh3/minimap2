@@ -304,7 +304,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     if (step == 0) { // step 0: read sequences
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
-		s->seq = bseq_read(p->fp, p->mini_batch_size, &s->n_seq);
+		s->seq = bseq_read(p->fp, p->mini_batch_size, !!(p->opt->flag & MM_F_OUT_SAM), &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
@@ -339,6 +339,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			}
 			free(s->reg[i]);
 			free(s->seq[i].seq); free(s->seq[i].name);
+			if (s->seq[i].qual) free(s->seq[i].qual);
 		}
 		free(s->reg); free(s->n_reg); free(s->seq);
 		if (mm_verbose >= 3)
