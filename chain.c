@@ -50,7 +50,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			dd = dr > dq? dr - dq : dq - dr;
 			if (dd > bw) continue;
 			sc = dq > q_span && dr > q_span? q_span : dq < dr? dq : dr;
-			sc = f[j] + sc - (dd? ilog2_32(dd) : 0);
+			sc = f[j] + sc - (dd? ilog2_32(dd) : 0); // TODO: consider to also penalize the shortest distance
 			if (sc > max_f) max_f = sc, max_j = j;
 		}
 		if (max_j >= 0) f[i] = max_f, p[i] = max_j;

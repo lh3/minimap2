@@ -8,6 +8,13 @@ minimap2 - mapping and alignment between collections of DNA sequences
 * Indexing the target sequences (optional):
 .RS 4
 minimap2
+.RB [ -x
+.IR preset ]
+.B -d
+.I target.mmi
+.I target.fa
+.br
+minimap2
 .RB [ -H ]
 .RB [ -k
 .IR kmer ]
@@ -74,18 +81,15 @@ SAM format.
 .TP 10
 .BI -k \ INT
 Minimizer k-mer length [17]
-
 .TP
 .BI -w \ INT
 Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
-
 .TP
 .B -H
 Use homopolymer-compressed (HPC) minimizers. An HPC sequence is constructed by
 contracting homopolymer runs to a single base. An HPC minimizer is a minimizer
 on the HPC sequence.
-
 .TP
 .BI -I \ NUM
 Load at most
@@ -100,7 +104,6 @@ multiple times to map it against each batch of target sequences.
 .I NUM
 may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
 multi-part index.
-
 .TP
 .BI -d \ FILE
 Save the minimizer index of
@@ -116,8 +119,125 @@ to
 Ignore top
 .I FLOAT
 fraction of most frequent minimizers [0.0002]
+.TP
+.BI -g \ INT
+Stop chain enlongation if there are no minimizers in
+.IR INT -bp
+[10000].
+.TP
+.BI -r \ INT
+Bandwidth used in chaining and DP-based alignment [1000]. This option
+approximately controls the maximum gap size.
+.TP
+.BI -n \ INT
+Discard chains consisting of
+.RI < INT
+number of minimizers [3]
+.TP
+.BI -m \ INT
+Discard chains with chaining score
+.RI < INT
+[40]. Chaining score equals the approximate number of matching bases (exact if
+not using
+.BR -H )
+minus base-2 logarithm gap penalty. It is computed with dynamic programming.
+.TP
+.B -S
+Perform all-vs-all mapping. In this mode, if the query sequence name is
+lexicographically larger than the target sequence name, the hits between them
+will be suppressed; if the query sequence name is the same as the target name,
+diagonal minimizer hits will also be suppressed.
+.TP
+.BI -p \ FLOAT
+Minimal secondary-to-primary score ratio to output secondary mappings [2].
+Between two chains overlaping over half of the shorter chain (controled by
+.BR --mask-level ),
+the chain with a lower score is secondary to the chain with a higher score.
+If the ratio of the scores is below
+.IR FLOAT ,
+the secondary chain will not be outputted or extended with DP alignment later.
+The default value suppresses all secondary chains.
+.TP
+.BI -D \ FLOAT
+Discard a chain if the fraction of matching bases over the length of
+query/target sequences in the chain is
+.RI < FLOAT
+[0].
+.TP
+.BI -x \ STR
+Preset []. This option applies multiple options at the same time. It should be
+applied before other options because options applied later will overwrite the
+values set by
+.BR -x .
+Available
+.I STR
+are:
+.RS
+.TP 8
+.B ava10k
+PacBio/Oxford Nanopore all-vs-all overlap mapping (-Hk19 -Sw5 -p0 -m100 -D.05)
+.TP
+.B map10k
+PacBio/Oxford Nanopore read to reference mapping (-Hk19)
+.TP
+.B asm1m
+Long assembly to reference mapping (-k19 -w19)
+.RE
+
+.SS Alignment options
+
+.TP 10
+.BI -A \ INT
+Matching score [1]
+.TP
+.BI -B \ INT
+Mismatching penalty [2]
+.TP
+.BI -O \ INT
+Gap open penalty [2]
+.TP
+.BI -E \ INT
+Gap extension penalty [1]. A gap of length
+.I l
+costs
+.RI {-O}+{-E}* l .
+.TP
+.BI -z \ INT
+Break an alignment if the running score drops too quickly along the diagonal of
+the DP matrix (diagonal X-drop, or Z-drop) [200]. Increasing the value improves
+the contiguity of the alignment at the cost of poor alignment in the middle
+(e.g. caused by a long inversion).
+.TP
+.BI -s \ INT
+Minimal peak DP alignment score to output [40]. The peak score is computed from
+the final CIGAR. It is the score of the max scoring segment in the alignment
+and may be different from the total alignment score.
+
+.SS Input/output options
+
+.TP 10
+.B -b
+Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
+by default.
+.TP
+.B -c
+Generate CIGAR. In PAF, the CIGAR is written to the `cg' custom tag.
+.TP
+.BI -t \ INT
+Number of threads [3]. Minimap2 uses at most three threads when collecting
+minimizers on target sequences, and uses up to 
+.IR INT +1
+threads when mapping (the extra thread is for I/O, which is frequently idle and
+takes little CPU time).
+.TP
+.B -V
+Print version number to stdout
 
 .SH OUTPUT FORMAT
+.PP
+Minimap2 outputs mapping positions in the Pairwise mApping Format (PAF) by
+default. PAF is a TAB-delimited text format with each line consisting of at
+least 12 fields as are described in the following table:
 
 .TS
 center box;
@@ -137,6 +257,29 @@ _
 10	int	Number of matching bases in the mapping
 11	int	Number bases, including gaps, in the mapping
 12	int	Mapping quality (0-255 with 255 for missing)
+.TE
+
+.PP
+When alignment is available, column 11 gives the total number of sequence
+matches, mismatches and gaps in the alignment; column 10 divided by column 11
+gives the BLAST-like alignment identity. When alignment is unavailable,
+these two columns are approximate. PAF may optionally have additional fields in
+the SAM-like typed key-value format. Minimap2 may output the following tags:
+
+.TS
+center box;
+cb | cb | cb
+r | c | l .
+Tag	Type	Description
+_
+cm	i	Number of minimizers on the chain
+s1	i	Chaining score
+s2	i	Chaining score of the best secondary chain
+NM	i	Total number of mismatches and gaps in the alignment
+AS	i	DP alignment score
+ms	i	DP score of the max scoring segment in the alignment
+nn	i	Number of ambiguous bases in the alignment
+cg	Z	CIGAR string (only in PAF)
 .TE
 
 .SH SEE ALSO
