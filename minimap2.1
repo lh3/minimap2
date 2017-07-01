@@ -1,0 +1,52 @@
+.TH minimap 1 "30 June 2017" "minimap2-2.0-r126-pre" "Bioinformatics tools"
+
+.SH NAME
+.PP
+minimap2 - mapping and alignment between collections of DNA sequences
+
+.SH SYNOPSIS
+* Index the target sequences (optional):
+.RS 4
+minimap2
+.RB [ -H ]
+.RB [ -k
+.IR kmer ]
+.RB [ -w
+.IR miniWinSize ]
+.B -d
+.I target.mmi
+.I target.fa
+.RE
+
+* Align with CIGAR:
+.RS 4
+minimap2
+.B -b
+.RB [ -x
+.IR preset ]
+.I target.mmi
+.I query.fa
+>
+.I output.sam
+.br
+minimap2
+.B -c
+.RB [ -H ]
+.RB [ -k
+.IR kmer ]
+.RB [ -w
+.IR miniWinSize ]
+.RB [ ... ]
+.I target.fa
+.I query.fa
+>
+.I output.paf
+.RE
+
+.SH DESCRIPTION
+.PP
+Minimap2 is a fast sequence mapping and alignment program that can find
+overlaps between long noisy reads, or map long reads or their assemblies to a
+reference genome optionally with detailed alignment (i.e. CIGAR). For
+reference-based alignment, it works efficiently with query sequences from a few
+kilobases to ~100 megabases in length at a error rate ~15%.
