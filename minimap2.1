@@ -275,6 +275,15 @@ nn	i	Number of ambiguous bases in the alignment
 cg	Z	CIGAR string (only in PAF)
 .TE
 
+.SH LIMITATIONS
+.PP
+At the alignment phase, minimap2 performs global alignments between minimizer
+hits. If the positions of these minimizer hits are incorrect, the final alignment
+may be suboptimal or broken due to the Z-drop heuristics. In addition, in the
+event of a long insertion/deletion, minimap2 may split the long event into
+a few smaller events. We will address these issues in future.
+.PP
+Minimap2 does not work well with Illumina short reads as of now.
 .SH SEE ALSO
 .PP
 miniasm(1), minimap(1), bwa(1).
