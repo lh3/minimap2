@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r131-pre"
+#define MM_VERSION "2.0-r141-pre"
 
 void liftrlimit()
 {
@@ -50,7 +50,7 @@ static struct option long_options[] = {
 	{ "min-chain-score",required_argument, 0, 'm' },
 	{ "mask-level",     required_argument, 0, 'M' },
 	{ "min-dp-score",   required_argument, 0, 's' },
-	{ "sam",            no_argument,       0, 'b' },
+	{ "sam",            no_argument,       0, 'a' },
 	{ 0, 0, 0, 0}
 };
 
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "bw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:D:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:D:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_CIGAR;
 		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-		else if (c == 'b') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
+		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
 		else if (c == 'm') opt.min_chain_score = atoi(optarg);
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
 		fprintf(stderr, "    -s INT     minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(stderr, "  Input/Output:\n");
-		fprintf(stderr, "    -b         output in the SAM format (PAF by default)\n");
+		fprintf(stderr, "    -a         output in the SAM format (PAF by default)\n");
 		fprintf(stderr, "    -c         output CIGAR in PAF\n");
 		fprintf(stderr, "    -t INT     number of threads [%d]\n", n_threads);
 //		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);
