@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r141-pre"
+#define MM_VERSION "2.0-r142-pre"
 
 void liftrlimit()
 {
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "aw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:D:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:D:N:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -78,6 +78,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
+		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'D') opt.min_seedcov_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);

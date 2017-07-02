@@ -134,13 +134,13 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 	kfree(km, tmp);
 }
 
-void mm_select_sub(void *km, float mask_level, float pri_ratio, int *n_, mm_reg1_t *r)
+void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int *n_, mm_reg1_t *r)
 {
 	if (pri_ratio > 0.0f && *n_ > 0) {
-		int i, k, n = *n_;
+		int i, k, n = *n_, n_2nd = 0;
 		for (i = k = 0; i < n; ++i)
-			if (r[i].parent == i || r[i].score >= r[r[i].parent].score * pri_ratio)
-				r[k++] = r[i];
+			if (r[i].parent == i) r[k++] = r[i];
+			else if (r[i].score >= r[r[i].parent].score * pri_ratio && n_2nd++ < best_n) r[k++] = r[i];
 			else if (r[i].p) free(r[i].p);
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
 		*n_ = k;
@@ -192,9 +192,9 @@ int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
 	return as;
 }
 
-void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int n_regs, mm_reg1_t *regs, mm128_t *a)
+void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
 {
-	int i, n_aux;
+	int i, n_aux, n_regs = *n_regs_, n_drop = 0;
 	uint64_t *aux;
 
 	if (n_regs < 2) return; // nothing to join
@@ -228,8 +228,21 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int n_regs, mm_reg
 		r0->cnt += r1->cnt, r0->score += r1->score;
 		mm_reg_set_coor(r0, qlen, a);
 		r1->cnt = 0;
+		r1->parent = r0->id;
+		++n_drop;
 	}
 	kfree(km, aux);
+
+	if (n_drop > 0) { // then fix the hits hierarchy
+		for (i = 0; i < n_regs; ++i) { // adjust the mm_reg1_t::parent
+			mm_reg1_t *r = &regs[i];
+			if (r->parent >= 0 && r->id != r->parent) { // fix for secondary hits only
+				if (regs[r->parent].parent >= 0 && regs[r->parent].parent != r->parent)
+					r->parent = regs[r->parent].parent;
+			}
+		}
+		mm_filter_regs(km, opt, n_regs_, regs);
+	}
 }
 
 void mm_set_mapq(int n_regs, mm_reg1_t *regs)
