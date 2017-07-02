@@ -91,7 +91,10 @@ void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r) // due to
 		if (r[i].id == r[i].parent) break;
 	for (w[0] = i, i = i + 1, k = 1; i < n; ++i) {
 		int si = r[i].qs, ei = r[i].qe;
-		if (r[i].id != r[i].parent) continue; // only check primary
+		if (r[i].id != r[i].parent && r[i].parent >= 0) {
+			r[i].parent = r[r[i].parent].parent;
+			continue;
+		}
 		for (j = 0; j < k; ++j) {
 			int sj = r[w[j]].qs, ej = r[w[j]].qe;
 			int min = ej - sj < ei - si? ej - sj : ei - si;
@@ -139,7 +142,7 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int 
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
 		for (i = k = 0; i < n; ++i)
-			if (r[i].parent == i) r[k++] = r[i];
+			if (r[i].parent == i || r[i].parent < 0) r[k++] = r[i]; // NB: r[i].parent may be -1 if its parent has been filtered
 			else if (r[i].score >= r[r[i].parent].score * pri_ratio && n_2nd++ < best_n) r[k++] = r[i];
 			else if (r[i].p) free(r[i].p);
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
@@ -148,7 +151,7 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int 
 }
 
 void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs)
-{
+{ // NB: after this call, mm_reg1_t::parent can be -1 if its parent filtered out
 	int i, k;
 	for (i = k = 0; i < *n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
