@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r141-pre"
+#define MM_VERSION "2.0-r151-pre"
 
 void liftrlimit()
 {
@@ -45,6 +45,8 @@ static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
 	{ "mb-size",        required_argument, 0, 0 },
 	{ "int-rname",      no_argument,       0, 0 },
+	{ "no-kalloc",      no_argument,       0, 0 },
+	{ "print-qname",    no_argument,       0, 0 },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
 	{ "min-chain-score",required_argument, 0, 'm' },
@@ -68,7 +70,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "aw:k:t:r:f:Vv:g:I:d:ST:s:x:Hcp:M:n:z:A:B:O:E:m:D:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aw:k:t:r:f:Vv:g:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:D:N:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -78,11 +80,12 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = atoi(optarg);
+		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'D') opt.min_seedcov_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_CIGAR;
-		else if (c == 'S') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
+		else if (c == 'X') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
@@ -93,8 +96,10 @@ int main(int argc, char *argv[])
 		else if (c == 'E') opt.e = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
-		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // bucket-bits
-		else if (c == 0 && long_idx == 2) keep_name = 0; // int-rname
+		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // --bucket-bits
+		else if (c == 0 && long_idx == 2) keep_name = 0; // --int-rname
+		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
+		else if (c == 0 && long_idx == 4) mm_dbg_flag |= MM_DBG_PRINT_QNAME; // --print-qname
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -140,11 +145,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -n INT     minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
 		fprintf(stderr, "    -m INT     minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
 //		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
-		fprintf(stderr, "    -S         skip self and dual mappings (for the all-vs-all mode)\n");
+		fprintf(stderr, "    -X         skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT   min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
+		fprintf(stderr, "    -N INT     retain at most INT secondary alignments [%d]\n", opt.best_n);
 		fprintf(stderr, "    -D FLOAT   min fraction of minimizer matches [%g]\n", opt.min_seedcov_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100 -D.05   (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "               ava10k: -Hk19 -w5 -Xp0 -m100 -D.05   (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "               map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
 		fprintf(stderr, "               asm1m:  -k19 -w19   (intra-species assembly to ref mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
@@ -160,7 +166,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -t INT     number of threads [%d]\n", n_threads);
 //		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);
 		fprintf(stderr, "    -V         show version number\n");
-		fprintf(stderr, "\nSee minimap2.1 for detailed description of the command-line options.\n");
+		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return 1;
 	}
 

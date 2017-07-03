@@ -22,8 +22,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_chain_skip = 15;
 	opt->min_seedcov_ratio = 0.0f;
 
-	opt->pri_ratio = 2.0f;
 	opt->mask_level = 0.5f;
+	opt->pri_ratio = 0.8f;
+	opt->best_n = 5;
 
 	opt->max_join_long = 20000;
 	opt->max_join_short = 2000;
@@ -63,7 +64,7 @@ mm_tbuf_t *mm_tbuf_init(void)
 {
 	mm_tbuf_t *b;
 	b = (mm_tbuf_t*)calloc(1, sizeof(mm_tbuf_t));
-	if (mm_verbose < 10) b->km = km_init();
+	if (!(mm_dbg_flag & 1)) b->km = km_init();
 	b->sdb = sdust_buf_init(b->km);
 	return b;
 }
@@ -240,16 +241,16 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	*n_regs = n_u;
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
-		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, n_regs, regs);
-		mm_join_long(b->km, opt, qlen, *n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
+		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, opt->best_n, n_regs, regs);
+		mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
 	if (opt->flag & MM_F_CIGAR) {
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
 		if (!(opt->flag & MM_F_AVA)) {
-			mm_update_parent(b->km, opt->mask_level, *n_regs, regs);
-			mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, n_regs, regs);
+			mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
+			mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, opt->best_n, n_regs, regs);
 		}
-	} else mm_filter_regs(b->km, opt, n_regs, regs);
+	}
 	mm_set_mapq(*n_regs, regs);
 
 	// free
@@ -261,7 +262,6 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	mm_reg1_t *regs;
-	if (mm_verbose >= 11) fprintf(stderr, "===> %s <===\n", qname);
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
@@ -294,6 +294,8 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *step = (step_t*)_data;
+	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+		fprintf(stderr, "Processing query %s on thread %d\n", step->seq[i].name, tid);
 	step->reg[i] = mm_map(step->p->mi, step->seq[i].l_seq, step->seq[i].seq, &step->n_reg[i], step->buf[tid], step->p->opt, step->seq[i].name);
 }
 

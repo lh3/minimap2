@@ -45,7 +45,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t capacity;
-	int32_t dp_score, dp_max;
+	int32_t dp_score, dp_max, dp_max2;
 	uint32_t blen;
 	uint32_t n_diff, n_ambi;
 	uint32_t n_cigar;
@@ -77,8 +77,9 @@ typedef struct {
 	int min_chain_score;
 	float min_seedcov_ratio;
 
-	float pri_ratio;
 	float mask_level;
+	float pri_ratio;
+	int best_n;
 
 	int max_join_long, max_join_short;
 	int min_join_flank_sc;
@@ -92,7 +93,7 @@ typedef struct {
 	int mid_occ;
 } mm_mapopt_t;
 
-extern int mm_verbose;
+extern int mm_verbose, mm_dbg_flag;
 extern double mm_realtime0;
 
 struct mm_tbuf_s;

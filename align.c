@@ -239,11 +239,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				r->p->dp_score += ez->max;
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
-				if (r->cnt - (j + 1) >= opt->min_cnt) {
+				if (r->cnt - (j + 1) >= opt->min_cnt)
 					mm_split_reg(r, r2, j + 1, qlen, a);
-					if (j + 1 < opt->min_cnt)
-						r2->id = r->id, r->id = -1;
-				}
 				break;
 			} else r->p->dp_score += ez->score;
 			rs = re, qs = qe;
@@ -308,5 +305,6 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	kfree(km, qseq0[0]); kfree(km, qseq0[1]);
 	kfree(km, ez.cigar);
 	mm_filter_regs(km, opt, n_regs_, regs);
+	mm_hit_sort_by_dp(km, n_regs_, regs);
 	return regs;
 }

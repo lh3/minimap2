@@ -1,4 +1,4 @@
-.TH minimap2 1 "1 July 2017" "minimap2-2.0-r141-pre" "Bioinformatics tools"
+.TH minimap2 1 "1 July 2017" "minimap2-2.0-r145-pre" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -142,21 +142,27 @@ not using
 .BR -H )
 minus base-2 logarithm gap penalty. It is computed with dynamic programming.
 .TP
-.B -S
+.B -X
 Perform all-vs-all mapping. In this mode, if the query sequence name is
 lexicographically larger than the target sequence name, the hits between them
 will be suppressed; if the query sequence name is the same as the target name,
 diagonal minimizer hits will also be suppressed.
 .TP
 .BI -p \ FLOAT
-Minimal secondary-to-primary score ratio to output secondary mappings [2].
+Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
 Between two chains overlaping over half of the shorter chain (controled by
 .BR --mask-level ),
 the chain with a lower score is secondary to the chain with a higher score.
 If the ratio of the scores is below
 .IR FLOAT ,
 the secondary chain will not be outputted or extended with DP alignment later.
-The default value suppresses all secondary chains.
+.TP
+.BI -N \ INT
+Output at most
+.I INT
+secondary alignments [5]. This option has no effect when
+.B -X
+is applied.
 .TP
 .BI -D \ FLOAT
 Discard a chain if the fraction of matching bases over the length of
@@ -175,7 +181,7 @@ are:
 .RS
 .TP 8
 .B ava10k
-PacBio/Oxford Nanopore all-vs-all overlap mapping (-Hk19 -Sw5 -p0 -m100 -D.05)
+PacBio/Oxford Nanopore all-vs-all overlap mapping (-Hk19 -w5 -Xp0 -m100 -D.05)
 .TP
 .B map10k
 PacBio/Oxford Nanopore read to reference mapping (-Hk19)
@@ -220,14 +226,24 @@ by default.
 Generate CIGAR. In PAF, the CIGAR is written to the `cg' custom tag.
 .TP
 .BI -t \ INT
-Number of threads [3]. Minimap2 uses at most three threads when collecting
-minimizers on target sequences, and uses up to 
+Number of threads [3]. Minimap2 uses at most three threads when indexing target
+sequences, and uses up to
 .IR INT +1
 threads when mapping (the extra thread is for I/O, which is frequently idle and
 takes little CPU time).
 .TP
 .B -V
 Print version number to stdout
+.SS Miscellaneous options
+.TP 10
+.B --no-kalloc
+Use the libc default allocator instead of the kalloc thread-local allocator.
+This debugging option is mostly used with Valgrind to detect invalid memory
+accesses. Minimap2 runs slower with this option, especially in the
+multi-threading mode.
+.TP
+.B --print-qname
+Print query names to stderr, mostly to see which query is crashing minimap2.
 .SH OUTPUT FORMAT
 .PP
 Minimap2 outputs mapping positions in the Pairwise mApping Format (PAF) by
