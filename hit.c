@@ -130,7 +130,7 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 {
 	int *tmp, i, max_id = -1, n_tmp, n_pri;
 	if (n_regs <= 0) return;
-	for (i = 0; i < n_regs; ++i)
+	for (i = 0; i < n_regs; ++i) // NB: doesn't work if mm_reg1_t::id is negative
 		max_id = max_id > regs[i].id? max_id : regs[i].id;
 	n_tmp = max_id + 1;
 	tmp = (int*)kmalloc(km, n_tmp * sizeof(int));
@@ -187,7 +187,6 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 		}
 	}
 	*n_regs = k;
-	mm_sync_regs(km, k, regs);
 }
 
 int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
@@ -260,6 +259,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 			}
 		}
 		mm_filter_regs(km, opt, n_regs_, regs);
+		mm_sync_regs(km, *n_regs_, regs);
 	}
 }
 
