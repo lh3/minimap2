@@ -126,9 +126,20 @@ void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r)
 	kfree(km, t);
 }
 
+int mm_set_sam_pri(int n, mm_reg1_t *r)
+{
+	int i, n_pri = 0;
+	for (i = 0; i < n; ++i)
+		if (r[i].id == r[i].parent) {
+			++n_pri;
+			r[i].sam_pri = (n_pri == 1);
+		} else r[i].sam_pri = 0;
+	return n_pri;
+}
+
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,parent} in sync; also reset id
 {
-	int *tmp, i, max_id = -1, n_tmp, n_pri;
+	int *tmp, i, max_id = -1, n_tmp;
 	if (n_regs <= 0) return;
 	for (i = 0; i < n_regs; ++i) // NB: doesn't work if mm_reg1_t::id is negative
 		max_id = max_id > regs[i].id? max_id : regs[i].id;
@@ -137,7 +148,7 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 	for (i = 0; i < n_tmp; ++i) tmp[i] = -1;
 	for (i = 0; i < n_regs; ++i)
 		if (regs[i].id >= 0) tmp[regs[i].id] = i;
-	for (i = n_pri = 0; i < n_regs; ++i) {
+	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		r->id = i;
 		if (r->parent == MM_PARENT_TMP_PRI)
@@ -145,11 +156,9 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 		else if (r->parent >= 0 && tmp[r->parent] >= 0)
 			r->parent = tmp[r->parent];
 		else r->parent = MM_PARENT_UNSET;
-		if (r->id == r->parent) {
-			if (n_pri++ == 0) r->sam_pri = 1;
-		}
 	}
 	kfree(km, tmp);
+	mm_set_sam_pri(n_regs, regs);
 }
 
 void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int *n_, mm_reg1_t *r)
