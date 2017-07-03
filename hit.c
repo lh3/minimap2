@@ -85,7 +85,7 @@ void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r) // due to
 	if (n <= 0) return;
 	for (i = 0; i < n; ++i)
 		if (r[i].id == r[i].parent || r[i].parent < 0) ++n_pri;
-	if (n_pri <= 1) return;
+	if (n_pri <= 1) return; // FIXME: this is not right
 	w = (int*)kmalloc(km, n_pri * sizeof(int));
 	for (i = j = 0; i < n; ++i) // find the first primary
 		if (r[i].id == r[i].parent) break;
