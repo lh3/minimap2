@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r144-pre"
+#define MM_VERSION "2.0-r145-pre"
 
 void liftrlimit()
 {
@@ -143,6 +143,7 @@ int main(int argc, char *argv[])
 //		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
 		fprintf(stderr, "    -S         skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT   min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
+		fprintf(stderr, "    -N INT     retain at most INT secondary alignments [%d]\n", opt.best_n);
 		fprintf(stderr, "    -D FLOAT   min fraction of minimizer matches [%g]\n", opt.min_seedcov_ratio);
 		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "               ava10k: -Hk19 -Sw5 -p0 -m100 -D.05   (PacBio/ONT all-vs-all read mapping)\n");

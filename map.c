@@ -23,7 +23,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_seedcov_ratio = 0.0f;
 
 	opt->mask_level = 0.5f;
-	opt->pri_ratio = 2.0f;
+	opt->pri_ratio = 0.8f;
 	opt->best_n = 5;
 
 	opt->max_join_long = 20000;
