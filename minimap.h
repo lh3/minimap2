@@ -93,7 +93,7 @@ typedef struct {
 	int mid_occ;
 } mm_mapopt_t;
 
-extern int mm_verbose;
+extern int mm_verbose, mm_dbg_flag;
 extern double mm_realtime0;
 
 struct mm_tbuf_s;

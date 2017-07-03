@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r148-pre"
+#define MM_VERSION "2.0-r149-pre"
 
 void liftrlimit()
 {
@@ -45,6 +45,8 @@ static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
 	{ "mb-size",        required_argument, 0, 0 },
 	{ "int-rname",      no_argument,       0, 0 },
+	{ "no-kalloc",      no_argument,       0, 0 },
+	{ "print-qname",    no_argument,       0, 0 },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
 	{ "min-chain-score",required_argument, 0, 'm' },
@@ -94,8 +96,10 @@ int main(int argc, char *argv[])
 		else if (c == 'E') opt.e = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
-		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // bucket-bits
-		else if (c == 0 && long_idx == 2) keep_name = 0; // int-rname
+		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // --bucket-bits
+		else if (c == 0 && long_idx == 2) keep_name = 0; // --int-rname
+		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
+		else if (c == 0 && long_idx == 4) mm_dbg_flag |= MM_DBG_PRINT_QNAME; // --print-qname
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;

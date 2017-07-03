@@ -64,7 +64,7 @@ mm_tbuf_t *mm_tbuf_init(void)
 {
 	mm_tbuf_t *b;
 	b = (mm_tbuf_t*)calloc(1, sizeof(mm_tbuf_t));
-	if (mm_verbose < 10) b->km = km_init();
+	if (!(mm_dbg_flag & 1)) b->km = km_init();
 	b->sdb = sdust_buf_init(b->km);
 	return b;
 }
@@ -262,7 +262,6 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	mm_reg1_t *regs;
-	if (mm_verbose >= 11) fprintf(stderr, "===> %s <===\n", qname);
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
 	if (opt->sdust_thres > 0)
@@ -295,6 +294,8 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *step = (step_t*)_data;
+	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+		fprintf(stderr, "Processing query %s on thread %d\n", step->seq[i].name, tid);
 	step->reg[i] = mm_map(step->p->mi, step->seq[i].l_seq, step->seq[i].seq, &step->n_reg[i], step->buf[tid], step->p->opt, step->seq[i].name);
 }
 
