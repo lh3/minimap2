@@ -84,7 +84,7 @@ void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r) // due to
 	int i, j, k, *w, n_pri = 0;
 	if (n <= 0) return;
 	for (i = 0; i < n; ++i)
-		if (r[i].id == r[i].parent) ++n_pri;
+		if (r[i].id == r[i].parent || r[i].parent < 0) ++n_pri;
 	if (n_pri <= 1) return;
 	w = (int*)kmalloc(km, n_pri * sizeof(int));
 	for (i = j = 0; i < n; ++i) // find the first primary
@@ -175,7 +175,7 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int 
 void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs)
 { // NB: after this call, mm_reg1_t::parent can be -1 if its parent filtered out
 	int i, k;
-	for (i = k = 0; i < *n_regs; ++i) {
+	for (i = 0; i < *n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		int flt = 0;
 		if (r->cnt < opt->min_cnt) flt = 1;
@@ -188,7 +188,15 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 			else if (r->p->dp_max < opt->min_dp_max) flt = 1;
 			if (flt) free(r->p);
 		}
-		if (!flt) {
+		if (flt) r->cnt = 0;
+	}
+	for (i = 0; i < *n_regs; ++i) {
+		mm_reg1_t *r = &regs[i];
+		if (r->parent >= 0 && r->id != r->parent && regs[r->parent].cnt == 0)
+			r->cnt = 0;
+	}
+	for (i = k = 0; i < *n_regs; ++i) {
+		if (regs[i].cnt) {
 			if (k < i) regs[k++] = regs[i];
 			else ++k;
 		}
