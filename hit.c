@@ -3,6 +3,22 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 
+static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
+{
+	int32_t k = r->as, q_span = (int32_t)(a[k].y>>32&0xff);
+	r->rev = a[k].x>>63;
+	r->rid = a[k].x<<1>>33;
+	r->rs = (int32_t)a[k].x + 1 > q_span? (int32_t)a[k].x + 1 - q_span : 0; // NB: target span may be shorter, so this test is necessary
+	r->re = (int32_t)a[k + r->cnt - 1].x + 1;
+	if (!r->rev) {
+		r->qs = (int32_t)a[k].y + 1 - q_span;
+		r->qe = (int32_t)a[k + r->cnt - 1].y + 1;
+	} else {
+		r->qs = qlen - ((int32_t)a[k + r->cnt - 1].y + 1);
+		r->qe = qlen - ((int32_t)a[k].y + 1 - q_span);
+	}
+}
+
 mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a) // convert chains to hits
 {
 	mm128_t *z, tmp;
@@ -59,78 +75,55 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compu
 {
 	int i, j, k, *w;
 	if (n <= 0) return;
+	for (i = 0; i < n; ++i) r[i].id = i;
 	w = (int*)kmalloc(km, n * sizeof(int));
 	w[0] = 0, r[0].parent = 0;
 	for (i = 1, k = 1; i < n; ++i) {
-		int si = r[i].qs, ei = r[i].qe;
+		mm_reg1_t *ri = &r[i];
+		int si = ri->qs, ei = ri->qe;
 		for (j = 0; j < k; ++j) {
-			int sj = r[w[j]].qs, ej = r[w[j]].qe;
+			mm_reg1_t *rp = &r[w[j]];
+			int sj = rp->qs, ej = rp->qe;
 			int min = ej - sj < ei - si? ej - sj : ei - si;
 			int ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si);
 			if (ol > mask_level * min) {
-				r[i].parent = r[w[j]].parent;
-				if (r[w[j]].subsc < r[i].score)
-					r[w[j]].subsc = r[i].score;
+				ri->parent = rp->parent;
+				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
+				if (rp->p && ri->p)
+					rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
 				break;
 			}
 		}
-		if (j == k) w[k++] = i, r[i].parent = i;
+		if (j == k) w[k++] = i, ri->parent = i;
 	}
 	kfree(km, w);
 }
 
-void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r) // due to changes to r.{qs,qe} after DP extension
+void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r)
 {
-	int i, j, k, *w, n_pri = 0;
-	if (n <= 0) return;
-	for (i = 0; i < n; ++i)
-		if (r[i].id == r[i].parent || r[i].parent < 0) ++n_pri;
-	if (n_pri <= 1) return; // FIXME: this is not right
-	w = (int*)kmalloc(km, n_pri * sizeof(int));
-	for (i = j = 0; i < n; ++i) // find the first primary
-		if (r[i].id == r[i].parent) break;
-	for (w[0] = i, i = i + 1, k = 1; i < n; ++i) {
-		int si = r[i].qs, ei = r[i].qe;
-		if (r[i].id != r[i].parent && r[i].parent >= 0) {
-			r[i].parent = r[r[i].parent].parent;
-			continue;
-		}
-		for (j = 0; j < k; ++j) {
-			int sj = r[w[j]].qs, ej = r[w[j]].qe;
-			int min = ej - sj < ei - si? ej - sj : ei - si;
-			int ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si);
-			if (ol > mask_level * min) {
-				r[i].parent = r[w[j]].parent;
-				if (r[w[j]].subsc < r[i].score)
-					r[w[j]].subsc = r[i].score;
-				break;
-			}
-		}
-		if (j == k) w[k++] = i;
-	}
-	kfree(km, w);
+	int32_t i, n_aux, n = *n_regs;
+	uint64_t *aux;
+	mm_reg1_t *t;
 
-	for (i = 0; i < n; ++i) {
-		mm_reg1_t *ri = &r[i], *rp, tmp;
-		int t;
-		if (ri->p == 0 || ri->id == ri->parent || ri->parent < 0) continue;
-		rp = &r[ri->parent];
-		if (rp->p && ri->p->dp_max > rp->p->dp_max) {
-			ri->subsc = rp->score;
-			tmp = *ri, *ri = *rp, *rp = tmp;
-			t = ri->id, ri->id = rp->id, rp->id = t;
-			t = ri->parent, ri->parent = rp->parent, rp->parent = t;
+	if (n <= 1) return;
+	aux = (uint64_t*)kmalloc(km, n * 8);
+	t = (mm_reg1_t*)kmalloc(km, n * sizeof(mm_reg1_t));
+	for (i = n_aux = 0; i < n; ++i) {
+		if (r[i].cnt > 0) { // squeeze out elements with cnt==0 (soft deleted)
+			assert(r[i].p);
+			aux[n_aux++] = (uint64_t)r[i].p->dp_max << 32 | i;
+		} else if (r[i].p) {
+			kfree(km, r[i].p);
+			r[i].p = 0;
 		}
 	}
-
-	for (i = 0; i < n; ++i) {
-		mm_reg1_t *ri = &r[i], *rp;
-		if (ri->id == ri->parent || ri->parent < 0) continue;
-		rp = &r[ri->parent];
-		rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
-		if (rp->p && ri->p)
-			rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
-	}
+	radix_sort_64(aux, aux + n_aux);
+	for (i = n_aux - 1; i >= 0; --i)
+		t[n_aux - 1 - i] = r[(int32_t)aux[i]];
+	memcpy(r, t, sizeof(mm_reg1_t) * n_aux);
+	*n_regs = n_aux;
+	kfree(km, aux);
+	kfree(km, t);
 }
 
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,parent} in sync; also reset id
@@ -164,7 +157,7 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int 
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
 		for (i = k = 0; i < n; ++i)
-			if (r[i].parent == i || r[i].parent < 0) r[k++] = r[i]; // NB: r[i].parent may be -1 if its parent has been filtered
+			if (r[i].parent == i) r[k++] = r[i];
 			else if (r[i].score >= r[r[i].parent].score * pri_ratio && n_2nd++ < best_n) r[k++] = r[i];
 			else if (r[i].p) free(r[i].p);
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
@@ -175,7 +168,7 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int 
 void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs)
 { // NB: after this call, mm_reg1_t::parent can be -1 if its parent filtered out
 	int i, k;
-	for (i = 0; i < *n_regs; ++i) {
+	for (i = k = 0; i < *n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		int flt = 0;
 		if (r->cnt < opt->min_cnt) flt = 1;
@@ -188,15 +181,7 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 			else if (r->p->dp_max < opt->min_dp_max) flt = 1;
 			if (flt) free(r->p);
 		}
-		if (flt) r->cnt = 0;
-	}
-	for (i = 0; i < *n_regs; ++i) {
-		mm_reg1_t *r = &regs[i];
-		if (r->parent >= 0 && r->id != r->parent && regs[r->parent].cnt == 0)
-			r->cnt = 0;
-	}
-	for (i = k = 0; i < *n_regs; ++i) {
-		if (regs[i].cnt) {
+		if (!flt) {
 			if (k < i) regs[k++] = regs[i];
 			else ++k;
 		}

@@ -247,7 +247,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	if (opt->flag & MM_F_CIGAR) {
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
 		if (!(opt->flag & MM_F_AVA)) {
-			mm_update_parent(b->km, opt->mask_level, *n_regs, regs);
+			mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
 			mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, opt->best_n, n_regs, regs);
 		}
 	} else mm_filter_regs(b->km, opt, n_regs, regs);
