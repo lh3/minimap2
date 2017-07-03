@@ -109,6 +109,28 @@ void mm_update_parent(void *km, float mask_level, int n, mm_reg1_t *r) // due to
 		if (j == k) w[k++] = i;
 	}
 	kfree(km, w);
+
+	for (i = 0; i < n; ++i) {
+		mm_reg1_t *ri = &r[i], *rp, tmp;
+		int t;
+		if (ri->p == 0 || ri->id == ri->parent || ri->parent < 0) continue;
+		rp = &r[ri->parent];
+		if (rp->p && ri->p->dp_max > rp->p->dp_max) {
+			ri->subsc = rp->score;
+			tmp = *ri, *ri = *rp, *rp = tmp;
+			t = ri->id, ri->id = rp->id, rp->id = t;
+			t = ri->parent, ri->parent = rp->parent, rp->parent = t;
+		}
+	}
+
+	for (i = 0; i < n; ++i) {
+		mm_reg1_t *ri = &r[i], *rp;
+		if (ri->id == ri->parent || ri->parent < 0) continue;
+		rp = &r[ri->parent];
+		rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
+		if (rp->p && ri->p)
+			rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
+	}
 }
 
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,parent} in sync; also reset id
@@ -255,7 +277,9 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs)
 		mm_reg1_t *r = &regs[i];
 		if (r->parent == r->id) {
 			int mapq;
-			mapq = (int)(30.0 * (1. - (float)r->subsc / r->score) * logf(r->score));
+			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0)
+				mapq = (int)(30.0 * (1. - (float)(r->p->dp_max2 * r->subsc) / (r->p->dp_max * r->score)) * logf(r->score));
+			else mapq = (int)(30.0 * (1. - (float)r->subsc / r->score) * logf(r->score));
 			mapq = mapq > 0? mapq : 0;
 			r->mapq = mapq < 60? mapq : 60;
 		} else r->mapq = 0;

@@ -45,7 +45,7 @@ typedef struct {
 
 typedef struct {
 	uint32_t capacity;
-	int32_t dp_score, dp_max;
+	int32_t dp_score, dp_max, dp_max2;
 	uint32_t blen;
 	uint32_t n_diff, n_ambi;
 	uint32_t n_cigar;
