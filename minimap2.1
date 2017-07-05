@@ -1,4 +1,4 @@
-.TH minimap2 1 "1 July 2017" "minimap2-2.0-r145-pre" "Bioinformatics tools"
+.TH minimap2 1 "5 July 2017" "minimap2-2.0-r158-pre" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -218,6 +218,9 @@ the final CIGAR. It is the score of the max scoring segment in the alignment
 and may be different from the total alignment score.
 .SS Input/output options
 .TP 10
+.B -Q
+Ignore base quality in the input file.
+.TP
 .B -a
 Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
 by default.

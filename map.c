@@ -305,9 +305,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 	int i, j;
     pipeline_t *p = (pipeline_t*)shared;
     if (step == 0) { // step 0: read sequences
+		int with_qual = (!!(p->opt->flag & MM_F_OUT_SAM) && !(p->opt->flag & MM_F_NO_QUAL));
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
-		s->seq = bseq_read(p->fp, p->mini_batch_size, !!(p->opt->flag & MM_F_OUT_SAM), &s->n_seq);
+		s->seq = bseq_read(p->fp, p->mini_batch_size, with_qual, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
