@@ -36,21 +36,24 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
 		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
-		int32_t max_f = -INT32_MAX, max_j = -1, n_skip = 0;
+		int32_t max_f = -INT32_MAX, max_j = -1, n_skip = 0, min_d;
 		while (st < i && ri - a[st].x > max_dist) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
 			int32_t dq = qi - (int32_t)a[j].y, dd, sc;
 			if (dr == 0 || dq <= 0 || dq > max_dist) continue;
-			if (t[j] == i) {
+			if (t[j] == i) { // FIXME: never enter this block. i.e. max_skip has no effect at all. This may affect speed.
 				if (p[j] >= 0) t[p[j]] = i;
 				if (++n_skip > max_skip) break;
 				continue;
 			}
 			dd = dr > dq? dr - dq : dq - dr;
 			if (dd > bw) continue;
-			sc = dq > q_span && dr > q_span? q_span : dq < dr? dq : dr;
-			sc = f[j] + sc - (dd? ilog2_32(dd) : 0); // TODO: consider to also penalize the shortest distance
+			min_d = dq < dr? dq : dr;
+			sc = min_d > q_span? q_span : dq < dr? dq : dr;
+			sc -= dd? ilog2_32(dd) * 4 : 0;
+			if (min_d > q_span) sc -= ilog2_32(min_d) / 2;
+			sc += f[j];
 			if (sc > max_f) max_f = sc, max_j = j;
 		}
 		if (max_j >= 0) f[i] = max_f, p[i] = max_j;
