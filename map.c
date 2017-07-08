@@ -17,8 +17,8 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
-	opt->bw = 1000;
-	opt->max_gap = 10000;
+	opt->bw = 500;
+	opt->max_gap = 5000;
 	opt->max_chain_skip = 15;
 	opt->min_seedcov_ratio = 0.0f;
 

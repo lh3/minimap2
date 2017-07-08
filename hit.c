@@ -183,7 +183,7 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 		if (r->cnt < opt->min_cnt) flt = 1;
 		else {
 			int blen = r->qe - r->qs < r->re - r->rs? r->qe - r->qs : r->re - r->rs;
-			if (r->score < blen * opt->min_seedcov_ratio) flt = 1;
+			if (r->score < blen * opt->min_seedcov_ratio * opt->a) flt = 1;
 		}
 		if (r->p) {
 			if (r->p->blen - r->p->n_ambi - r->p->n_diff < opt->min_chain_score) flt = 1;

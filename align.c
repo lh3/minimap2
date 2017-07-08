@@ -158,6 +158,24 @@ static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2],
 	}
 }
 
+static void mm_filter_bad_seeds(int n, mm128_t *a, int max_space, int max_diff)
+{
+	int i;
+	if (n < 3) return;
+	for (i = 0; i < n - 2; ++i) {
+		int32_t q[3], t[3], gap01, gap12, gap02;
+		t[0] = (int32_t)a[i].x, q[0] = (int32_t)a[i].y;
+		t[1] = (int32_t)a[i+1].x, q[1] = (int32_t)a[i+1].y;
+		t[2] = (int32_t)a[i+2].x, q[2] = (int32_t)a[i+2].y;
+		if (t[2] - t[0] > max_space || q[2] - q[0] > max_space) continue;
+		gap01 = (t[1] - t[0]) - (q[1] - q[0]), gap01 = gap01 > 0? gap01 : -gap01;
+		gap12 = (t[2] - t[1]) - (q[2] - q[1]), gap12 = gap12 > 0? gap12 : -gap12;
+		gap02 = (t[2] - t[0]) - (q[2] - q[0]), gap02 = gap02 > 0? gap02 : -gap02;
+		if (gap01 + gap12 - gap02 > max_diff)
+			a[++i].y |= 1ULL << 41;
+	}
+}
+
 static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a, ksw_extz_t *ez)
 {
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63;
@@ -174,6 +192,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	r2->cnt = 0;
 	mm_adjust_minier(mi, qseq0, &a[r->as], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[r->as + r->cnt - 1], &re, &qe);
+	mm_filter_bad_seeds(r->cnt, &a[r->as], opt->max_gap, 100);
 
 	// compute rs0 and qs0
 	if (r->split && r->as > 0) {
@@ -220,6 +239,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < r->cnt; ++i) { // gap filling
+		if (a[r->as+i].y>>41&1) continue;
 		mm_adjust_minier(mi, qseq0, &a[r->as + i], &re, &qe);
 		re1 = re, qe1 = qe;
 		if (i == r->cnt - 1 || (a[r->as+i].y>>40&1) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
