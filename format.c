@@ -111,7 +111,7 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 	int flag = 0;
 	s->l = 0;
 	if (r == 0) {
-		mm_sprintf_lite(s, "%s\t0\t*\t0\t0\t*\t*\t0\t0\t", t->name);
+		mm_sprintf_lite(s, "%s\t4\t*\t0\t0\t*\t*\t0\t0\t", t->name);
 		sam_write_sq(s, t->seq, t->l_seq, 0, 0);
 		mm_sprintf_lite(s, "\t");
 		if (t->qual) sam_write_sq(s, t->qual, t->l_seq, 0, 0);
