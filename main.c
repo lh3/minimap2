@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r159-pre"
+#define MM_VERSION "2.0-r160-pre"
 
 void liftrlimit()
 {
@@ -63,7 +63,7 @@ int main(int argc, char *argv[])
 	int minibatch_size = 200000000;
 	uint64_t batch_size = 4000000000ULL;
 	bseq_file_t *fp = 0;
-	char *fnw = 0;
+	char *fnw = 0, *s;
 	FILE *fpr = 0, *fpw = 0;
 
 	liftrlimit();
@@ -93,8 +93,6 @@ int main(int argc, char *argv[])
 		else if (c == 'm') opt.min_chain_score = atoi(optarg);
 		else if (c == 'A') opt.a = atoi(optarg);
 		else if (c == 'B') opt.b = atoi(optarg);
-		else if (c == 'O') opt.q = atoi(optarg);
-		else if (c == 'E') opt.e = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // --bucket-bits
@@ -104,6 +102,12 @@ int main(int argc, char *argv[])
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
+		} else if (c == 'O') {
+			opt.q = opt.q2 = strtol(optarg, &s, 10);
+			if (*s == ',') opt.q2 = strtol(s + 1, &s, 10);
+		} else if (c == 'E') {
+			opt.e = opt.e2 = strtol(optarg, &s, 10);
+			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		} else if (c == 'I' || (c == 0 && long_idx == 1)) {
 			double x;
 			char *p;
