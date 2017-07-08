@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r158-pre"
+#define MM_VERSION "2.0-r159-pre"
 
 void liftrlimit()
 {
@@ -134,40 +134,40 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
 		fprintf(stderr, "Options:\n");
 		fprintf(stderr, "  Indexing:\n");
-		fprintf(stderr, "    -H         use homopolymer-compressed k-mer\n");
-		fprintf(stderr, "    -k INT     k-mer size (no larger than 28) [%d]\n", k);
-		fprintf(stderr, "    -w INT     minizer window size [{-k}*2/3]\n");
-		fprintf(stderr, "    -I NUM     split index for every ~NUM input bases [4G]\n");
-		fprintf(stderr, "    -d FILE    dump index to FILE []\n");
+		fprintf(stderr, "    -H           use homopolymer-compressed k-mer\n");
+		fprintf(stderr, "    -k INT       k-mer size (no larger than 28) [%d]\n", k);
+		fprintf(stderr, "    -w INT       minizer window size [{-k}*2/3]\n");
+		fprintf(stderr, "    -I NUM       split index for every ~NUM input bases [4G]\n");
+		fprintf(stderr, "    -d FILE      dump index to FILE []\n");
 		fprintf(stderr, "  Mapping:\n");
-		fprintf(stderr, "    -f FLOAT   filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
-		fprintf(stderr, "    -g INT     stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
-		fprintf(stderr, "    -r INT     bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
-		fprintf(stderr, "    -n INT     minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
-		fprintf(stderr, "    -m INT     minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
-//		fprintf(stderr, "    -T INT     SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
-		fprintf(stderr, "    -X         skip self and dual mappings (for the all-vs-all mode)\n");
-		fprintf(stderr, "    -p FLOAT   min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
-		fprintf(stderr, "    -N INT     retain at most INT secondary alignments [%d]\n", opt.best_n);
-		fprintf(stderr, "    -D FLOAT   min fraction of minimizer matches [%g]\n", opt.min_seedcov_ratio);
-		fprintf(stderr, "    -x STR     preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "               ava10k: -Hk19 -w5 -Xp0 -m100 -D.05   (PacBio/ONT all-vs-all read mapping)\n");
-		fprintf(stderr, "               map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
-		fprintf(stderr, "               asm1m:  -k19 -w19   (intra-species assembly to ref mapping)\n");
+		fprintf(stderr, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
+		fprintf(stderr, "    -g INT       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
+		fprintf(stderr, "    -r INT       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
+		fprintf(stderr, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
+		fprintf(stderr, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
+//		fprintf(stderr, "    -T INT       SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
+		fprintf(stderr, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
+		fprintf(stderr, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
+		fprintf(stderr, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
+		fprintf(stderr, "    -D FLOAT     min fraction of minimizer matches [%g]\n", opt.min_seedcov_ratio);
+		fprintf(stderr, "    -x STR       preset (recommended to be applied before other options) []\n");
+		fprintf(stderr, "                 ava10k: -Hk19 -w5 -Xp0 -m100 -D.05   (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "                 map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
+		fprintf(stderr, "                 asm1m:  -k19 -w19   (intra-species assembly to ref mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
-		fprintf(stderr, "    -A INT     matching score [%d]\n", opt.a);
-		fprintf(stderr, "    -B INT     mismatch penalty [%d]\n", opt.b);
-		fprintf(stderr, "    -O INT     gap open penalty [%d]\n", opt.q);
-		fprintf(stderr, "    -E INT     gap extension penalty; a k-long gap costs {-O}+k*{-E} [%d]\n", opt.e);
-		fprintf(stderr, "    -z INT     Z-drop score [%d]\n", opt.zdrop);
-		fprintf(stderr, "    -s INT     minimal peak DP alignment score [%d]\n", opt.min_dp_max);
+		fprintf(stderr, "    -A INT       matching score [%d]\n", opt.a);
+		fprintf(stderr, "    -B INT       mismatch penalty [%d]\n", opt.b);
+		fprintf(stderr, "    -O INT[,INT] gap open penalty [%d,%d]\n", opt.q, opt.q2);
+		fprintf(stderr, "    -E INT[,INT] gap extension penalty; a k-long gap costs min{O1+k*E1,O2+k*E2} [%d,%d]\n", opt.e, opt.e2);
+		fprintf(stderr, "    -z INT       Z-drop score [%d]\n", opt.zdrop);
+		fprintf(stderr, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(stderr, "  Input/Output:\n");
-		fprintf(stderr, "    -Q         ignore base quality in the input\n");
-		fprintf(stderr, "    -a         output in the SAM format (PAF by default)\n");
-		fprintf(stderr, "    -c         output CIGAR in PAF\n");
-		fprintf(stderr, "    -t INT     number of threads [%d]\n", n_threads);
-//		fprintf(stderr, "    -v INT     verbose level [%d]\n", mm_verbose);
-		fprintf(stderr, "    -V         show version number\n");
+		fprintf(stderr, "    -Q           ignore base quality in the input\n");
+		fprintf(stderr, "    -a           output in the SAM format (PAF by default)\n");
+		fprintf(stderr, "    -c           output CIGAR in PAF\n");
+		fprintf(stderr, "    -t INT       number of threads [%d]\n", n_threads);
+//		fprintf(stderr, "    -v INT       verbose level [%d]\n", mm_verbose);
+		fprintf(stderr, "    -V           show version number\n");
 		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return 1;
 	}

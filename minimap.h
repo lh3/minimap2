@@ -85,7 +85,7 @@ typedef struct {
 	int max_join_long, max_join_short;
 	int min_join_flank_sc;
 
-	int a, b, q, e; // matching score, mismatch, gap-open and gap-ext penalties
+	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
 	int zdrop;
 	int min_dp_max;
 	int min_ksw_len;

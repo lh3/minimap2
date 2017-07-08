@@ -8,21 +8,6 @@
 #include <smmintrin.h>
 #endif
 
-static inline int apply_zdrop(ksw_extz_t *ez, int32_t H, int r, int t, int zdrop, int8_t e)
-{
-	if (H > (int32_t)ez->max) {
-		ez->max = H, ez->max_t = t, ez->max_q = r - t;
-	} else if (t >= ez->max_t && r - t >= ez->max_q) {
-		int tl = t - ez->max_t, ql = (r - t) - ez->max_q, l;
-		l = tl > ql? tl - ql : ql - tl;
-		if (ez->max - H > zdrop + l * e) {
-			ez->zdropped = 1;
-			return 1;
-		}
-	}
-	return 0;
-}
-
 void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez)
 {
 #define __dp_code_block1 \
@@ -51,18 +36,18 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
-	__m128i q_, qe2_, zero_, flag1_, flag2_, flag4_, flag32_, sc_mch_, sc_mis_, m1_;
+	__m128i q_, qe2_, zero_, flag1_, flag2_, flag8_, flag16_, sc_mch_, sc_mis_, m1_;
 	__m128i *u, *v, *x, *y, *s, *p = 0;
 
-	if (m <= 0 || qlen <= 0 || tlen <= 0 || w < 0 || zdrop < 0) return;
+	if (m <= 0 || qlen <= 0 || tlen <= 0 || w < 0) return;
 
 	zero_   = _mm_set1_epi8(0);
 	q_      = _mm_set1_epi8(q);
 	qe2_    = _mm_set1_epi8((q + e) * 2);
-	flag1_  = _mm_set1_epi8(1<<0);
-	flag2_  = _mm_set1_epi8(2<<0);
-	flag4_  = _mm_set1_epi8(1<<2);
-	flag32_ = _mm_set1_epi8(2<<4);
+	flag1_  = _mm_set1_epi8(1);
+	flag2_  = _mm_set1_epi8(2);
+	flag8_  = _mm_set1_epi8(0x08);
+	flag16_ = _mm_set1_epi8(0x10);
 	sc_mch_ = _mm_set1_epi8(mat[0]);
 	sc_mis_ = _mm_set1_epi8(mat[1]);
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
@@ -163,12 +148,12 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		} else if (!(flag&KSW_EZ_RIGHT)) { // gap left-alignment
 			__m128i *pr = p + r * n_col_ - st_;
 			off[r] = st;
-			if (en0 < r) { // to avoid backtracking out of the band; this assumes a fixed band
+			if (en0 < r && en0 < tlen - 1) { // to avoid backtracking out of the band; this assumes a fixed band
 				int8_t a, z = ((uint8_t*)s)[en0] + 2 * qe;
 				a = x8[en0-1] + v8[en0-1];
 				p_en0 = a > z? 1 : 0;
 				z = a > z? a : z;
-				p_en0 |= a - (z - q) > 0? 1<<2 : 0;
+				p_en0 |= a - (z - q) > 0? 0x08 : 0;
 			}
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, xt1, vt1, ut, tmp;
@@ -187,21 +172,21 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				__dp_code_block2;
 				tmp = _mm_cmpgt_epi8(a, zero_);
 				_mm_store_si128(&x[t], _mm_and_si128(tmp, a));
-				d = _mm_or_si128(d, _mm_and_si128(tmp, flag4_));  // d = a > 0? 1<<2 : 0
+				d = _mm_or_si128(d, _mm_and_si128(tmp, flag8_));  // d = a > 0? 0x08 : 0
 				tmp = _mm_cmpgt_epi8(b, zero_);
 				_mm_store_si128(&y[t], _mm_and_si128(tmp, b));
-				d = _mm_or_si128(d, _mm_and_si128(tmp, flag32_)); // d = b > 0? 2<<4 : 0
+				d = _mm_or_si128(d, _mm_and_si128(tmp, flag16_)); // d = b > 0? 0x10 : 0
 				_mm_store_si128(&pr[t], d);
 			}
 		} else { // gap right-alignment
 			__m128i *pr = p + r * n_col_ - st_;
 			off[r] = st;
-			if (en0 < r) {
+			if (en0 < r && en0 < tlen - 1) {
 				int8_t a, z = ((uint8_t*)s)[en0] + 2 * qe;
 				a = x8[en0-1] + v8[en0-1];
 				p_en0 = a >= z? 1 : 0;
 				z = a >= z? a : z;
-				p_en0 |= a - (z - q) >= 0? 1<<2 : 0;
+				p_en0 |= a - (z - q) >= 0? 0x08 : 0;
 			}
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, xt1, vt1, ut, tmp;
@@ -220,14 +205,14 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				__dp_code_block2;
 				tmp = _mm_cmpgt_epi8(zero_, a);
 				_mm_store_si128(&x[t], _mm_andnot_si128(tmp, a));
-				d = _mm_or_si128(d, _mm_andnot_si128(tmp, flag4_));  // d = 0 > a? 0 : 1<<2
+				d = _mm_or_si128(d, _mm_andnot_si128(tmp, flag8_));  // d = 0 > a? 0 : 0x08
 				tmp = _mm_cmpgt_epi8(zero_, b);
 				_mm_store_si128(&y[t], _mm_andnot_si128(tmp, b));
-				d = _mm_or_si128(d, _mm_andnot_si128(tmp, flag32_)); // d = 0 > b? 0 : 2<<4
+				d = _mm_or_si128(d, _mm_andnot_si128(tmp, flag16_)); // d = 0 > b? 0 : 0x10
 				_mm_store_si128(&pr[t], d);
 			}
 		}
-		if (with_cigar && en0 < r) ((uint8_t*)(p + r * n_col_))[en0 - st] = p_en0;
+		if (with_cigar && en0 < r && en0 < tlen - 1) ((uint8_t*)(p + r * n_col_))[en0 - st] = p_en0;
 		if (!approx_max) { // find the exact max with a 32-bit score array
 			int32_t max_H, max_t;
 			// compute H[], max_H and max_t
@@ -271,18 +256,9 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				ez->mte = H[en0], ez->mte_q = r - en;
 			if (r - st0 == qlen - 1 && H[st0] > ez->mqe)
 				ez->mqe = H[st0], ez->mqe_t = st0;
-			if (apply_zdrop(ez, max_H, r, max_t, zdrop, e)) break;
+			if (ksw_apply_zdrop(ez, 1, max_H, r, max_t, zdrop, e)) break;
 			if (r == qlen + tlen - 2 && en0 == tlen - 1)
 				ez->score = H[tlen - 1];
-			if (flag & KSW_EZ_DYN_BAND & 0) { // FIXME: don't use - buggy!
-				int lq, lt, l;
-				lt = tlen - st0, lq = qlen - (r - st0);
-				l = lt < lq? lt : lq;
-				if (H[st0] + l * max_sc < ez->max - zdrop && wr > 1) --wr;
-				lt = tlen - en0, lq = qlen - (r - en0);
-				l = lt < lq? lt : lq;
-				if (H[en0] + l * max_sc < ez->max - zdrop && wl > 1) --wl;
-			}
 		} else { // find approximate max; Z-drop might be inaccurate, too.
 			if (r > 0) {
 				if (last_H0_t >= st0 && last_H0_t <= en0 && last_H0_t + 1 >= st0 && last_H0_t + 1 <= en0) {
@@ -295,7 +271,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				} else {
 					++last_H0_t, H0 += u8[last_H0_t] - qe;
 				}
-				if ((flag & KSW_EZ_APPROX_DROP) && apply_zdrop(ez, H0, r, last_H0_t, zdrop, e)) break;
+				if ((flag & KSW_EZ_APPROX_DROP) && ksw_apply_zdrop(ez, 1, H0, r, last_H0_t, zdrop, e)) break;
 			} else H0 = v8[0] - qe - qe, last_H0_t = 0;
 			if (r == qlen + tlen - 2 && en0 == tlen - 1)
 				ez->score = H0;

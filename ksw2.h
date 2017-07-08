@@ -10,7 +10,6 @@
 #define KSW_EZ_GENERIC_SC  0x04 // without this flag: match/mismatch only; last symbol is a wildcard
 #define KSW_EZ_APPROX_MAX  0x08 // approximate max; this is faster with sse
 #define KSW_EZ_APPROX_DROP 0x10 // approximate Z-drop; faster with sse
-#define KSW_EZ_DYN_BAND    0x20 // once used, ksw_extz_t::{mqe,mte} may be wrong
 #define KSW_EZ_EXTZ_ONLY   0x40 // only perform extension
 #define KSW_EZ_REV_CIGAR   0x80 // reverse CIGAR in the output
 
@@ -47,6 +46,12 @@ extern "C" {
  */
 void ksw_extz(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez);
 void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez);
+
+void ksw_extd(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
+			  int8_t gapo, int8_t gape, int8_t gapo2, int8_t gape2, int w, int zdrop, int flag, ksw_extz_t *ez);
+
+void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
+				   int8_t gapo, int8_t gape, int8_t gapo2, int8_t gape2, int w, int zdrop, int flag, ksw_extz_t *ez);
 
 /**
  * Global alignment
@@ -92,18 +97,23 @@ static inline uint32_t *ksw_push_cigar(void *km, int *n_cigar, int *m_cigar, uin
 	return cigar;
 }
 
+// In the backtrack matrix, value p[] has the following structure:
+//   bit 0-2: which type gets the max - 0 for H, 1 for E, 2 for F, 3 for \tilde{E} and 4 for \tilde{F}
+//   bit 3/0x08: 1 if a continuation on the E state (bit 5/0x20 for a continuation on \tilde{E})
+//   bit 4/0x10: 1 if a continuation on the F state (bit 6/0x40 for a continuation on \tilde{F})
 static inline void ksw_backtrack(void *km, int is_rot, int is_rev, const uint8_t *p, const int *off, int n_col, int i0, int j0, int *m_cigar_, int *n_cigar_, uint32_t **cigar_)
-{
-	int n_cigar = 0, m_cigar = *m_cigar_, which = 0, i = i0, j = j0, r;
+{ // p[] - lower 3 bits: which type gets the max; bit
+	int n_cigar = 0, m_cigar = *m_cigar_, i = i0, j = j0, r, state = 0;
 	uint32_t *cigar = *cigar_, tmp;
-	while (i >= 0 && j >= 0) {
+	while (i >= 0 && j >= 0) { // at the beginning of the loop, _state_ tells us which state to check
 		if (is_rot) r = i + j, tmp = p[r * n_col + i - off[r]];
 		else tmp = p[i * n_col + j - off[i]];
-		which = tmp >> (which << 1) & 3;
-		if (which == 0) which = tmp & 3;
-		if (which == 0)      cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 0, 1), --i, --j; // match
-		else if (which == 1) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 2, 1), --i;      // deletion
-		else                 cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 1, 1), --j;      // insertion
+		if (state == 0) state = tmp & 7; // if requesting the H state, find state one maximizes it.
+		else if (!(tmp >> (state + 2) & 1)) state = 0; // if requesting other states, _state_ stays the same if it is a continuation; otherwise, set to H
+		if (state == 0) state = tmp & 7; // TODO: probably this line can be merged into the "else if" line right above; not 100% sure
+		if (state == 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 0, 1), --i, --j; // match
+		else if (state == 1 || state == 3) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 2, 1), --i; // deletion
+		else cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 1, 1), --j; // insertion
 	}
 	if (i >= 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 2, i + 1); // first deletion
 	if (j >= 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 1, j + 1); // first insertion
@@ -118,6 +128,24 @@ static inline void ksw_reset_extz(ksw_extz_t *ez)
 	ez->max_q = ez->max_t = ez->mqe_t = ez->mte_q = -1;
 	ez->max = 0, ez->score = ez->mqe = ez->mte = KSW_NEG_INF;
 	ez->n_cigar = 0, ez->zdropped = 0;
+}
+
+static inline int ksw_apply_zdrop(ksw_extz_t *ez, int is_rot, int32_t H, int a, int b, int zdrop, int8_t e)
+{
+	int r, t;
+	if (is_rot) r = a, t = b;
+	else r = a + b, t = a;
+	if (H > (int32_t)ez->max) {
+		ez->max = H, ez->max_t = t, ez->max_q = r - t;
+	} else if (t >= ez->max_t && r - t >= ez->max_q) {
+		int tl = t - ez->max_t, ql = (r - t) - ez->max_q, l;
+		l = tl > ql? tl - ql : ql - tl;
+		if (zdrop >= 0 && ez->max - H > zdrop + l * e) {
+			ez->zdropped = 1;
+			return 1;
+		}
+	}
+	return 0;
 }
 
 #endif

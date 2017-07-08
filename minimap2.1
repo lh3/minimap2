@@ -192,23 +192,26 @@ Long assembly to reference mapping (-k19 -w19)
 .SS Alignment options
 .TP 10
 .BI -A \ INT
-Matching score [1]
+Matching score [2]
 .TP
 .BI -B \ INT
-Mismatching penalty [2]
+Mismatching penalty [4]
 .TP
-.BI -O \ INT
-Gap open penalty [2]
+.BI -O \ INT1[,INT2]
+Gap open penalty [4,24]. If
+.I INT2
+is not specified, it is set to
+.IR INT1 .
 .TP
-.BI -E \ INT
-Gap extension penalty [1]. A gap of length
-.I l
+.BI -E \ INT1[,INT2]
+Gap extension penalty [2,1]. A gap of length
+.I k
 costs
-.RI {-O}+{-E}* l .
+.RI min{ O1 + k * E1 , O2 + k * E2 }.
 .TP
 .BI -z \ INT
 Break an alignment if the running score drops too quickly along the diagonal of
-the DP matrix (diagonal X-drop, or Z-drop) [200]. Increasing the value improves
+the DP matrix (diagonal X-drop, or Z-drop) [400]. Increasing the value improves
 the contiguity of the alignment at the cost of poor alignment in the middle
 (e.g. caused by a long inversion).
 .TP
