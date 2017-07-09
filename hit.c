@@ -235,12 +235,11 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 	for (i = n_aux - 1; i >= 1; --i) {
 		mm_reg1_t *r0 = &regs[(int32_t)aux[i-1]], *r1 = &regs[(int32_t)aux[i]];
 		mm128_t *a0e, *a1s;
-		int max_gap, min_gap;
+		int max_gap, min_gap, sc_thres;
 
 		// test
 		if (r0->as + r0->cnt != r1->as) continue; // not adjacent in a[]
 		if (r0->rid != r1->rid || r0->rev != r1->rev) continue; // make sure on the same target and strand
-		if (r0->score < opt->min_join_flank_sc || r1->score < opt->min_join_flank_sc) continue; // require good flanking chains
 		a0e = &a[r0->as + r0->cnt - 1];
 		a1s = &a[r1->as];
 		if (a1s->x <= a0e->x || (int32_t)a1s->y <= (int32_t)a0e->y) continue; // keep colinearity
@@ -248,6 +247,8 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		max_gap = max_gap > a1s->x - a0e->x? max_gap : a1s->x - a0e->x;
 		min_gap = min_gap < a1s->x - a0e->x? min_gap : a1s->x - a0e->x;
 		if (max_gap > opt->max_join_long || min_gap > opt->max_join_short) continue;
+		sc_thres = (int)((float)opt->min_join_flank_sc / opt->max_join_long * max_gap + .499); // TODO: also require length
+		if (r0->score < sc_thres || r1->score < sc_thres) continue; // require good flanking chains
 
 		// all conditions satisfied; join
 		a[r1->as].y |= 1ULL<<40;
