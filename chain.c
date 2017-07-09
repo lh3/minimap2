@@ -23,8 +23,8 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t st = 0, j, k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i;
-	uint64_t *u;
-	mm128_t *b;
+	uint64_t *u, *u2;
+	mm128_t *b, *w;
 
 	if (_u) *_u = 0;
 	f = (int32_t*)kmalloc(km, n * 4);
@@ -99,19 +99,35 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 		}
 		if (k0 == k) n_v = n_v0; // no new chain added, reset
 	}
-	n_u = k, *_u = u;
+	n_u = k, *_u = u; // NB: note that u[] may not be sorted by score here
 
 	// free
 	kfree(km, f); kfree(km, p); kfree(km, t);
 
-	// write the result to _a_
+	// write the result to b[]
 	b = (mm128_t*)kmalloc(km, n_v * sizeof(mm128_t));
 	for (i = 0, k = 0; i < n_u; ++i) {
 		int32_t k0 = k, ni = (int32_t)u[i];
 		for (j = 0; j < ni; ++j)
 			b[k] = a[v[k0 + (ni - j - 1)]], ++k;
 	}
-	memcpy(a, b, n_v * sizeof(mm128_t));
-	kfree(km, v); kfree(km, b);
+	kfree(km, v);
+
+	// sort u[] and a[] by a[].x, such that adjacent chains may be joined (required by mm_join_long)
+	w = (mm128_t*)kmalloc(km, n_u * sizeof(mm128_t));
+	for (i = k = 0; i < n_u; ++i) {
+		w[i].x = b[k].x, w[i].y = (uint64_t)k<<32|i;
+		k += (int32_t)u[i];
+	}
+	radix_sort_128x(w, w + n_u);
+	u2 = (uint64_t*)kmalloc(km, n_u * 8);
+	for (i = k = 0; i < n_u; ++i) {
+		int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
+		u2[i] = u[j];
+		memcpy(&a[k], &b[w[i].y>>32], n * sizeof(mm128_t));
+		k += n;
+	}
+	memcpy(u, u2, n_u * 8);
+	kfree(km, b); kfree(km, w); kfree(km, u2);
 	return n_u;
 }

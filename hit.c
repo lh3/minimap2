@@ -247,8 +247,10 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		max_gap = max_gap > a1s->x - a0e->x? max_gap : a1s->x - a0e->x;
 		min_gap = min_gap < a1s->x - a0e->x? min_gap : a1s->x - a0e->x;
 		if (max_gap > opt->max_join_long || min_gap > opt->max_join_short) continue;
-		sc_thres = (int)((float)opt->min_join_flank_sc / opt->max_join_long * max_gap + .499); // TODO: also require length
+		sc_thres = (int)((float)opt->min_join_flank_sc / opt->max_join_long * max_gap + .499);
 		if (r0->score < sc_thres || r1->score < sc_thres) continue; // require good flanking chains
+		if (r0->re - r0->rs < max_gap>>1 || r0->qe - r0->qs < max_gap>>1) continue; // require enough flanking length
+		if (r1->re - r1->rs < max_gap>>1 || r1->qe - r1->qs < max_gap>>1) continue;
 
 		// all conditions satisfied; join
 		a[r1->as].y |= 1ULL<<40;

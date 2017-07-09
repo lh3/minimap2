@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r167-pre"
+#define MM_VERSION "2.0-r168-pre"
 
 void liftrlimit()
 {
@@ -120,7 +120,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava10k") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.min_seedcov_ratio = 0.05f;
+				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.min_seedcov_ratio = 0.05f, opt.max_gap = 10000;
 				is_hpc = 1, k = 19, w = 5;
 			} else if (strcmp(optarg, "map10k") == 0) {
 				is_hpc = 1, k = 19;
@@ -155,7 +155,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
 		fprintf(stderr, "    -D FLOAT     min fraction of minimizer matches [%g]\n", opt.min_seedcov_ratio);
 		fprintf(stderr, "    -x STR       preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "                 ava10k: -Hk19 -w5 -Xp0 -m100 -D.05   (PacBio/ONT all-vs-all read mapping)\n");
+		fprintf(stderr, "                 ava10k: -Hk19 -w5 -Xp0 -m100 -D.05 -g10000 (PacBio/ONT all-vs-all read mapping)\n");
 		fprintf(stderr, "                 map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
 		fprintf(stderr, "                 asm1m:  -k19 -w19   (intra-species assembly to ref mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
