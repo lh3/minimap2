@@ -1,5 +1,52 @@
+var getopt = function(args, ostr) {
+	var oli; // option letter list index
+	if (typeof(getopt.place) == 'undefined')
+		getopt.ind = 0, getopt.arg = null, getopt.place = -1;
+	if (getopt.place == -1) { // update scanning pointer
+		if (getopt.ind >= args.length || args[getopt.ind].charAt(getopt.place = 0) != '-') {
+			getopt.place = -1;
+			return null;
+		}
+		if (getopt.place + 1 < args[getopt.ind].length && args[getopt.ind].charAt(++getopt.place) == '-') { // found "--"
+			++getopt.ind;
+			getopt.place = -1;
+			return null;
+		}
+	}
+	var optopt = args[getopt.ind].charAt(getopt.place++); // character checked for validity
+	if (optopt == ':' || (oli = ostr.indexOf(optopt)) < 0) {
+		if (optopt == '-') return null; //  if the user didn't specify '-' as an option, assume it means null.
+		if (getopt.place < 0) ++getopt.ind;
+		return '?';
+	}
+	if (oli+1 >= ostr.length || ostr.charAt(++oli) != ':') { // don't need argument
+		getopt.arg = null;
+		if (getopt.place < 0 || getopt.place >= args[getopt.ind].length) ++getopt.ind, getopt.place = -1;
+	} else { // need an argument
+		if (getopt.place >= 0 && getopt.place < args[getopt.ind].length)
+			getopt.arg = args[getopt.ind].substr(getopt.place);
+		else if (args.length <= ++getopt.ind) { // no arg
+			getopt.place = -1;
+			if (ostr.length > 0 && ostr.charAt(0) == ':') return ':';
+			return '?';
+		} else getopt.arg = args[getopt.ind]; // white space
+		getopt.place = -1;
+		++getopt.ind;
+	}
+	return optopt;
+}
+
+var c, gap_out_len = null;
+while ((c = getopt(arguments, "l:")) != null)
+	if (c == 'l') gap_out_len = parseInt(getopt.arg);
+
+if (getopt.ind == arguments.length) {
+	print("Usage: k8 mapstat.js [-l gapOutLen] <in.sam>|<in.paf>");
+	exit(1);
+}
+
 var buf = new Bytes();
-var file = arguments.length? new File(arguments[0]) : new File();
+var file = new File(arguments[getopt.ind]);
 var re = /(\d+)([MIDSHNX=])/g;
 
 var lineno = 0, n_pri = 0, n_2nd = 0, n_seq = 0, n_cigar_64k = 0, l_tot = 0, l_cov = 0;
@@ -24,7 +71,7 @@ while (file.readline(buf) >= 0) {
 	++lineno;
 	if (line.charAt(0) != '@') {
 		var t = line.split("\t", 12);
-		var m, cigar = null, is_pri = false, is_sam = false, is_rev = false;
+		var m, rs, cigar = null, is_pri = false, is_sam = false, is_rev = false, tname = null;
 		var atlen = null, aqlen, qs, qe, mapq, ori_qlen;
 		if (t[4] == '+' || t[4] == '-') { // PAF
 			if (!/\ts2:i:\d+/.test(line)) {
@@ -37,9 +84,12 @@ while (file.readline(buf) >= 0) {
 				warn("WARNING: no CIGAR at line " + lineno);
 				continue;
 			}
+			tname = t[5];
 			qs = parseInt(t[2]), qe = parseInt(t[3]);
 			aqlen = qe - qs;
-			atlen = parseInt(t[8]) - parseInt(t[7]);
+			is_rev = t[4] == '+'? false : true;
+			rs = parseInt(t[7]);
+			atlen = parseInt(t[8]) - rs;
 			mapq = parseInt(t[11]);
 			ori_qlen = parseInt(t[1]);
 		} else { // SAM
@@ -50,6 +100,7 @@ while (file.readline(buf) >= 0) {
 				continue;
 			}
 			cigar = t[5];
+			tname = t[2];
 			rs = parseInt(t[3]) - 1;
 			mapq = parseInt(t[4]);
 			aqlen = t[9].length;
@@ -81,6 +132,8 @@ while (file.readline(buf) >= 0) {
 				else type = 5;
 				if (m[2] == 'I') ql += l, ++n_gap[0][type];
 				else tl += l, ++n_gap[1][type];
+				if (gap_out_len != null && l >= gap_out_len)
+					print(t[0], ql, is_rev? '-' : '+', tname, rs + tl, m[2], l);
 			} else if (m[2] == 'N') {
 				tl += l;
 			} else if (m[2] == 'S') {
@@ -105,24 +158,26 @@ while (file.readline(buf) >= 0) {
 l_tot += last_qlen;
 l_cov += cov_len(regs);
 
-print("Number of mapped sequences: " + n_seq);
-print("Number of primary alignments: " + n_pri);
-print("Number of secondary alignments: " + n_2nd);
-print("Number of primary alignments with >65535 CIGAR operations: " + n_cigar_64k);
-print("Number of bases in mapped sequences: " + l_tot);
-print("Number of mapped bases: " + l_cov);
-print("Number of insertions in [0,50): " + n_gap[0][0]);
-print("Number of insertions in [50,100): " + n_gap[0][1]);
-print("Number of insertions in [100,300): " + n_gap[0][2]);
-print("Number of insertions in [300,400): " + n_gap[0][3]);
-print("Number of insertions in [400,1000): " + n_gap[0][4]);
-print("Number of insertions in [1000,inf): " + n_gap[0][5]);
-print("Number of deletions in [0,50): " + n_gap[1][0]);
-print("Number of deletions in [50,100): " + n_gap[1][1]);
-print("Number of deletions in [100,300): " + n_gap[1][2]);
-print("Number of deletions in [300,400): " + n_gap[1][3]);
-print("Number of deletions in [400,1000): " + n_gap[1][4]);
-print("Number of deletions in [1000,inf): " + n_gap[1][5]);
-
 file.close();
 buf.destroy();
+
+if (gap_out_len == null) {
+	print("Number of mapped sequences: " + n_seq);
+	print("Number of primary alignments: " + n_pri);
+	print("Number of secondary alignments: " + n_2nd);
+	print("Number of primary alignments with >65535 CIGAR operations: " + n_cigar_64k);
+	print("Number of bases in mapped sequences: " + l_tot);
+	print("Number of mapped bases: " + l_cov);
+	print("Number of insertions in [0,50): " + n_gap[0][0]);
+	print("Number of insertions in [50,100): " + n_gap[0][1]);
+	print("Number of insertions in [100,300): " + n_gap[0][2]);
+	print("Number of insertions in [300,400): " + n_gap[0][3]);
+	print("Number of insertions in [400,1000): " + n_gap[0][4]);
+	print("Number of insertions in [1000,inf): " + n_gap[0][5]);
+	print("Number of deletions in [0,50): " + n_gap[1][0]);
+	print("Number of deletions in [50,100): " + n_gap[1][1]);
+	print("Number of deletions in [100,300): " + n_gap[1][2]);
+	print("Number of deletions in [300,400): " + n_gap[1][3]);
+	print("Number of deletions in [400,1000): " + n_gap[1][4]);
+	print("Number of deletions in [1000,inf): " + n_gap[1][5]);
+}
