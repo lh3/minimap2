@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r169-pre"
+#define MM_VERSION "2.0-r170-pre"
 
 void liftrlimit()
 {
@@ -48,6 +48,7 @@ static struct option long_options[] = {
 	{ "no-kalloc",      no_argument,       0, 0 },
 	{ "print-qname",    no_argument,       0, 0 },
 	{ "no-self",        no_argument,       0, 0 },
+	{ "print-seed",     no_argument,       0, 0 },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
 	{ "min-chain-score",required_argument, 0, 'm' },
@@ -100,7 +101,8 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 2) keep_name = 0; // --int-rname
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
 		else if (c == 0 && long_idx == 4) mm_dbg_flag |= MM_DBG_PRINT_QNAME; // --print-qname
-		else if (c == 0 && long_idx == 5) opt.flag |= MM_F_NO_SELF;
+		else if (c == 0 && long_idx == 5) opt.flag |= MM_F_NO_SELF; // --no-self
+		else if (c == 0 && long_idx == 6) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_SEED; // --print-seed
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;

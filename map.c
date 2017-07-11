@@ -236,6 +236,10 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 		if (m[i].is_alloc) kfree(b->km, m[i].x.r);
 	kfree(b->km, m);
 
+	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
+		for (i = 0; i < n_a; ++i)
+			fprintf(stderr, "SD\t%d\t%c\t%s\t%d\t%d\n", (int32_t)a[i].y, "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, (int32_t)(a[i].y>>32&0xff));
+
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
 	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
 	*n_regs = n_u;
@@ -296,7 +300,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *step = (step_t*)_data;
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
-		fprintf(stderr, "Processing query %s on thread %d\n", step->seq[i].name, tid);
+		fprintf(stderr, "QR\t%s\t%d\n", step->seq[i].name, tid);
 	step->reg[i] = mm_map(step->p->mi, step->seq[i].l_seq, step->seq[i].seq, &step->n_reg[i], step->buf[tid], step->p->opt, step->seq[i].name);
 }
 
