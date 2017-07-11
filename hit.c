@@ -3,8 +3,23 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 
-static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
+static inline void mm_cal_fuzzy_len(mm_reg1_t *r, const mm128_t *a)
 {
+	int i;
+	r->fuzzy_mlen = r->fuzzy_blen = 0;
+	if (r->cnt <= 0) return;
+	r->fuzzy_mlen = r->fuzzy_blen = a[r->as].y>>32&0xff;
+	for (i = r->as + 1; i < r->as + r->cnt; ++i) {
+		int span = a[i].y>>32&0xff;
+		int tl = (int32_t)a[i].x - (int32_t)a[i-1].x;
+		int ql = (int32_t)a[i].y - (int32_t)a[i-1].y;
+		r->fuzzy_blen += tl > ql? tl : ql;
+		r->fuzzy_mlen += tl > span && ql > span? span : tl < ql? tl : ql;
+	}
+}
+
+static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
+{ // NB: r->as and r->cnt MUST BE set correctly for this function to work
 	int32_t k = r->as, q_span = (int32_t)(a[k].y>>32&0xff);
 	r->rev = a[k].x>>63;
 	r->rid = a[k].x<<1>>33;
@@ -17,6 +32,7 @@ static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
 		r->qs = qlen - ((int32_t)a[k + r->cnt - 1].y + 1);
 		r->qe = qlen - ((int32_t)a[k].y + 1 - q_span);
 	}
+	mm_cal_fuzzy_len(r, a);
 }
 
 mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a) // convert chains to hits

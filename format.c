@@ -56,8 +56,7 @@ static void mm_sprintf_lite(kstring_t *s, const char *fmt, ...)
 
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 {
-	mm_sprintf_lite(s, "\tcm:i:%d", r->cnt);
-	if (r->p) mm_sprintf_lite(s, "\ts1:i:%d", r->score);
+	mm_sprintf_lite(s, "\tcm:i:%d\ts1:i:%d", r->cnt, r->score);
 	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
 	if (r->split) mm_sprintf_lite(s, "\tzd:i:%d", r->split);
 	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
@@ -71,7 +70,7 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 	else mm_sprintf_lite(s, "%d", r->rid);
 	mm_sprintf_lite(s, "\t%d\t%d\t%d", mi->seq[r->rid].len, r->rs, r->re);
 	if (r->p) mm_sprintf_lite(s, "\t%d\t%d", r->p->blen - r->p->n_ambi - r->p->n_diff, r->p->blen);
-	else mm_sprintf_lite(s, "\t%d\t%d", r->score, r->re - r->rs > r->qe - r->qs? r->re - r->rs : r->qe - r->qs);
+	else mm_sprintf_lite(s, "\t%d\t%d", r->fuzzy_mlen, r->fuzzy_blen);
 	mm_sprintf_lite(s, "\t%d", r->mapq);
 	write_tags(s, r);
 	if (r->p) {
