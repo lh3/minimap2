@@ -238,7 +238,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
 		for (i = 0; i < n_a; ++i)
-			fprintf(stderr, "SD\t%d\t%c\t%s\t%d\t%d\n", (int32_t)a[i].y, "+-"[a[i].x>>63], mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, (int32_t)(a[i].y>>32&0xff));
+			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\n", mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff));
 
 	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
 	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
