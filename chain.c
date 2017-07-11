@@ -51,7 +51,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			if (dd > bw) continue;
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
-			sc -= dd? ilog2_32(dd) * 4 : 0;
+			sc -= dd? ilog2_32(dd) * 2 : 0;
 			if (min_d > q_span) sc -= ilog2_32(min_d) / 2;
 			sc += f[j];
 			if (sc > max_f) max_f = sc, max_j = j;
