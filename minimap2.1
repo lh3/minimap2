@@ -1,4 +1,4 @@
-.TH minimap2 1 "8 July 2017" "minimap2-2.0-r160-pre" "Bioinformatics tools"
+.TH minimap2 1 "11 July 2017" "minimap2-2.0-r172-pre" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -54,7 +54,7 @@ minimap2
 .RS 4
 minimap2
 .B -x
-ava10k
+ava-ont
 .RB [ -t
 .IR nThreads ]
 .I target.fa
@@ -180,8 +180,11 @@ Available
 are:
 .RS
 .TP 8
-.B ava10k
-PacBio/Oxford Nanopore all-vs-all overlap mapping (-Hk19 -w5 -Xp0 -m100 -D.05)
+.B ava-pb
+PacBio all-vs-all overlap mapping (-Hk19 -w5 -Xp0 -m100 -D.05 -g10000)
+.TP 8
+.B ava-ont
+Oxford Nanopore all-vs-all overlap mapping (-k15 -w5 -Xp0 -m100 -D.05 -g10000)
 .TP
 .B map10k
 PacBio/Oxford Nanopore read to reference mapping (-Hk19)
