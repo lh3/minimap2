@@ -164,12 +164,6 @@ secondary alignments [5]. This option has no effect when
 .B -X
 is applied.
 .TP
-.BI -D \ FLOAT
-Discard a chain if the fraction of matching bases over the length of
-query/target sequences in the chain is
-.RI < FLOAT
-[0].
-.TP
 .BI -x \ STR
 Preset []. This option applies multiple options at the same time. It should be
 applied before other options because options applied later will overwrite the
@@ -181,10 +175,10 @@ are:
 .RS
 .TP 8
 .B ava-pb
-PacBio all-vs-all overlap mapping (-Hk19 -w5 -Xp0 -m100 -D.05 -g10000)
+PacBio all-vs-all overlap mapping (-Hk19 -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip 25)
 .TP 8
 .B ava-ont
-Oxford Nanopore all-vs-all overlap mapping (-k15 -w5 -Xp0 -m100 -D.05 -g10000)
+Oxford Nanopore all-vs-all overlap mapping (-k15 -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip 25)
 .TP
 .B map10k
 PacBio/Oxford Nanopore read to reference mapping (-Hk19)
@@ -249,14 +243,22 @@ sequences, and uses up to
 threads when mapping (the extra thread is for I/O, which is frequently idle and
 takes little CPU time).
 .TP
-.B -V
-Print version number to stdout
-.TP
-.BI --mb-size \ STR
+.BI -K \ NUM
 Number of bases loaded into memory to process in a mini-batch [200M].
 Similar to option
 .BR -I ,
-K/M/G/k/m/g suffix is accepted. This option affects both indexing and mapping.
+K/M/G/k/m/g suffix is accepted. A large
+.I NUM
+helps load balancing in the multi-threading mode, at the cost of increased
+memory. Preset
+.B ava-pb
+and
+.B ava-ont
+use
+.BR -K500m .
+.TP
+.B -V
+Print version number to stdout
 .SS Miscellaneous options
 .TP 10
 .B --no-kalloc

@@ -77,7 +77,6 @@ typedef struct {
 	int max_chain_skip;
 	int min_cnt;
 	int min_chain_score;
-	float min_seedcov_ratio;
 
 	float mask_level;
 	float pri_ratio;

@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r175-pre"
+#define MM_VERSION "2.0-r176-pre"
 
 void liftrlimit()
 {
@@ -43,7 +43,7 @@ static int test_idx(const char *fn)
 
 static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
-	{ "mb-size",        required_argument, 0, 0 },
+	{ "mb-size",        required_argument, 0, 'K' },
 	{ "int-rname",      no_argument,       0, 0 },
 	{ "no-kalloc",      no_argument,       0, 0 },
 	{ "print-qname",    no_argument,       0, 0 },
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "aw:k:t:r:f:Vv:g:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:D:N:Q", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aw:k:K:t:r:f:Vv:g:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Q", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg);
 		else if (c == 'k') k = atoi(optarg);
 		else if (c == 'H') is_hpc = 1;
@@ -85,7 +85,6 @@ int main(int argc, char *argv[])
 		else if (c == 'g') opt.max_gap = atoi(optarg);
 		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
-		else if (c == 'D') opt.min_seedcov_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_CIGAR;
 		else if (c == 'X') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
@@ -114,7 +113,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
-		} else if (c == 'I' || (c == 0 && long_idx == 1)) {
+		} else if (c == 'I' || c == 'K') {
 			double x;
 			char *p;
 			x = strtod(optarg, &p);
@@ -126,11 +125,13 @@ int main(int argc, char *argv[])
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava-ont") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.min_seedcov_ratio = 0.05f, opt.max_gap = 10000, opt.max_chain_skip = 25;
+				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.max_gap = 10000, opt.max_chain_skip = 25;
+				minibatch_size = 500000000;
 				k = 15, w = 5;
 			} else if (strcmp(optarg, "ava-pb") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
-				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.min_seedcov_ratio = 0.05f, opt.max_gap = 10000, opt.max_chain_skip = 25;
+				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.max_gap = 10000, opt.max_chain_skip = 25;
+				minibatch_size = 500000000;
 				is_hpc = 1, k = 19, w = 5;
 			} else if (strcmp(optarg, "map10k") == 0) {
 				is_hpc = 1, k = 19;
@@ -163,10 +164,9 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
-		fprintf(stderr, "    -D FLOAT     min fraction of minimizer matches [%g]\n", opt.min_seedcov_ratio);
 		fprintf(stderr, "    -x STR       preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -D.05 -g10000 --max-chain-skip 25 (PacBio read overlap)\n");
-		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -D.05 -g10000 --max-chain-skip 25 (ONT read overlap)\n");
+		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
+		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(stderr, "                 map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
 		fprintf(stderr, "                 asm1m:  -k19 -w19   (intra-species assembly to ref mapping)\n");
 		fprintf(stderr, "  Alignment:\n");
@@ -181,6 +181,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(stderr, "    -c           output CIGAR in PAF\n");
 		fprintf(stderr, "    -t INT       number of threads [%d]\n", n_threads);
+		fprintf(stderr, "    -K NUM       minibatch size [200M]\n");
 //		fprintf(stderr, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(stderr, "    -V           show version number\n");
 		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
