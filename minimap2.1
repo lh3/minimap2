@@ -1,4 +1,4 @@
-.TH minimap2 1 "11 July 2017" "minimap2-2.0-r172-pre" "Bioinformatics tools"
+.TH minimap2 1 "12 July 2017" "minimap2-2.0-r174-pre" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -192,6 +192,14 @@ PacBio/Oxford Nanopore read to reference mapping (-Hk19)
 .B asm1m
 Long assembly to reference mapping (-k19 -w19)
 .RE
+.TP
+.BI --max-chain-skip \ INT
+A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
+for chaining. The time complexity is quadratic in the number of seeds. This
+option makes minimap2 exits the inner loop if it repeatedly sees seeds already
+on chains. Set
+.I INT
+to a large number to switch off this heurstics.
 .SS Alignment options
 .TP 10
 .BI -A \ INT
@@ -243,6 +251,12 @@ takes little CPU time).
 .TP
 .B -V
 Print version number to stdout
+.TP
+.BI --mb-size \ STR
+Number of bases loaded into memory to process in a mini-batch [200M].
+Similar to option
+.BR -I ,
+K/M/G/k/m/g suffix is accepted. This option affects both indexing and mapping.
 .SS Miscellaneous options
 .TP 10
 .B --no-kalloc
@@ -253,6 +267,9 @@ multi-threading mode.
 .TP
 .B --print-qname
 Print query names to stderr, mostly to see which query is crashing minimap2.
+.TP
+.B --print-seed
+Print seed positions to stderr, for debugging only.
 .SH OUTPUT FORMAT
 .PP
 Minimap2 outputs mapping positions in the Pairwise mApping Format (PAF) by

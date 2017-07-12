@@ -42,11 +42,6 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			int64_t dr = ri - a[j].x;
 			int32_t dq = qi - (int32_t)a[j].y, dd, sc;
 			if (dr == 0 || dq <= 0 || dq > max_dist) continue;
-			if (t[j] == i) { // FIXME: never enter this block. i.e. max_skip has no effect at all. This may affect speed.
-				if (p[j] >= 0) t[p[j]] = i;
-				if (++n_skip > max_skip) break;
-				continue;
-			}
 			dd = dr > dq? dr - dq : dq - dr;
 			if (dd > bw) continue;
 			min_d = dq < dr? dq : dr;
@@ -54,7 +49,14 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			sc -= dd? ilog2_32(dd) * 2 : 0;
 			if (min_d > q_span) sc -= ilog2_32(min_d) / 2;
 			sc += f[j];
-			if (sc > max_f) max_f = sc, max_j = j;
+			if (sc > max_f) {
+				max_f = sc, max_j = j;
+				if (n_skip > 0) --n_skip;
+			} else if (t[j] == i) {
+				if (++n_skip > max_skip)
+					break;
+			}
+			if (p[j] >= 0) t[p[j]] = i;
 		}
 		if (max_j >= 0) f[i] = max_f, p[i] = max_j;
 		else f[i] = q_span, p[i] = -1;
