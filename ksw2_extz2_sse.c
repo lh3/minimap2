@@ -26,19 +26,21 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 
 #define __dp_code_block2 \
 	z = _mm_max_epu8(z, b);                          /* z = max(z, b); this works because both are non-negative */ \
+	z = _mm_min_epu8(z, max_sc_); \
 	_mm_store_si128(&u[t], _mm_sub_epi8(z, vt1));    /* u[r][t..t+15] <- z - v[r-1][t-1..t+14] */ \
 	_mm_store_si128(&v[t], _mm_sub_epi8(z, ut));     /* v[r][t..t+15] <- z - u[r-1][t..t+15] */ \
 	z = _mm_sub_epi8(z, q_); \
 	a = _mm_sub_epi8(a, z); \
 	b = _mm_sub_epi8(b, z);
 
-	int r, t, qe = q + e, n_col_, *off = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc;
+	int r, t, qe = q + e, n_col_, *off = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc, min_sc;
 	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
-	__m128i q_, qe2_, zero_, flag1_, flag2_, flag8_, flag16_, sc_mch_, sc_mis_, m1_;
+	__m128i q_, qe2_, zero_, flag1_, flag2_, flag8_, flag16_, sc_mch_, sc_mis_, m1_, max_sc_;
 	__m128i *u, *v, *x, *y, *s, *p = 0;
 
+	ksw_reset_extz(ez);
 	if (m <= 0 || qlen <= 0 || tlen <= 0 || w < 0) return;
 
 	zero_   = _mm_set1_epi8(0);
@@ -51,15 +53,17 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	sc_mch_ = _mm_set1_epi8(mat[0]);
 	sc_mis_ = _mm_set1_epi8(mat[1]);
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
-
-	ksw_reset_extz(ez);
+	max_sc_ = _mm_set1_epi8(mat[0] + (q + e) * 2);
 
 	wl = wr = w;
 	tlen_ = (tlen + 15) / 16;
 	n_col_ = ((w + 1 < tlen? (w + 1 < qlen? w + 1 : qlen): tlen) + 15) / 16 + 1;
 	qlen_ = (qlen + 15) / 16;
-	for (t = 1, max_sc = mat[0]; t < m * m; ++t)
+	for (t = 1, max_sc = mat[0], min_sc = mat[1]; t < m * m; ++t) {
 		max_sc = max_sc > mat[t]? max_sc : mat[t];
+		min_sc = min_sc < mat[t]? min_sc : mat[t];
+	}
+	if (-min_sc > 2 * (q + e)) return; // otherwise, we won't see any mismatches
 
 	mem = (uint8_t*)kcalloc(km, tlen_ * 6 + qlen_ + 1, 16);
 	u = (__m128i*)(((size_t)mem + 15) >> 4 << 4); // 16-byte aligned

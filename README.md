@@ -19,7 +19,7 @@ Minimap2 is a fast sequence mapping and alignment program that can find
 overlaps between long noisy reads, or map long reads or their assemblies to a
 reference genome optionally with detailed alignment (i.e. CIGAR). At present,
 it works efficiently with query sequences from a few kilobases to ~100
-megabases in length at a error rate ~15%. Minimap2 outputs in the [PAF][paf] or
+megabases in length at an error rate ~15%. Minimap2 outputs in the [PAF][paf] or
 the [SAM format][sam]. On limited test data sets, minimap2 is over 20 times
 faster than most other long-read aligners.
 

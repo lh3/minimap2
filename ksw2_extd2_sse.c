@@ -42,14 +42,17 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	a2= _mm_sub_epi8(a2, tmp); \
 	b2= _mm_sub_epi8(b2, tmp);
 
-	int r, t, qe = q + e, n_col_, *off = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc, long_thres, long_diff;
+	int r, t, qe = q + e, n_col_, *off = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc, min_sc, long_thres, long_diff;
 	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
 	__m128i q_, q2_, qe_, qe2_, zero_, sc_mch_, sc_mis_, m1_;
 	__m128i *u, *v, *x, *y, *x2, *y2, *s, *p = 0;
 
-	if (m <= 0 || qlen <= 0 || tlen <= 0 || w < 0) return;
+	ksw_reset_extz(ez);
+	if (m <= 1 || qlen <= 0 || tlen <= 0 || w < 0) return;
+
+	if (q2 + e2 < q + e) t = q, q = q2, q2 = t, t = e, e = e2, e2 = t; // make sure q+e no larger than q2+e2
 
 	zero_   = _mm_set1_epi8(0);
 	q_      = _mm_set1_epi8(q);
@@ -60,16 +63,17 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	sc_mis_ = _mm_set1_epi8(mat[1]);
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
 
-	ksw_reset_extz(ez);
-
 	wl = wr = w;
 	tlen_ = (tlen + 15) / 16;
 	n_col_ = ((w + 1 < tlen? (w + 1 < qlen? w + 1 : qlen): tlen) + 15) / 16 + 1;
 	qlen_ = (qlen + 15) / 16;
-	for (t = 1, max_sc = mat[0]; t < m * m; ++t)
+	for (t = 1, max_sc = mat[0], min_sc = mat[1]; t < m * m; ++t) {
 		max_sc = max_sc > mat[t]? max_sc : mat[t];
+		min_sc = min_sc < mat[t]? min_sc : mat[t];
+	}
+	if (-min_sc > 2 * (q + e)) return; // otherwise, we won't see any mismatches
 
-	long_thres = (q2 - q) / (e - e2) - 1;
+	long_thres = e != e2? (q2 - q) / (e - e2) - 1 : 0;
 	if (q2 + e2 + long_thres * e2 > q + e + long_thres * e)
 		++long_thres;
 	long_diff = long_thres * (e - e2) - (q2 - q) - e2;
@@ -164,6 +168,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				z = _mm_max_epi8(z, b);
 				z = _mm_max_epi8(z, a2);
 				z = _mm_max_epi8(z, b2);
+				z = _mm_min_epi8(z, sc_mch_);
 				__dp_code_block2; // save u[] and v[]; update a, b, a2 and b2
 				_mm_store_si128(&x[t],  _mm_sub_epi8(_mm_max_epi8(a,  zero_), qe_));
 				_mm_store_si128(&y[t],  _mm_sub_epi8(_mm_max_epi8(b,  zero_), qe_));
@@ -178,6 +183,8 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				z = _mm_or_si128(_mm_andnot_si128(tmp, z), _mm_and_si128(tmp, a2));
 				tmp = _mm_cmpgt_epi8(b2, z);
 				z = _mm_or_si128(_mm_andnot_si128(tmp, z), _mm_and_si128(tmp, b2));
+				tmp = _mm_cmplt_epi8(sc_mch_, z);
+				z = _mm_or_si128(_mm_and_si128(tmp, sc_mch_), _mm_andnot_si128(tmp, z));
 				__dp_code_block2;
 				tmp = _mm_cmpgt_epi8(a, zero_);
 				_mm_store_si128(&x[t],  _mm_sub_epi8(_mm_and_si128(tmp, a),  qe_));
@@ -215,6 +222,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				z = _mm_max_epi8(z, a2);
 				d = _mm_blendv_epi8(d, _mm_set1_epi8(4), _mm_cmpgt_epi8(b2, z)); // d = a2 > z? 3 : d
 				z = _mm_max_epi8(z, b2);
+				z = _mm_min_epi8(z, sc_mch_);
 #else // we need to emulate SSE4.1 intrinsics _mm_max_epi8() and _mm_blendv_epi8()
 				tmp = _mm_cmpgt_epi8(a,  z);
 				d = _mm_and_si128(tmp, _mm_set1_epi8(1));
@@ -228,6 +236,8 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				tmp = _mm_cmpgt_epi8(b2, z);
 				d = _mm_or_si128(_mm_andnot_si128(tmp, d), _mm_and_si128(tmp, _mm_set1_epi8(4)));
 				z = _mm_or_si128(_mm_andnot_si128(tmp, z), _mm_and_si128(tmp, b2));
+				tmp = _mm_cmplt_epi8(sc_mch_, z);
+				z = _mm_or_si128(_mm_and_si128(tmp, sc_mch_), _mm_andnot_si128(tmp, z));
 #endif
 				__dp_code_block2;
 				tmp = _mm_cmpgt_epi8(a, zero_);
@@ -270,6 +280,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				z = _mm_max_epi8(z, a2);
 				d = _mm_blendv_epi8(_mm_set1_epi8(4), d, _mm_cmpgt_epi8(z, b2)); // d = z > b2? d : 4
 				z = _mm_max_epi8(z, b2);
+				z = _mm_min_epi8(z, sc_mch_);
 #else // we need to emulate SSE4.1 intrinsics _mm_max_epi8() and _mm_blendv_epi8()
 				tmp = _mm_cmpgt_epi8(z, a);
 				d = _mm_andnot_si128(tmp, _mm_set1_epi8(1));
@@ -283,6 +294,8 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				tmp = _mm_cmpgt_epi8(z, b2);
 				d = _mm_or_si128(_mm_and_si128(tmp, d), _mm_andnot_si128(tmp, _mm_set1_epi8(4)));
 				z = _mm_or_si128(_mm_and_si128(tmp, z), _mm_andnot_si128(tmp, b2));
+				tmp = _mm_cmplt_epi8(sc_mch_, z);
+				z = _mm_or_si128(_mm_and_si128(tmp, sc_mch_), _mm_andnot_si128(tmp, z));
 #endif
 				__dp_code_block2;
 				tmp = _mm_cmpgt_epi8(zero_, a);
