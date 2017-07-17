@@ -294,9 +294,10 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs)
 		mm_reg1_t *r = &regs[i];
 		if (r->parent == r->id) {
 			int mapq;
-			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0)
-				mapq = (int)(30.0 * (1. - (float)(r->p->dp_max2 * r->subsc) / (r->p->dp_max * r->score)) * logf(r->score));
-			else mapq = (int)(30.0 * (1. - (float)r->subsc / r->score) * logf(r->score));
+			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
+				float identity = (float)(r->p->blen - r->p->n_diff - r->p->n_ambi) / (r->p->blen - r->p->n_ambi);
+				mapq = (int)(identity * 30.0 * (1. - (float)r->p->dp_max2 * r->subsc / r->p->dp_max / r->score) * logf(r->score));
+			} else mapq = (int)(30.0 * (1. - (float)r->subsc / r->score) * logf(r->score));
 			mapq = mapq > 0? mapq : 0;
 			r->mapq = mapq < 60? mapq : 60;
 		} else r->mapq = 0;
