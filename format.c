@@ -145,4 +145,5 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const bseq1_t *t, const mm_r
 		}
 		write_tags(s, r);
 	}
+	s->s[s->l] = 0; // we always have room for an extra byte (see str_enlarge)
 }
