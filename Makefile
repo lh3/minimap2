@@ -1,5 +1,5 @@
 CC=			gcc
-CFLAGS=		-g -Wall -O2 -Wc++-compat -march=native
+CFLAGS=		-g -Wall -O2 -Wc++-compat -march=core-avx2 -mno-avx -mno-bmi2
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=	-I.
 OBJS=		kthread.o kalloc.o ksw2_extz2_sse.o ksw2_extd2_sse.o misc.o bseq.o \
