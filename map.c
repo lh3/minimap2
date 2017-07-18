@@ -32,7 +32,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
 	opt->zdrop = 400;
 	opt->min_dp_max = opt->min_chain_score;
-	opt->min_ksw_len = 100;
+	opt->min_ksw_len = 200;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)

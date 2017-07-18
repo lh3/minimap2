@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r179-pre"
+#define MM_VERSION "2.0-r180-pre"
 
 void liftrlimit()
 {
@@ -50,6 +50,7 @@ static struct option long_options[] = {
 	{ "no-self",        no_argument,       0, 0 },
 	{ "print-seed",     no_argument,       0, 0 },
 	{ "max-chain-skip", required_argument, 0, 0 },
+	{ "min-dp-len",     required_argument, 0, 0 },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
 	{ "min-chain-score",required_argument, 0, 'm' },
@@ -104,6 +105,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 5) opt.flag |= MM_F_NO_SELF; // --no-self
 		else if (c == 0 && long_idx == 6) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_SEED; // --print-seed
 		else if (c == 0 && long_idx == 7) opt.max_chain_skip = atoi(optarg); // --max-chain-skip
+		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(optarg); // --min-dp-len
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -137,11 +139,11 @@ int main(int argc, char *argv[])
 				is_hpc = 1, k = 19;
 			} else if (strcmp(optarg, "asm5") == 0) {
 				k = 19, w = 19;
-				opt.a = 1, opt.b = 19, opt.q = 39, opt.q2 = 61, opt.e = 2, opt.e2 = 1;
+				opt.a = 1, opt.b = 19, opt.q = 39, opt.q2 = 81, opt.e = 3, opt.e2 = 1, opt.zdrop = 200;
 				opt.min_dp_max = 200;
 			} else if (strcmp(optarg, "asm10") == 0) {
 				k = 19, w = 19;
-				opt.a = 1, opt.b = 9, opt.q = 16, opt.q2 = 41, opt.e = 2, opt.e2 = 1;
+				opt.a = 1, opt.b = 9, opt.q = 16, opt.q2 = 41, opt.e = 2, opt.e2 = 1, opt.zdrop = 200;
 				opt.min_dp_max = 200;
 			} else {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
@@ -174,8 +176,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
 		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(stderr, "                 map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
-		fprintf(stderr, "                 asm5: -k19 -w19 -A1 -B19 -O39,61 -E2,1 -s200 (assembly to ref mapping; break at 5%% div.)\n");
-		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 (assembly to ref mapping; break at 10%% div.)\n");
+		fprintf(stderr, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
+		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT       matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT       mismatch penalty [%d]\n", opt.b);
