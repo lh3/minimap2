@@ -1,4 +1,4 @@
-.TH minimap2 1 "12 July 2017" "minimap2-2.0-r174-pre" "Bioinformatics tools"
+.TH minimap2 1 "18 July 2017" "minimap2-2.0-r180-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -326,14 +326,22 @@ cg	Z	CIGAR string (only in PAF)
 .TE
 
 .SH LIMITATIONS
-.PP
+.TP 2
+*
 At the alignment phase, minimap2 performs global alignments between minimizer
-hits. If the positions of these minimizer hits are incorrect, the final alignment
-may be suboptimal or broken due to the Z-drop heuristics. In addition, in the
-event of a long insertion/deletion, minimap2 may split the long event into
-a few smaller events. We will address these issues in future.
-.PP
+hits. If the positions of these minimizer hits are incorrect, the final
+alignment may be suboptimal or unnecessarily fragmented.
+.TP
+*
+Minimap2 may produce poor alignments that may need post-filtering. We are still
+exploring a reliable and consistent way to report good alignments.
+.TP
+*
 Minimap2 does not work well with Illumina short reads as of now.
+.TP
+*
+Minimap2 requires SSE2 instructions to compile. It is possible to add
+non-SSE2 support, but it would minimap2 times slower.
 .SH SEE ALSO
 .PP
 miniasm(1), minimap(1), bwa(1).
