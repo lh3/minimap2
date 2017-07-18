@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r178-pre"
+#define MM_VERSION "2.0-r179-pre"
 
 void liftrlimit()
 {
@@ -135,8 +135,14 @@ int main(int argc, char *argv[])
 				is_hpc = 1, k = 19, w = 5;
 			} else if (strcmp(optarg, "map10k") == 0) {
 				is_hpc = 1, k = 19;
-			} else if (strcmp(optarg, "asm1m") == 0) {
+			} else if (strcmp(optarg, "asm5") == 0) {
 				k = 19, w = 19;
+				opt.a = 1, opt.b = 19, opt.q = 39, opt.q2 = 61, opt.e = 2, opt.e2 = 1;
+				opt.min_dp_max = 200;
+			} else if (strcmp(optarg, "asm10") == 0) {
+				k = 19, w = 19;
+				opt.a = 1, opt.b = 9, opt.q = 16, opt.q2 = 41, opt.e = 2, opt.e2 = 1;
+				opt.min_dp_max = 200;
 			} else {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
 				return 1;
@@ -168,7 +174,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
 		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(stderr, "                 map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
-		fprintf(stderr, "                 asm1m:  -k19 -w19   (intra-species assembly to ref mapping)\n");
+		fprintf(stderr, "                 asm5: -k19 -w19 -A1 -B19 -O39,61 -E2,1 -s200 (assembly to ref mapping; break at 5%% div.)\n");
+		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 (assembly to ref mapping; break at 10%% div.)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT       matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT       mismatch penalty [%d]\n", opt.b);

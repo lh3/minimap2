@@ -27,7 +27,8 @@ Minimap2 is the successor of [minimap][minimap]. It uses a similar
 minimizer-based indexing and seeding algorithm, and improves the original
 minimap with homopolyer-compressed k-mers (see also [SMARTdenovo][smartdenovo]
 and [longISLND][longislnd]), better chaining and the ability to produce CIGAR
-with fast extension alignment (see also [libgaba][gaba] and [ksw2][ksw2]).
+with fast extension alignment (see also [libgaba][gaba] and [ksw2][ksw2]) and
+two-piece affine gap cost.
 
 ## Limitations
 
