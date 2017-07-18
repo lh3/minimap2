@@ -1,6 +1,6 @@
 ## Getting Started
 ```sh
-git clone https://gitlab.com/lh3/minimap2
+git clone https://github.com/lh3/minimap2
 cd minimap2 && make
 # long reads against a reference genome
 ./minimap2 -ax map10k test/MT-human.fa test/MT-orang.fa > test.sam
