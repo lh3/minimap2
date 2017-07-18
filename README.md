@@ -43,7 +43,7 @@ piece-wise affine gap cost.
 * Minimap2 does not work well with Illumina short reads as of now.
 
 * Minimap2 requires SSE2 instructions to compile. It is possible to add
-  non-SSE2 support, but it would minimap2 times slower.
+  non-SSE2 support, but it would make minimap2 slower by several times.
 
 In general, minimap2 is a young project with most code written since June,
 2017. It may have bugs and room for improvements. Bug reports and suggestions
