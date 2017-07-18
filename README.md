@@ -16,8 +16,8 @@ man ./minimap2.1
 ## Introduction
 
 Minimap2 is a fast sequence mapping and alignment program that can find
-overlaps between long noisy reads, or map long reads or their assemblies to a
-reference genome optionally with detailed alignment (i.e. CIGAR). At present,
+overlaps between long noisy reads or map long reads or their assemblies to a
+reference genome, optionally with detailed alignment (i.e. CIGAR). At present,
 it works efficiently with query sequences from a few kilobases to ~100
 megabases in length at an error rate ~15%. Minimap2 outputs in the [PAF][paf] or
 the [SAM format][sam]. On limited test data sets, minimap2 is over 20 times
@@ -26,8 +26,8 @@ reads and contig alignment.
 
 Minimap2 is the successor of [minimap][minimap]. It uses a similar
 minimizer-based indexing and seeding algorithm, and improves the original
-minimap with homopolyer-compressed k-mers (see also [SMARTdenovo][smartdenovo]
-and [longISLND][longislnd]), better chaining and the ability to produce CIGAR
+minimap with homopolymer-compressed k-mers (see also [SMARTdenovo][smartdenovo]
+and [longISLND][longislnd]), better chaining, and the ability to produce CIGAR
 with fast extension alignment (see also [libgaba][gaba] and [ksw2][ksw2]) and
 piece-wise affine gap cost.
 
@@ -43,7 +43,7 @@ piece-wise affine gap cost.
 * Minimap2 does not work well with Illumina short reads as of now.
 
 * Minimap2 requires SSE2 instructions to compile. It is possible to add
-  non-SSE2 support, but it would minimap2 times slower.
+  non-SSE2 support, but it would minimap2 slower.
 
 In general, minimap2 is a young project with most code written since June,
 2017. It may have bugs and room for improvements. Bug reports and suggestions
