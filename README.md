@@ -31,6 +31,15 @@ and [longISLND][longislnd]), better chaining and the ability to produce CIGAR
 with fast extension alignment (see also [libgaba][gaba] and [ksw2][ksw2]) and
 piece-wise affine gap cost.
 
+## Installation
+
+For modern x86-64 CPUs, just type `make` in the source code directory. This
+will compile a binary `minimap2` which you can copy to your desired location.
+If you see compilation errors, try `make sse2only=1` to disable SSE4. Minimap2
+will run a little slower. At present, minimap2 does not work with non-x86 CPUs
+or ancient CPUs that do not support SSE2. SSE2 is critical to the performance
+of minimap2.
+
 ## Limitations
 
 * At the alignment phase, minimap2 performs global alignments between minimizer

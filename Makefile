@@ -1,5 +1,5 @@
 CC=			gcc
-CFLAGS=		-g -Wall -O2 -Wc++-compat -march=native
+CFLAGS=		-g -Wall -O2 -Wc++-compat
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=	-I.
 OBJS=		kthread.o kalloc.o ksw2_extz2_sse.o ksw2_extd2_sse.o misc.o bseq.o \
@@ -7,6 +7,10 @@ OBJS=		kthread.o kalloc.o ksw2_extz2_sse.o ksw2_extd2_sse.o misc.o bseq.o \
 PROG=		minimap2
 PROG_EXTRA=	sdust
 LIBS=		-lm -lz -lpthread
+
+ifeq ($(sse2only),)
+	CFLAGS+=-msse4
+endif
 
 .SUFFIXES:.c .o
 
