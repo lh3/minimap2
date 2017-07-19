@@ -15,6 +15,10 @@
 
 #define MM_IDX_MAGIC   "MMI\2"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
  	uint64_t x, y;
 } mm128_t;
@@ -100,14 +104,10 @@ extern double mm_realtime0;
 struct mm_tbuf_s;
 typedef struct mm_tbuf_s mm_tbuf_t;
 
-struct bseq_file_s;
+struct mm_bseq_file_s;
 
 #define mm_seq4_set(s, i, c) ((s)[(i)>>3] |= (uint32_t)(c) << (((i)&7)<<2))
 #define mm_seq4_get(s, i)    ((s)[(i)>>3] >> (((i)&7)<<2) & 0xf)
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 // compute minimizers
 void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p);
@@ -115,7 +115,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 // minimizer indexing
 mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc);
 void mm_idx_destroy(mm_idx_t *mi);
-mm_idx_t *mm_idx_gen(struct bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
+mm_idx_t *mm_idx_gen(struct mm_bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
 uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 void mm_idx_stat(const mm_idx_t *idx);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);

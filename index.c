@@ -190,13 +190,13 @@ static void mm_idx_post(mm_idx_t *mi, int n_threads)
 typedef struct {
 	int mini_batch_size, keep_name;
 	uint64_t batch_size, sum_len;
-	bseq_file_t *fp;
+	mm_bseq_file_t *fp;
 	mm_idx_t *mi;
 } pipeline_t;
 
 typedef struct {
     int n_seq;
-	bseq1_t *seq;
+	mm_bseq1_t *seq;
 	mm128_v a;
 } step_t;
 
@@ -217,7 +217,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
         step_t *s;
 		if (p->sum_len > p->batch_size) return 0;
         s = (step_t*)calloc(1, sizeof(step_t));
-		s->seq = bseq_read(p->fp, p->mini_batch_size, 0, &s->n_seq); // read a mini-batch
+		s->seq = mm_bseq_read(p->fp, p->mini_batch_size, 0, &s->n_seq); // read a mini-batch
 		if (s->seq) {
 			uint32_t old_m, m;
 			uint64_t sum_len, old_max_len, max_len;
@@ -261,7 +261,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     } else if (step == 1) { // step 1: compute sketch
         step_t *s = (step_t*)in;
 		for (i = 0; i < s->n_seq; ++i) {
-			bseq1_t *t = &s->seq[i];
+			mm_bseq1_t *t = &s->seq[i];
 			mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->is_hpc, &s->a);
 			free(t->seq); free(t->name);
 		}
@@ -275,7 +275,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-mm_idx_t *mm_idx_gen(bseq_file_t *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name)
+mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name)
 {
 	pipeline_t pl;
 	memset(&pl, 0, sizeof(pipeline_t));
@@ -299,12 +299,12 @@ mm_idx_t *mm_idx_gen(bseq_file_t *fp, int w, int k, int b, int is_hpc, int mini_
 
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads) // a simpler interface
 {
-	bseq_file_t *fp;
+	mm_bseq_file_t *fp;
 	mm_idx_t *mi;
-	fp = bseq_open(fn);
+	fp = mm_bseq_open(fn);
 	if (fp == 0) return 0;
 	mi = mm_idx_gen(fp, w, k, MM_IDX_DEF_B, is_hpc, 1<<18, n_threads, UINT64_MAX, 1);
-	bseq_close(fp);
+	mm_bseq_close(fp);
 	return mi;
 }
 

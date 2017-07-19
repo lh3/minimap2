@@ -281,7 +281,7 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, m
 typedef struct {
 	int mini_batch_size, n_processed, n_threads;
 	const mm_mapopt_t *opt;
-	bseq_file_t *fp;
+	mm_bseq_file_t *fp;
 	const mm_idx_t *mi;
 	kstring_t str;
 } pipeline_t;
@@ -289,7 +289,7 @@ typedef struct {
 typedef struct {
 	const pipeline_t *p;
     int n_seq;
-	bseq1_t *seq;
+	mm_bseq1_t *seq;
 	int *n_reg;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
@@ -311,7 +311,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		int with_qual = (!!(p->opt->flag & MM_F_OUT_SAM) && !(p->opt->flag & MM_F_NO_QUAL));
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
-		s->seq = bseq_read(p->fp, p->mini_batch_size, with_qual, &s->n_seq);
+		s->seq = mm_bseq_read(p->fp, p->mini_batch_size, with_qual, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
@@ -332,7 +332,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		for (i = 0; i < p->n_threads; ++i) mm_tbuf_destroy(s->buf[i]);
 		free(s->buf);
 		for (i = 0; i < s->n_seq; ++i) {
-			bseq1_t *t = &s->seq[i];
+			mm_bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
 				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, r);
@@ -360,7 +360,7 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 {
 	pipeline_t pl;
 	memset(&pl, 0, sizeof(pipeline_t));
-	pl.fp = bseq_open(fn);
+	pl.fp = mm_bseq_open(fn);
 	if (pl.fp == 0) return -1;
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads, pl.mini_batch_size = mini_batch_size;
@@ -371,6 +371,6 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 	}
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
 	free(pl.str.s);
-	bseq_close(pl.fp);
+	mm_bseq_close(pl.fp);
 	return 0;
 }

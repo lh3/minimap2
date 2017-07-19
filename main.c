@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r187-dirty"
+#define MM_VERSION "2.0-r188-dirty"
 
 void liftrlimit()
 {
@@ -66,7 +66,7 @@ int main(int argc, char *argv[])
 	int i, c, k = 17, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx;
 	int minibatch_size = 200000000;
 	uint64_t batch_size = 4000000000ULL;
-	bseq_file_t *fp = 0;
+	mm_bseq_file_t *fp = 0;
 	char *fnw = 0, *s;
 	FILE *fpr = 0, *fpw = 0;
 
@@ -203,12 +203,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	if (is_idx) fpr = fopen(argv[optind], "rb");
-	else fp = bseq_open(argv[optind]);
+	else fp = mm_bseq_open(argv[optind]);
 	if (fnw) fpw = fopen(fnw, "wb");
 	for (;;) {
 		mm_idx_t *mi = 0;
 		if (fpr) mi = mm_idx_load(fpr);
-		else if (!bseq_eof(fp))
+		else if (!mm_bseq_eof(fp))
 			mi = mm_idx_gen(fp, w, k, bucket_bits, is_hpc, minibatch_size, n_threads, batch_size, keep_name);
 		if (mi == 0) break;
 		if (mm_verbose >= 3)
@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 	}
 	if (fpw) fclose(fpw);
 	if (fpr) fclose(fpr);
-	if (fp)  bseq_close(fp);
+	if (fp)  mm_bseq_close(fp);
 
 	fprintf(stderr, "[M::%s] Version: %s\n", __func__, MM_VERSION);
 	fprintf(stderr, "[M::%s] CMD:", __func__);

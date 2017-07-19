@@ -13,6 +13,10 @@
 #define KSW_EZ_EXTZ_ONLY   0x40 // only perform extension
 #define KSW_EZ_REV_CIGAR   0x80 // reverse CIGAR in the output
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct {
 	uint32_t max:31, zdropped:1;
 	int max_q, max_t;      // max extension coordinate
@@ -22,10 +26,6 @@ typedef struct {
 	int m_cigar, n_cigar;
 	uint32_t *cigar;
 } ksw_extz_t;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /**
  * NW-like extension

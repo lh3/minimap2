@@ -3,12 +3,12 @@
 
 #include <stdint.h>
 
-struct sdust_buf_s;
-typedef struct sdust_buf_s sdust_buf_t;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+struct sdust_buf_s;
+typedef struct sdust_buf_s sdust_buf_t;
 
 // the simple interface
 uint64_t *sdust(void *km, const uint8_t *seq, int l_seq, int T, int W, int *n);
