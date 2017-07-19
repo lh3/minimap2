@@ -10,7 +10,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r189-dirty"
+#define MM_VERSION "2.0-r190-dirty"
 
 void liftrlimit()
 {
@@ -63,7 +63,7 @@ static struct option long_options[] = {
 int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
-	int i, c, k = 17, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx;
+	int i, c, k = 15, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx;
 	int minibatch_size = 200000000;
 	uint64_t batch_size = 4000000000ULL;
 	mm_bseq_file_t *fp = 0;
@@ -135,8 +135,10 @@ int main(int argc, char *argv[])
 				opt.min_chain_score = 100, opt.pri_ratio = 0.0f, opt.max_gap = 10000, opt.max_chain_skip = 25;
 				minibatch_size = 500000000;
 				is_hpc = 1, k = 19, w = 5;
-			} else if (strcmp(optarg, "map10k") == 0) {
+			} else if (strcmp(optarg, "map10k") == 0 || strcmp(optarg, "map-pb") == 0) {
 				is_hpc = 1, k = 19;
+			} else if (strcmp(optarg, "map-ont") == 0) {
+				is_hpc = 0, k = 15;
 			} else if (strcmp(optarg, "asm5") == 0) {
 				k = 19, w = 19;
 				opt.a = 1, opt.b = 19, opt.q = 39, opt.q2 = 81, opt.e = 3, opt.e2 = 1, opt.zdrop = 200;
@@ -172,12 +174,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
-		fprintf(stderr, "    -x STR       preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
-		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
-		fprintf(stderr, "                 map10k: -Hk19   (PacBio/ONT vs reference mapping)\n");
-		fprintf(stderr, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
-		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT       matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT       mismatch penalty [%d]\n", opt.b);
@@ -193,6 +189,14 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -K NUM       minibatch size [200M]\n");
 //		fprintf(stderr, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(stderr, "    -V           show version number\n");
+		fprintf(stderr, "  Preset:\n");
+		fprintf(stderr, "    -x STR       preset (recommended to be applied before other options) []\n");
+		fprintf(stderr, "                 map10k/map-pb: -Hk19 (PacBio/ONT vs reference mapping)\n");
+		fprintf(stderr, "                 map-ont: -k15 (slightly more sensitive than 'map10k' for ONT vs reference)\n");
+		fprintf(stderr, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
+		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
+		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
+		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return 1;
 	}
