@@ -41,7 +41,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	__m128i *u, *v, *x, *y, *s, *p = 0;
 
 	ksw_reset_extz(ez);
-	if (m <= 0 || qlen <= 0 || tlen <= 0 || w < 0) return;
+	if (m <= 0 || qlen <= 0 || tlen <= 0) return;
 
 	zero_   = _mm_set1_epi8(0);
 	q_      = _mm_set1_epi8(q);
@@ -55,6 +55,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
 	max_sc_ = _mm_set1_epi8(mat[0] + (q + e) * 2);
 
+	if (w < 0) w = tlen > qlen? tlen : qlen;
 	wl = wr = w;
 	tlen_ = (tlen + 15) / 16;
 	n_col_ = ((w + 1 < tlen? (w + 1 < qlen? w + 1 : qlen): tlen) + 15) / 16 + 1;

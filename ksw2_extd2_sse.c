@@ -50,7 +50,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	__m128i *u, *v, *x, *y, *x2, *y2, *s, *p = 0;
 
 	ksw_reset_extz(ez);
-	if (m <= 1 || qlen <= 0 || tlen <= 0 || w < 0) return;
+	if (m <= 1 || qlen <= 0 || tlen <= 0) return;
 
 	if (q2 + e2 < q + e) t = q, q = q2, q2 = t, t = e, e = e2, e2 = t; // make sure q+e no larger than q2+e2
 
@@ -63,6 +63,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	sc_mis_ = _mm_set1_epi8(mat[1]);
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
 
+	if (w < 0) w = tlen > qlen? tlen : qlen;
 	wl = wr = w;
 	tlen_ = (tlen + 15) / 16;
 	n_col_ = ((w + 1 < tlen? (w + 1 < qlen? w + 1 : qlen): tlen) + 15) / 16 + 1;
