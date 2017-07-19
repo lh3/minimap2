@@ -122,6 +122,7 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
+int mm_idx_is_idx(const char *fn);
 
 // minimizer index I/O
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi);

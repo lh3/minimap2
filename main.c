@@ -1,16 +1,14 @@
 #include <getopt.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/resource.h>
 #include <sys/time.h>
-#include <fcntl.h>
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r190-dirty"
+#define MM_VERSION "2.0-r191-dirty"
 
 void liftrlimit()
 {
@@ -20,25 +18,6 @@ void liftrlimit()
 	r.rlim_cur = r.rlim_max;
 	setrlimit(RLIMIT_AS, &r);
 #endif
-}
-
-static int test_idx(const char *fn)
-{
-	int fd, is_idx = 0;
-	off_t ret;
-	char magic[4];
-
-	if (strcmp(fn, "-") == 0) return 0; // read from pipe; not an index
-	fd = open(fn, O_RDONLY);
-	if (fd < 0) return -1; // error
-	if ((ret = lseek(fd, 0, SEEK_END)) >= 4) {
-		lseek(fd, 0, SEEK_SET);
-		read(fd, magic, 4);
-		if (strncmp(magic, MM_IDX_MAGIC, 4) == 0)
-			is_idx = 1;
-	}
-	close(fd);
-	return is_idx;
 }
 
 static struct option long_options[] = {
@@ -63,7 +42,7 @@ static struct option long_options[] = {
 int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
-	int i, c, k = 15, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx;
+	int i, c, k = 15, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx, idx_par_set = 0;
 	int minibatch_size = 200000000;
 	uint64_t batch_size = 4000000000ULL;
 	mm_bseq_file_t *fp = 0;
@@ -75,9 +54,9 @@ int main(int argc, char *argv[])
 	mm_mapopt_init(&opt);
 
 	while ((c = getopt_long(argc, argv, "aw:k:K:t:r:f:Vv:g:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Q", long_options, &long_idx)) >= 0) {
-		if (c == 'w') w = atoi(optarg);
-		else if (c == 'k') k = atoi(optarg);
-		else if (c == 'H') is_hpc = 1;
+		if (c == 'w') w = atoi(optarg), idx_par_set = 1;
+		else if (c == 'k') k = atoi(optarg), idx_par_set = 1;
+		else if (c == 'H') is_hpc = 1, idx_par_set = 1;
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.bw = atoi(optarg);
 		else if (c == 'f') opt.mid_occ_frac = atof(optarg);
@@ -201,7 +180,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	is_idx = test_idx(argv[optind]);
+	is_idx = mm_idx_is_idx(argv[optind]);
 	if (is_idx < 0) {
 		fprintf(stderr, "[E::%s] failed to open file '%s'\n", __func__, argv[optind]);
 		return 1;
@@ -211,9 +190,14 @@ int main(int argc, char *argv[])
 	if (fnw) fpw = fopen(fnw, "wb");
 	for (;;) {
 		mm_idx_t *mi = 0;
-		if (fpr) mi = mm_idx_load(fpr);
-		else if (!mm_bseq_eof(fp))
+		if (fpr) {
+			mi = mm_idx_load(fpr);
+			if (idx_par_set && mm_verbose >= 2 && (mi->k != k || mi->w != w || mi->is_hpc != mi->is_hpc))
+				fprintf(stderr, "[W::%s::%.3f*%.2f] Indexing parameters on the command line (-k/-w/-H) overridden by parameters in the prebuilt index.\n",
+						__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
+		} else if (!mm_bseq_eof(fp)) {
 			mi = mm_idx_gen(fp, w, k, bucket_bits, is_hpc, minibatch_size, n_threads, batch_size, keep_name);
+		}
 		if (mi == 0) break;
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",

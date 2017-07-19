@@ -1,5 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include "kthread.h"
 #include "bseq.h"
@@ -398,4 +400,23 @@ mm_idx_t *mm_idx_load(FILE *fp)
 	mi->S = (uint32_t*)malloc((sum_len + 7) / 8 * 4);
 	fread(mi->S, 4, (sum_len + 7) / 8, fp);
 	return mi;
+}
+
+int mm_idx_is_idx(const char *fn)
+{
+	int fd, is_idx = 0;
+	off_t ret;
+	char magic[4];
+
+	if (strcmp(fn, "-") == 0) return 0; // read from pipe; not an index
+	fd = open(fn, O_RDONLY);
+	if (fd < 0) return -1; // error
+	if ((ret = lseek(fd, 0, SEEK_END)) >= 4) {
+		lseek(fd, 0, SEEK_SET);
+		ret = read(fd, magic, 4);
+		if (ret == 4 && strncmp(magic, MM_IDX_MAGIC, 4) == 0)
+			is_idx = 1;
+	}
+	close(fd);
+	return is_idx;
 }
