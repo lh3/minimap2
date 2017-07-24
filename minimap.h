@@ -46,6 +46,7 @@ typedef struct {
 	mm_idx_seq_t *seq;  // sequence name, length and offset
 	uint32_t *S;        // 4-bit packed sequence
 	mm_idx_bucket_t *B; // index
+	void *km;
 } mm_idx_t;
 
 typedef struct {

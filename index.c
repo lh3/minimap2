@@ -25,6 +25,7 @@ mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc)
 	mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
 	mi->w = w, mi->k = k, mi->b = b, mi->is_hpc = is_hpc;
 	mi->B = (mm_idx_bucket_t*)calloc(1<<b, sizeof(mm_idx_bucket_t));
+	if (!(mm_dbg_flag & 1)) mi->km = km_init();
 	return mi;
 }
 
@@ -37,9 +38,12 @@ void mm_idx_destroy(mm_idx_t *mi)
 		free(mi->B[i].a.a);
 		kh_destroy(idx, (idxhash_t*)mi->B[i].h);
 	}
-	for (i = 0; i < mi->n_seq; ++i)
-		free(mi->seq[i].name);
-	free(mi->seq); free(mi->B); free(mi->S); free(mi);
+	if (!mi->km) {
+		for (i = 0; i < mi->n_seq; ++i)
+			free(mi->seq[i].name);
+		free(mi->seq);
+	} else km_destroy(mi->km);
+	free(mi->B); free(mi->S); free(mi);
 }
 
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
@@ -228,7 +232,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			old_m = p->mi->n_seq, m = p->mi->n_seq + s->n_seq;
 			kroundup32(m); kroundup32(old_m);
 			if (old_m != m)
-				p->mi->seq = (mm_idx_seq_t*)realloc(p->mi->seq, m * sizeof(mm_idx_seq_t));
+				p->mi->seq = (mm_idx_seq_t*)krealloc(p->mi->km, p->mi->seq, m * sizeof(mm_idx_seq_t));
 			// make room for p->mi->S
 			for (i = 0, sum_len = 0; i < s->n_seq; ++i) sum_len += s->seq[i].l_seq;
 			old_max_len = (p->sum_len + 7) / 8;
@@ -244,7 +248,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				uint32_t j;
 				if (p->keep_name) {
 					assert(strlen(s->seq[i].name) <= 254); // a long query name breaks BAM
-					seq->name = strdup(s->seq[i].name);
+					seq->name = (char*)kmalloc(p->mi->km, strlen(s->seq[i].name) + 1);
+					strcpy(seq->name, s->seq[i].name);
 				} else seq->name = 0;
 				seq->len = s->seq[i].l_seq;
 				seq->offset = p->sum_len;
@@ -364,12 +369,12 @@ mm_idx_t *mm_idx_load(FILE *fp)
 	if (fread(x, 4, 5, fp) != 5) return 0;
 	mi = mm_idx_init(x[0], x[1], x[2], x[4]);
 	mi->n_seq = x[3];
-	mi->seq = (mm_idx_seq_t*)calloc(mi->n_seq, sizeof(mm_idx_seq_t));
+	mi->seq = (mm_idx_seq_t*)kcalloc(mi->km, mi->n_seq, sizeof(mm_idx_seq_t));
 	for (i = 0; i < mi->n_seq; ++i) {
 		uint8_t l;
 		mm_idx_seq_t *s = &mi->seq[i];
 		fread(&l, 1, 1, fp);
-		s->name = (char*)malloc(l + 1);
+		s->name = (char*)kmalloc(mi->km, l + 1);
 		fread(s->name, 1, l, fp);
 		s->name[l] = 0;
 		fread(&s->len, 4, 1, fp);
