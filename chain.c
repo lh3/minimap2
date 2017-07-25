@@ -26,7 +26,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
 		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
-		int32_t max_f = -INT32_MAX, max_j = -1, n_skip = 0, min_d;
+		int32_t max_f = q_span, max_j = -1, n_skip = 0, min_d;
 		while (st < i && ri - a[st].x > max_dist) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
@@ -47,8 +47,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			}
 			if (p[j] >= 0) t[p[j]] = i;
 		}
-		if (max_j >= 0) f[i] = max_f, p[i] = max_j;
-		else f[i] = q_span, p[i] = -1;
+		f[i] = max_f, p[i] = max_j;
 	}
 
 	// find the ending positions of chains
