@@ -17,6 +17,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	f = (int32_t*)kmalloc(km, n * 4);
 	p = (int32_t*)kmalloc(km, n * 4);
 	t = (int32_t*)kmalloc(km, n * 4);
+	v = (int32_t*)kmalloc(km, n * 4);
 	memset(t, 0, n * 4);
 
 	for (i = 0; i < n; ++i) sum_qspan += a[i].y>>32&0xff;
@@ -26,7 +27,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
 		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
-		int32_t max_f = q_span, max_j = -1, n_skip = 0, min_d;
+		int32_t max_f = q_span, max_j = -1, n_skip = 0, min_d, max_f_past = -INT32_MAX;
 		while (st < i && ri - a[st].x > max_dist) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
@@ -34,6 +35,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			if (dr == 0 || dq <= 0 || dq > max_dist) continue;
 			dd = dr > dq? dr - dq : dq - dr;
 			if (dd > bw) continue;
+			max_f_past = max_f_past > f[j]? max_f_past : f[j];
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
 			sc -= (int)(dd * .01 * avg_qspan);
@@ -47,7 +49,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			}
 			if (p[j] >= 0) t[p[j]] = i;
 		}
-		f[i] = max_f, p[i] = max_j;
+		f[i] = max_f, p[i] = max_j, v[i] = max_f_past; // v[] keeps the max score in the previous chain
 	}
 
 	// find the ending positions of chains
@@ -55,16 +57,23 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	for (i = 0; i < n; ++i)
 		if (p[i] >= 0) t[p[i]] = 1;
 	for (i = n_u = 0; i < n; ++i)
-		if (t[i] == 0 && f[i] >= min_sc)
+		if (t[i] == 0 && v[i] >= min_sc)
 			++n_u;
 	if (n_u == 0) {
-		kfree(km, f); kfree(km, p); kfree(km, t);
+		kfree(km, f); kfree(km, p); kfree(km, t); kfree(km, v);
 		return 0;
 	}
 	u = (uint64_t*)kmalloc(km, n_u * 8);
-	for (i = n_u = 0; i < n; ++i)
-		if (t[i] == 0 && f[i] >= min_sc)
-			u[n_u++] = (uint64_t)f[i] << 32 | i;
+	for (i = n_u = 0; i < n; ++i) {
+		if (t[i] == 0 && v[i] >= min_sc) {
+			j = i;
+			if (f[j] < v[j]) { // find the point that maximizes f[]
+				while (j >= 0 && f[j] < v[j]) j = p[j];
+				if (j < 0) j = i; // TODO: this should really be assert(j>=0)
+			}
+			u[n_u++] = (uint64_t)f[j] << 32 | j;
+		}
+	}
 	radix_sort_64(u, u + n_u);
 	for (i = 0; i < n_u>>1; ++i) { // reverse, s.t. the highest scoring chain is the first
 		uint64_t t = u[i];
@@ -73,7 +82,6 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 
 	// backtrack
 	memset(t, 0, n * 4);
-	v = (int32_t*)kmalloc(km, n * 4);
 	for (i = n_v = k = 0; i < n_u; ++i) { // starting from the highest score
 		int32_t n_v0 = n_v, k0 = k;
 		j = (int32_t)u[i];
