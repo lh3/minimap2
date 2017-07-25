@@ -5,25 +5,12 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 
-static const char LogTable256[256] = {
-#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-    -1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
-    LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
-    LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
-};
-
-static inline int ilog2_32(uint32_t v)
-{
-	register uint32_t t, tt;
-	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
-	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
-}
-
 int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int64_t n, mm128_t *a, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
-	int32_t st = 0, j, k, *f, *p, *t, *v, n_u, n_v;
-	int64_t i;
-	uint64_t *u, *u2;
+	int32_t st = 0, k, *f, *p, *t, *v, n_u, n_v;
+	int64_t i, j;
+	uint64_t *u, *u2, sum_qspan = 0;
+	float avg_qspan;
 	mm128_t *b, *w;
 
 	if (_u) *_u = 0;
@@ -31,6 +18,9 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	p = (int32_t*)kmalloc(km, n * 4);
 	t = (int32_t*)kmalloc(km, n * 4);
 	memset(t, 0, n * 4);
+
+	for (i = 0; i < n; ++i) sum_qspan += a[i].y>>32&0xff;
+	avg_qspan = (float)sum_qspan / n;
 
 	// fill the score and backtrack arrays
 	for (i = 0; i < n; ++i) {
@@ -46,8 +36,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			if (dd > bw) continue;
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
-			sc -= dd? ilog2_32(dd) * 2 : 0;
-			if (min_d > q_span) sc -= ilog2_32(min_d) / 2;
+			sc -= (int)(dd * .01 * avg_qspan);
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
