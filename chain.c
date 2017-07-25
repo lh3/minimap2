@@ -67,10 +67,8 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 	for (i = n_u = 0; i < n; ++i) {
 		if (t[i] == 0 && v[i] >= min_sc) {
 			j = i;
-			if (f[j] < v[j]) { // find the point that maximizes f[]
-				while (j >= 0 && f[j] < v[j]) j = p[j];
-				if (j < 0) j = i; // TODO: this should really be assert(j>=0)
-			}
+			while (j >= 0 && f[j] < v[j]) j = p[j]; // find the point that maximizes f[]
+			if (j < 0) j = i; // TODO: this should really be assert(j>=0)
 			u[n_u++] = (uint64_t)f[j] << 32 | j;
 		}
 	}
