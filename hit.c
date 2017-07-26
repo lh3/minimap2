@@ -288,17 +288,18 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 	}
 }
 
-void mm_set_mapq(int n_regs, mm_reg1_t *regs)
+void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc)
 {
 	int i;
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		if (r->parent == r->id) {
-			int mapq;
+			int mapq, subsc;
+			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
 				float identity = (float)(r->p->blen - r->p->n_diff - r->p->n_ambi) / (r->p->blen - r->p->n_ambi);
-				mapq = (int)(identity * 30.0 * (1. - (float)r->p->dp_max2 * r->subsc / r->p->dp_max / r->score) * logf(r->score));
-			} else mapq = (int)(30.0 * (1. - (float)r->subsc / r->score) * logf(r->score));
+				mapq = (int)(identity * 30.0 * (1. - (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score) * logf(r->score));
+			} else mapq = (int)(30.0 * (1. - (float)subsc / r->score) * logf(r->score));
 			mapq = mapq > 0? mapq : 0;
 			r->mapq = mapq < 60? mapq : 60;
 		} else r->mapq = 0;

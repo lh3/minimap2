@@ -255,7 +255,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 			mm_set_sam_pri(*n_regs, regs);
 		}
 	}
-	mm_set_mapq(*n_regs, regs);
+	mm_set_mapq(*n_regs, regs, opt->min_chain_score);
 
 	// free
 	kfree(b->km, a);
