@@ -36,9 +36,10 @@ var getopt = function(args, ostr) {
 	return optopt;
 }
 
-var c, max_mapq = 60, mode = 0, err_out_q = 256, print_err = false;
-while ((c = getopt(arguments, "Q:")) != null) {
+var c, max_mapq = 60, mode = 0, err_out_q = 256, print_err = false, ovlp_ratio = 0.333;
+while ((c = getopt(arguments, "Q:r:")) != null) {
 	if (c == 'Q') err_out_q = parseInt(getopt.arg), print_err = true;
+	else if (c == 'r') ovlp_ratio = parseFloat(getopt.arg);
 }
 
 var file = arguments.length == getopt.ind? new File() : new File(arguments[getopt.ind]);
@@ -61,7 +62,7 @@ function is_correct(s, b)
 		o = (s[2] < b[2]? s[2] : b[2]) - s[1];
 		l = (s[2] > b[2]? s[2] : b[2]) - b[1];
 	}
-	return o/l > .333? true : false;
+	return o/l > ovlp_ratio? true : false;
 }
 
 function count_err(qname, a, tot, err, mode)
