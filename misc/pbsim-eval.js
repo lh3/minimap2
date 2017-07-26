@@ -72,20 +72,17 @@ function count_err(qname, a, tot, err, mode)
 	s[2] = parseInt(s[2]);
 	s[3] = parseInt(s[3]);
 	s.shift(); // skip pbsim orginal read name
-	var max_mapq = 0;
-	for (var i = 0; i < a.length; ++i)
-		if (a[i][4] > max_mapq)
-			max_mapq = a[i][4];
-	++tot[max_mapq];
 	if (mode == 0) { // longest only
 		var max = 0, max_i = -1;
 		for (var i = 0; i < a.length; ++i)
 			if (a[i][2] - a[i][1] > max)
 				max = a[i][2] - a[i][1], max_i = i;
+		var mapq = a[max_i][4];
+		++tot[mapq];
 		if (!is_correct(s, a[max_i])) {
-			if (max_mapq >= err_out_q)
+			if (mapq >= err_out_q)
 				print('E', qname, a[max_i].join("\t"));
-			++err[max_mapq];
+			++err[mapq];
 		}
 	}
 }
