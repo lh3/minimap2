@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r202-dirty"
+#define MM_VERSION "2.0-r203-dirty"
 
 void liftrlimit()
 {

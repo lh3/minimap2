@@ -177,13 +177,14 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 	mm_set_sam_pri(n_regs, regs);
 }
 
-void mm_select_sub(void *km, float mask_level, float pri_ratio, int best_n, int *n_, mm_reg1_t *r)
+void mm_select_sub(void *km, float mask_level, float pri_ratio, int min_diff, int best_n, int *n_, mm_reg1_t *r)
 {
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
 		for (i = k = 0; i < n; ++i)
 			if (r[i].parent == i) r[k++] = r[i];
-			else if (r[i].score >= r[r[i].parent].score * pri_ratio && n_2nd++ < best_n) r[k++] = r[i];
+			else if ((r[i].score >= r[r[i].parent].score * pri_ratio || r[i].score + min_diff >= r[r[i].parent].score) && n_2nd++ < best_n)
+				r[k++] = r[i];
 			else if (r[i].p) free(r[i].p);
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
 		*n_ = k;
