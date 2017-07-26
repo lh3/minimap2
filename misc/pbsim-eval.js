@@ -37,9 +37,10 @@ var getopt = function(args, ostr) {
 }
 
 var c, max_mapq = 60, mode = 0, err_out_q = 256, print_err = false, ovlp_ratio = 0.333;
-while ((c = getopt(arguments, "Q:r:")) != null) {
+while ((c = getopt(arguments, "Q:r:m:")) != null) {
 	if (c == 'Q') err_out_q = parseInt(getopt.arg), print_err = true;
 	else if (c == 'r') ovlp_ratio = parseFloat(getopt.arg);
+	else if (c == 'm') mode = parseInt(getopt.arg);
 }
 
 var file = arguments.length == getopt.ind? new File() : new File(arguments[getopt.ind]);
@@ -68,16 +69,20 @@ function is_correct(s, b)
 function count_err(qname, a, tot, err, mode)
 {
 	var s = qname.split("!");
+	if (a.length == 0) return;
 	if (s.length < 5 || (s[4] != '+' && s[4] != '-'))
 		throw Error("Failed to parse pbsim2fa read names '" + qname + "'");
 	s[2] = parseInt(s[2]);
 	s[3] = parseInt(s[3]);
 	s.shift(); // skip pbsim orginal read name
-	if (mode == 0) { // longest only
-		var max = 0, max_i = -1;
-		for (var i = 0; i < a.length; ++i)
-			if (a[i][2] - a[i][1] > max)
-				max = a[i][2] - a[i][1], max_i = i;
+	if (mode == 0 || mode == 1) { // longest only or first only
+		var max_i = 0;
+		if (mode == 0) {
+			var max = 0;
+			for (var i = 0; i < a.length; ++i)
+				if (a[i][2] - a[i][1] > max)
+					max = a[i][2] - a[i][1], max_i = i;
+		}
 		var mapq = a[max_i][4];
 		++tot[mapq];
 		if (!is_correct(s, a[max_i])) {
@@ -85,6 +90,19 @@ function count_err(qname, a, tot, err, mode)
 				print('E', qname, a[max_i].join("\t"));
 			++err[mapq];
 		}
+	} else if (mode == 2) { // all primary mode
+		var max_err_mapq = -1, max_mapq = 0, max_err_i = -1;
+		for (var i = 0; i < a.length; ++i) {
+			max_mapq = max_mapq > a[i][4]? max_mapq : a[i][4];
+			if (!is_correct(s, a[i]))
+				if (a[i][4] > max_err_mapq)
+					max_err_mapq = a[i][4], max_err_i = i;
+		}
+		if (max_err_mapq >= 0) {
+			++tot[max_err_mapq], ++err[max_err_mapq];
+			if (max_err_mapq >= err_out_q)
+				print('E', qname, a[max_err_i].join("\t"));
+		} else ++tot[max_mapq];
 	}
 }
 
