@@ -253,16 +253,20 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	for (i = 1; i < cnt1; ++i) { // gap filling
 		int gap, to_patch = 0;
 		mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
-		gap = (qe - qs) - (re - rs);
-		if (gap < -40 || gap > 40) {
-			int g, j, i_next = -1;
-			for (j = i + 1; j < cnt1; ++j) {
-				if ((int32_t)a[as1 + j].y - qs > opt->max_gap || (int32_t)a[as1 + j].x - rs > opt->max_gap) break;
-				g = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (a[as1 + j].x - a[as1 + j - 1].x);
-				if (abs(gap + g) < 0.5f * abs(gap - g)) {
-					i_next = j;
-					break;
-				}
+		gap = ((int32_t)a[as1 + i].y - (int32_t)a[as1 + i - 1].y) - (a[as1 + i].x - a[as1 + i - 1].x);
+		if (gap < -20 || gap > 20) {
+			int i_next = -1, j, n_ins = 0, n_del = 0, diff, max_diff = 0;
+			if (gap < 0) n_del += -gap;
+			else n_ins += gap;
+			for (j = i + 1; j < cnt1 && j - i < 20; ++j) {
+				if ((int32_t)a[as1 + j].y - qs > opt->max_gap>>1 || (int32_t)a[as1 + j].x - rs > opt->max_gap>>1) break;
+				gap = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (a[as1 + j].x - a[as1 + j - 1].x);
+				if (gap < 0) n_del += -gap;
+				else n_ins += gap;
+				diff = n_ins + n_del - abs(n_ins - n_del);
+				if (diff >= 40) {
+					if (diff >= max_diff) max_diff = diff, i_next = j;
+				} else if (i_next > i) break;
 			}
 			if (i_next > i) {
 				i = i_next, to_patch = 1;
