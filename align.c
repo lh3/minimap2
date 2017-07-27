@@ -158,7 +158,54 @@ static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2],
 	}
 }
 
-static void mm_skip_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int32_t *as, int32_t *cnt)
+static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min_gap, int diff_thres, int max_ext_len, int max_ext_cnt)
+{
+	int max_st, max_en, n, i, k, max;
+	int *K;
+	for (i = 1, n = 0; i < cnt1; ++i) { // count the number of gaps longer than min_gap
+		int gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		if (gap < -min_gap || gap > min_gap) ++n;
+	}
+	if (n <= 1) return;
+	K = (int*)kmalloc(km, n * sizeof(int));
+	for (i = 1, n = 0; i < cnt1; ++i) { // store the positions of long gaps
+		int gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		if (gap < -min_gap || gap > min_gap)
+			K[n++] = i;
+	}
+	max = 0, max_st = max_en = -1;
+	for (k = 0;; ++k) { // traverse long gaps
+		int gap, l, n_ins = 0, n_del = 0, qs, rs, max_diff = 0, max_diff_l = -1;
+		if (k == n || k >= max_en) {
+			if (max_en > 0)
+				for (i = K[max_st]; i < K[max_en]; ++i)
+					a[as1 + i].y |= 1ULL << 41;
+			max = 0, max_st = max_en = -1;
+			if (k == n) break;
+		}
+		i = K[k];
+		gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		if (gap > 0) n_ins += gap;
+		else n_del += -gap;
+		qs = (int32_t)a[as1 + i - 1].y;
+		rs = (int32_t)a[as1 + i - 1].x;
+		for (l = k + 1; l < n && l <= k + max_ext_cnt; ++l) {
+			int j = K[l], diff;
+			if ((int32_t)a[as1 + j].y - qs > max_ext_len || (int32_t)a[as1 + j].x - rs > max_ext_len) break;
+			gap = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (a[as1 + j].x - a[as1 + j - 1].x);
+			if (gap > 0) n_ins += gap;
+			else n_del += -gap;
+			diff = n_ins + n_del - abs(n_ins - n_del);
+			if (max_diff < diff)
+				max_diff = diff, max_diff_l = l;
+		}
+		if (max_diff > diff_thres && max_diff > max)
+			max = max_diff, max_st = k, max_en = max_diff_l;
+	}
+	kfree(km, K);
+}
+
+static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int32_t *as, int32_t *cnt)
 {
 	int32_t i, l;
 	*as = r->as, *cnt = r->cnt;
@@ -202,7 +249,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	bw = (int)(opt->bw * 1.5 + 1.);
 
 	r2->cnt = 0;
-	mm_skip_ends(r, a, opt->bw, &as1, &cnt1);
+	mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
+	mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 	mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
 
@@ -251,30 +299,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < cnt1; ++i) { // gap filling
-		int gap, to_patch = 0;
+		if (a[as1+i].y>>41&1) continue;
 		mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
-		gap = ((int32_t)a[as1 + i].y - (int32_t)a[as1 + i - 1].y) - (a[as1 + i].x - a[as1 + i - 1].x);
-		if (gap < -20 || gap > 20) {
-			int i_next = -1, j, n_ins = 0, n_del = 0, diff, max_diff = 0;
-			if (gap < 0) n_del += -gap;
-			else n_ins += gap;
-			for (j = i + 1; j < cnt1 && j - i < 20; ++j) {
-				if ((int32_t)a[as1 + j].y - qs > opt->max_gap>>1 || (int32_t)a[as1 + j].x - rs > opt->max_gap>>1) break;
-				gap = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (a[as1 + j].x - a[as1 + j - 1].x);
-				if (gap < 0) n_del += -gap;
-				else n_ins += gap;
-				diff = n_ins + n_del - abs(n_ins - n_del);
-				if (diff >= 40) {
-					if (diff >= max_diff) max_diff = diff, i_next = j;
-				} else if (i_next > i) break;
-			}
-			if (i_next > i) {
-				i = i_next, to_patch = 1;
-				mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
-			}
-		}
 		re1 = re, qe1 = qe;
-		if (i == cnt1 - 1 || to_patch || (a[as1+i].y>>40&1) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
+		if (i == cnt1 - 1 || (a[as1+i].y>>40&1) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			int bw1 = bw;
 			if (a[as1+i].y>>40&1)
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
