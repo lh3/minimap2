@@ -40,11 +40,56 @@ will run a little slower. At present, minimap2 does not work with non-x86 CPUs
 or ancient CPUs that do not support SSE2. SSE2 is critical to the performance
 of minimap2.
 
+## Algorithm Overview
+
+In the following, minimap2 command line options have a dash ahead and are
+highlighted in bold.
+
+1. Read **-I** [=*4G*] reference bases, extract (**-k**,**-w**)-minimizers and
+   index them in a hash table.
+
+2. Read **-K** [=*200M*] query bases. For each query sequence, do step 3
+   through 7:
+
+3. For each (**-k**,**-w**)-minimizer on the query, check against the reference
+   index. If a reference minimizer is not among the top **-f** [=*2e-4*] most
+   frequent, collect its the occurrences in the reference, which are called
+   *seeds*.
+
+4. Sort seeds by position in the reference. Chain them with dynamic
+   programming. Each chain represents a potential mapping. For read
+   overlapping, report all chains and then go to step 8. For reference mapping,
+   do step 5 through 7:
+
+5. Let *P* be the set of primary mappings, which is an empty set initially. For
+   each chain from the best to the worst according to their chaining scores: if
+   on the query, the chain overlaps with a chain in *P* by **--mask-level**
+   [=*0.5*] or higher fraction of the shorter chain, mark the chain as
+   *secondary* to the chain in *P*; otherwise, add the chain to *P*.
+
+6. Retain all primary mappings. Also retain up to **-N** [=*5*] top secondary
+   mappings if their chaining scores are higher than **-p** [=*0.8*] of their
+   corresponding primary mappings.
+
+7. If alignment is requested, filter out an internal seed if it potentially
+   leads to both a long insertion and a long deletion. Extend from the
+   left-most seed. Perform global alignments between internal seeds.  Split the
+   chain if the accumulative score along the global alignment drops by **-z**
+   [=*400*], disregarding long gaps. Extend from the right-most seed.  Output
+   chains and their alignments.
+
+8. If there are more query sequences in the input, go to step 2 until no more
+   queries are left.
+
+9. If there are more reference sequences, reopen the query file from the start
+   and go to step 1; otherwise stop.
+
 ## Limitations
 
 * At the alignment phase, minimap2 performs global alignments between minimizer
   hits. If the positions of these minimizer hits are incorrect, the final
-  alignment may be suboptimal or unnecessarily fragmented.
+  alignment may be suboptimal or unnecessarily fragmented. This should happen
+  rarely with the latest version.
 
 * Minimap2 may produce poor alignments that may need post-filtering. We are
   still exploring a reliable and consistent way to report good alignments.
@@ -54,9 +99,9 @@ of minimap2.
 * Minimap2 requires SSE2 instructions to compile. It is possible to add
   non-SSE2 support, but it would make minimap2 slower by several times.
 
-In general, minimap2 is a young project with most code written since June,
-2017. It may have bugs and room for improvements. Bug reports and suggestions
-are warmly welcomed.
+In general, minimap2 is a young project with most code written since June, 2017.
+It may have bugs and room for improvements. Bug reports and suggestions are
+warmly welcomed.
 
 
 

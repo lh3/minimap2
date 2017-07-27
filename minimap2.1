@@ -1,4 +1,4 @@
-.TH minimap2 1 "19 July 2017" "minimap2-2.0-r190-dirty" "Bioinformatics tools"
+.TH minimap2 1 "27 July 2017" "minimap2-2.0-r213-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -137,10 +137,8 @@ number of minimizers [3]
 .BI -m \ INT
 Discard chains with chaining score
 .RI < INT
-[40]. Chaining score equals the approximate number of matching bases (exact if
-not using
-.BR -H )
-minus base-2 logarithm gap penalty. It is computed with dynamic programming.
+[40]. Chaining score equals the approximate number of matching bases minus a
+linear gap penalty. It is computed with dynamic programming.
 .TP
 .B -X
 Perform all-vs-all mapping. In this mode, if the query sequence name is
