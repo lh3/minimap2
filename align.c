@@ -158,24 +158,6 @@ static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2],
 	}
 }
 
-static void mm_filter_bad_seeds(int n, mm128_t *a, int max_space, int max_diff)
-{
-	int i;
-	if (n < 3) return;
-	for (i = 0; i < n - 2; ++i) {
-		int32_t q[3], t[3], gap01, gap12, gap02;
-		t[0] = (int32_t)a[i].x, q[0] = (int32_t)a[i].y;
-		t[1] = (int32_t)a[i+1].x, q[1] = (int32_t)a[i+1].y;
-		t[2] = (int32_t)a[i+2].x, q[2] = (int32_t)a[i+2].y;
-		if (t[2] - t[0] > max_space || q[2] - q[0] > max_space) continue;
-		gap01 = (t[1] - t[0]) - (q[1] - q[0]), gap01 = gap01 > 0? gap01 : -gap01;
-		gap12 = (t[2] - t[1]) - (q[2] - q[1]), gap12 = gap12 > 0? gap12 : -gap12;
-		gap02 = (t[2] - t[0]) - (q[2] - q[0]), gap02 = gap02 > 0? gap02 : -gap02;
-		if (gap01 + gap12 - gap02 > max_diff)
-			a[++i].y |= 1ULL << 41;
-	}
-}
-
 static void mm_skip_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int32_t *as, int32_t *cnt)
 {
 	int32_t i, l;
@@ -223,7 +205,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	mm_skip_ends(r, a, opt->bw, &as1, &cnt1);
 	mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
-	mm_filter_bad_seeds(cnt1, &a[as1], opt->max_gap, 100);
 
 	// compute rs0 and qs0
 	if (r->split && as1 > 0) {
@@ -270,10 +251,26 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < cnt1; ++i) { // gap filling
-		if (a[as1+i].y>>41&1) continue;
+		int gap, to_patch = 0;
 		mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
+		gap = (qe - qs) - (re - rs);
+		if (gap < -40 || gap > 40) {
+			int g, j, i_next = -1;
+			for (j = i + 1; j < cnt1; ++j) {
+				if ((int32_t)a[as1 + j].y - qs > opt->max_gap || (int32_t)a[as1 + j].x - rs > opt->max_gap) break;
+				g = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (a[as1 + j].x - a[as1 + j - 1].x);
+				if (abs(gap + g) < 0.5f * abs(gap - g)) {
+					i_next = j;
+					break;
+				}
+			}
+			if (i_next > i) {
+				i = i_next, to_patch = 1;
+				mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
+			}
+		}
 		re1 = re, qe1 = qe;
-		if (i == cnt1 - 1 || (a[as1+i].y>>40&1) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
+		if (i == cnt1 - 1 || to_patch || (a[as1+i].y>>40&1) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			int bw1 = bw;
 			if (a[as1+i].y>>40&1)
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
