@@ -144,7 +144,7 @@ while (file.readline(buf) >= 0) {
 		}
 		if (n_cigar > 65535) ++n_cigar_64k;
 		if (ql + sclip != aqlen)
-			warn("WARNING: aligned query length is inconsistent with CIGAR at line " + lineno);
+			warn("WARNING: aligned query length is inconsistent with CIGAR at line " + lineno + " (" + (ql+sclip) + " != " + aqlen + ")");
 		if (atlen != null && atlen != tl)
 			warn("WARNING: aligned reference length is inconsistent with CIGAR at line " + lineno);
 		if (is_sam) {
