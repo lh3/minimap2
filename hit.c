@@ -266,7 +266,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		if (r1->re - r1->rs < max_gap>>1 || r1->qe - r1->qs < max_gap>>1) continue;
 
 		// all conditions satisfied; join
-		a[r1->as].y |= 1ULL<<40;
+		a[r1->as].y |= MM_SEED_LONG_JOIN;
 		r0->cnt += r1->cnt, r0->score += r1->score;
 		mm_reg_set_coor(r0, qlen, a);
 		r1->cnt = 0;

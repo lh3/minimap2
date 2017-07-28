@@ -179,7 +179,7 @@ static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min
 		if (k == n || k >= max_en) {
 			if (max_en > 0)
 				for (i = K[max_st]; i < K[max_en]; ++i)
-					a[as1 + i].y |= 1ULL << 41;
+					a[as1 + i].y |= MM_SEED_IGNORE;
 			max = 0, max_st = max_en = -1;
 			if (k == n) break;
 		}
@@ -299,12 +299,12 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < cnt1; ++i) { // gap filling
-		if (a[as1+i].y>>41&1) continue;
+		if (a[as1+i].y & MM_SEED_IGNORE) continue;
 		mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
 		re1 = re, qe1 = qe;
-		if (i == cnt1 - 1 || (a[as1+i].y>>40&1) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
+		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
 			int bw1 = bw;
-			if (a[as1+i].y>>40&1)
+			if (a[as1+i].y & MM_SEED_LONG_JOIN)
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);

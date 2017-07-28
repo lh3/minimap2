@@ -12,6 +12,10 @@
 #define MM_DBG_PRINT_QNAME 0x2
 #define MM_DBG_PRINT_SEED  0x4
 
+#define MM_SEED_LONG_JOIN  (1ULL<<40)
+#define MM_SEED_IGNORE     (1ULL<<41)
+#define MM_SEED_TANDEM     (1ULL<<42)
+
 #ifndef kroundup32
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 #endif

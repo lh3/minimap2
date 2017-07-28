@@ -209,8 +209,10 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 		mm128_t *p = &b->mini.a[i + m_st];
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->x.cr;
-		int k, q_span = p->x & 0xff;
+		int k, q_span = p->x & 0xff, is_tandem = 0;
 		if (q->n >= opt->mid_occ) continue;
+		if (i > 0 && p->x>>8 == b->mini.a[m_st + i - 1].x>>8) is_tandem = 1;
+		if (i < n - 1 && p->x>>8 == b->mini.a[m_st + i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
 			const char *tname = mi->seq[r[k]>>32].name;
 			int32_t rpos = (uint32_t)r[k] >> 1;
@@ -227,6 +229,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
 				p->y = (uint64_t)q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
 			}
+			if (is_tandem) p->y |= MM_SEED_TANDEM;
 		}
 	}
 	n_a = j;
