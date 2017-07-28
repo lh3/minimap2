@@ -86,10 +86,8 @@ highlighted in bold.
 
 ## Limitations
 
-* At the alignment phase, minimap2 performs global alignments between minimizer
-  hits. If the positions of these minimizer hits are incorrect, the final
-  alignment may be suboptimal or unnecessarily fragmented. This should happen
-  rarely with the latest version.
+* Minimap2 may produce suboptimal alignments through long low-complexity
+  regions where seed positions may be inaccurate.
 
 * Minimap2 may produce poor alignments that may need post-filtering. We are
   still exploring a reliable and consistent way to report good alignments.

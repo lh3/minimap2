@@ -1,4 +1,4 @@
-.TH minimap2 1 "27 July 2017" "minimap2-2.0-r213-dirty" "Bioinformatics tools"
+.TH minimap2 1 "28 July 2017" "minimap2-2.0-r219-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -138,7 +138,7 @@ number of minimizers [3]
 Discard chains with chaining score
 .RI < INT
 [40]. Chaining score equals the approximate number of matching bases minus a
-linear gap penalty. It is computed with dynamic programming.
+concave gap penalty. It is computed with dynamic programming.
 .TP
 .B -X
 Perform all-vs-all mapping. In this mode, if the query sequence name is
@@ -342,9 +342,8 @@ cg	Z	CIGAR string (only in PAF)
 .SH LIMITATIONS
 .TP 2
 *
-At the alignment phase, minimap2 performs global alignments between minimizer
-hits. If the positions of these minimizer hits are incorrect, the final
-alignment may be suboptimal or unnecessarily fragmented.
+Minimap2 may produce suboptimal alignments through long low-complexity regions
+where seed positions may be inaccurate.
 .TP
 *
 Minimap2 may produce poor alignments that may need post-filtering. We are still
