@@ -5,6 +5,20 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 
+static const char LogTable256[256] = {
+#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
+	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+	LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
+	LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
+};
+
+static inline int ilog2_32(uint32_t v)
+{
+	register uint32_t t, tt;
+	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
+	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
+}
+
 int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int64_t n, mm128_t *a, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t st = 0, k, *f, *p, *t, *v, n_u, n_v;
@@ -38,7 +52,7 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 			max_f_past = max_f_past > f[j]? max_f_past : f[j];
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
-			sc -= (int)(dd * .01 * avg_qspan);
+			sc -= (int)(dd * .01 * avg_qspan) + (ilog2_32(dd)>>1);
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
