@@ -299,7 +299,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(qs1 >= 0 && rs1 >= 0);
 
 	for (i = 1; i < cnt1; ++i) { // gap filling
-		if (a[as1+i].y & MM_SEED_IGNORE) continue;
+		if (a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) continue;
 		mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
 		re1 = re, qe1 = qe;
 		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
