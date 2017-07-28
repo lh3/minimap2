@@ -160,8 +160,7 @@ static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2],
 
 static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min_gap, int diff_thres, int max_ext_len, int max_ext_cnt)
 {
-	int max_st, max_en, n, i, k, max;
-	int *K;
+	int max_st, max_en, n, i, k, max, *K;
 	for (i = 1, n = 0; i < cnt1; ++i) { // count the number of gaps longer than min_gap
 		int gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
 		if (gap < -min_gap || gap > min_gap) ++n;
@@ -302,7 +301,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) continue;
 		mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
 		re1 = re, qe1 = qe;
-		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || qe - qs >= opt->min_ksw_len || re - rs >= opt->min_ksw_len) {
+		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || (qe - qs >= opt->min_ksw_len && re - rs >= opt->min_ksw_len)) {
 			int bw1 = bw;
 			if (a[as1+i].y & MM_SEED_LONG_JOIN)
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
