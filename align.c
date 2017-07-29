@@ -362,6 +362,8 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	int8_t mat[25];
 	memset(r_inv, 0, sizeof(mm_reg1_t));
 	if (!(r1->split&1) || !(r2->split&2)) return 0;
+	if (r1->id != r1->parent && r1->parent != MM_PARENT_TMP_PRI) return 0;
+	if (r2->id != r2->parent && r2->parent != MM_PARENT_TMP_PRI) return 0;
 	if (r1->rid != r2->rid || r1->rev != r2->rev) return 0;
 	ql = r2->qs - r1->qe;
 	tl = r2->rs - r1->re;
