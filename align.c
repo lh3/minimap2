@@ -357,9 +357,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
 {
-	int tl, ql, ret = 0;
+	int tl, ql, score, ret = 0, q_off, t_off;
 	uint8_t *tseq, *qseq;
 	int8_t mat[25];
+	void *qp;
+
 	memset(r_inv, 0, sizeof(mm_reg1_t));
 	if (!(r1->split&1) || !(r2->split&2)) return 0;
 	if (r1->id != r1->parent && r1->parent != MM_PARENT_TMP_PRI) return 0;
@@ -369,28 +371,34 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	tl = r2->rs - r1->re;
 	if (ql < 0 || ql > opt->max_gap) return 0;
 	if (tl < 0 || tl > opt->max_gap) return 0;
+
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	tseq = (uint8_t*)kmalloc(km, tl);
 	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
 	qseq = &qseq0[!r1->rev][qlen - r2->qs];
-	mm_align_pair(km, opt, ql, qseq, tl, tseq, mat, (int)(opt->bw * 1.5), KSW_EZ_APPROX_MAX, ez);
-	if (ez->n_cigar > 0 && ez->score > 0) {
-		mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
-		r_inv->p->dp_score = ez->score;
-		mm_update_extra(r_inv->p, qseq, tseq, mat, opt->q, opt->e);
-		if (r_inv->p->dp_max < opt->min_dp_max) { // discard this hit
-			free(r_inv->p);
-			r_inv->p = 0;
-		} else {
-			r_inv->id = -1;
-			r_inv->parent = MM_PARENT_UNSET;
-			r_inv->inv = 1;
-			r_inv->rev = !r1->rev;
-			r_inv->qs = r1->qe, r_inv->qe = r2->qs;
-			r_inv->rs = r1->re, r_inv->re = r2->rs;
-			ret = 1;
-		}
-	}
+
+	mm_seq_rev(ql, qseq);
+	mm_seq_rev(tl, tseq);
+	qp = ksw_ll_qinit(km, 2, ql, qseq, 5, mat);
+	score = ksw_ll_i16(qp, tl, tseq, opt->q, opt->e, &q_off, &t_off);
+	kfree(km, qp);
+	mm_seq_rev(ql, qseq);
+	mm_seq_rev(tl, tseq);
+	if (score < opt->min_dp_max) goto end_align1_inv;
+	q_off = ql - (q_off + 1), t_off = tl - (t_off + 1);
+	mm_align_pair(km, opt, ql - q_off, qseq + q_off, tl - t_off, tseq + t_off, mat, (int)(opt->bw * 1.5), KSW_EZ_EXTZ_ONLY, ez);
+	if (ez->n_cigar == 0) goto end_align1_inv; // should never be here
+	mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
+	r_inv->p->dp_score = ez->max;
+	mm_update_extra(r_inv->p, qseq + q_off, tseq + t_off, mat, opt->q, opt->e);
+	r_inv->id = -1;
+	r_inv->parent = MM_PARENT_UNSET;
+	r_inv->inv = 1;
+	r_inv->rev = !r1->rev;
+	r_inv->qs = r1->qe + q_off, r_inv->qe = r_inv->qs + ez->max_q + 1;
+	r_inv->rs = r1->re + t_off, r_inv->re = r_inv->rs + ez->max_t + 1;
+	ret = 1;
+end_align1_inv:
 	kfree(km, tseq);
 	return ret;
 }
