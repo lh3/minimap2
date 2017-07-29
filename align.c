@@ -355,6 +355,25 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	kfree(km, tseq);
 }
 
+static void mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, uint8_t *qseq0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
+{
+	int tlen, qlen;
+	uint8_t *tseq, *qseq;
+	int8_t mat[25];
+	memset(r_inv, 0, sizeof(mm_reg1_t));
+	if (r1->rid != r2->rid || r1->rev != r2->rev) return;
+	qlen = r2->qs - r1->qe;
+	tlen = r2->rs - r1->re;
+	if (qlen < 0 || qlen > opt->max_gap) return;
+	if (tlen < 0 || tlen > opt->max_gap) return;
+	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
+	tseq = (uint8_t*)kmalloc(km, tlen);
+	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
+	qseq = &qseq0[!r1->rev][r1->qe];
+	mm_align_pair(km, opt, qlen, qseq, tlen, tseq, mat, -1, KSW_EZ_APPROX_MAX, ez);
+	fprintf(stderr, "%d; (%d,%d); (%d,%d)\n", ez->score, r1->re, r2->rs, r1->qe, r2->qs);
+}
+
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
 {
 	extern unsigned char seq_nt4_table[256];
@@ -381,6 +400,9 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 				memmove(&regs[i + 2], &regs[i + 1], sizeof(mm_reg1_t) * (n_regs - i - 1));
 			regs[i + 1] = r2;
 			++n_regs;
+		}
+		if (i > 0 && (regs[i].split&2) && (regs[i-1].split&1)) {
+			mm_align1_inv(km, opt, mi, qseq0, &regs[i-1], &regs[i], &r2, &ez);
 		}
 	}
 	*n_regs_ = n_regs;
