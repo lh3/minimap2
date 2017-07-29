@@ -358,7 +358,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
 {
 	extern unsigned char seq_nt4_table[256];
-	int32_t i, r, n_regs = *n_regs_;
+	int32_t i, n_regs = *n_regs_;
 	uint8_t *qseq0[2];
 	ksw_extz_t ez;
 
@@ -372,14 +372,14 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 
 	// align through seed hits
 	memset(&ez, 0, sizeof(ksw_extz_t));
-	for (r = 0; r < n_regs; ++r) {
+	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t r2;
-		mm_align1(km, opt, mi, qlen, qseq0, &regs[r], &r2, a, &ez);
+		mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, a, &ez);
 		if (r2.cnt > 0) {
 			regs = (mm_reg1_t*)realloc(regs, (n_regs + 1) * sizeof(mm_reg1_t)); // this should be very rare
-			if (r + 1 != n_regs)
-				memmove(&regs[r + 2], &regs[r + 1], sizeof(mm_reg1_t) * (n_regs - r - 1));
-			regs[r + 1] = r2;
+			if (i + 1 != n_regs)
+				memmove(&regs[i + 2], &regs[i + 1], sizeof(mm_reg1_t) * (n_regs - i - 1));
+			regs[i + 1] = r2;
 			++n_regs;
 		}
 	}
