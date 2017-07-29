@@ -387,7 +387,6 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 			r_inv->qs = r1->qe, r_inv->qe = r2->qs;
 			r_inv->rs = r1->re, r_inv->re = r2->rs;
 			ret = 1;
-			fprintf(stderr, "here!\n");
 		}
 	}
 	kfree(km, tseq);
