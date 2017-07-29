@@ -346,15 +346,15 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			mm_bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
-				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, r);
+				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i]);
 				else mm_write_paf(&p->str, mi, t, r);
 				puts(p->str.s);
-				free(r->p);
 			}
 			if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
-				mm_write_sam(&p->str, 0, t, 0);
+				mm_write_sam(&p->str, 0, t, 0, 0, 0);
 				puts(p->str.s);
 			}
+			for (j = 0; j < s->n_reg[i]; ++j) free(s->reg[i][j].p);
 			free(s->reg[i]);
 			free(s->seq[i].seq); free(s->seq[i].name);
 			if (s->seq[i].qual) free(s->seq[i].qual);

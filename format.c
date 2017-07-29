@@ -105,7 +105,7 @@ static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 	} else str_copy(s, seq, seq + l);
 }
 
-void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r)
+void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs)
 {
 	int flag = 0;
 	s->l = 0;
@@ -120,7 +120,7 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 		if (r->parent != r->id) flag |= 0x100;
 		else if (!r->sam_pri) flag |= 0x800;
 		mm_sprintf_lite(s, "%s\t%d\t%s\t%d\t%d\t", t->name, flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
-		if (r->p) { // TODO: using hard clippings
+		if (r->p) { // actually this should always be true for SAM output
 			uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
 			int clip_char = (flag&0x800)? 'H' : 'S';
 			if (clip_len) mm_sprintf_lite(s, "%d%c", clip_len, clip_char);
@@ -144,6 +144,31 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			else mm_sprintf_lite(s, "*");
 		}
 		write_tags(s, r);
+		if (r->parent == r->id && r->p && n_regs > 1 && regs && r >= regs && r - regs < n_regs) { // supplementary aln may exist
+			int i, n_sa = 0; // n_sa: number of SA fields
+			for (i = 0; i < n_regs; ++i)
+				if (i != r - regs && regs[i].parent == regs[i].id && regs[i].p)
+					++n_sa;
+			if (n_sa > 0) {
+				mm_sprintf_lite(s, "\tSA:Z:");
+				for (i = 0; i < n_regs; ++i) {
+					const mm_reg1_t *q = &regs[i];
+					int l_M, l_I = 0, l_D = 0, clip5 = 0, clip3 = 0;
+					if (r == q || q->parent != q->id || q->p == 0) continue;
+					if (q->qe - q->qs < q->re - q->rs) l_M = q->qe - q->qs, l_D = (q->re - q->rs) - l_M;
+					else l_M = q->re - q->rs, l_I = (q->qe - q->qs) - l_M;
+					clip5 = q->rev? t->l_seq - q->qe : q->qs;
+					clip3 = q->rev? q->qs : t->l_seq - q->qe;
+					mm_sprintf_lite(s, "%s,%d,%c,", mi->seq[q->rid].name, q->rs+1, "+-"[q->rev]);
+					if (clip5) mm_sprintf_lite(s, "%dS", clip5);
+					if (l_M) mm_sprintf_lite(s, "%dM", l_M);
+					if (l_I) mm_sprintf_lite(s, "%dI", l_I);
+					if (l_D) mm_sprintf_lite(s, "%dD", l_D);
+					if (clip3) mm_sprintf_lite(s, "%dS", clip3);
+					mm_sprintf_lite(s, ",%d,%d;", q->mapq, q->p->n_diff);
+				}
+			}
+		}
 	}
 	s->s[s->l] = 0; // we always have room for an extra byte (see str_enlarge)
 }
