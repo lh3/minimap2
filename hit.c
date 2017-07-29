@@ -125,11 +125,11 @@ void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r)
 	aux = (uint64_t*)kmalloc(km, n * 8);
 	t = (mm_reg1_t*)kmalloc(km, n * sizeof(mm_reg1_t));
 	for (i = n_aux = 0; i < n; ++i) {
-		if (r[i].cnt > 0) { // squeeze out elements with cnt==0 (soft deleted)
+		if (r[i].inv || r[i].cnt > 0) { // squeeze out elements with cnt==0 (soft deleted)
 			assert(r[i].p);
 			aux[n_aux++] = (uint64_t)r[i].p->dp_max << 32 | i;
 		} else if (r[i].p) {
-			kfree(km, r[i].p);
+			free(r[i].p);
 			r[i].p = 0;
 		}
 	}
@@ -197,7 +197,7 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 	for (i = k = 0; i < *n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		int flt = 0;
-		if (r->cnt < opt->min_cnt) flt = 1;
+		if (!r->inv && r->cnt < opt->min_cnt) flt = 1;
 		if (r->p) {
 			if (r->p->blen - r->p->n_ambi - r->p->n_diff < opt->min_chain_score) flt = 1;
 			else if (r->p->dp_max < opt->min_dp_max) flt = 1;
@@ -294,7 +294,9 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc)
 	int i;
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
-		if (r->parent == r->id) {
+		if (r->inv) {
+			r->mapq = 0;
+		} else if (r->parent == r->id) {
 			int mapq, subsc;
 			float pen_cm = r->cnt >= 10? 1.0f : 0.1f * r->cnt;
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;

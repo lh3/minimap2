@@ -1,4 +1,4 @@
-.TH minimap2 1 "28 July 2017" "minimap2-2.0-r219-dirty" "Bioinformatics tools"
+.TH minimap2 1 "29 July 2017" "minimap2-2.0-r224-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -329,6 +329,7 @@ cb | cb | cb
 r | c | l .
 Tag	Type	Description
 _
+tp	A	Type of aln: P/primary, S/secondary and I/inversion
 cm	i	Number of minimizers on the chain
 s1	i	Chaining score
 s2	i	Chaining score of the best secondary chain
@@ -343,7 +344,8 @@ cg	Z	CIGAR string (only in PAF)
 .TP 2
 *
 Minimap2 may produce suboptimal alignments through long low-complexity regions
-where seed positions may be inaccurate.
+where seed positions may be suboptimal. This should not be a big concern
+because even the optimal alignment may be wrong in such regions.
 .TP
 *
 Minimap2 may produce poor alignments that may need post-filtering. We are still

@@ -61,7 +61,7 @@ typedef struct {
 typedef struct {
 	int32_t id;
 	uint32_t cnt:31, rev:1;
-	uint32_t rid:31, rep:1;
+	uint32_t rid:31, inv:1;
 	int32_t score;
 	int32_t qs, qe, rs, re;
 	int32_t parent, subsc;

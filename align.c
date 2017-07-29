@@ -355,23 +355,53 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	kfree(km, tseq);
 }
 
-static void mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, uint8_t *qseq0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
+static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
 {
-	int tlen, qlen;
+	int tl, ql, ret = 0;
 	uint8_t *tseq, *qseq;
 	int8_t mat[25];
 	memset(r_inv, 0, sizeof(mm_reg1_t));
-	if (r1->rid != r2->rid || r1->rev != r2->rev) return;
-	qlen = r2->qs - r1->qe;
-	tlen = r2->rs - r1->re;
-	if (qlen < 0 || qlen > opt->max_gap) return;
-	if (tlen < 0 || tlen > opt->max_gap) return;
+	if (!(r1->split&1) || !(r2->split&2)) return 0;
+	if (r1->rid != r2->rid || r1->rev != r2->rev) return 0;
+	ql = r2->qs - r1->qe;
+	tl = r2->rs - r1->re;
+	if (ql < 0 || ql > opt->max_gap) return 0;
+	if (tl < 0 || tl > opt->max_gap) return 0;
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
-	tseq = (uint8_t*)kmalloc(km, tlen);
+	tseq = (uint8_t*)kmalloc(km, tl);
 	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
-	qseq = &qseq0[!r1->rev][r1->qe];
-	mm_align_pair(km, opt, qlen, qseq, tlen, tseq, mat, -1, KSW_EZ_APPROX_MAX, ez);
-	fprintf(stderr, "%d; (%d,%d); (%d,%d)\n", ez->score, r1->re, r2->rs, r1->qe, r2->qs);
+	qseq = &qseq0[!r1->rev][qlen - r2->qs];
+	mm_align_pair(km, opt, ql, qseq, tl, tseq, mat, (int)(opt->bw * 1.5), KSW_EZ_APPROX_MAX, ez);
+	if (ez->n_cigar > 0 && ez->score > 0) {
+		mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
+		r_inv->p->dp_score = ez->score;
+		mm_update_extra(r_inv->p, qseq, tseq, mat, opt->q, opt->e);
+		if (r_inv->p->dp_max < opt->min_dp_max) { // discard this hit
+			free(r_inv->p);
+			r_inv->p = 0;
+		} else {
+			r_inv->id = -1;
+			r_inv->parent = MM_PARENT_UNSET;
+			r_inv->inv = 1;
+			r_inv->rev = !r1->rev;
+			r_inv->qs = r1->qe, r_inv->qe = r2->qs;
+			r_inv->rs = r1->re, r_inv->re = r2->rs;
+			ret = 1;
+			fprintf(stderr, "here!\n");
+		}
+	}
+	kfree(km, tseq);
+	return ret;
+}
+
+static inline mm_reg1_t *mm_insert_reg(const mm_reg1_t *r, int i, int *n_regs, mm_reg1_t *regs)
+{
+	regs = (mm_reg1_t*)realloc(regs, (*n_regs + 1) * sizeof(mm_reg1_t));
+	if (i + 1 != *n_regs)
+		memmove(&regs[i + 2], &regs[i + 1], sizeof(mm_reg1_t) * (*n_regs - i - 1));
+	regs[i + 1] = *r;
+	++*n_regs;
+	return regs;
 }
 
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
@@ -394,15 +424,10 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t r2;
 		mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, a, &ez);
-		if (r2.cnt > 0) {
-			regs = (mm_reg1_t*)realloc(regs, (n_regs + 1) * sizeof(mm_reg1_t)); // this should be very rare
-			if (i + 1 != n_regs)
-				memmove(&regs[i + 2], &regs[i + 1], sizeof(mm_reg1_t) * (n_regs - i - 1));
-			regs[i + 1] = r2;
-			++n_regs;
-		}
-		if (i > 0 && (regs[i].split&2) && (regs[i-1].split&1)) {
-			mm_align1_inv(km, opt, mi, qseq0, &regs[i-1], &regs[i], &r2, &ez);
+		if (r2.cnt > 0) regs = mm_insert_reg(&r2, i, &n_regs, regs);
+		if (i > 0 && mm_align1_inv(km, opt, mi, qlen, qseq0, &regs[i-1], &regs[i], &r2, &ez)) {
+			regs = mm_insert_reg(&r2, i, &n_regs, regs);
+			++i; // skip the inserted INV alignment
 		}
 	}
 	*n_regs_ = n_regs;
