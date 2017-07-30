@@ -1,5 +1,5 @@
-Release 2.0-rc1-r213 (27 July 2017)
------------------------------------
+Release 2.0rc1-r232 (30 July 2017)
+----------------------------------
 
 This release improves the accuracy of long-read alignment and added several
 minor features.
@@ -18,9 +18,9 @@ minor features.
    mapping accuracy for reads simulated with pbsim.
 
 This release completes features intended for v2.0. No major features will be
-added to the master branch before v2.0.
+added to the master branch before the final v2.0.
 
-(2.0-rc1: 27 July 2017, r213)
+(2.0rc1: 30 July 2017, r232)
 
 
 
