@@ -369,8 +369,8 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (r1->rid != r2->rid || r1->rev != r2->rev) return 0;
 	ql = r2->qs - r1->qe;
 	tl = r2->rs - r1->re;
-	if (ql < 0 || ql > opt->max_gap) return 0;
-	if (tl < 0 || tl > opt->max_gap) return 0;
+	if (ql < opt->min_chain_score || ql > opt->max_gap) return 0;
+	if (tl < opt->min_chain_score || tl > opt->max_gap) return 0;
 
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	tseq = (uint8_t*)kmalloc(km, tl);
