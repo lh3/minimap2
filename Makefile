@@ -51,6 +51,7 @@ index.o: kthread.h bseq.h minimap.h mmpriv.h kvec.h kalloc.h khash.h
 kalloc.o: kalloc.h
 ksw2_extd2_sse.o: ksw2.h kalloc.h
 ksw2_extz2_sse.o: ksw2.h kalloc.h
+ksw2_ll_sse.o: ksw2.h kalloc.h
 main.o: bseq.h minimap.h mmpriv.h
 map.o: kthread.h kvec.h kalloc.h sdust.h mmpriv.h minimap.h bseq.h
 misc.o: minimap.h ksort.h

@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r228-dirty"
+#define MM_VERSION "2.0-r229-dirty"
 
 void liftrlimit()
 {
@@ -30,6 +30,7 @@ static struct option long_options[] = {
 	{ "print-seed",     no_argument,       0, 0 },
 	{ "max-chain-skip", required_argument, 0, 0 },
 	{ "min-dp-len",     required_argument, 0, 0 },
+	{ "print-aln-seq",  no_argument,       0, 0 },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
 	{ "min-chain-score",required_argument, 0, 'm' },
@@ -85,6 +86,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 6) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_SEED; // --print-seed
 		else if (c == 0 && long_idx == 7) opt.max_chain_skip = atoi(optarg); // --max-chain-skip
 		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(optarg); // --min-dp-len
+		else if (c == 0 && long_idx == 9) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ; // --print-aln-seq
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;

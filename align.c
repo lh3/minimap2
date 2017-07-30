@@ -126,6 +126,12 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 
 static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *mat, int w, int flag, ksw_extz_t *ez)
 {
+	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
+		int i;
+		fprintf(stderr, "===> q=(%d,%d), e=(%d,%d), bw=%d, flag=%d, zdrop=%d <===\n", opt->q, opt->q2, opt->e, opt->e2, w, flag, opt->zdrop);
+		for (i = 0; i < tlen; ++i) fputc("ACGTN"[tseq[i]], stderr); fputc('\n', stderr);
+		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr); fputc('\n', stderr);
+	}
 	if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, opt->zdrop, flag, ez);
 	else

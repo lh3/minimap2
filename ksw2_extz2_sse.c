@@ -33,7 +33,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	a = _mm_sub_epi8(a, z); \
 	b = _mm_sub_epi8(b, z);
 
-	int r, t, qe = q + e, n_col_, *off = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc, min_sc;
+	int r, t, qe = q + e, n_col_, *off = 0, *off_end = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc, min_sc;
 	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
@@ -76,7 +76,8 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	if (with_cigar) {
 		mem2 = (uint8_t*)kmalloc(km, ((qlen + tlen - 1) * n_col_ + 1) * 16);
 		p = (__m128i*)(((size_t)mem2 + 15) >> 4 << 4);
-		off = (int*)kmalloc(km, (qlen + tlen - 1) * sizeof(int));
+		off = (int*)kmalloc(km, (qlen + tlen - 1) * sizeof(int) * 2);
+		off_end = off + qlen + tlen - 1;
 	}
 
 	for (t = 0; t < qlen; ++t) qr[t] = query[qlen - 1 - t];
@@ -85,7 +86,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	for (r = 0, last_st = last_en = -1; r < qlen + tlen - 1; ++r) {
 		int st = 0, en = tlen - 1, st0, en0, st_, en_;
 		int8_t x1, v1;
-		uint8_t *qrr = qr + (qlen - 1 - r), *u8 = (uint8_t*)u, *v8 = (uint8_t*)v, *x8 = (uint8_t*)x, p_en0 = 0;
+		uint8_t *qrr = qr + (qlen - 1 - r), *u8 = (uint8_t*)u, *v8 = (uint8_t*)v;
 		__m128i x1_, v1_;
 		// find the boundaries
 		if (st < r - qlen + 1) st = r - qlen + 1;
@@ -152,14 +153,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			}
 		} else if (!(flag&KSW_EZ_RIGHT)) { // gap left-alignment
 			__m128i *pr = p + r * n_col_ - st_;
-			off[r] = st;
-			if (en0 < r && en0 < tlen - 1) { // to avoid backtracking out of the band; this assumes a fixed band
-				int8_t a, z = ((uint8_t*)s)[en0] + 2 * qe;
-				a = x8[en0-1] + v8[en0-1];
-				p_en0 = a > z? 1 : 0;
-				z = a > z? a : z;
-				p_en0 |= a - (z - q) > 0? 0x08 : 0;
-			}
+			off[r] = st, off_end[r] = en;
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, xt1, vt1, ut, tmp;
 				__dp_code_block1;
@@ -185,14 +179,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			}
 		} else { // gap right-alignment
 			__m128i *pr = p + r * n_col_ - st_;
-			off[r] = st;
-			if (en0 < r && en0 < tlen - 1) {
-				int8_t a, z = ((uint8_t*)s)[en0] + 2 * qe;
-				a = x8[en0-1] + v8[en0-1];
-				p_en0 = a >= z? 1 : 0;
-				z = a >= z? a : z;
-				p_en0 |= a - (z - q) >= 0? 0x08 : 0;
-			}
+			off[r] = st, off_end[r] = en;
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, xt1, vt1, ut, tmp;
 				__dp_code_block1;
@@ -217,7 +204,6 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				_mm_store_si128(&pr[t], d);
 			}
 		}
-		if (with_cigar && en0 < r && en0 < tlen - 1) ((uint8_t*)(p + r * n_col_))[en0 - st] = p_en0;
 		if (!approx_max) { // find the exact max with a 32-bit score array
 			int32_t max_H, max_t;
 			// compute H[], max_H and max_t
@@ -289,9 +275,9 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	if (with_cigar) { // backtrack
 		int rev_cigar = !!(flag & KSW_EZ_REV_CIGAR);
 		if (!ez->zdropped && !(flag&KSW_EZ_EXTZ_ONLY))
-			ksw_backtrack(km, 1, rev_cigar, (uint8_t*)p, off, n_col_*16, tlen-1, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+			ksw_backtrack(km, 1, rev_cigar, (uint8_t*)p, off, off_end, n_col_*16, tlen-1, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
 		else if (ez->max_t >= 0 && ez->max_q >= 0)
-			ksw_backtrack(km, 1, rev_cigar, (uint8_t*)p, off, n_col_*16, ez->max_t, ez->max_q, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+			ksw_backtrack(km, 1, rev_cigar, (uint8_t*)p, off, off_end, n_col_*16, ez->max_t, ez->max_q, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
 		kfree(km, mem2); kfree(km, off);
 	}
 }

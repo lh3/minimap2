@@ -8,9 +8,10 @@
 #define MM_PARENT_UNSET   (-1)
 #define MM_PARENT_TMP_PRI (-2)
 
-#define MM_DBG_NO_KALLOC   0x1
-#define MM_DBG_PRINT_QNAME 0x2
-#define MM_DBG_PRINT_SEED  0x4
+#define MM_DBG_NO_KALLOC     0x1
+#define MM_DBG_PRINT_QNAME   0x2
+#define MM_DBG_PRINT_SEED    0x4
+#define MM_DBG_PRINT_ALN_SEQ 0x8
 
 #define MM_SEED_LONG_JOIN  (1ULL<<40)
 #define MM_SEED_IGNORE     (1ULL<<41)
