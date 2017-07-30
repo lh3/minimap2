@@ -88,7 +88,7 @@ int ksw_ll_i16(void *q_, int tlen, const uint8_t *target, int _gapo, int _gape, 
 		(xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 8)); \
 		(xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 4)); \
 		(xx) = _mm_max_epi16((xx), _mm_srli_si128((xx), 2)); \
-    	(ret) = _mm_extract_epi16((xx), 0); \
+		(ret) = _mm_extract_epi16((xx), 0); \
 	} while (0)
 
 	// initialization

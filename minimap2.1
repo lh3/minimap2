@@ -1,4 +1,4 @@
-.TH minimap2 1 "29 July 2017" "minimap2-2.0-r224-dirty" "Bioinformatics tools"
+.TH minimap2 1 "30 July 2017" "minimap2-2.0-r230-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -346,10 +346,6 @@ cg	Z	CIGAR string (only in PAF)
 Minimap2 may produce suboptimal alignments through long low-complexity regions
 where seed positions may be suboptimal. This should not be a big concern
 because even the optimal alignment may be wrong in such regions.
-.TP
-*
-Minimap2 may produce poor alignments that may need post-filtering. We are still
-exploring a reliable and consistent way to report good alignments.
 .TP
 *
 Minimap2 does not work well with Illumina short reads as of now.
