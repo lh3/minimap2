@@ -194,7 +194,7 @@ int main(int argc, char *argv[])
 		mm_idx_t *mi = 0;
 		if (fpr) {
 			mi = mm_idx_load(fpr);
-			if (idx_par_set && mm_verbose >= 2 && (mi->k != k || mi->w != w || mi->is_hpc != mi->is_hpc))
+			if (idx_par_set && mm_verbose >= 2 && (mi->k != k || mi->w != w || mi->is_hpc != is_hpc))
 				fprintf(stderr, "[W::%s::%.3f*%.2f] Indexing parameters on the command line (-k/-w/-H) overridden by parameters in the prebuilt index.\n",
 						__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 		} else if (!mm_bseq_eof(fp)) {
