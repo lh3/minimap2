@@ -86,7 +86,7 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 						tmp[l_tmp] = 0;
 						mm_sprintf_lite(s, "=%s", tmp);
 					}
-					mm_sprintf_lite(s, "*%c%c", "ACGTN"[tseq[t_off + j]], "ACGTN"[qseq[q_off + j]]);
+					mm_sprintf_lite(s, "*%c%c", "acgtn"[tseq[t_off + j]], "acgtn"[qseq[q_off + j]]);
 				} else tmp[l_tmp++] = "ACGTN"[qseq[q_off + j]];
 			}
 			if (l_tmp > 0) {
@@ -96,12 +96,12 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 			q_off += len, t_off += len;
 		} else if (op == 1) {
 			for (j = 0, tmp[len] = 0; j < len; ++j)
-				tmp[j] = "ACGTN"[qseq[q_off + j]];
+				tmp[j] = "acgtn"[qseq[q_off + j]];
 			mm_sprintf_lite(s, "+%s", tmp);
 			q_off += len;
 		} else if (op == 2) {
 			for (j = 0, tmp[len] = 0; j < len; ++j)
-				tmp[j] = "ACGTN"[tseq[t_off + j]];
+				tmp[j] = "acgtn"[tseq[t_off + j]];
 			mm_sprintf_lite(s, "-%s", tmp);
 			t_off += len;
 		}
