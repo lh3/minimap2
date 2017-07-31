@@ -1,7 +1,9 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <stdio.h>
+#include "kalloc.h"
 #include "mmpriv.h"
 
 static inline void str_enlarge(kstring_t *s, int l)
@@ -54,6 +56,60 @@ static void mm_sprintf_lite(kstring_t *s, const char *fmt, ...)
 	s->s[s->l] = 0;
 }
 
+static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r)
+{
+	extern unsigned char seq_nt4_table[256];
+	int i, q_off, t_off;
+	uint8_t *qseq, *tseq;
+	char *tmp;
+	if (r->p == 0) return;
+	mm_sprintf_lite(s, "\tcs:Z:");
+	qseq = (uint8_t*)kmalloc(km, r->qe - r->qs);
+	tseq = (uint8_t*)kmalloc(km, r->re - r->rs);
+	tmp = (char*)kmalloc(km, r->re - r->rs > r->qe - r->qs? r->re - r->rs + 1 : r->qe - r->qs + 1);
+	mm_idx_getseq(mi, r->rid, r->rs, r->re, tseq);
+	if (!r->rev) {
+		for (i = r->qs; i < r->qe; ++i)
+			qseq[i - r->qs] = seq_nt4_table[(uint8_t)t->seq[i]];
+	} else {
+		for (i = r->qs; i < r->qe; ++i)
+			qseq[r->qe - i - 1] = seq_nt4_table[(uint8_t)t->seq[i]];
+	}
+	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
+		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
+		assert(op >= 0 && op <= 2);
+		if (op == 0) {
+			int l_tmp = 0;
+			for (j = 0; j < len; ++j) {
+				if (qseq[q_off + j] != tseq[t_off + j]) {
+					if (l_tmp > 0) {
+						tmp[l_tmp] = 0;
+						mm_sprintf_lite(s, "=%s", tmp);
+					}
+					mm_sprintf_lite(s, "*%c%c", "ACGTN"[tseq[t_off + j]], "ACGTN"[qseq[q_off + j]]);
+				} else tmp[l_tmp++] = "ACGTN"[qseq[q_off + j]];
+			}
+			if (l_tmp > 0) {
+				tmp[l_tmp] = 0;
+				mm_sprintf_lite(s, "=%s", tmp);
+			}
+			q_off += len, t_off += len;
+		} else if (op == 1) {
+			for (j = 0, tmp[len] = 0; j < len; ++j)
+				tmp[j] = "ACGTN"[qseq[q_off + j]];
+			mm_sprintf_lite(s, "+%s", tmp);
+			q_off += len;
+		} else if (op == 2) {
+			for (j = 0, tmp[len] = 0; j < len; ++j)
+				tmp[j] = "ACGTN"[tseq[t_off + j]];
+			mm_sprintf_lite(s, "-%s", tmp);
+			t_off += len;
+		}
+	}
+	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
+	kfree(km, qseq); kfree(km, tseq); kfree(km, tmp);
+}
+
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 {
 	int type = r->inv? 'I' : r->id == r->parent? 'P' : 'S';
@@ -63,7 +119,7 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
 }
 
-void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r)
+void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag)
 {
 	s->l = 0;
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
@@ -74,12 +130,14 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 	else mm_sprintf_lite(s, "\t%d\t%d", r->fuzzy_mlen, r->fuzzy_blen);
 	mm_sprintf_lite(s, "\t%d", r->mapq);
 	write_tags(s, r);
-	if (r->p) {
+	if (r->p && (opt_flag & MM_F_OUT_CG)) {
 		uint32_t k;
 		mm_sprintf_lite(s, "\tcg:Z:");
 		for (k = 0; k < r->p->n_cigar; ++k)
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
 	}
+	if (r->p && (opt_flag & MM_F_OUT_CS))
+		write_cs(km, s, mi, t, r);
 }
 
 static char comp_tab[] = {
