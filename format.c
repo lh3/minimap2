@@ -85,6 +85,7 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 					if (l_tmp > 0) {
 						tmp[l_tmp] = 0;
 						mm_sprintf_lite(s, "=%s", tmp);
+						l_tmp = 0;
 					}
 					mm_sprintf_lite(s, "*%c%c", "acgtn"[tseq[t_off + j]], "acgtn"[qseq[q_off + j]]);
 				} else tmp[l_tmp++] = "ACGTN"[qseq[q_off + j]];
