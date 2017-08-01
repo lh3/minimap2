@@ -1,0 +1,180 @@
+\documentclass{bioinfo}
+\copyrightyear{2017}
+\pubyear{2017}
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{amsmath}
+\usepackage[ruled,vlined]{algorithm2e}
+\newcommand\mycommfont[1]{\footnotesize\rmfamily{\it #1}}
+\SetCommentSty{mycommfont}
+\SetKwComment{Comment}{$\triangleright$\ }{}
+
+\usepackage{natbib}
+\bibliographystyle{apalike}
+\usepackage{hyperref}
+
+\DeclareMathOperator*{\argmax}{argmax}
+
+\begin{document}
+\firstpage{1}
+
+\title[Long-read and assembly alignment with minimap2]{Minimap2: fast sequence alignment for long noisy reads and assembly contigs}
+\author[Li]{Heng Li}
+\address{Broad Institute, 415 Main Street, Cambridge, MA 02142, USA}
+
+\maketitle
+
+\begin{abstract}
+\section{Summary:} Minimap2 is a program to align long noisy sequences against
+a large reference database. It targets query sequences of 1kb--100Mb in length
+with sequence divergence typically below 25\%. Minimap2 is $\sim$30 times
+faster than most existing long-read aligners and achieves higher accuracy on
+simulated data. It also employs concave gap cost and rescues inversions for
+improved alignment around potential structural variations.
+
+\section{Availability and implementation:}
+\href{https://github.com/lh3/minimap2}{https://github.com/lh3/minimap2}
+
+\section{Contact:} hengli@broadinstitute.org
+\end{abstract}
+
+\section{Introduction}
+
+Single Molecule Real-Time (SMRT) sequencing technology and Oxford Nanopore
+technologies (ONT) produce reads over 10kbp in length at an error rate
+$\sim$15\%. Several aligners have been developed for such
+data~\citep{Chaisson:2012aa,Li:2013aa,Liu:2016ab,Sovic:2016aa,Liu:2017aa,Lin:2017aa}.
+They are usually five times as slow as mainstream short-read
+aligners~\citep{Langmead:2012fk,Li:2013aa}. We speculated there could be
+substantial room for speedup on the thought that 10kb long sequences should be
+easier to map than 100bp reads because we can more effectively skip repetitive
+regions and dramatically reduce computation. We confirmed our speculation by
+achieving approximate mapping 50 times faster than BWA-MEM~\citep{Li:2016aa}.
+\citet{Suzuki:2016} extended our work with with a fast and novel algorithm on
+generating detailed alignment, which in turn inspired us to develop minimap2
+towards higher accuracy.
+
+\begin{methods}
+\section{Methods}
+
+Minimap2 is the successor of minimap~\citep{Li:2016aa}. It uses similar
+indexing and seeding algorithms except that minimap2 optionally uses
+homopolymer-compressed (HPC; cite) $k$-mers in addition to normal $k$-mers.
+Indexing with HPC $k$-mers leads to higher mapping sensitivity for SMRT reads.
+Minimap2 further implements a more accurate chaining algorithm and adds
+the ability to produce detailed alignment.
+
+\subsection{Chaining}
+
+\subsubsection{Chaining}
+An \emph{anchor} is a 3-tuple $(x,y,w)$, indicating interval $[x-w+1,x]$ on the
+reference matching interval $[y-w+1,y]$ on the query. Given a list of anchors
+sorted by the ending reference position $x$, let $f(i)$ be the maximal chaining
+score up to the $i$-th anchor in the list. $f(i)$ can be calculated with
+dynamic programming (DP):
+\begin{equation}\label{eq:chain}
+f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+d(j,i)-\gamma(j,i) \},w_i\big\}
+\end{equation}
+where $d(j,i)=\min\big\{\min\{y_i-y_j,x_i-x_j\},w_i\big\}$ is the number of
+matching bases between the two anchors. $\gamma(j,i)>0$ is the gap cost. It
+equals $\infty$ if $y_j\ge y_i$ or $\max\{y_i-y_j,x_i-x_j\}>G$ (i.e. the
+distance between two anchors is too large); otherwise
+\[
+\gamma(j,i)=\gamma'(\max\{y_i-y_j,x_i-x_j\}-\min\{y_i-y_j,x_i-x_j\})
+\]
+In implementation, a gap of length $l$ costs $\gamma'(l)=\alpha\cdot
+l+\beta\log_2(l)$, which is concave. For $m$ anchors, computing all $f(\cdot)$
+with Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. We note that if anchor $i$ is
+appended to $j$, appending $i$ to a predecessor of $j$ is likely to yield a
+lower score. When evaluating Eq.~(\ref{eq:chain}), we start from anchor $i-1$
+and stop the evaluation if we cannot find a better $\max$ after up to $h$
+iterations. This heuristic reduces the average time to $O(h\cdot m)$. In
+practical, we can almost always find the optimal chain with $h=50$; even if the
+heuristic fails, the optimal chain often looks dubious.
+
+\subsubsection{Backtracking}
+Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
+$f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$ otherwise. For each
+anchor $i$ in the descending order of $f(i)$, we mark $i$ as `used' and apply
+$P(\cdot)$ repeatedly to find its predecessor. This process stops at $P(j)=0$
+or at a `used' $j$. This way we find all chains with no anchors used in
+more than one chains.
+
+\subsection{Alignment}
+Minimap2 performs DP to align sequences between adjacent anchors in a chain. It
+adopted difference-based formulation to derive
+alignment~\citep{Wu:1996aa,Suzuki:2016}. When combined with SSE vectorization,
+this formulation has two advantages. First, because each score in the DP matrix
+is bounded by the gap cost and the maximum matching score, we can usually
+achieve 16-way SSE vectorization regardless of the peak score of the
+alignment. Second, filling the DP matrix along the diagonal, we can simplify
+banded alignment, which is critical to performance. In practice, our
+implementation is three times as fast as Parasail's 4-way
+vectorization~\citep{Daily:2016aa} for global alignment.
+
+
+Minimap2 uses a 2-piece affine gap cost~\citep{Gotoh:1990aa}:
+\[
+\gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}
+\]
+On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, this
+cost function is concave. It applies cost $q+l\cdot e$ to gaps shorter than
+$\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
+$\tilde{q}+l\cdot\tilde{e}$ to longer gaps. This scheme helps to recover
+longer insertions and deletions.
+
+%\begin{equation}\label{eq:ae86}
+%\left\{\begin{array}{l}
+%H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij},\tilde{F}_{ij}\}\\
+%E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
+%F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
+%\tilde{E}_{i+1,j}= \max\{H_{ij}-\tilde{q},\tilde{E}_{ij}\}-\tilde{e}\\
+%\tilde{F}_{i,j+1}= \max\{H_{ij}-\tilde{q},\tilde{F}_{ij}\}-\tilde{e}
+%\end{array}\right.
+%\end{equation}
+%where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
+%base. If we define~\citep{Wu:1996aa,Suzuki:2016}
+%\[
+%\left\{\begin{array}{ll}
+%u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
+%x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-\tilde{H}_{ij} \\
+%y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-\tilde{H}_{ij}
+%\end{array}\right.
+%\]
+%we can transform Eq.~(\ref{eq:ae86}) to
+%\[
+%\left\{\begin{array}{lll}
+%z_{ij}&=&\max\{s(i,j),x_{i-1,j}+v_{i-1,j},y_{i,j-1}+u_{i,j-1},\\
+%&&\tilde{x}_{i-1,j}+v_{i-1,j},\tilde{y}_{i,j-1}+u_{i,j-1}\}\\
+%u_{ij}&=&z_{ij}-v_{i-1,j}\\
+%v_{ij}&=&z_{ij}-u_{i,j-1}\\
+%x_{ij}&=&\max\{0,x_{i-1,j}+v_{i-1,j}-z_{ij}+q\}-q-e\\
+%y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
+%\tilde{x}_{ij}&=&\max\{0,\tilde{x}_{i-1,j}+v_{i-1,j}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
+%\tilde{y}_{ij}&=&\max\{0,\tilde{y}_{i,j-1}+u_{i,j-1}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}
+%\end{array}\right.
+%\]
+%with boundary conditions
+%\[
+%\left\{\begin{array}{l}
+%x_{-1,\cdot}=y_{\cdot,-1}=-q-e\\
+%\tilde{x}_{-1,\cdot}=\tilde{y}_{\cdot,-1}=-\tilde{q}-\tilde{e}\\
+%u_{i,-1}=\eta(i)\\
+%v_{-1,j}=\eta(j)
+%\end{array}\right.
+%\]
+%where
+%\[
+%\eta(k)=\left\{\begin{array}{ll}
+%-q-e & (k=0) \\
+%-e & (k<\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
+%i\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (k=\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
+%-\tilde{e} & (k>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
+%\end{array}\right.
+%\]
+
+\end{methods}
+
+\bibliography{minimap2}
+\end{document}
