@@ -72,8 +72,10 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 		for (i = r->qs; i < r->qe; ++i)
 			qseq[i - r->qs] = seq_nt4_table[(uint8_t)t->seq[i]];
 	} else {
-		for (i = r->qs; i < r->qe; ++i)
-			qseq[r->qe - i - 1] = seq_nt4_table[(uint8_t)t->seq[i]];
+		for (i = r->qs; i < r->qe; ++i) {
+			uint8_t c = seq_nt4_table[(uint8_t)t->seq[i]];
+			qseq[r->qe - i - 1] = c >= 4? 4 : 3 - c;
+		}
 	}
 	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
