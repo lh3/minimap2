@@ -36,11 +36,12 @@ var getopt = function(args, ostr) {
 	return optopt;
 }
 
-var c, max_mapq = 60, mode = 0, err_out_q = 256, print_err = false, ovlp_ratio = 0.333;
-while ((c = getopt(arguments, "Q:r:m:")) != null) {
+var c, max_mapq = 60, mode = 0, err_out_q = 256, print_err = false, ovlp_ratio = 0.1, cap_short_mapq = false;
+while ((c = getopt(arguments, "Q:r:m:c")) != null) {
 	if (c == 'Q') err_out_q = parseInt(getopt.arg), print_err = true;
 	else if (c == 'r') ovlp_ratio = parseFloat(getopt.arg);
 	else if (c == 'm') mode = parseInt(getopt.arg);
+	else if (c == 'c') cap_short_mapq = true;
 }
 
 var file = arguments.length == getopt.ind? new File() : new File(arguments[getopt.ind]);
@@ -77,11 +78,11 @@ function count_err(qname, a, tot, err, mode)
 	s.shift(); // skip pbsim orginal read name
 	if (mode == 0 || mode == 1) { // longest only or first only
 		var max_i = 0;
-		if (mode == 0) {
+		if (mode == 0) { // longest only
 			var max = 0;
 			for (var i = 0; i < a.length; ++i)
-				if (a[i][2] - a[i][1] > max)
-					max = a[i][2] - a[i][1], max_i = i;
+				if (a[i][5] > max)
+					max = a[i][5], max_i = i;
 		}
 		var mapq = a[max_i][4];
 		++tot[mapq];
@@ -92,6 +93,14 @@ function count_err(qname, a, tot, err, mode)
 		}
 	} else if (mode == 2) { // all primary mode
 		var max_err_mapq = -1, max_mapq = 0, max_err_i = -1;
+		if (cap_short_mapq) {
+			var max = 0, max_q = 0;
+			for (var i = 0; i < a.length; ++i)
+				if (a[i][5] > max)
+					max = a[i][5], max_q = a[i][4];
+			for (var i = 0; i < a.length; ++i)
+				a[i][4] = max_q < a[i][4]? max_q : a[i][4];
+		}
 		for (var i = 0; i < a.length; ++i) {
 			max_mapq = max_mapq > a[i][4]? max_mapq : a[i][4];
 			if (!is_correct(s, a[i]))
@@ -121,7 +130,7 @@ while (file.readline(buf) >= 0) {
 				continue;
 			var mapq = parseInt(t[11]);
 			if (mapq > max_mapq) mapq = max_mapq;
-			a.push([t[5], parseInt(t[7]), parseInt(t[8]), t[4], mapq]);
+			a.push([t[5], parseInt(t[7]), parseInt(t[8]), t[4], mapq, parseInt(t[9])]);
 		}
 	}
 }
