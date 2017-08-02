@@ -11,7 +11,10 @@
 
 all:minimap2.pdf
 
-minimap2.pdf:minimap2.tex minimap2.bib
+roc-color.eps:roc.gp
+		gnuplot roc.gp
+
+minimap2.pdf:minimap2.tex minimap2.bib roc-color.pdf
 		pdflatex minimap2; bibtex minimap2; pdflatex minimap2; pdflatex minimap2;
 
 clean:

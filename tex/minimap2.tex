@@ -2,6 +2,7 @@
 \copyrightyear{2017}
 \pubyear{2017}
 
+\usepackage{graphicx}
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{amsmath}
@@ -19,7 +20,7 @@
 \begin{document}
 \firstpage{1}
 
-\title[Long-read and assembly alignment with minimap2]{Minimap2: fast sequence alignment for long noisy reads and assembly contigs}
+\title[Long sequence alignment with minimap2]{Minimap2: fast pairwise alignment for long noisy sequences}
 \author[Li]{Heng Li}
 \address{Broad Institute, 415 Main Street, Cambridge, MA 02142, USA}
 
@@ -29,7 +30,7 @@
 \section{Summary:} Minimap2 is a program to align long noisy sequences against
 a large reference database. It targets query sequences of 1kb--100Mb in length
 with sequence divergence typically below 25\%. Minimap2 is $\sim$30 times
-faster than most existing long-read aligners and achieves higher accuracy on
+faster than many mainstream long-read aligners and achieves higher accuracy on
 simulated data. It also employs concave gap cost and rescues inversions for
 improved alignment around potential structural variations.
 
@@ -60,10 +61,10 @@ towards higher accuracy.
 
 Minimap2 is the successor of minimap~\citep{Li:2016aa}. It uses similar
 indexing and seeding algorithms except that minimap2 optionally uses
-homopolymer-compressed (HPC; cite) $k$-mers in addition to normal $k$-mers.
-Indexing with HPC $k$-mers leads to higher mapping sensitivity for SMRT reads.
-Minimap2 further implements a more accurate chaining algorithm and adds
-the ability to produce detailed alignment.
+homopolymer-compressed (HPC; \citealp{Ruan:2016,Lau:2016aa}) $k$-mers in
+addition to normal $k$-mers.  Indexing with HPC $k$-mers leads to higher
+mapping sensitivity for SMRT reads.  Minimap2 further implements a more
+accurate chaining algorithm and adds the ability to produce detailed alignment.
 
 \subsection{Chaining}
 
@@ -84,20 +85,19 @@ distance between two anchors is too large); otherwise
 \gamma(j,i)=\gamma'(\max\{y_i-y_j,x_i-x_j\}-\min\{y_i-y_j,x_i-x_j\})
 \]
 In implementation, a gap of length $l$ costs $\gamma'(l)=\alpha\cdot
-l+\beta\log_2(l)$. For $m$ anchors, computing all $f(\cdot)$
-with Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. We note that if anchor $i$ is
-appended to $j$, appending $i$ to a predecessor of $j$ is likely to yield a
-lower score. When evaluating Eq.~(\ref{eq:chain}), we start from anchor $i-1$
-and stop the evaluation if we cannot find a better score after up to $h$
-iterations. This heuristic reduces the average time to $O(h\cdot m)$. In
-practical, we can almost always find the optimal chain with $h=50$; even if the
-heuristic fails, the optimal chain often looks dubious.
+l+\beta\log_2(l)$. For $m$ anchors, directly computing all $f(\cdot)$ with
+Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. Although theoretically faster
+chaining algorithms exist~\citep{Abouelhoda:2005aa}, they
+are inapplicable to generic gap cost, complex to implement and usually
+associated with a large constant. We introduced a simple heurstic to accelerate
+chaining.
 
-%Although theoretically faster chaining algorithms exist for simple gap
-%cost~\citep{Abouelhoda:2005aa}, they are not as flexible as DP and may not lead
-%to better performance than our approach in practice.  Furthermore, chaining
-%takes much less computing time than alignment. It is not critical to the
-%performance of minimap2.
+We note that if anchor $i$ is appended to $j$, appending $i$ to a predecessor
+of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
+we start from anchor $i-1$ and stop the evaluation if we cannot find a better
+score after up to $h$ iterations. This heuristic reduces the average time to
+$O(h\cdot m)$. In practice, we can almost always find the optimal chain with
+$h=50$; even if the heuristic fails, the optimal chain often looks dubious.
 
 \subsubsection{Backtracking}
 Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
@@ -120,9 +120,9 @@ banded alignment, which is critical to performance. In practice, our
 implementation is three times as fast as Parasail's 4-way
 vectorization~\citep{Daily:2016aa} for global alignment.
 Without banding, our implementation is slower than Edlib~\citep{Sosic:2017aa},
-but with a 1000bp band, it is much faster. When performing global alignment
-between anchors, we expect the alignment to stay close to the diagonal of the
-DP matrix. Banding is applicable most of time.
+but with a 1000bp band, it is considerably faster. When performing global
+alignment between anchors, we expect the alignment to stay close to the
+diagonal of the DP matrix. Banding is often applicable.
 
 Minimap2 uses a 2-piece affine gap cost
 $\gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}$.
@@ -151,57 +151,154 @@ alignment, but this time with the one subsequence reverse complemented. This
 additional alignment step may identify short inversions that are missed during
 chaining.
 
-%\begin{equation}\label{eq:ae86}
-%\left\{\begin{array}{l}
-%H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij},\tilde{F}_{ij}\}\\
-%E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
-%F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
-%\tilde{E}_{i+1,j}= \max\{H_{ij}-\tilde{q},\tilde{E}_{ij}\}-\tilde{e}\\
-%\tilde{F}_{i,j+1}= \max\{H_{ij}-\tilde{q},\tilde{F}_{ij}\}-\tilde{e}
-%\end{array}\right.
-%\end{equation}
-%where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
-%base. If we define~\citep{Wu:1996aa,Suzuki:2016}
-%\[
-%\left\{\begin{array}{ll}
-%u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
-%x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-\tilde{H}_{ij} \\
-%y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-\tilde{H}_{ij}
-%\end{array}\right.
-%\]
-%we can transform Eq.~(\ref{eq:ae86}) to
-%\[
-%\left\{\begin{array}{lll}
-%z_{ij}&=&\max\{s(i,j),x_{i-1,j}+v_{i-1,j},y_{i,j-1}+u_{i,j-1},\\
-%&&\tilde{x}_{i-1,j}+v_{i-1,j},\tilde{y}_{i,j-1}+u_{i,j-1}\}\\
-%u_{ij}&=&z_{ij}-v_{i-1,j}\\
-%v_{ij}&=&z_{ij}-u_{i,j-1}\\
-%x_{ij}&=&\max\{0,x_{i-1,j}+v_{i-1,j}-z_{ij}+q\}-q-e\\
-%y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
-%\tilde{x}_{ij}&=&\max\{0,\tilde{x}_{i-1,j}+v_{i-1,j}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
-%\tilde{y}_{ij}&=&\max\{0,\tilde{y}_{i,j-1}+u_{i,j-1}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}
-%\end{array}\right.
-%\]
-%with boundary conditions
-%\[
-%\left\{\begin{array}{l}
-%x_{-1,\cdot}=y_{\cdot,-1}=-q-e\\
-%\tilde{x}_{-1,\cdot}=\tilde{y}_{\cdot,-1}=-\tilde{q}-\tilde{e}\\
-%u_{i,-1}=\eta(i)\\
-%v_{-1,j}=\eta(j)
-%\end{array}\right.
-%\]
-%where
-%\[
-%\eta(k)=\left\{\begin{array}{ll}
-%-q-e & (k=0) \\
-%-e & (k<\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
-%i\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (k=\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
-%-\tilde{e} & (k>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
-%\end{array}\right.
-%\]
-
 \end{methods}
 
+\section{Results and discussions}
+\begin{figure}[!tb]
+\centering
+\includegraphics[width=.5\textwidth]{roc-color.pdf}
+\caption{Evaluation on simulated SMRT reads aligned against human genome
+GRCh38. (a) ROC-like curve. (b) Accumulative mapping error rate as a function
+of mapping quality. 33,088 $\ge$1000bp reads were simulated using
+pbsim~\citep{Ono:2013aa} with error profile sampled from file
+`m131017\_060208\_42213\_*.1.*' downloaded at
+\href{http://bit.ly/chm1p5c3}{http://bit.ly/chm1p5c3}. The N50 read length is
+11,628. A read is considered correctly mapped if the true position overlaps
+with the best mapping position by 10\% of the read length. All aligners were
+run under the default setting for SMRT reads.}\label{fig:eval}
+\end{figure}
+
+As a sanity check, we evaluated minimap2 on simulated human reads along with
+BLASR~\citep{Chaisson:2012aa}, 
+BWA-MEM~\citep{Li:2013aa},
+GraphMap~\citep{Sovic:2016aa},
+minialign~\citep{Suzuki:2016} and
+NGMLR~\citep{Sedlazeck169557}. We excluded rHAT~\citep{Liu:2016ab},
+LAMSA~\citep{Liu:2017aa} and Kart~\citep{Lin:2017aa} because they either
+crashed or produced malformatted SAM.  In this evaluation, Minimap2 has a
+higher power to distinguish unique and repetitive hits, and achieves overall
+higher mapping accuracy (Fig.~\ref{fig:eval}a). Minimap2 and NGMLR provide
+better mapping quality estimate: they rarely give repetitive hits high mapping
+quality (Fig.~\ref{fig:eval}b).  Apparently, other aligners may occasionally
+miss close suboptimal hits and be overconfident in wrong mappings. On run time,
+minialign is slightly faster than minimap2. They are over 30 times faster than
+the rest.
+
+On real SMRT reads from human, the relative performance and sensitivity of
+these aligners are broadly similar to those on simulated data. We are unable to
+provide a good estimate of mapping error rate due to the lack of the truth.  On
+ONT ultra-long human reads~\citep{Jain128835}, BWA-MEM failed. Minialign and
+minimap2 are over 70 times faster than others. In addition to reference-based
+read mapping, minimap2 can also find overlaps between long reads and align
+long-read assemblies.
+
 \bibliography{minimap2}
+
+\pagebreak
+
+\begin{methods}
+\section*{Appendix}
+A 2-piece gap cost function is
+\[
+\gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}
+\]
+Without losing generality, we assume $q+e\le\tilde{q}+\tilde{e}$. The equation
+to compute the optimal alignment under such a gap cost is
+\begin{equation}\label{eq:ae86}
+\left\{\begin{array}{l}
+H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij},\tilde{F}_{ij}\}\\
+E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
+F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
+\tilde{E}_{i+1,j}= \max\{H_{ij}-\tilde{q},\tilde{E}_{ij}\}-\tilde{e}\\
+\tilde{F}_{i,j+1}= \max\{H_{ij}-\tilde{q},\tilde{F}_{ij}\}-\tilde{e}
+\end{array}\right.
+\end{equation}
+where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
+base. If we define
+\[
+\left\{\begin{array}{ll}
+u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
+x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-\tilde{H}_{ij} \\
+y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-\tilde{H}_{ij}
+\end{array}\right.
+\]
+we can transform Eq.~(\ref{eq:ae86}) to
+\begin{equation}\label{eq:suzuki}
+\left\{\begin{array}{lll}
+z_{ij}&=&\max\{s(i,j),x_{i-1,j}+v_{i-1,j},y_{i,j-1}+u_{i,j-1},\\
+&&\tilde{x}_{i-1,j}+v_{i-1,j},\tilde{y}_{i,j-1}+u_{i,j-1}\}\\
+u_{ij}&=&z_{ij}-v_{i-1,j}\\
+v_{ij}&=&z_{ij}-u_{i,j-1}\\
+x_{ij}&=&\max\{0,x_{i-1,j}+v_{i-1,j}-z_{ij}+q\}-q-e\\
+y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
+\tilde{x}_{ij}&=&\max\{0,\tilde{x}_{i-1,j}+v_{i-1,j}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
+\tilde{y}_{ij}&=&\max\{0,\tilde{y}_{i,j-1}+u_{i,j-1}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}
+\end{array}\right.
+\end{equation}
+where $z_{ij}$ is a temporary variable that does not need to be stored. We can
+see that
+\[
+x_{ij}=E_{i+1,j}-H_{ij}=\max\{-q,E_{ij}-H_{ij}\}-e
+\]
+With $E_{ij}\le H_{ij}$, we have
+\[
+-q-e\le x_{ij}\le\max\{-q,0\}-e=-e
+\]
+and similar inequations for $y_{ij}$, $\tilde{x}_{ij}$ and $\tilde{y}_{ij}$.
+In addition,
+\[
+u_{ij}=z_{ij}-v_{i-1,j}\ge\max\{x_{i-1,j},\tilde{x}_{i-1,j}\}\ge-q-e
+\]
+We also note that the maximum possible $z_{ij}=H_{ij}-H_{i-1,j-1}$ is $M$, the
+maximal matching score. As a result,
+\[
+u_{ij}\le M-v_{i-1,j}\le M+q+e
+\]
+In conclusion, all values in Eq.~(\ref{eq:suzuki}) are bounded: $x$ and $y$ by
+$[-q-e,-e]$ and $\tilde{x}$, $\tilde{y}$ by
+$[-\tilde{q}-\tilde{e},-\tilde{e}]$, and $u$ and $v$ by $[-q-e,M+q+e]$. When
+matching score and gap cost are small, each of them can be stored as a 8-bit
+integer. This enables efficient SSE vectorization regardless of the peak score
+of the alignment.
+
+For more efficient SSE implementation, we transform the row-column coordinate
+to diagonal-anti-diagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
+Eq.~(\ref{eq:suzuki}) becomes:
+\begin{equation*}
+\left\{\begin{array}{lll}
+z_{rt}&=&\max\{s(t,r-t),x_{r-1,t-1}+v_{r-1,t-1},y_{r-1,t}+u_{r-1,t},\\
+&&\tilde{x}_{r-1,t-1}+v_{r-1,t-1},\tilde{y}_{r-1,t}+u_{r-1,t}\}\\
+u_{rt}&=&z_{rt}-v_{r-1,t-1}\\
+v_{rt}&=&z_{rt}-u_{r-1,t}\\
+x_{rt}&=&\max\{0,x_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+q\}-q-e\\
+y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
+\tilde{x}_{rt}&=&\max\{0,\tilde{x}_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
+\tilde{y}_{rt}&=&\max\{0,\tilde{y}_{r-1,t}+u_{r-1,t}-z_{rt}+\tilde{q}\}-\tilde{q}-\tilde{e}
+\end{array}\right.
+\end{equation*}
+In this formulation, cells with the same row index $r$ are independent of each
+other. This allows us to vectorize the computation of all cells on the same
+anti-diagonal in one inner loop.
+
+On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
+condition of this equation in the diagonal-anti-diagonal coordinate is
+\[
+\left\{\begin{array}{l}
+x_{r-1,-1}=y_{r-1,r}=-q-e\\
+\tilde{x}_{r-1,-1}=\tilde{y}_{r-1,r}=-\tilde{q}-\tilde{e}\\
+u_{r-1,r}=v_{r-1,-1}=\eta(r)\\
+\end{array}\right.
+\]
+where
+\[
+\eta(r)=\left\{\begin{array}{ll}
+-q-e & (r=0) \\
+-e & (r<\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
+r\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (r=\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
+-\tilde{e} & (r>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
+\end{array}\right.
+\]
+\citet{Suzuki:2016} first derived a similar set of equations under affine gap
+cost but with different notations.
+\end{methods}
 \end{document}
