@@ -65,7 +65,7 @@ and the ability to produce detailed alignment.
 
 \subsection{Chaining}
 
-\subsubsection{Chaining}
+%\subsubsection{Chaining}
 An \emph{anchor} is a 3-tuple $(x,y,w)$, indicating interval $[x-w+1,x]$ on the
 reference matching interval $[y-w+1,y]$ on the query. Given a list of anchors
 sorted by the ending reference position $x$, let $f(i)$ be the maximal chaining
@@ -96,7 +96,7 @@ score after up to $h$ iterations. This approach reduces the average time to
 $O(h\cdot m)$. In practice, we can almost always find the optimal chain with
 $h=50$; even if the heuristic fails, the optimal chain is often close.
 
-\subsubsection{Backtracking}
+%\subsubsection{Backtracking}
 Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
 $f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$ otherwise. For each
 anchor $i$ in the descending order of $f(i)$, we apply $P(\cdot)$ repeatedly to
@@ -104,7 +104,7 @@ find its predecessor and mark each visited $i$ as `used', until $P(i)=0$ or we
 reach an already `used' $i$. This way we find all chains with no anchors used
 in more than one chains.
 
-\subsubsection{Identifying primary chains}
+%\subsubsection{Identifying primary chains}
 In the absence of copy number changes, each query segment should not be mapped
 to two places in the reference. However, chains found at the previous step may
 have significant or complete overlaps due to repeats in the reference.
@@ -233,6 +233,7 @@ issues.
 \bibliography{minimap2}
 
 \pagebreak
+\appendix
 
 \begin{methods}
 \section*{Appendix}
@@ -317,7 +318,6 @@ y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
 In this formulation, cells with the same row index $r$ are independent of each
 other. This allows us to fully vectorize the computation of all cells on the
 same anti-diagonal in one inner loop.
-
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
 condition of this equation in the diagonal-anti-diagonal coordinate is
 \[
@@ -336,6 +336,7 @@ r\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (r=\lceil\frac{\tilde{q}-q}{e-\til
 -\tilde{e} & (r>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
 \end{array}\right.
 \]
+
 \citet{Suzuki:2016} first derived a similar set of equations under affine gap
 cost but with different notations.
 \end{methods}

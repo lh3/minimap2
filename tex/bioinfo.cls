@@ -518,7 +518,8 @@
 
 \def\subsubsection{%
   \@startsection{subsubsection}{3}{\z@}
-  {-11\p@ plus -1\p@}{-1em}
+  %{-11\p@ plus -1\p@}{-1em}
+  {-11\p@ plus -1\p@}{0.001em}
   {\reset@font\normalfont\normalsize\itshape}}
 
 \def\textcolon{\text{\rm :}}
@@ -885,7 +886,8 @@
   {\reset@font\raggedright\mathversion{bold}\fontseries{b}\fontsize{10}{12}\selectfont}}
  \def\subsubsection{%
   \@startsection{subsubsection}{3}{\z@}
-  {-6\p@ plus -1\p@}{-1em}
+%  {-6\p@ plus -1\p@}{-1em}
+  {-6\p@ plus -1\p@}{0.001em}
   {\reset@font\normalfont\normalsize\itshape}}
 \footnotesize
   \par}
