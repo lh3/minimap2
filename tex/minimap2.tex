@@ -20,19 +20,19 @@
 \begin{document}
 \firstpage{1}
 
-\title[Long sequence alignment with minimap2]{Minimap2: fast pairwise alignment for long noisy sequences}
+\title[Long DNA sequence alignment with minimap2]{Minimap2: fast pairwise alignment for long DNA sequences}
 \author[Li]{Heng Li}
 \address{Broad Institute, 415 Main Street, Cambridge, MA 02142, USA}
 
 \maketitle
 
 \begin{abstract}
-\section{Summary:} Minimap2 is a program to align long noisy sequences against
-a large reference database. It targets query sequences of 1kb--100Mb in length
-with sequence divergence typically below 25\%. Minimap2 is $\sim$30 times
-faster than many mainstream long-read aligners and achieves higher accuracy on
-simulated data. It also employs concave gap cost and rescues inversions for
-improved alignment around potential structural variations.
+\section{Summary:} Minimap2 is a general-purpose mapper to align long noisy DNA
+sequences against a large reference database. It targets query sequences of
+1kb--100Mb in length with per-base divergence typically below 25\%. Minimap2 is
+$\sim$30 times faster than many mainstream long-read aligners and achieves
+higher accuracy on simulated data. It also employs concave gap cost and rescues
+inversions for improved alignment around potential structural variations.
 
 \section{Availability and implementation:}
 \href{https://github.com/lh3/minimap2}{https://github.com/lh3/minimap2}
@@ -50,21 +50,18 @@ They are usually five times as slow as mainstream short-read
 aligners~\citep{Langmead:2012fk,Li:2013aa}. We speculated there could be
 substantial room for speedup on the thought that 10kb long sequences should be
 easier to map than 100bp reads because we can more effectively skip repetitive
-regions and dramatically reduce computation. We confirmed our speculation by
-achieving approximate mapping 50 times faster than BWA-MEM~\citep{Li:2016aa}.
-\citet{Suzuki:2016} extended our work with with a fast and novel algorithm on
-generating detailed alignment, which in turn inspired us to develop minimap2
-towards higher accuracy.
+regions, which are often the bottleneck of short-read alignment. We confirmed
+our speculation by achieving approximate mapping 50 times faster than
+BWA-MEM~\citep{Li:2016aa}.  \citet{Suzuki:2016} extended our work with a fast
+and novel algorithm on generating detailed alignment, which in turn inspired us
+to develop minimap2 towards higher accuracy and more practical functionality.
 
 \begin{methods}
 \section{Methods}
 
 Minimap2 is the successor of minimap~\citep{Li:2016aa}. It uses similar
-indexing and seeding algorithms except that minimap2 optionally uses
-homopolymer-compressed (HPC; \citealp{Ruan:2016,Lau:2016aa}) $k$-mers in
-addition to normal $k$-mers.  Indexing with HPC $k$-mers leads to higher
-mapping sensitivity for SMRT reads.  Minimap2 further implements a more
-accurate chaining algorithm and adds the ability to produce detailed alignment.
+indexing and seeding algorithms, and further a more accurate chaining algorithm
+and adds the ability to produce detailed alignment.
 
 \subsection{Chaining}
 
@@ -106,6 +103,15 @@ anchor $i$ in the descending order of $f(i)$, we apply $P(\cdot)$ repeatedly to
 find its predecessor and mark each visited $i$ as `used'. This process stops at
 $P(j)=0$ or at a `used' $j$. This way we find all chains with no anchors used
 in more than one chains.
+
+\subsubsection{Identifying primary chains}
+Primary chains are chains that do not greatly overlap on the query sequence.
+Minimap2 uses a greedy algorithm to identify them. Let $Q$ be the set of
+primary chains, which is an empty set initially. For each chain from the best
+to the worst according to their chaining scores: if on the query, the chain
+overlaps with a chain in $Q$ by 50\% (by default) or higher fraction of the
+shorter chain, mark the chain as secondary to the chain in $Q$; otherwise, add
+the chain to $Q$.
 
 \subsection{Alignment}
 
