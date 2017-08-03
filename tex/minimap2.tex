@@ -60,8 +60,8 @@ to develop minimap2 towards higher accuracy and more practical functionality.
 \section{Methods}
 
 Minimap2 is the successor of minimap~\citep{Li:2016aa}. It uses similar
-indexing and seeding algorithms, and furthers it with a more accurate chaining
-algorithm and adds the ability to produce detailed alignment.
+indexing and seeding algorithms, and furthers it with more accurate chaining
+and the ability to produce detailed alignment.
 
 \subsection{Chaining}
 
@@ -89,13 +89,12 @@ are inapplicable to generic gap cost, complex to implement and usually
 associated with a large constant. We introduced a simple heuristic to
 accelerate chaining.
 
-We note that if anchor $i$ is appended to $j$, appending $i$ to a predecessor
+We note that if anchor $i$ is chained to $j$, chaining $i$ to a predecessor
 of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
 we start from anchor $i-1$ and stop the evaluation if we cannot find a better
 score after up to $h$ iterations. This approach reduces the average time to
 $O(h\cdot m)$. In practice, we can almost always find the optimal chain with
-$h=50$; even if the heuristic fails, the optimal chain is often not
-trustworthy, either.
+$h=50$; even if the heuristic fails, the optimal chain is often close.
 
 \subsubsection{Backtracking}
 Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
@@ -141,7 +140,7 @@ On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, this
 cost function is concave. It applies cost $q+l\cdot e$ to gaps shorter than
 $\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
 $\tilde{q}+l\cdot\tilde{e}$ to longer gaps. This scheme helps to recover
-longer insertions and deletions~(INDEL; \citealp{Gotoh:1990aa});
+longer insertions and deletions~(INDEL; \citealp{Gotoh:1990aa}).
 
 With global alignment, minimap2 may force to align unrelated sequences between
 two adjacent anchors. To avoid such an artifact, we compute accumulative
@@ -153,7 +152,7 @@ $j'<j$, such that
 \[
 S(i',j')-S(i,j)>Z+e\cdot(\max\{i-i',j-j'\}-\min\{i-i',j-j'\})
 \]
-where $e$ is the gap extension penalty and $Z$ is an arbitrary threshold.
+where $e$ is the gap extension cost and $Z$ is an arbitrary threshold.
 This strategy is similar to X-drop employed in BLAST~\citep{Altschul:1997vn}.
 However, unlike X-drop, it would not break the alignment in the presence of a
 single long gap.
@@ -187,7 +186,7 @@ GraphMap~\citep{Sovic:2016aa},
 minialign~\citep{Suzuki:2016} and
 NGMLR~\citep{Sedlazeck169557}. We excluded rHAT~\citep{Liu:2016ab},
 LAMSA~\citep{Liu:2017aa} and Kart~\citep{Lin:2017aa} because they either
-crashed or produced malformatted SAM.  In this evaluation, Minimap2 has a
+crashed or produced malformatted output. In this evaluation, Minimap2 has a
 higher power to distinguish unique and repetitive hits, and achieves overall
 higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
 even if we skip DP-based alignment (data not shown), suggesting chaining alone
@@ -218,11 +217,11 @@ further accelerate minimap2 with a few other tweaks such as adaptive
 banding~\citep{Suzuki130633} or incremental banding.
 
 In addition to reference-based read mapping, minimap2 inherits minimap's
-ability to search against huge multi-species data and to find read overlaps. On
-a few test data sets, minimap2 appears to yield slightly better miniasm
-assembly. Minimap2 can also align long assemblies or closely related genomes,
-though more thorough evaluations are needed. Genome alignment is an intricate
-topic.
+ability to search against huge multi-species databases and to find read
+overlaps. On a few test data sets, minimap2 appears to yield slightly better
+miniasm assembly. Minimap2 can also align long assemblies or closely related
+genomes, though more thorough evaluations are needed. Genome alignment is an
+intricate topic.
 
 \section*{Acknowledgements}
 We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
@@ -242,7 +241,7 @@ A 2-piece gap cost function is
 \gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}
 \]
 Without losing generality, we assume $q+e\le\tilde{q}+\tilde{e}$. The equation
-to compute the optimal alignment under such a gap cost is
+to compute the optimal alignment under such a gap cost is~\citep{Gotoh:1990aa}
 \begin{equation}\label{eq:ae86}
 \left\{\begin{array}{l}
 H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij},\tilde{F}_{ij}\}\\
@@ -288,8 +287,8 @@ In addition,
 \[
 u_{ij}=z_{ij}-v_{i-1,j}\ge\max\{x_{i-1,j},\tilde{x}_{i-1,j}\}\ge-q-e
 \]
-We also note that the maximum possible $z_{ij}=H_{ij}-H_{i-1,j-1}$ is $M$, the
-maximal matching score. As a result,
+As the maximum value of $z_{ij}=H_{ij}-H_{i-1,j-1}$ is $M$, the maximal
+matching score, we can derive
 \[
 u_{ij}\le M-v_{i-1,j}\le M+q+e
 \]
