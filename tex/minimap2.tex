@@ -60,8 +60,8 @@ to develop minimap2 towards higher accuracy and more practical functionality.
 \section{Methods}
 
 Minimap2 is the successor of minimap~\citep{Li:2016aa}. It uses similar
-indexing and seeding algorithms, and further a more accurate chaining algorithm
-and adds the ability to produce detailed alignment.
+indexing and seeding algorithms, and furthers it with a more accurate chaining
+algorithm and adds the ability to produce detailed alignment.
 
 \subsection{Chaining}
 
@@ -92,26 +92,31 @@ chaining.
 We note that if anchor $i$ is appended to $j$, appending $i$ to a predecessor
 of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
 we start from anchor $i-1$ and stop the evaluation if we cannot find a better
-score after up to $h$ iterations. This heuristic reduces the average time to
+score after up to $h$ iterations. This approach reduces the average time to
 $O(h\cdot m)$. In practice, we can almost always find the optimal chain with
-$h=50$; even if the heuristic fails, the optimal chain often looks dubious.
+$h=50$; even if the heuristic fails, the optimal chain is often not
+trustworthy, either.
 
 \subsubsection{Backtracking}
 Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
 $f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$ otherwise. For each
 anchor $i$ in the descending order of $f(i)$, we apply $P(\cdot)$ repeatedly to
-find its predecessor and mark each visited $i$ as `used'. This process stops at
-$P(j)=0$ or at a `used' $j$. This way we find all chains with no anchors used
+find its predecessor and mark each visited $i$ as `used', until $P(i)=0$ or we
+reach an already `used' $i$. This way we find all chains with no anchors used
 in more than one chains.
 
 \subsubsection{Identifying primary chains}
-Primary chains are chains that do not greatly overlap on the query sequence.
-Minimap2 uses a greedy algorithm to identify them. Let $Q$ be the set of
-primary chains, which is an empty set initially. For each chain from the best
-to the worst according to their chaining scores: if on the query, the chain
-overlaps with a chain in $Q$ by 50\% (by default) or higher fraction of the
-shorter chain, mark the chain as secondary to the chain in $Q$; otherwise, add
-the chain to $Q$.
+In the absence of copy number changes, each query segment should not be mapped
+to two places in the reference. However, chains found at the previous step may
+have significant or complete overlaps due to repeats in the reference.
+Minimap2 used the following procedure to identify \emph{primary chains} that do
+not greatly overlap on the query. Let $Q$ be an empty set initially. For each
+chain from the best to the worst according to their chaining scores: if on the
+query, the chain overlaps with a chain in $Q$ by 50\% or higher percentage of
+the shorter chain, mark the chain as secondary to the chain in $Q$; otherwise,
+add the chain to $Q$. In the end, $Q$ contains all the primary chains. We did
+not choose a more sophisticated data structure (e.g. range tree or k-d tree)
+because this step is not the performance bottleneck.
 
 \subsection{Alignment}
 
@@ -136,7 +141,7 @@ On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, this
 cost function is concave. It applies cost $q+l\cdot e$ to gaps shorter than
 $\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
 $\tilde{q}+l\cdot\tilde{e}$ to longer gaps. This scheme helps to recover
-longer insertions and deletions~\citep{Gotoh:1990aa}.
+longer insertions and deletions~(INDEL; \citealp{Gotoh:1990aa});
 
 With global alignment, minimap2 may force to align unrelated sequences between
 two adjacent anchors. To avoid such an artifact, we compute accumulative
@@ -151,15 +156,16 @@ S(i',j')-S(i,j)>Z+e\cdot(\max\{i-i',j-j'\}-\min\{i-i',j-j'\})
 where $e$ is the gap extension penalty and $Z$ is an aribitrary threshold.
 This strategy is similar to X-drop employed in BLAST~\citep{Altschul:1997vn}.
 However, unlike X-drop, it would not break the alignment in the presence of a
-single long gap. When minimap2 breaks a global alignment between two anchors,
-it performs local alignment between the two subsequences involved in the global
-alignment, but this time with the one subsequence reverse complemented. This
-additional alignment step may identify short inversions that are missed during
-chaining.
+single long gap.
+
+When minimap2 breaks a global alignment between two anchors, it performs local
+alignment between the two subsequences involved in the global alignment, but
+this time with the one subsequence reverse complemented. This additional
+alignment step may identify short inversions that are missed during chaining.
 
 \end{methods}
 
-\section{Results and discussions}
+\section{Results}
 \begin{figure}[!tb]
 \centering
 \includegraphics[width=.5\textwidth]{roc-color.pdf}
@@ -183,20 +189,47 @@ NGMLR~\citep{Sedlazeck169557}. We excluded rHAT~\citep{Liu:2016ab},
 LAMSA~\citep{Liu:2017aa} and Kart~\citep{Lin:2017aa} because they either
 crashed or produced malformatted SAM.  In this evaluation, Minimap2 has a
 higher power to distinguish unique and repetitive hits, and achieves overall
-higher mapping accuracy (Fig.~\ref{fig:eval}a). Minimap2 and NGMLR provide
-better mapping quality estimate: they rarely give repetitive hits high mapping
-quality (Fig.~\ref{fig:eval}b).  Apparently, other aligners may occasionally
-miss close suboptimal hits and be overconfident in wrong mappings. On run time,
-minialign is slightly faster than minimap2. They are over 30 times faster than
-the rest.
+higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
+even if we skip DP-based alignment (data not shown), suggesting chaining alone
+is sufficient to achieve high accuracy for approaximate mapping. Minimap2 and
+NGMLR provide better mapping quality estimate: they rarely give repetitive hits
+high mapping quality (Fig.~\ref{fig:eval}b).  Apparently, other aligners may
+occasionally miss close suboptimal hits and be overconfident in wrong mappings.
+On run time, minialign is slightly faster than minimap2. They are over 30 times
+faster than the rest.  Minimap2 consumed 6.1GB memory at the peak, more than
+BWA-MEM but less than others.
 
-On real SMRT reads from human, the relative performance and sensitivity of
+On real human SMRT reads, the relative performance and sensitivity of
 these aligners are broadly similar to those on simulated data. We are unable to
 provide a good estimate of mapping error rate due to the lack of the truth.  On
 ONT ultra-long human reads~\citep{Jain128835}, BWA-MEM failed. Minialign and
-minimap2 are over 70 times faster than others. In addition to reference-based
-read mapping, minimap2 can also find overlaps between long reads and align
-long-read assemblies.
+minimap2 are over 70 times faster than others. We have also examined tens of
+$\ge$100bp INDELs in IGV~\citep{Robinson:2011aa} and can confirm the
+observation by~\citet{Sedlazeck169557} that BWA-MEM often breaks them into
+shorter gaps. Minimap2 does not have this issue.
+
+\section{Discussions}
+
+Minialign and minimap2 are fast because a) with chaining, they can quickly
+filter out most false seed hits~\citep{Li:2016aa} and reduce unsuccessful but
+costly DP-based alignments; b) they implemented so far the fastest DP-based
+alignment algorithm for long sequences~\citep{Suzuki:2016}. It is possible to
+further accelerate minimap2 with a few other tweaks such as adaptive
+banding~\citep{Suzuki130633} or incremental banding.
+
+In addition to reference-based read mapping, minimap2 inherits minimap's
+ability to search against huge multi-species data and to find read overlaps. On
+a few test data sets, minimap2 appears to yield slightly better miniasm
+assembly. Minimap2 can also align long assemblies or closely related genomes,
+though more thorough evaluation is needed. Genome alignment is an intricate
+topic.
+
+\section*{Acknowledgements}
+We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
+insightful notes before formal publication. We thank M. Schatz, P. Rescheneder
+and F.  Sedlazeck for pointing out the limitation of BWA-MEM. We are also
+grateful to early minimap2 testers who have greatly helped to fix various
+issues.
 
 \bibliography{minimap2}
 
@@ -264,10 +297,10 @@ In conclusion, all values in Eq.~(\ref{eq:suzuki}) are bounded: $x$ and $y$ by
 $[-q-e,-e]$ and $\tilde{x}$, $\tilde{y}$ by
 $[-\tilde{q}-\tilde{e},-\tilde{e}]$, and $u$ and $v$ by $[-q-e,M+q+e]$. When
 matching score and gap cost are small, each of them can be stored as a 8-bit
-integer. This enables efficient SSE vectorization regardless of the peak score
-of the alignment.
+integer. This enables 16-way SSE vectorization regardless of the peak score of
+the alignment.
 
-For more efficient SSE implementation, we transform the row-column coordinate
+For a more efficient SSE implementation, we transform the row-column coordinate
 to diagonal-anti-diagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
 Eq.~(\ref{eq:suzuki}) becomes:
 \begin{equation*}
@@ -283,8 +316,8 @@ y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
 \end{array}\right.
 \end{equation*}
 In this formulation, cells with the same row index $r$ are independent of each
-other. This allows us to vectorize the computation of all cells on the same
-anti-diagonal in one inner loop.
+other. This allows us to fully vectorize the computation of all cells on the
+same anti-diagonal in one inner loop.
 
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
 condition of this equation in the diagonal-anti-diagonal coordinate is
