@@ -97,12 +97,12 @@ $O(h\cdot m)$. In practice, we can almost always find the optimal chain with
 $h=50$; even if the heuristic fails, the optimal chain is often close.
 
 %\subsubsection{Backtracking}
-Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
-$f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$ otherwise. For each
-anchor $i$ in the descending order of $f(i)$, we apply $P(\cdot)$ repeatedly to
-find its predecessor and mark each visited $i$ as `used', until $P(i)=0$ or we
-reach an already `used' $i$. This way we find all chains with no anchors used
-in more than one chains.
+For backtracking, let $P(i)$ be the index of the best predecessor of anchor
+$i$. It equals 0 if $f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$
+otherwise. For each anchor $i$ in the descending order of $f(i)$, we apply
+$P(\cdot)$ repeatedly to find its predecessor and mark each visited $i$ as
+`used', until $P(i)=0$ or we reach an already `used' $i$. This way we find all
+chains with no anchors used in more than one chains.
 
 %\subsubsection{Identifying primary chains}
 In the absence of copy number changes, each query segment should not be mapped
