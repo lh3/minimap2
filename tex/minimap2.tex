@@ -86,8 +86,8 @@ l+\beta\log_2(l)$. For $m$ anchors, directly computing all $f(\cdot)$ with
 Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. Although theoretically faster
 chaining algorithms exist~\citep{Abouelhoda:2005aa}, they
 are inapplicable to generic gap cost, complex to implement and usually
-associated with a large constant. We introduced a simple heurstic to accelerate
-chaining.
+associated with a large constant. We introduced a simple heuristic to
+accelerate chaining.
 
 We note that if anchor $i$ is appended to $j$, appending $i$ to a predecessor
 of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
@@ -153,7 +153,7 @@ $j'<j$, such that
 \[
 S(i',j')-S(i,j)>Z+e\cdot(\max\{i-i',j-j'\}-\min\{i-i',j-j'\})
 \]
-where $e$ is the gap extension penalty and $Z$ is an aribitrary threshold.
+where $e$ is the gap extension penalty and $Z$ is an arbitrary threshold.
 This strategy is similar to X-drop employed in BLAST~\citep{Altschul:1997vn}.
 However, unlike X-drop, it would not break the alignment in the presence of a
 single long gap.
@@ -191,7 +191,7 @@ crashed or produced malformatted SAM.  In this evaluation, Minimap2 has a
 higher power to distinguish unique and repetitive hits, and achieves overall
 higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
 even if we skip DP-based alignment (data not shown), suggesting chaining alone
-is sufficient to achieve high accuracy for approaximate mapping. Minimap2 and
+is sufficient to achieve high accuracy for approximate mapping. Minimap2 and
 NGMLR provide better mapping quality estimate: they rarely give repetitive hits
 high mapping quality (Fig.~\ref{fig:eval}b).  Apparently, other aligners may
 occasionally miss close suboptimal hits and be overconfident in wrong mappings.
@@ -221,7 +221,7 @@ In addition to reference-based read mapping, minimap2 inherits minimap's
 ability to search against huge multi-species data and to find read overlaps. On
 a few test data sets, minimap2 appears to yield slightly better miniasm
 assembly. Minimap2 can also align long assemblies or closely related genomes,
-though more thorough evaluation is needed. Genome alignment is an intricate
+though more thorough evaluations are needed. Genome alignment is an intricate
 topic.
 
 \section*{Acknowledgements}
