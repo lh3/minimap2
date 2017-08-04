@@ -68,7 +68,7 @@ and the ability to produce detailed alignment.
 %\subsubsection{Chaining}
 An \emph{anchor} is a 3-tuple $(x,y,w)$, indicating interval $[x-w+1,x]$ on the
 reference matching interval $[y-w+1,y]$ on the query. Given a list of anchors
-sorted by the ending reference position $x$, let $f(i)$ be the maximal chaining
+sorted by ending reference position $x$, let $f(i)$ be the maximal chaining
 score up to the $i$-th anchor in the list. $f(i)$ can be calculated with
 dynamic programming (DP):
 \begin{equation}\label{eq:chain}
@@ -186,7 +186,7 @@ GraphMap~\citep{Sovic:2016aa},
 minialign~\citep{Suzuki:2016} and
 NGMLR~\citep{Sedlazeck169557}. We excluded rHAT~\citep{Liu:2016ab},
 LAMSA~\citep{Liu:2017aa} and Kart~\citep{Lin:2017aa} because they either
-crashed or produced malformatted output. In this evaluation, Minimap2 has a
+crashed or produced malformatted output. In this evaluation, Minimap2 has
 higher power to distinguish unique and repetitive hits, and achieves overall
 higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
 even if we skip DP-based alignment (data not shown), suggesting chaining alone
@@ -219,9 +219,9 @@ banding~\citep{Suzuki130633} or incremental banding.
 In addition to reference-based read mapping, minimap2 inherits minimap's
 ability to search against huge multi-species databases and to find read
 overlaps. On a few test data sets, minimap2 appears to yield slightly better
-miniasm assembly. Minimap2 can also align long assemblies or closely related
-genomes, though more thorough evaluations are needed. Genome alignment is an
-intricate topic.
+miniasm assembly. Minimap2 can also align closely related genomes, though it
+would benefit from more thorough evaluations. Genome alignment is an intricate
+topic.
 
 \section*{Acknowledgements}
 We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
@@ -315,9 +315,9 @@ y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
 \tilde{y}_{rt}&=&\max\{0,\tilde{y}_{r-1,t}+u_{r-1,t}-z_{rt}+\tilde{q}\}-\tilde{q}-\tilde{e}
 \end{array}\right.
 \end{equation*}
-In this formulation, cells with the same row index $r$ are independent of each
-other. This allows us to fully vectorize the computation of all cells on the
-same anti-diagonal in one inner loop.
+In this formulation, cells with the same diagonal index $r$ are independent of
+each other. This allows us to fully vectorize the computation of all cells on
+the same anti-diagonal in one inner loop.
 
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
 condition of this equation in the diagonal-anti-diagonal coordinate is
