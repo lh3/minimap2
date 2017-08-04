@@ -1,20 +1,22 @@
-The [K8 Javascript engine][k8] is needed to run Javascripts in this directory.
+The [K8 Javascript shell][k8] is needed to run Javascripts in this directory.
 Precompiled k8 binaries for Mac and Linux can be found at the [K8 release
 page][k8].
 
 * [paf2aln.js](paf2aln.js): convert PAF to [MAF][maf] or BLAST-like output for
-  eyeballing. PAF has to be generated with minimap2 option `-S`.
+  eyeballing. PAF has to be generated with minimap2 option `-S`, which writes
+  the aligned sequences to the `cs` tag.
 
 * [mapstat.js](mapstat.js): output basic statistics such as the number of
   non-redundant mapped bases, number of split and secondary alignments and
   number of long gaps. This scripts seamlessly works with both SAM and PAF.
 
 * [pbsim2fa.js](pbsim2fa.js): convert reads simulated with [PBSIM][pbsim] to
-  FASTA and encode the true mapping positions to read names.
+  FASTA and encode the true mapping positions to read names in a format like
+  `S1_33!chr1!225258409!225267761!-`.
 
 * [pbsim-eval.js](pbsim-eval.js): evaluate mapping accuracy for FASTA generated
   with [pbsim2fa.js](pbsim2fa.js). This script only works with PAF. For SAM,
-  please run the following instead:
+  please convert to PAF first:
   ```sh
   k8 sam2paf.js -p aln.sam | k8 pbsim-eval.js /dev/stdin
   ```
