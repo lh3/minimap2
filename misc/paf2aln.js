@@ -36,14 +36,20 @@ var getopt = function(args, ostr) {
 	return optopt;
 }
 
-var c, maf_out = false, line_len = 0;
+var c, maf_out = false, line_len = 80;
 while ((c = getopt(arguments, "ml:")) != null) {
 	if (c == 'm') maf_out = true;
 	else if (c == 'l') line_len = parseInt(getopt.arg); // TODO: not implemented yet
 }
+if (line_len == 0) line_len = 0x7fffffff;
 
 if (getopt.ind == arguments.length) {
 	print("Usage: k8 paf2aln.js [options] <with-cs.paf>");
+	print("Options:");
+	print("  -m        MAF output (BLAST-like output by default)");
+	print("  -l INT    line length in BLAST-like output [80]");
+	print("");
+	print("Note: this script only works when minimap2 is run with option '-S'");
 	exit(1);
 }
 
@@ -55,6 +61,42 @@ function padding_str(x, len, right)
 		else s = Array(len - s.length + 1).join(" ") + s;
 	}
 	return s;
+}
+
+function update_aln(s_ref, s_qry, s_mid, type, seq, slen)
+{
+	var l = type == '*'? 1 : seq.length;
+	if (type == '=') {
+		s_ref.set(seq);
+		s_qry.set(seq);
+		s_mid.set(Array(l+1).join("|"));
+		slen[0] += l, slen[1] += l;
+	} else if (type == '*') {
+		s_ref.set(seq.charAt(0));
+		s_qry.set(seq.charAt(1));
+		s_mid.set(' ');
+		slen[0] += 1, slen[1] += 1;
+	} else if (type == '+') {
+		s_ref.set(Array(l+1).join("-"));
+		s_qry.set(seq);
+		s_mid.set(Array(l+1).join(" "));
+		slen[1] += l;
+	} else if (type == '-') {
+		s_ref.set(seq);
+		s_qry.set(Array(l+1).join("-"));
+		s_mid.set(Array(l+1).join(" "));
+		slen[0] += l;
+	}
+}
+
+function print_aln(rs, qs, strand, slen, elen, s_ref, s_qry, s_mid)
+{
+	print(["Ref+:", padding_str(rs + slen[0] + 1, 10, false), s_ref.toString(), padding_str(rs + elen[0], 10, true)].join(" "));
+	print("                 " + s_mid.toString());
+	var st, en;
+	if (strand == '+') st = qs + slen[1] + 1, en = qs + elen[1];
+	else st = qs - slen[1], en = qs - elen[1] + 1;
+	print(["Qry" + strand + ":", padding_str(st,               10, false), s_qry.toString(), padding_str(en          , 10, true)].join(" "));
 }
 
 var s_ref = new Bytes(), s_qry = new Bytes(), s_mid = new Bytes();
@@ -69,32 +111,10 @@ while (file.readline(buf) >= 0) {
 	if ((m = /\tcs:Z:(\S+)/.exec(line)) == null) continue;
 	var cs = m[1];
 	s_ref.length = s_qry.length = s_mid.length = 0;
-	if (line_len == 0 || maf_out) {
-		var ql = 0, tl = 0, al = 0;
-		var n_mm = 0, n_gap = 0;
-		while ((m = re.exec(cs)) != null) {
-			var l = m[2].length;
-			if (m[1] == '=') {
-				s_ref.set(m[2]);
-				s_qry.set(m[2]);
-				s_mid.set(Array(l+1).join("|"));
-			} else if (m[1] == '*') {
-				s_ref.set(m[2].charAt(0));
-				s_qry.set(m[2].charAt(1));
-				s_mid.set(' ');
-				++n_mm;
-			} else if (m[1] == '+') {
-				s_ref.set(Array(l+1).join("-"));
-				s_qry.set(m[2]);
-				s_mid.set(Array(l+1).join(" "));
-				n_gap += l;
-			} else if (m[1] == '-') {
-				s_ref.set(m[2]);
-				s_qry.set(Array(l+1).join("-"));
-				s_mid.set(Array(l+1).join(" "));
-				n_gap += l;
-			}
-		}
+	var slen = [0, 0], elen = [0, 0];
+	if (maf_out) {
+		while ((m = re.exec(cs)) != null)
+			update_aln(s_ref, s_qry, s_mid, m[1], m[2], elen);
 		if (maf_out) {
 			var score = (m = /\tAS:i:(\d+)/.exec(line)) != null? parseInt(m[1]) : 0;
 			var len = t[0].length > t[5].length? t[0].length : t[5].length;
@@ -112,11 +132,37 @@ while (file.readline(buf) >= 0) {
 			print(["s", padding_str(t[0], len, true), padding_str(qs, 10, false), padding_str(qe - qs, 10, false),
 				   t[4], padding_str(ql, 10, false), s_qry.toString()].join(" "));
 			print("");
-		} else {
-			print(line);
-			print(n_mm, n_gap);
-			print(s_ref); print(s_mid); print(s_qry);
 		}
+	} else {
+		line = line.replace(/\tc[sg]:Z:\S+/g, "");
+		print('>' + line);
+		var rs = parseInt(t[7]), qs = t[4] == '+'? parseInt(t[2]) : parseInt(t[3]);
+		var n_blocks = 0;
+		while ((m = re.exec(cs)) != null) {
+			var start = 0, rest = m[1] == '*'? 1 : m[2].length;
+			while (rest > 0) {
+				var l_proc;
+				if (s_ref.length + rest >= line_len) {
+					l_proc = line_len - s_ref.length;
+					update_aln(s_ref, s_qry, s_mid, m[1], m[1] == '*'? m[2] : m[2].substr(start, l_proc), elen);
+					if (n_blocks > 0) print("");
+					print_aln(rs, qs, t[4], slen, elen, s_ref, s_qry, s_mid);
+					++n_blocks;
+					s_ref.length = s_qry.length = s_mid.length = 0;
+					slen[0] = elen[0], slen[1] = elen[1];
+				} else {
+					l_proc = rest;
+					update_aln(s_ref, s_qry, s_mid, m[1], m[1] == '*'? m[2] : m[2].substr(start, l_proc), elen);
+				}
+				rest -= l_proc, start += l_proc;
+			}
+		}
+		if (s_ref.length > 0) {
+			if (n_blocks > 0) print("");
+			print_aln(rs, qs, t[4], slen, elen, s_ref, s_qry, s_mid);
+			++n_blocks;
+		}
+		print("//");
 	}
 }
 file.close();
