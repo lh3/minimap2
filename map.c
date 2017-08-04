@@ -338,16 +338,18 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_seq);
 		return in;
     } else if (step == 2) { // step 2: output
+		void *km = 0;
         step_t *s = (step_t*)in;
 		const mm_idx_t *mi = p->mi;
 		for (i = 0; i < p->n_threads; ++i) mm_tbuf_destroy(s->buf[i]);
 		free(s->buf);
+		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (i = 0; i < s->n_seq; ++i) {
 			mm_bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
 				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i]);
-				else mm_write_paf(&p->str, mi, t, r);
+				else mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
 				puts(p->str.s);
 			}
 			if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
@@ -360,6 +362,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			if (s->seq[i].qual) free(s->seq[i].qual);
 		}
 		free(s->reg); free(s->n_reg); free(s->seq);
+		km_destroy(km);
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequences\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), s->n_seq);
 		free(s);

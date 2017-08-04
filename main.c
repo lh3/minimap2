@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0rc1-r232"
+#define MM_VERSION "2.0rc1-r238-dirty"
 
 void liftrlimit()
 {
@@ -54,7 +54,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "aw:k:K:t:r:f:Vv:g:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Q", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Q", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg), idx_par_set = 1;
 		else if (c == 'k') k = atoi(optarg), idx_par_set = 1;
 		else if (c == 'H') is_hpc = 1, idx_par_set = 1;
@@ -67,7 +67,8 @@ int main(int argc, char *argv[])
 		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
-		else if (c == 'c') opt.flag |= MM_F_CIGAR;
+		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
+		else if (c == 'S') opt.flag |= MM_F_OUT_CS | MM_F_CIGAR;
 		else if (c == 'X') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
@@ -166,6 +167,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -Q           ignore base quality in the input\n");
 		fprintf(stderr, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(stderr, "    -c           output CIGAR in PAF\n");
+		fprintf(stderr, "    -S           output the cs tag in PAF\n");
 		fprintf(stderr, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(stderr, "    -K NUM       minibatch size [200M]\n");
 //		fprintf(stderr, "    -v INT       verbose level [%d]\n", mm_verbose);
