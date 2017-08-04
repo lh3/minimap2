@@ -274,8 +274,9 @@ y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
 \tilde{y}_{ij}&=&\max\{0,\tilde{y}_{i,j-1}+u_{i,j-1}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}
 \end{array}\right.
 \end{equation}
-where $z_{ij}$ is a temporary variable that does not need to be stored. We can
-see that
+where $z_{ij}$ is a temporary variable that does not need to be stored.
+
+All values in Eq.~(\ref{eq:suzuki}) are bounded. To see that,
 \[
 x_{ij}=E_{i+1,j}-H_{ij}=\max\{-q,E_{ij}-H_{ij}\}-e
 \]
@@ -293,8 +294,7 @@ matching score, we can derive
 \[
 u_{ij}\le M-v_{i-1,j}\le M+q+e
 \]
-In conclusion, all values in Eq.~(\ref{eq:suzuki}) are bounded: $x$ and $y$ by
-$[-q-e,-e]$ and $\tilde{x}$, $\tilde{y}$ by
+In conclusion, $x$ and $y$ by $[-q-e,-e]$ and $\tilde{x}$, $\tilde{y}$ by
 $[-\tilde{q}-\tilde{e},-\tilde{e}]$, and $u$ and $v$ by $[-q-e,M+q+e]$. When
 matching score and gap cost are small, each of them can be stored as a 8-bit
 integer. This enables 16-way SSE vectorization regardless of the peak score of
@@ -318,6 +318,7 @@ y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
 In this formulation, cells with the same row index $r$ are independent of each
 other. This allows us to fully vectorize the computation of all cells on the
 same anti-diagonal in one inner loop.
+
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
 condition of this equation in the diagonal-anti-diagonal coordinate is
 \[
