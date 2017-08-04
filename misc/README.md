@@ -1,6 +1,6 @@
 The [K8 Javascript shell][k8] is needed to run Javascripts in this directory.
 Precompiled k8 binaries for Mac and Linux can be found at the [K8 release
-page][k8].
+page][k8bin].
 
 * [paf2aln.js](paf2aln.js): convert PAF to [MAF][maf] or BLAST-like output for
   eyeballing. PAF has to be generated with minimap2 option `-S`, which writes
