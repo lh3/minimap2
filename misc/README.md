@@ -4,7 +4,10 @@ page][k8].
 
 * [paf2aln.js](paf2aln.js): convert PAF to [MAF][maf] or BLAST-like output for
   eyeballing. PAF has to be generated with minimap2 option `-S`, which writes
-  the aligned sequences to the `cs` tag.
+  the aligned sequences to the `cs` tag. An example:
+  ```sh
+  ../minimap2 -S ../test/MT-*.fa | k8 paf2aln.js /dev/stdin
+  ```
 
 * [mapstat.js](mapstat.js): output basic statistics such as the number of
   non-redundant mapped bases, number of split and secondary alignments and
