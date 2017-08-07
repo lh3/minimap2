@@ -31,6 +31,10 @@ and [longISLND][longislnd]), better chaining and the ability to produce CIGAR
 with fast extension alignment (see also [libgaba][gaba] and [ksw2][ksw2]) and
 piece-wise affine gap cost.
 
+If you use minimap2 in your work, please consider to cite:
+
+> Li, H. (2017). Minimap2: fast pairwise alignment for long DNA sequences. [arXiv:1708.01492](https://arxiv.org/abs/1708.01492).
+
 ## Installation
 
 For modern x86-64 CPUs, just type `make` in the source code directory. This
