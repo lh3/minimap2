@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0rc1-r238-dirty"
+#define MM_VERSION "2.0rc1-r271-dirty"
 
 void liftrlimit()
 {
@@ -129,6 +129,16 @@ int main(int argc, char *argv[])
 				k = 19, w = 19;
 				opt.a = 1, opt.b = 9, opt.q = 16, opt.q2 = 41, opt.e = 2, opt.e2 = 1, opt.zdrop = 200;
 				opt.min_dp_max = 200;
+			} else if (strcmp(optarg, "short") == 0) {
+				k = 17, w = 7, is_hpc = 0;
+				opt.a = 2, opt.b = 8, opt.q = 12, opt.e = 2, opt.q2 = 32, opt.e2 = 1;
+				opt.max_gap = 100;
+				opt.pri_ratio = 0.5f;
+				opt.min_cnt = 2;
+				opt.min_chain_score = 20;
+				opt.min_dp_max = 50;
+				opt.best_n = 10;
+				opt.bw = 100;
 			} else {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
 				return 1;
