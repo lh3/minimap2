@@ -13,16 +13,12 @@ page][k8bin].
   non-redundant mapped bases, number of split and secondary alignments and
   number of long gaps. This scripts seamlessly works with both SAM and PAF.
 
-* [pbsim2fa.js](pbsim2fa.js): convert reads simulated with [PBSIM][pbsim] to
+* [sim-pbsim.js](sim-pbsim.js): convert reads simulated with [PBSIM][pbsim] to
   FASTA and encode the true mapping positions to read names in a format like
   `S1_33!chr1!225258409!225267761!-`.
 
-* [pbsim-eval.js](pbsim-eval.js): evaluate mapping accuracy for FASTA generated
-  with [pbsim2fa.js](pbsim2fa.js). This script only works with PAF. For SAM,
-  please convert to PAF first:
-  ```sh
-  k8 sam2paf.js -p aln.sam | k8 pbsim-eval.js /dev/stdin
-  ```
+* [sim-eval.js](sim-eval.js): evaluate mapping accuracy for FASTA generated
+  with [sim-pbsim.js](sim-pbsim.js) or [sim-mason2.js](sim-mason2.js).
 
 * [sam2paf.js](sam2paf.js): convert SAM to PAF.
 
