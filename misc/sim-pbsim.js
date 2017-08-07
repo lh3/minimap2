@@ -28,7 +28,7 @@ Bytes.prototype.revcomp = function()
 }
 
 if (arguments.length < 2) {
-	print("Usage: k8 pbsim2paf.js <chr.list> <pbsim1.maf> [[pbsim2.maf] ...]");
+	print("Usage: k8 sim-pbsim.js <ref.fa.fai> <pbsim1.maf> [[pbsim2.maf] ...]");
 	exit(1);
 }
 

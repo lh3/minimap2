@@ -69,13 +69,20 @@ function is_correct(s, b)
 
 function count_err(qname, a, tot, err, mode)
 {
-	var s = qname.split("!");
 	if (a.length == 0) return;
-	if (s.length < 5 || (s[4] != '+' && s[4] != '-'))
-		throw Error("Failed to parse pbsim2fa read names '" + qname + "'");
-	s[2] = parseInt(s[2]);
-	s[3] = parseInt(s[3]);
-	s.shift(); // skip pbsim orginal read name
+
+	var m, s;
+	if ((m = /^(\S+)!(\S+)!(\d+)!(\d+)!([\+\-])$/.exec(qname)) != null) { // pbsim single-end reads
+		s = [m[1], m[2], parseInt(m[3]), parseInt(m[4]), m[5]];
+	} else if ((m = /^(\S+)!(\S+)!(\d+)_(\d+)!(\d+)_(\d+)!([\+\-])([\+\-])\/([12])$/.exec(qname)) != null) { // mason2 paired-end reads
+		if (m[9] == '1') {
+			s = [m[1], m[2], parseInt(m[3]), parseInt(m[5]), m[7]];
+		} else {
+			s = [m[1], m[2], parseInt(m[4]), parseInt(m[6]), m[8]];
+		}
+	} else throw Error("Failed to parse simulated read names '" + qname + "'");
+	s.shift(); // skip the orginal read name
+
 	if (mode == 0 || mode == 1) { // longest only or first only
 		var max_i = 0;
 		if (mode == 0) { // longest only
@@ -115,22 +122,53 @@ function count_err(qname, a, tot, err, mode)
 	}
 }
 
-var lineno = 0, last = null, a = [];
+var lineno = 0, last = null, a = [], n_unmapped = null;
+var re_cigar = /(\d+)([MIDSHN])/g;
 while (file.readline(buf) >= 0) {
-	var line = buf.toString();
+	var m, line = buf.toString();
 	++lineno;
 	if (line[0] != '@') {
 		var t = line.split("\t");
-		if (last != t[0]) {
-			if (last != null) count_err(last, a, tot, err, mode);
-			a = [], last = t[0];
-		}
 		if (t[4] == '+' || t[4] == '-') { // PAF
+			if (last != t[0]) {
+				if (last != null) count_err(last, a, tot, err, mode);
+				a = [], last = t[0];
+			}
 			if (/\ts1:i:\d+/.test(line) && !/\ts2:i:\d+/.test(line)) // secondary alignment in minimap2 PAF
 				continue;
 			var mapq = parseInt(t[11]);
 			if (mapq > max_mapq) mapq = max_mapq;
 			a.push([t[5], parseInt(t[7]), parseInt(t[8]), t[4], mapq, parseInt(t[9])]);
+		} else { // SAM
+			var flag = parseInt(t[1]);
+			var read_no = flag>>6&0x3;
+			var qname = read_no == 1 || read_no == 2? t[0] + '/' + read_no : t[0];
+			if (last != qname) {
+				if (last != null) count_err(last, a, tot, err, mode);
+				a = [], last = qname;
+			}
+			if (flag&0x100) continue; // secondary alignment
+			if ((flag&0x4) || t[2] == '*') { // unmapped
+				if (n_unmapped == null) n_unmapped = 0;
+				++n_unmapped;
+				continue;
+			}
+			var mapq = parseInt(t[4]);
+			if (mapq > max_mapq) mapq = max_mapq;
+			var pos = parseInt(t[3]) - 1, pos_end = pos;
+			var n_gap = 0, mlen = 0;
+			while ((m = re_cigar.exec(t[5])) != null) {
+				var len = parseInt(m[1]);
+				if (m[2] == 'M') pos_end += len, mlen += len;
+				else if (m[2] == 'I') n_gap += len;
+				else if (m[2] == 'D') n_gap += len, pos_end += len;
+			}
+			var score = pos_end - pos;
+			if ((m = /\tNM:i:(\d+)/.exec(line)) != null) {
+				var NM = parseInt(m[1]);
+				if (NM >= n_gap) score = mlen - (NM - n_gap);
+			}
+			a.push([t[2], pos, pos_end, (flag&16)? '-' : '+', mapq, score]);
 		}
 	}
 }
@@ -150,3 +188,4 @@ for (var q = max_mapq; q >= 0; --q) {
 	sum_tot2 += tot[q], sum_err2 += err[q];
 }
 print('Q', q_out, sum_tot, sum_err, (sum_err2/sum_tot2).toFixed(9));
+if (n_unmapped != null) print('U', n_unmapped);

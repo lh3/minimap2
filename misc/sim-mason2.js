@@ -28,7 +28,7 @@ Bytes.prototype.revcomp = function()
 }
 
 if (arguments.length == 0) {
-	print("Usage: k8 mason2fq.js <mason.sam>");
+	print("Usage: k8 sim-mason2.js <mason.sam>");
 	exit(1);
 }
 
