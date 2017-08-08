@@ -14,6 +14,7 @@
 #define MM_F_NO_QUAL   0x10
 #define MM_F_OUT_CG    0x20
 #define MM_F_OUT_CS    0x40
+#define MM_F_CDNA      0x80
 
 #define MM_IDX_MAGIC   "MMI\2"
 
@@ -80,7 +81,7 @@ typedef struct {
 	int flag;    // see MM_F_* macros
 
 	int bw;  // bandwidth
-	int max_gap; // break a chain if there are no minimizers in a max_gap window
+	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
 	int max_chain_skip;
 	int min_cnt;
 	int min_chain_score;

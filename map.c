@@ -19,6 +19,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_chain_score = 40;
 	opt->bw = 500;
 	opt->max_gap = 5000;
+	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 
 	opt->mask_level = 0.5f;
@@ -167,7 +168,7 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 #endif
 mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
 {
-	int i, n = m_en - m_st, j, n_u;
+	int i, n = m_en - m_st, j, n_u, max_gap_ref;
 	int64_t n_a;
 	uint64_t *u;
 	mm_match_t *m;
@@ -243,7 +244,8 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
-	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
+	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
+	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_CDNA), n_a, a, &u, b->km);
 	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
 	*n_regs = n_u;
 
@@ -256,7 +258,8 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
 		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
+		if (!(opt->flag & MM_F_CDNA))
+			mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
 	if (opt->flag & MM_F_CIGAR) {
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()

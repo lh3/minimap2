@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0rc1-r238-dirty"
+#define MM_VERSION "2.0rc1-r273-dirty"
 
 void liftrlimit()
 {
@@ -129,6 +129,12 @@ int main(int argc, char *argv[])
 				k = 19, w = 19;
 				opt.a = 1, opt.b = 9, opt.q = 16, opt.q2 = 41, opt.e = 2, opt.e2 = 1, opt.zdrop = 200;
 				opt.min_dp_max = 200;
+			} else if (strcmp(optarg, "cdna") == 0) {
+				k = 15, w = 5;
+				opt.flag |= MM_F_CDNA;
+				opt.max_gap = 2000, opt.max_gap_ref = opt.bw = 100000;
+				opt.a = 1, opt.b = 2, opt.q = 2, opt.e = 1, opt.q2 = 70, opt.e2 = 0;
+				opt.zdrop = 200;
 			} else {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
 				return 1;
