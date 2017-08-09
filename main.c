@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r276-dirty"
+#define MM_VERSION "2.0-r277-dirty"
 
 void liftrlimit()
 {
@@ -187,6 +187,10 @@ int main(int argc, char *argv[])
 	is_idx = mm_idx_is_idx(argv[optind]);
 	if (is_idx < 0) {
 		fprintf(stderr, "[E::%s] failed to open file '%s'\n", __func__, argv[optind]);
+		return 1;
+	}
+	if (!is_idx && fnw == 0 && argc - optind < 2) {
+		fprintf(stderr, "[E::%s] missing input: please specify a query file or option -d\n", __func__);
 		return 1;
 	}
 	if (is_idx) fpr = fopen(argv[optind], "rb");
