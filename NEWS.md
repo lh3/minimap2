@@ -1,3 +1,16 @@
+Release 2.0-r275 (8 August 2017)
+--------------------------------
+
+This release is identical to version 2.0rc1, except the version number. It is
+described and evaluated in the following technical report:
+
+ * Li, H. (2017). Minimap2: fast pairwise alignment for long DNA sequences.
+   [arXiv:1708.01492v1](https://arxiv.org/abs/1708.01492v1).
+
+(2.0: 8 August 2017, r275)
+
+
+
 Release 2.0rc1-r232 (30 July 2017)
 ----------------------------------
 
