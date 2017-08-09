@@ -122,7 +122,7 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->p) mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->p->n_diff, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
 }
 
-void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag)
+void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag, int intron_thres)
 {
 	s->l = 0;
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
@@ -136,8 +136,12 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 	if (r->p && (opt_flag & MM_F_OUT_CG)) {
 		uint32_t k;
 		mm_sprintf_lite(s, "\tcg:Z:");
-		for (k = 0; k < r->p->n_cigar; ++k)
-			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
+		for (k = 0; k < r->p->n_cigar; ++k) {
+			int op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+			if (intron_thres > 0 && op == 2 && len >= intron_thres)
+				mm_sprintf_lite(s, "%dN", len);
+			else mm_sprintf_lite(s, "%d%c", len, "MID"[op]);
+		}
 	}
 	if (r->p && (opt_flag & MM_F_OUT_CS))
 		write_cs(km, s, mi, t, r);
@@ -167,7 +171,7 @@ static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 	} else str_copy(s, seq, seq + l);
 }
 
-void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs)
+void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs, int intron_thres)
 {
 	int flag = 0;
 	s->l = 0;
@@ -186,8 +190,12 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
 			int clip_char = (flag&0x800)? 'H' : 'S';
 			if (clip_len) mm_sprintf_lite(s, "%d%c", clip_len, clip_char);
-			for (k = 0; k < r->p->n_cigar; ++k)
-				mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MID"[r->p->cigar[k]&0xf]);
+			for (k = 0; k < r->p->n_cigar; ++k) {
+				int op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+				if (intron_thres > 0 && op == 2 && len >= intron_thres)
+					mm_sprintf_lite(s, "%dN", len);
+				else mm_sprintf_lite(s, "%d%c", len, "MID"[op]);
+			}
 			clip_len = r->rev? r->qs : t->l_seq - r->qe;
 			if (clip_len) mm_sprintf_lite(s, "%d%c", clip_len, clip_char);
 		} else mm_sprintf_lite(s, "*");

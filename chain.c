@@ -56,7 +56,8 @@ int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cn
 				int c_log, c_lin;
 				c_lin = (int)(dd * .01 * avg_qspan);
 				c_log = ilog2_32(dd);
-				sc -= c_lin < c_log? c_lin : c_log;
+				if (dr > dq) sc -= c_lin < c_log? c_lin : c_log;
+				else sc -= c_lin + (c_log>>1);
 			} else sc -= (int)(dd * .01 * avg_qspan) + (ilog2_32(dd)>>1);
 			sc += f[j];
 			if (sc > max_f) {
