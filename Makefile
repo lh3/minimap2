@@ -2,8 +2,8 @@ CC=			gcc
 CFLAGS=		-g -Wall -O2 -Wc++-compat
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=	-I.
-OBJS=		kthread.o kalloc.o ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_ll_sse.o misc.o bseq.o \
-			sketch.o sdust.o index.o chain.o align.o hit.o map.o format.o
+OBJS=		kthread.o kalloc.o ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_extd2_noins_sse.o ksw2_ll_sse.o \
+			misc.o bseq.o sketch.o sdust.o index.o chain.o align.o hit.o map.o format.o
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
@@ -33,6 +33,9 @@ libminimap2.a:$(OBJS)
 sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< kalloc.o -o $@ -lz
 
+ksw2_extd2_noins_sse.o:ksw2_extd2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_NO_LONG_INS $(INCLUDES) $< -o $@
+
 clean:
 		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM session*
 
@@ -45,7 +48,7 @@ align.o: minimap.h mmpriv.h bseq.h ksw2.h kalloc.h
 bseq.o: bseq.h kseq.h
 chain.o: minimap.h mmpriv.h bseq.h kalloc.h
 example.o: minimap.h kseq.h
-format.o: mmpriv.h minimap.h bseq.h
+format.o: kalloc.h mmpriv.h minimap.h bseq.h
 hit.o: mmpriv.h minimap.h bseq.h kalloc.h
 index.o: kthread.h bseq.h minimap.h mmpriv.h kvec.h kalloc.h khash.h
 kalloc.o: kalloc.h

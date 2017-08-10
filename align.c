@@ -126,17 +126,18 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 
 static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *mat, int w, int flag, ksw_extz_t *ez)
 {
-	int bw = (opt->flag & MM_F_CDNA)? -1 : w;
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
 		int i;
-		fprintf(stderr, "===> q=(%d,%d), e=(%d,%d), bw=%d, flag=%d, zdrop=%d <===\n", opt->q, opt->q2, opt->e, opt->e2, bw, flag, opt->zdrop);
+		fprintf(stderr, "===> q=(%d,%d), e=(%d,%d), bw=%d, flag=%d, zdrop=%d <===\n", opt->q, opt->q2, opt->e, opt->e2, w, flag, opt->zdrop);
 		for (i = 0; i < tlen; ++i) fputc("ACGTN"[tseq[i]], stderr); fputc('\n', stderr);
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr); fputc('\n', stderr);
 	}
-	if (opt->q == opt->q2 && opt->e == opt->e2)
-		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, bw, opt->zdrop, flag, ez);
+	if (opt->flag & MM_F_CDNA)
+		ksw_extd2_noins_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, -1, opt->zdrop, flag, ez);
+	else if (opt->q == opt->q2 && opt->e == opt->e2)
+		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, opt->zdrop, flag, ez);
 	else
-		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, bw, opt->zdrop, flag, ez);
+		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, opt->zdrop, flag, ez);
 }
 
 static inline int mm_get_hplen_back(const mm_idx_t *mi, uint32_t rid, uint32_t x)
@@ -255,10 +256,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	bw = (int)(opt->bw * 1.5 + 1.);
 
 	r2->cnt = 0;
-	if (!(opt->flag & MM_F_CDNA)) {
+	if (!(opt->flag & MM_F_CDNA))
 		mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
-		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
-	} else as1 = r->as, cnt1 = r->cnt;
+	else as1 = r->as, cnt1 = r->cnt;
+	mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 	mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
 
