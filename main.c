@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r281-dirty"
+#define MM_VERSION "2.0-r282-dirty"
 
 void liftrlimit()
 {
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 				k = 15, w = 5;
 				opt.flag |= MM_F_CDNA;
 				opt.max_gap = 2000, opt.max_gap_ref = opt.bw = 100000;
-				opt.a = 1, opt.b = 2, opt.q = 2, opt.e = 1, opt.q2 = 42, opt.e2 = 0;
+				opt.a = 1, opt.b = 2, opt.q = 2, opt.e = 1, opt.q2 = 32, opt.e2 = 0;
 				opt.zdrop = 200;
 			} else {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
