@@ -123,11 +123,12 @@ Interval.find_ovlp = function(a, st, en)
  * Main function *
  *****************/
 
-var c, l_fuzzy = 10, min_ov_ratio = 0.95, print_err = false;
-while ((c = getopt(arguments, "l:r:e")) != null) {
+var c, l_fuzzy = 10, min_ov_ratio = 0.95, print_err = false, print_corr = false;
+while ((c = getopt(arguments, "l:r:ec")) != null) {
 	if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 	else if (c == 'r') min_ov_ratio = parseFloat(getopt.arg);
 	else if (c == 'e') print_err = true;
+	else if (c == 'c') print_corr = true;
 }
 
 if (arguments.length - getopt.ind < 2) {
@@ -224,14 +225,14 @@ while (file.readline(buf) >= 0) {
 					}
 					if (hit) break;
 				}
-				if (!hit && print_err) {
+				if ((print_err && !hit) || (print_corr && hit)) {
 					var x = '[';
 					for (var j = 0; j < o.length; ++j) {
 						if (j) x += ', ';
 						x += '(' + o[j][0] + "," + o[j][1] + ')';
 					}
 					x += ']';
-					print(t[0], i+1, exon[i][0], exon[i][1], x);
+					print(t[0], i+1, t[2], exon[i][0], exon[i][1], x);
 				}
 			} else ++n_novel;
 		}
@@ -242,7 +243,7 @@ file.close();
 
 buf.destroy();
 
-if (!print_err) {
+if (!print_err && !print_corr) {
 	print("Number of unmapped reads: " + n_unmapped);
 	print("Number of mapped reads: " + n_mapped);
 	print("Number of mapped exons: " + n_exon);
