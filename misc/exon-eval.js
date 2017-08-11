@@ -50,7 +50,7 @@ Interval.sort = function(a)
 {
 	if (typeof a[0] == 'number')
 		a.sort(function(x, y) { return x - y });
-	else a.sort(function(x, y) { return x[0] - y[0] });
+	else a.sort(function(x, y) { return x[0] != y[0]? x[0] - y[0] : x[1] - y[1] });
 }
 
 Interval.merge = function(a, sorted)
@@ -123,10 +123,11 @@ Interval.find_ovlp = function(a, st, en)
  * Main function *
  *****************/
 
-var c, l_fuzzy = 10, min_ov_ratio = 0.95;
-while ((c = getopt(arguments, "l:r:")) != null) {
+var c, l_fuzzy = 10, min_ov_ratio = 0.95, print_err = false;
+while ((c = getopt(arguments, "l:r:e")) != null) {
 	if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 	else if (c == 'r') min_ov_ratio = parseFloat(getopt.arg);
+	else if (c == 'e') print_err = true;
 }
 
 if (arguments.length - getopt.ind < 2) {
@@ -155,8 +156,8 @@ for (var chr in anno) {
 	var k = 0;
 	for (var i = 1; i < e.length; ++i) // dedup
 		if (e[i][0] != e[k][0] || e[i][1] != e[k][1])
-			e[k++] = e[i];
-	e.length = k;
+			e[++k] = e[i].slice(0);
+	e.length = k + 1;
 	Interval.index_end(e);
 }
 
@@ -195,18 +196,20 @@ while (file.readline(buf) >= 0) {
 			if (o.length > 0) {
 				var hit = false;
 				for (var j = 0; j < o.length; ++j) {
-					var st_diff = exon[i][0] - o[j][0];
-					var en_diff = exon[i][1] - o[j][1];
-					if (st_diff < 0) st_diff = -st_diff;
-					if (en_diff < 0) en_diff = -en_diff;
+					var min_st = exon[i][0] < o[j][0]? exon[i][0] : o[j][0];
 					var max_st = exon[i][0] > o[j][0]? exon[i][0] : o[j][0];
 					var min_en = exon[i][1] < o[j][1]? exon[i][1] : o[j][1];
-					var ol = min_en - max_st;
+					var max_en = exon[i][1] > o[j][1]? exon[i][1] : o[j][1];
+					var ol = min_en - max_st, span = max_en - min_st;
 					var l0 = exon[i][1] - exon[i][0];
 					var l1 = o[j][1] - o[j][0];
 					var min = l0 < l1? l0 : l1;
 					var ov_ratio = ol / min;
 					if (ov_ratio >= min_ov_ratio) {
+						var st_diff = exon[i][0] - o[j][0];
+						var en_diff = exon[i][1] - o[j][1];
+						if (st_diff < 0) st_diff = -st_diff;
+						if (en_diff < 0) en_diff = -en_diff;
 						if (i == 0 && exon.length == 1) {
 							++n_sgl_hit, hit = true;
 						} else if (i == 0) {
@@ -214,10 +217,21 @@ while (file.readline(buf) >= 0) {
 						} else if (i == exon.length - 1) {
 							if (st_diff <= l_fuzzy) ++n_ext_hit, hit = true;
 						} else {
-							if (en_diff <= l_fuzzy && st_diff <= l_fuzzy) ++n_int_hit, hit = true;
+							//if (en_diff <= l_fuzzy && st_diff <= l_fuzzy && ol / span >= min_ov_ratio)
+							if (en_diff + st_diff <= l_fuzzy || ol / span >= min_ov_ratio)
+								++n_int_hit, hit = true;
 						}
 					}
 					if (hit) break;
+				}
+				if (!hit && print_err) {
+					var x = '[';
+					for (var j = 0; j < o.length; ++j) {
+						if (j) x += ', ';
+						x += '(' + o[j][0] + "," + o[j][1] + ')';
+					}
+					x += ']';
+					print(t[0], i+1, exon[i][0], exon[i][1], x);
 				}
 			} else ++n_novel;
 		}
@@ -228,8 +242,10 @@ file.close();
 
 buf.destroy();
 
-print("Number of unmapped reads: " + n_unmapped);
-print("Number of mapped reads: " + n_mapped);
-print("Number of mapped exons: " + n_exon);
-print("Number of novel exons: " + n_novel);
-print("Number of correct exons: " + (n_ext_hit + n_int_hit + n_sgl_hit) + " (" + ((n_ext_hit + n_int_hit + n_sgl_hit) / n_exon * 100).toFixed(2) + "%)");
+if (!print_err) {
+	print("Number of unmapped reads: " + n_unmapped);
+	print("Number of mapped reads: " + n_mapped);
+	print("Number of mapped exons: " + n_exon);
+	print("Number of novel exons: " + n_novel);
+	print("Number of correct exons: " + (n_ext_hit + n_int_hit + n_sgl_hit) + " (" + ((n_ext_hit + n_int_hit + n_sgl_hit) / n_exon * 100).toFixed(2) + "%)");
+}
