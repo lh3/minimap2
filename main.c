@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r288-dirty"
+#define MM_VERSION "2.0-r289-dirty"
 
 void liftrlimit()
 {
@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
-		fprintf(stderr, "    -G NUM       max intron length (only effective following -x splice) [100k]\n");
+		fprintf(stderr, "    -G NUM       max intron length (only effective following -x splice) [200k]\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT       matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT       mismatch penalty [%d]\n", opt.b);
