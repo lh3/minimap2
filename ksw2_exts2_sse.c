@@ -97,9 +97,8 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 
 	for (r = 0, last_st = last_en = -1; r < qlen + tlen - 1; ++r) {
 		int st = 0, en = tlen - 1, st0, en0, st_, en_;
-		int8_t x1, x21, v1;
+		int8_t x1, x21, v1, *u8 = (int8_t*)u, *v8 = (int8_t*)v;
 		uint8_t *qrr = qr + (qlen - 1 - r);
-		int8_t *u8 = (int8_t*)u, *v8 = (int8_t*)v;
 		__m128i x1_, x21_, v1_;
 		// find the boundaries
 		if (st < r - qlen + 1) st = r - qlen + 1;
@@ -107,8 +106,17 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		st0 = st, en0 = en;
 		st = st / 16 * 16, en = (en + 16) / 16 * 16 - 1;
 		// set boundary conditions
-		x1 = -q - e, x21 = -q2;
-		v1 = r == 0? -q - e : r < long_thres? -e : r == long_thres? long_diff : 0;
+		if (st > 0) {
+			if (st - 1 >= last_st && st - 1 <= last_en) {
+				x1 = ((int8_t*)x)[st - 1], x21 = ((int8_t*)x2)[st - 1], v1 = v8[st - 1]; // (r-1,s-1) calculated in the last round
+			} else {
+				x1 = -q - e, x21 = -q2;
+				v1 = -q - e;
+			}
+		} else {
+			x1 = -q - e, x21 = -q2;
+			v1 = r == 0? -q - e : r < long_thres? -e : r == long_thres? long_diff : 0;
+		}
 		if (en >= r) {
 			((int8_t*)y)[r] = -q - e;
 			u8[r] = r == 0? -q - e : r < long_thres? -e : r == long_thres? long_diff : 0;
