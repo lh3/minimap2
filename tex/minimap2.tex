@@ -72,17 +72,17 @@ sorted by ending reference position $x$, let $f(i)$ be the maximal chaining
 score up to the $i$-th anchor in the list. $f(i)$ can be calculated with
 dynamic programming (DP):
 \begin{equation}\label{eq:chain}
-f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+d(j,i)-\gamma(j,i) \},w_i\big\}
+f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+d(j,i)-\beta_c(j,i) \},w_i\big\}
 \end{equation}
 where $d(j,i)=\min\big\{\min\{y_i-y_j,x_i-x_j\},w_i\big\}$ is the number of
-matching bases between the two anchors. $\gamma(j,i)>0$ is the gap cost. It
+matching bases between the two anchors. $\beta_c(j,i)>0$ is the gap cost. It
 equals $\infty$ if $y_j\ge y_i$ or $\max\{y_i-y_j,x_i-x_j\}>G$ (i.e. the
 distance between two anchors is too large); otherwise
-\[
-\gamma(j,i)=\gamma'(\max\{y_i-y_j,x_i-x_j\}-\min\{y_i-y_j,x_i-x_j\})
-\]
-In implementation, a gap of length $l$ costs $\gamma'(l)=\alpha\cdot
-l+\beta\log_2(l)$. For $m$ anchors, directly computing all $f(\cdot)$ with
+\begin{equation}\label{eq:chain-gap}
+\beta_c(j,i)=\gamma_c\big((y_i-y_j)-(x_i-x_j)\big)
+\end{equation}
+In implementation, a gap of length $l$ costs $\gamma_c(l)=0.01\cdot \bar{w}\cdot
+|l|+0.5\log_2|l|$, where $\bar{w}$ is the average seed length. For $m$ anchors, directly computing all $f(\cdot)$ with
 Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. Although theoretically faster
 chaining algorithms exist~\citep{Abouelhoda:2005aa}, they
 are inapplicable to generic gap cost, complex to implement and usually
@@ -134,13 +134,15 @@ but with a 1000bp band, it is considerably faster. When performing global
 alignment between anchors, we expect the alignment to stay close to the
 diagonal of the DP matrix. Banding is often applicable.
 
-Minimap2 uses a 2-piece affine gap cost
-$\gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}$.
+Minimap2 uses a 2-piece affine gap cost~\citep{Gotoh:1990aa}:
+\begin{equation}\label{eq:2-piece}
+\gamma_a(l)=\min\{q+|l|\cdot e,\tilde{q}+|l|\cdot\tilde{e}\}
+\end{equation}
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, this
-cost function is concave. It applies cost $q+l\cdot e$ to gaps shorter than
+cost function is concave. It applies cost $q+|l|\cdot e$ to gaps shorter than
 $\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
-$\tilde{q}+l\cdot\tilde{e}$ to longer gaps. This scheme helps to recover
-longer insertions and deletions~(INDEL; \citealp{Gotoh:1990aa}).
+$\tilde{q}+|l|\cdot\tilde{e}$ to longer gaps. This scheme helps to recover
+longer insertions and deletions~(INDEL).
 
 With global alignment, minimap2 may force to align unrelated sequences between
 two adjacent anchors. To avoid such an artifact, we compute accumulative
@@ -150,7 +152,7 @@ the alignment score along the alignment path ending at cell $(i,j)$ in the DP
 matrix. We break the alignment if there exist $(i',j')$ and $(i,j)$, $i'<i$ and
 $j'<j$, such that
 \[
-S(i',j')-S(i,j)>Z+e\cdot(\max\{i-i',j-j'\}-\min\{i-i',j-j'\})
+S(i',j')-S(i,j)>Z+e\cdot|(i-i')-(j-j')|
 \]
 where $e$ is the gap extension cost and $Z$ is an arbitrary threshold.
 This strategy is similar to X-drop employed in BLAST~\citep{Altschul:1997vn}.
@@ -161,6 +163,30 @@ When minimap2 breaks a global alignment between two anchors, it performs local
 alignment between the two subsequences involved in the global alignment, but
 this time with the one subsequence reverse complemented. This additional
 alignment step may identify short inversions that are missed during chaining.
+
+\subsection{Spliced alignment}
+
+The algorithm described above can be adapted to spliced alignment. In this
+mode, the chaining gap cost distinguishes insertions to and deletions from the
+reference: $\gamma_c(l)$ in Eq.~(\ref{eq:chain-gap}) takes the form of
+\[
+\gamma_c(l)=\left\{\begin{array}{ll}
+0.01\cdot\bar{w}\cdot l+0.5\log_2 l & (l>0) \\
+\min\{0.01\cdot\bar{w}\cdot|l|,\log_2|l|\} & (l<0)
+\end{array}\right.
+\]
+Similarly, the gap cost function used for DP-based alignment is changed to
+\[
+\gamma_a(l)=\left\{\begin{array}{ll}
+q+l\cdot e & (l>0) \\
+\min\{q+|l|\cdot e,\tilde{q}\} & (l<0)
+\end{array}\right.
+\]
+In alignment, a deletion no shorter than $\lceil(\tilde{q}-q)/e\rceil$ is
+regarded as an intron, which pays no cost to gap extensions. With these
+modifications, minimap2 can retain multiple reasonably long introns in one
+alignment, rather than fragment the alignment into local hits, which often
+leads to the loss of small exons especially given noisy reads.
 
 \end{methods}
 
@@ -232,7 +258,6 @@ issues.
 
 \bibliography{minimap2}
 
-\pagebreak
 \appendix
 
 \begin{methods}

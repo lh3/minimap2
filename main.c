@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r289-dirty"
+#define MM_VERSION "2.0-r290-dirty"
 
 void liftrlimit()
 {
@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
 		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
 		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
-		fprintf(stderr, "                 splice: -k15 -w5 --splice -g2000 -G100k -A1 -B2 -O2,32 -E1,0 -z200 (long-read spliced aln)\n");
+		fprintf(stderr, "                 splice: -k15 -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -z200 (long-read spliced aln)\n");
 		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return 1;
 	}
