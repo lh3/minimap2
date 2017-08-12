@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r286-dirty"
+#define MM_VERSION "2.0-r287-dirty"
 
 void liftrlimit()
 {
@@ -31,6 +31,8 @@ static struct option long_options[] = {
 	{ "max-chain-skip", required_argument, 0, 0 },
 	{ "min-dp-len",     required_argument, 0, 0 },
 	{ "print-aln-seq",  no_argument,       0, 0 },
+	{ "splice",         no_argument,       0, 0 },
+	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
 	{ "min-chain-score",required_argument, 0, 'm' },
@@ -40,10 +42,21 @@ static struct option long_options[] = {
 	{ 0, 0, 0, 0}
 };
 
+static inline int64_t mm_parse_num(const char *str)
+{
+	double x;
+	char *p;
+	x = strtod(optarg, &p);
+	if (*p == 'G' || *p == 'g') x *= 1e9;
+	else if (*p == 'M' || *p == 'm') x *= 1e6;
+	else if (*p == 'K' || *p == 'k') x *= 1e3;
+	return (int64_t)(x + .499);
+}
+
 int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
-	int i, c, k = 15, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx, idx_par_set = 0;
+	int i, c, k = 15, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx, idx_par_set = 0, max_intron_len = 0;
 	int minibatch_size = 200000000;
 	uint64_t batch_size = 4000000000ULL;
 	mm_bseq_file_t *fp = 0;
@@ -59,12 +72,12 @@ int main(int argc, char *argv[])
 		else if (c == 'k') k = atoi(optarg), idx_par_set = 1;
 		else if (c == 'H') is_hpc = 1, idx_par_set = 1;
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
-		else if (c == 'r') opt.bw = atoi(optarg);
+		else if (c == 'r') opt.bw = (int)mm_parse_num(optarg);
 		else if (c == 'f') opt.mid_occ_frac = atof(optarg);
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
-		else if (c == 'g') opt.max_gap = atoi(optarg);
-		else if (c == 'G') opt.max_gap_ref = atoi(optarg);
+		else if (c == 'g') opt.max_gap = (int)mm_parse_num(optarg);
+		else if (c == 'G') max_intron_len = (int)mm_parse_num(optarg);
 		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
@@ -80,6 +93,8 @@ int main(int argc, char *argv[])
 		else if (c == 'B') opt.b = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
+		else if (c == 'I') batch_size = mm_parse_num(optarg);
+		else if (c == 'K') minibatch_size = (int)mm_parse_num(optarg);
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // --bucket-bits
 		else if (c == 0 && long_idx == 2) keep_name = 0; // --int-rname
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
@@ -89,6 +104,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 7) opt.max_chain_skip = atoi(optarg); // --max-chain-skip
 		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(optarg); // --min-dp-len
 		else if (c == 0 && long_idx == 9) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ; // --print-aln-seq
+		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -98,15 +114,6 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
-		} else if (c == 'I' || c == 'K') {
-			double x;
-			char *p;
-			x = strtod(optarg, &p);
-			if (*p == 'G' || *p == 'g') x *= 1e9;
-			else if (*p == 'M' || *p == 'm') x *= 1e6;
-			else if (*p == 'K' || *p == 'k') x *= 1e3;
-			if (c == 'I') batch_size = (uint64_t)(x + .499);
-			else minibatch_size = (uint64_t)(x + .499);
 		} else if (c == 'x') {
 			if (strcmp(optarg, "ava-ont") == 0) {
 				opt.flag |= MM_F_AVA | MM_F_NO_SELF;
@@ -130,9 +137,9 @@ int main(int argc, char *argv[])
 				k = 19, w = 19;
 				opt.a = 1, opt.b = 9, opt.q = 16, opt.q2 = 41, opt.e = 2, opt.e2 = 1, opt.zdrop = 200;
 				opt.min_dp_max = 200;
-			} else if (strcmp(optarg, "cdna") == 0) {
+			} else if (strcmp(optarg, "splice") == 0 || strcmp(optarg, "cdna") == 0) {
 				k = 15, w = 5;
-				opt.flag |= MM_F_CDNA;
+				opt.flag |= MM_F_SPLICE;
 				opt.max_gap = 2000, opt.max_gap_ref = opt.bw = 100000;
 				opt.a = 1, opt.b = 2, opt.q = 2, opt.e = 1, opt.q2 = 32, opt.e2 = 0;
 				opt.zdrop = 200;
@@ -143,6 +150,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	if (w < 0) w = (int)(.6666667 * k + .499);
+	if ((opt.flag & MM_F_SPLICE) && max_intron_len > 0)
+		opt.max_gap_ref = opt.bw = max_intron_len;
 
 	if (argc == optind) {
 		fprintf(stderr, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
@@ -163,6 +172,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(stderr, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(stderr, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
+		fprintf(stderr, "    -G NUM       max intron length (only effective following -x splice) [100k]\n");
 		fprintf(stderr, "  Alignment:\n");
 		fprintf(stderr, "    -A INT       matching score [%d]\n", opt.a);
 		fprintf(stderr, "    -B INT       mismatch penalty [%d]\n", opt.b);
@@ -187,6 +197,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
 		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
 		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
+		fprintf(stderr, "                 splice: -k15 -w5 --splice -g2000 -G100k -A1 -B2 -O2,32 -E1,0 -z200 (long-read spliced aln)\n");
 		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return 1;
 	}

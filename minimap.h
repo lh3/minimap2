@@ -14,7 +14,7 @@
 #define MM_F_NO_QUAL   0x10
 #define MM_F_OUT_CG    0x20
 #define MM_F_OUT_CS    0x40
-#define MM_F_CDNA      0x80
+#define MM_F_SPLICE    0x80
 
 #define MM_IDX_MAGIC   "MMI\2"
 

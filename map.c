@@ -245,7 +245,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
 	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
-	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_CDNA), n_a, a, &u, b->km);
+	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_a, a, &u, b->km);
 	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
 	*n_regs = n_u;
 
@@ -258,7 +258,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
 		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		if (!(opt->flag & MM_F_CDNA))
+		if (!(opt->flag & MM_F_SPLICE))
 			mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
 	if (opt->flag & MM_F_CIGAR) {
@@ -347,7 +347,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		int intron_thres = -1;
 		for (i = 0; i < p->n_threads; ++i) mm_tbuf_destroy(s->buf[i]);
 		free(s->buf);
-		if (p->opt->flag & MM_F_CDNA)
+		if (p->opt->flag & MM_F_SPLICE)
 			intron_thres = mm_min_intron_len(p->opt->q, p->opt->e, p->opt->q2);
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (i = 0; i < s->n_seq; ++i) {

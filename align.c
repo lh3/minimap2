@@ -135,7 +135,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		for (i = 0; i < tlen; ++i) fputc("ACGTN"[tseq[i]], stderr); fputc('\n', stderr);
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr); fputc('\n', stderr);
 	}
-	if (opt->flag & MM_F_CDNA)
+	if (opt->flag & MM_F_SPLICE)
 		ksw_extd2_noins_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, 0, -1, opt->zdrop, flag, ez);
 	else if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, opt->zdrop, flag, ez);
@@ -259,7 +259,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	bw = (int)(opt->bw * 1.5 + 1.);
 
 	r2->cnt = 0;
-	if (!(opt->flag & MM_F_CDNA))
+	if (!(opt->flag & MM_F_SPLICE))
 		mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
 	else as1 = r->as, cnt1 = r->cnt;
 	mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
@@ -362,7 +362,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(re1 - rs1 <= re0 - rs0);
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
-		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e, (opt->flag&MM_F_CDNA)? opt->q2 : 0);
+		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e, (opt->flag&MM_F_SPLICE)? opt->q2 : 0);
 	}
 
 	kfree(km, tseq);
@@ -403,7 +403,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (ez->n_cigar == 0) goto end_align1_inv; // should never be here
 	mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
 	r_inv->p->dp_score = ez->max;
-	mm_update_extra(r_inv->p, qseq + q_off, tseq + t_off, mat, opt->q, opt->e, (opt->flag&MM_F_CDNA)? opt->q2 : 0);
+	mm_update_extra(r_inv->p, qseq + q_off, tseq + t_off, mat, opt->q, opt->e, (opt->flag&MM_F_SPLICE)? opt->q2 : 0);
 	r_inv->id = -1;
 	r_inv->parent = MM_PARENT_UNSET;
 	r_inv->inv = 1;

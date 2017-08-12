@@ -162,6 +162,12 @@ secondary alignments [5]. This option has no effect when
 .B -X
 is applied.
 .TP
+.BI -G \ NUM
+Maximal intron length in the splice mode. This option also changes the
+bandwidth to
+.IR NUM .
+Increasing this option slows down spliced alignment.
+.TP
 .BI --max-chain-skip \ INT
 A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
@@ -277,13 +283,13 @@ Long assembly to reference mapping
 .B -w19 -A1 -B9 -O16,41 -E2,1 -s200
 .BR -z200 ).
 Up to 10% sequence divergence.
-.TP 8
+.TP
 .B ava-pb
 PacBio all-vs-all overlap mapping
 .RB ( -Hk19
 .B -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip
 .BR 25 ).
-.TP 8
+.TP
 .B ava-ont
 Oxford Nanopore all-vs-all overlap mapping
 .RB ( -k15
@@ -292,6 +298,20 @@ Oxford Nanopore all-vs-all overlap mapping
 Similarly, the major difference from
 .B ava-pb
 is that this preset is not using HPC minimizers.
+.TP
+.B splice
+Long-read spliced alignment
+.RB ( -k15
+.B -w5 --splice -g2000 -G100k -A1 -B2 -O2,32 -E1,0
+.BR -z200 ).
+As of now, minimap2 only finds approximate exon boundaries. The true boundaries
+are usually within 10bp around the reported positions. In the splice mode,
+1) long deletions are taken as introns and represented as the
+.RB ` N '
+CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
+costs are different during chaining; 4) the computation of the
+.RB ` ms '
+tag ignores introns to demote hits to pseudogenes.
 .RE
 .SS Miscellaneous options
 .TP 10
@@ -367,6 +387,10 @@ Minimap2 does not work well with Illumina short reads as of now.
 *
 Minimap2 requires SSE2 instructions to compile. It is possible to add
 non-SSE2 support, but it would make minimap2 slower by several times.
+.TP
+*
+In the splice mode, minimap2 is unable to find the precise exon boundaries.
+The true bounraries are usually within 10bp around the reported locations.
 .SH SEE ALSO
 .PP
 miniasm(1), minimap(1), bwa(1).
