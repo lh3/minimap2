@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r287-dirty"
+#define MM_VERSION "2.0-r288-dirty"
 
 void liftrlimit()
 {
@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 			} else if (strcmp(optarg, "splice") == 0 || strcmp(optarg, "cdna") == 0) {
 				k = 15, w = 5;
 				opt.flag |= MM_F_SPLICE;
-				opt.max_gap = 2000, opt.max_gap_ref = opt.bw = 100000;
+				opt.max_gap = 2000, opt.max_gap_ref = opt.bw = 200000;
 				opt.a = 1, opt.b = 2, opt.q = 2, opt.e = 1, opt.q2 = 32, opt.e2 = 0;
 				opt.zdrop = 200;
 			} else {

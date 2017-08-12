@@ -163,7 +163,7 @@ secondary alignments [5]. This option has no effect when
 is applied.
 .TP
 .BI -G \ NUM
-Maximal intron length in the splice mode. This option also changes the
+Maximal intron length in the splice mode [200k]. This option also changes the
 bandwidth to
 .IR NUM .
 Increasing this option slows down spliced alignment.
@@ -302,7 +302,7 @@ is that this preset is not using HPC minimizers.
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2000 -G100k -A1 -B2 -O2,32 -E1,0
+.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0
 .BR -z200 ).
 As of now, minimap2 only finds approximate exon boundaries. The true boundaries
 are usually within 10bp around the reported positions. In the splice mode,
