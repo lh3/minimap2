@@ -76,10 +76,7 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	u = (__m128i*)(((size_t)mem + 15) >> 4 << 4); // 16-byte aligned
 	v = u + tlen_, x = v + tlen_, y = x + tlen_, x2 = y + tlen_;
 	s = x2 + tlen_, sf = (uint8_t*)(s + tlen_), qr = sf + tlen_ * 16;
-	memset(u,  -q - e,  tlen_ * 16);
-	memset(v,  -q - e,  tlen_ * 16);
-	memset(x,  -q - e,  tlen_ * 16);
-	memset(y,  -q - e,  tlen_ * 16);
+	memset(u,  -q - e,  tlen_ * 16 * 4); // this set u, v, x, y (because they are in the same array)
 	memset(x2, -q2,     tlen_ * 16);
 	if (!approx_max) {
 		H = (int32_t*)kmalloc(km, tlen_ * 16 * 4);
@@ -107,12 +104,9 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		st = st / 16 * 16, en = (en + 16) / 16 * 16 - 1;
 		// set boundary conditions
 		if (st > 0) {
-			if (st - 1 >= last_st && st - 1 <= last_en) {
+			if (st - 1 >= last_st && st - 1 <= last_en)
 				x1 = ((int8_t*)x)[st - 1], x21 = ((int8_t*)x2)[st - 1], v1 = v8[st - 1]; // (r-1,s-1) calculated in the last round
-			} else {
-				x1 = -q - e, x21 = -q2;
-				v1 = -q - e;
-			}
+			else x1 = -q - e, x21 = -q2, v1 = -q - e;
 		} else {
 			x1 = -q - e, x21 = -q2;
 			v1 = r == 0? -q - e : r < long_thres? -e : r == long_thres? long_diff : 0;
