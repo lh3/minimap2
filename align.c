@@ -61,10 +61,11 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 	return 0;
 }
 
-static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e)
+static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e, int q_intron)
 {
 	uint32_t k, l, toff = 0, qoff = 0;
-	int32_t s = 0, max = 0;
+	int32_t s = 0, max = 0, min_intron_len;
+	min_intron_len = mm_min_intron_len(q, e, q_intron);
 	if (p == 0) return;
 	for (k = 0; k < p->n_cigar; ++k) {
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
@@ -88,12 +89,14 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 			if (s < 0) s = 0;
 		} else if (op == 2) {
 			int n_ambi = 0;
-			for (l = 0; l < len; ++l)
-				if (tseq[toff + l] > 3) ++n_ambi;
-			toff += len, p->blen += len;
-			p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
-			s -= q + e * len;
-			if (s < 0) s = 0;
+			if (len < min_intron_len) {
+				for (l = 0; l < len; ++l)
+					if (tseq[toff + l] > 3) ++n_ambi;
+				toff += len, p->blen += len;
+				p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
+				s -= q + e * len;
+				if (s < 0) s = 0;
+			} else toff += len, p->blen += len;
 		}
 	}
 	p->dp_max = max;
@@ -133,7 +136,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr); fputc('\n', stderr);
 	}
 	if (opt->flag & MM_F_CDNA)
-		ksw_extd2_noins_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, -1, opt->zdrop, flag, ez);
+		ksw_extd2_noins_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, 0, -1, opt->zdrop, flag, ez);
 	else if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, opt->zdrop, flag, ez);
 	else
@@ -359,7 +362,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(re1 - rs1 <= re0 - rs0);
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
-		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
+		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e, (opt->flag&MM_F_CDNA)? opt->q2 : 0);
 	}
 
 	kfree(km, tseq);
@@ -400,7 +403,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (ez->n_cigar == 0) goto end_align1_inv; // should never be here
 	mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
 	r_inv->p->dp_score = ez->max;
-	mm_update_extra(r_inv->p, qseq + q_off, tseq + t_off, mat, opt->q, opt->e);
+	mm_update_extra(r_inv->p, qseq + q_off, tseq + t_off, mat, opt->q, opt->e, (opt->flag&MM_F_CDNA)? opt->q2 : 0);
 	r_inv->id = -1;
 	r_inv->parent = MM_PARENT_UNSET;
 	r_inv->inv = 1;

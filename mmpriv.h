@@ -60,4 +60,9 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc);
 }
 #endif
 
+static inline int32_t mm_min_intron_len(int32_t q, int32_t e, int32_t q_intron)
+{
+	return q_intron > q? (int)((float)(q_intron - q) / e + .999) : INT32_MAX;
+}
+
 #endif

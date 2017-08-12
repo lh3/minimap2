@@ -348,7 +348,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		for (i = 0; i < p->n_threads; ++i) mm_tbuf_destroy(s->buf[i]);
 		free(s->buf);
 		if (p->opt->flag & MM_F_CDNA)
-			intron_thres = (int)((float)(p->opt->q2 - p->opt->q) / p->opt->e + 0.999f);
+			intron_thres = mm_min_intron_len(p->opt->q, p->opt->e, p->opt->q2);
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (i = 0; i < s->n_seq; ++i) {
 			mm_bseq1_t *t = &s->seq[i];
