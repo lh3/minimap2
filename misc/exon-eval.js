@@ -123,12 +123,13 @@ Interval.find_ovlp = function(a, st, en)
  * Main function *
  *****************/
 
-var c, l_fuzzy = 10, min_ov_ratio = 0.95, print_err = false, print_corr = false;
-while ((c = getopt(arguments, "l:r:ec")) != null) {
+var c, l_fuzzy = 10, min_ov_ratio = 0.95, print_ovlp = false, print_err_only = false, first_only = false;
+while ((c = getopt(arguments, "l:r:ep1")) != null) {
 	if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 	else if (c == 'r') min_ov_ratio = parseFloat(getopt.arg);
-	else if (c == 'e') print_err = true;
-	else if (c == 'c') print_corr = true;
+	else if (c == 'p') print_ovlp = true;
+	else if (c == 'e') print_err_only = print_ovlp = true;
+	else if (c == '1') first_only = true;
 }
 
 if (arguments.length - getopt.ind < 2) {
@@ -162,7 +163,7 @@ for (var chr in anno) {
 	Interval.index_end(e);
 }
 
-var n_novel = 0, n_partial = 0, n_unmapped = 0, n_mapped = 0, n_exon = 0;
+var n_novel = 0, n_partial = 0, n_unmapped = 0, n_mapped = 0, n_exon = 0, n_pri = 0;
 var n_ext_hit = 0, n_int_hit = 0, n_sgl_hit = 0;
 
 file = new File(arguments[getopt.ind+1]);
@@ -171,11 +172,16 @@ var re_cigar = /(\d+)([MIDNSH])/g;
 while (file.readline(buf) >= 0) {
 	var m, t = buf.toString().split("\t");
 	if (t[0].charAt(0) == '@') continue;
-	if (last_qname == t[0]) continue;
+	var flag = parseInt(t[1]);
+	if (flag&0x100) continue;
+	if (first_only && last_qname == t[0]) continue;
 	if (t[2] == '*') {
 		++n_unmapped;
 		continue;
-	} else ++n_mapped;
+	} else {
+		++n_pri;
+		if (last_qname != t[0]) ++n_mapped;
+	}
 	var st = parseInt(t[3]) - 1, en = st, exon_st = st;
 	var exon = [];
 	while ((m = re_cigar.exec(t[5])) != null) {
@@ -225,16 +231,22 @@ while (file.readline(buf) >= 0) {
 					}
 					if (hit) break;
 				}
-				if ((print_err && !hit) || (print_corr && hit)) {
+				if (print_ovlp) {
+					var type = hit? 'C' : 'P';
+					if (hit && print_err_only) continue;
 					var x = '[';
 					for (var j = 0; j < o.length; ++j) {
 						if (j) x += ', ';
 						x += '(' + o[j][0] + "," + o[j][1] + ')';
 					}
 					x += ']';
-					print(t[0], i+1, t[2], exon[i][0], exon[i][1], x);
+					print(type, t[0], i+1, t[2], exon[i][0], exon[i][1], x);
 				}
-			} else ++n_novel;
+			} else {
+				++n_novel;
+				if (print_ovlp)
+					print('N', t[0], i+1, t[2], exon[i][0], exon[i][1]);
+			}
 		}
 	}
 	last_qname = t[0];
@@ -243,9 +255,10 @@ file.close();
 
 buf.destroy();
 
-if (!print_err && !print_corr) {
+if (!print_ovlp) {
 	print("Number of unmapped reads: " + n_unmapped);
 	print("Number of mapped reads: " + n_mapped);
+	print("Number of primary alignments: " + n_pri);
 	print("Number of mapped exons: " + n_exon);
 	print("Number of novel exons: " + n_novel);
 	print("Number of correct exons: " + (n_ext_hit + n_int_hit + n_sgl_hit) + " (" + ((n_ext_hit + n_int_hit + n_sgl_hit) / n_exon * 100).toFixed(2) + "%)");
