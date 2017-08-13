@@ -164,8 +164,8 @@ static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2],
 		c = mm_get_hplen_back(mi, a->x<<1>>33, (int32_t)a->x);
 		*r = (int32_t)a->x + 1 - c;
 	} else {
-		*r = (int32_t)a->x + 1;
-		*q = (int32_t)a->y + 1;
+		*r = (int32_t)a->x - (mi->k>>1);
+		*q = (int32_t)a->y - (mi->k>>1);
 	}
 }
 
