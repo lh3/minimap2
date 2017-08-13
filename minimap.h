@@ -94,6 +94,7 @@ typedef struct {
 	int min_join_flank_sc;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
+	int noncan;
 	int zdrop;
 	int min_dp_max;
 	int min_ksw_len;

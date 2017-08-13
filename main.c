@@ -142,6 +142,7 @@ int main(int argc, char *argv[])
 				opt.flag |= MM_F_SPLICE;
 				opt.max_gap = 2000, opt.max_gap_ref = opt.bw = 200000;
 				opt.a = 1, opt.b = 2, opt.q = 2, opt.e = 1, opt.q2 = 32, opt.e2 = 0;
+				opt.noncan = 4;
 				opt.zdrop = 200;
 			} else {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
