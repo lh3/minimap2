@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r295-dirty"
+#define MM_VERSION "2.0-r296-dirty"
 
 void liftrlimit()
 {
@@ -32,6 +32,7 @@ static struct option long_options[] = {
 	{ "min-dp-len",     required_argument, 0, 0 },
 	{ "print-aln-seq",  no_argument,       0, 0 },
 	{ "splice",         no_argument,       0, 0 },
+	{ "cost-non-gt-ag", required_argument, 0, 0 },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
@@ -67,7 +68,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Q", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg), idx_par_set = 1;
 		else if (c == 'k') k = atoi(optarg), idx_par_set = 1;
 		else if (c == 'H') is_hpc = 1, idx_par_set = 1;
@@ -105,9 +106,19 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(optarg); // --min-dp-len
 		else if (c == 0 && long_idx == 9) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ; // --print-aln-seq
 		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
+		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
+		} else if (c == 'u') {
+			if (*optarg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV;
+			else if (*optarg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV;
+			else if (*optarg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR;
+			else if (*optarg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV);
+			else {
+				fprintf(stderr, "[E::%s] unrecognized cDNA direction\n", __func__);
+				return 1;
+			}
 		} else if (c == 'O') {
 			opt.q = opt.q2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.q2 = strtol(s + 1, &s, 10);
@@ -139,7 +150,7 @@ int main(int argc, char *argv[])
 				opt.min_dp_max = 200;
 			} else if (strcmp(optarg, "splice") == 0 || strcmp(optarg, "cdna") == 0) {
 				k = 15, w = 5;
-				opt.flag |= MM_F_SPLICE;
+				opt.flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV;
 				opt.max_gap = 2000, opt.max_gap_ref = opt.bw = 200000;
 				opt.a = 1, opt.b = 2, opt.q = 2, opt.e = 1, opt.q2 = 32, opt.e2 = 0;
 				opt.noncan = 4;
@@ -181,6 +192,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -E INT[,INT] gap extension penalty; a k-long gap costs min{O1+k*E1,O2+k*E2} [%d,%d]\n", opt.e, opt.e2);
 		fprintf(stderr, "    -z INT       Z-drop score [%d]\n", opt.zdrop);
 		fprintf(stderr, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
+		fprintf(stderr, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
 		fprintf(stderr, "  Input/Output:\n");
 		fprintf(stderr, "    -Q           ignore base quality in the input\n");
 		fprintf(stderr, "    -a           output in the SAM format (PAF by default)\n");
@@ -198,7 +210,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
 		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
 		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
-		fprintf(stderr, "                 splice: -k15 -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -z200 (long-read spliced aln)\n");
+		fprintf(stderr, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
 		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return 1;
 	}

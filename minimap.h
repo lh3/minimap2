@@ -5,16 +5,18 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_IDX_DEF_B    14
+#define MM_IDX_DEF_B     14
 
-#define MM_F_NO_SELF   0x01
-#define MM_F_AVA       0x02
-#define MM_F_CIGAR     0x04
-#define MM_F_OUT_SAM   0x08
-#define MM_F_NO_QUAL   0x10
-#define MM_F_OUT_CG    0x20
-#define MM_F_OUT_CS    0x40
-#define MM_F_SPLICE    0x80
+#define MM_F_NO_SELF     0x001
+#define MM_F_AVA         0x002
+#define MM_F_CIGAR       0x004
+#define MM_F_OUT_SAM     0x008
+#define MM_F_NO_QUAL     0x010
+#define MM_F_OUT_CG      0x020
+#define MM_F_OUT_CS      0x040
+#define MM_F_SPLICE      0x080
+#define MM_F_SPLICE_FOR  0x100
+#define MM_F_SPLICE_REV  0x200
 
 #define MM_IDX_MAGIC   "MMI\2"
 

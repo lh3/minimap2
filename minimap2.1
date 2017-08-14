@@ -1,4 +1,4 @@
-.TH minimap2 1 "12 August 2017" "minimap2-2.0-r290-dirty" "Bioinformatics tools"
+.TH minimap2 1 "13 August 2017" "minimap2-2.0-r296-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -205,6 +205,18 @@ the contiguity of the alignment at the cost of poor alignment in the middle
 Minimal peak DP alignment score to output [40]. The peak score is computed from
 the final CIGAR. It is the score of the max scoring segment in the alignment
 and may be different from the total alignment score.
+.TP
+.BI -u \ CHAR
+How to find canonical splicing sites GT-AG -
+.BR f :
+transcript strand;
+.BR b :
+both strands;
+.BR n :
+no attempt to match GT-AG [n]
+.TP
+.BI --cost-non-gt-ag \ INT
+Cost of non-canonical splicing sites [0].
 .SS Input/output options
 .TP 10
 .B -Q
@@ -302,11 +314,10 @@ is that this preset is not using HPC minimizers.
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0
-.BR -z200 ).
-As of now, minimap2 only finds approximate exon boundaries. The true boundaries
-are usually within 10bp around the reported positions. In the splice mode,
-1) long deletions are taken as introns and represented as the
+.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -z200 -ub --cost-non-gt-ag
+.BR 4 ).
+In the splice mode, 1) long deletions are taken as introns and represented as
+the
 .RB ` N '
 CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
 costs are different during chaining; 4) the computation of the
@@ -387,10 +398,6 @@ Minimap2 does not work well with Illumina short reads as of now.
 *
 Minimap2 requires SSE2 instructions to compile. It is possible to add
 non-SSE2 support, but it would make minimap2 slower by several times.
-.TP
-*
-In the splice mode, minimap2 is unable to find the precise exon boundaries.
-The true bounraries are usually within 10bp around the reported locations.
 .SH SEE ALSO
 .PP
 miniasm(1), minimap(1), bwa(1).
