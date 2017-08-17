@@ -17,6 +17,7 @@
 #define MM_F_SPLICE      0x080
 #define MM_F_SPLICE_FOR  0x100
 #define MM_F_SPLICE_REV  0x200
+#define MM_F_SPLICE_BOTH 0x400
 
 #define MM_IDX_MAGIC   "MMI\2"
 
@@ -58,7 +59,8 @@ typedef struct {
 	uint32_t capacity;
 	int32_t dp_score, dp_max, dp_max2;
 	uint32_t blen;
-	uint32_t n_diff, n_ambi;
+	uint32_t n_diff;
+	uint32_t n_ambi:30, trans_strand:2;
 	uint32_t n_cigar;
 	uint32_t cigar[];
 } mm_extra_t;

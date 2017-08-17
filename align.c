@@ -64,7 +64,7 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e, int q_intron)
 {
 	uint32_t k, l, toff = 0, qoff = 0;
-	int32_t s = 0, max = 0, min_intron_len;
+	int32_t s = 0, max = 0, min_intron_len, n_gtag = 0, n_ctac = 0;
 	min_intron_len = mm_min_intron_len(q, e, q_intron);
 	if (p == 0) return;
 	for (k = 0; k < p->n_cigar; ++k) {
@@ -96,10 +96,19 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 				p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
 				s -= q + e * len;
 				if (s < 0) s = 0;
-			} else toff += len, p->blen += len;
+			} else { // intron
+				uint8_t b[4];
+				b[0] = tseq[toff], b[1] = tseq[toff+1];
+				b[2] = tseq[toff+len-2], b[3] = tseq[toff+len-1];
+				if (memcmp(b, "\2\3\0\2", 4) == 0) ++n_gtag;
+				else if (memcmp(b, "\1\3\0\1", 4) == 0) ++n_ctac;
+				toff += len, p->blen += len;
+			}
 		}
 	}
 	p->dp_max = max;
+	if (n_gtag > n_ctac) p->trans_strand = 1;
+	else if (n_gtag < n_ctac) p->trans_strand = 2;
 }
 
 static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // TODO: this calls the libc realloc()
@@ -245,7 +254,7 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int32_
 	}
 }
 
-static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a, ksw_extz_t *ez)
+static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
 	uint8_t *tseq, *qseq;
@@ -267,8 +276,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
 
 	if (opt->flag & MM_F_SPLICE) {
-		if (opt->flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
-		if (opt->flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
+		if (splice_flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
+		if (splice_flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
+		if (splice_flag & MM_F_SPLICE_BOTH) extra_flag |= KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV;
 	}
 
 	// compute rs0 and qs0
@@ -368,6 +378,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
 		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e, (opt->flag&MM_F_SPLICE)? opt->q2 : 0);
+		if (rev && r->p->trans_strand)
+			r->p->trans_strand ^= 3; // flip to the read strand
 	}
 
 	kfree(km, tseq);
@@ -450,7 +462,28 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	memset(&ez, 0, sizeof(ksw_extz_t));
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t r2;
-		mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, a, &ez);
+		if ((opt->flag&MM_F_SPLICE) && (opt->flag&MM_F_SPLICE_FOR) && (opt->flag&MM_F_SPLICE_REV)) {
+			mm_reg1_t s[2], s2[2];
+			int which, trans_strand;
+			s[0] = s[1] = regs[i];
+			mm_align1(km, opt, mi, qlen, qseq0, &s[0], &s2[0], a, &ez, MM_F_SPLICE_FOR);
+			mm_align1(km, opt, mi, qlen, qseq0, &s[1], &s2[1], a, &ez, MM_F_SPLICE_REV);
+			if (s[0].p->dp_score > s[1].p->dp_score) which = 0, trans_strand = 1;
+			else if (s[0].p->dp_score < s[1].p->dp_score) which = 1, trans_strand = 2;
+			else trans_strand = 3, which = (qlen + s[0].p->dp_score) & 1; // randomly choose a strand, effectively
+			if (which == 0) {
+				regs[i] = s[0], r2 = s2[0];
+				free(s[1].p);
+			} else {
+				regs[i] = s[1], r2 = s2[1];
+				free(s[0].p);
+			}
+			regs[i].p->trans_strand = trans_strand;
+		} else {
+			mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, a, &ez, opt->flag);
+			if ((opt->flag&MM_F_SPLICE) && !(opt->flag&MM_F_SPLICE_BOTH))
+				regs[i].p->trans_strand = opt->flag&MM_F_SPLICE_FOR? 1 : 2;
+		}
 		if (r2.cnt > 0) regs = mm_insert_reg(&r2, i, &n_regs, regs);
 		if (i > 0 && mm_align1_inv(km, opt, mi, qlen, qseq0, &regs[i-1], &regs[i], &r2, &ez)) {
 			regs = mm_insert_reg(&r2, i, &n_regs, regs);

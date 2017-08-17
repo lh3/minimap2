@@ -38,6 +38,8 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 {
+	if (opt->flag & MM_F_SPLICE_BOTH)
+		opt->flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV);
 	opt->max_occ = mm_idx_cal_max_occ(mi, opt->max_occ_frac);
 	opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
 	if (mm_verbose >= 3)
