@@ -219,12 +219,17 @@ no attempt to match GT-AG [n]
 Cost of non-canonical splicing sites [0].
 .SS Input/output options
 .TP 10
-.B -Q
-Ignore base quality in the input file.
-.TP
 .B -a
 Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
 by default.
+.TP
+.B -Q
+Ignore base quality in the input file.
+.TP
+.BI -R \ STR
+SAM read group line in a format like
+.B @RG\\\\tID:foo\\\\tSM:bar
+[].
 .TP
 .B -c
 Generate CIGAR. In PAF, the CIGAR is written to the `cg' custom tag.

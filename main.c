@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg), idx_par_set = 1;
 		else if (c == 'k') k = atoi(optarg), idx_par_set = 1;
 		else if (c == 'H') is_hpc = 1, idx_par_set = 1;
@@ -96,6 +96,7 @@ int main(int argc, char *argv[])
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
 		else if (c == 'I') batch_size = mm_parse_num(optarg);
 		else if (c == 'K') minibatch_size = (int)mm_parse_num(optarg);
+		else if (c == 'R') mm_set_rg(optarg); // WARNING: this modifies global variables in format.c
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // --bucket-bits
 		else if (c == 0 && long_idx == 2) keep_name = 0; // --int-rname
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
@@ -194,14 +195,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(stderr, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
 		fprintf(stderr, "  Input/Output:\n");
-		fprintf(stderr, "    -Q           ignore base quality in the input\n");
 		fprintf(stderr, "    -a           output in the SAM format (PAF by default)\n");
+		fprintf(stderr, "    -Q           don't output base quality in SAM\n");
+		fprintf(stderr, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(stderr, "    -c           output CIGAR in PAF\n");
-		fprintf(stderr, "    -S           output the cs tag in PAF\n");
+		fprintf(stderr, "    -S           output the cs tag in PAF (cs encodes both query and ref sequences)\n");
 		fprintf(stderr, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(stderr, "    -K NUM       minibatch size [200M]\n");
 //		fprintf(stderr, "    -v INT       verbose level [%d]\n", mm_verbose);
-		fprintf(stderr, "    -V           show version number\n");
+		fprintf(stderr, "    --version    show version number\n");
 		fprintf(stderr, "  Preset:\n");
 		fprintf(stderr, "    -x STR       preset (recommended to be applied before other options) []\n");
 		fprintf(stderr, "                 map10k/map-pb: -Hk19 (PacBio/ONT vs reference mapping)\n");
