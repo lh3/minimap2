@@ -33,6 +33,7 @@ static struct option long_options[] = {
 	{ "print-aln-seq",  no_argument,       0, 0 },
 	{ "splice",         no_argument,       0, 0 },
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
+	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
 	{ "min-count",      required_argument, 0, 'n' },
@@ -62,13 +63,13 @@ int main(int argc, char *argv[])
 	uint64_t batch_size = 4000000000ULL;
 	mm_bseq_file_t *fp = 0;
 	char *fnw = 0, *s;
-	FILE *fpr = 0, *fpw = 0;
+	FILE *fpr = 0, *fpw = 0, *fp_help = stderr;
 
 	liftrlimit();
 	mm_realtime0 = realtime();
 	mm_mapopt_init(&opt);
 
-	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:h", long_options, &long_idx)) >= 0) {
 		if (c == 'w') w = atoi(optarg), idx_par_set = 1;
 		else if (c == 'k') k = atoi(optarg), idx_par_set = 1;
 		else if (c == 'H') is_hpc = 1, idx_par_set = 1;
@@ -96,6 +97,8 @@ int main(int argc, char *argv[])
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
 		else if (c == 'I') batch_size = mm_parse_num(optarg);
 		else if (c == 'K') minibatch_size = (int)mm_parse_num(optarg);
+		else if (c == 'R') mm_set_rg(optarg); // WARNING: this modifies global variables in format.c
+		else if (c == 'h') fp_help = stdout;
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // --bucket-bits
 		else if (c == 0 && long_idx == 2) keep_name = 0; // --int-rname
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
@@ -166,54 +169,55 @@ int main(int argc, char *argv[])
 	if ((opt.flag & MM_F_SPLICE) && max_intron_len > 0)
 		opt.max_gap_ref = opt.bw = max_intron_len;
 
-	if (argc == optind) {
-		fprintf(stderr, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
-		fprintf(stderr, "Options:\n");
-		fprintf(stderr, "  Indexing:\n");
-		fprintf(stderr, "    -H           use homopolymer-compressed k-mer\n");
-		fprintf(stderr, "    -k INT       k-mer size (no larger than 28) [%d]\n", k);
-		fprintf(stderr, "    -w INT       minizer window size [{-k}*2/3]\n");
-		fprintf(stderr, "    -I NUM       split index for every ~NUM input bases [4G]\n");
-		fprintf(stderr, "    -d FILE      dump index to FILE []\n");
-		fprintf(stderr, "  Mapping:\n");
-		fprintf(stderr, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
-		fprintf(stderr, "    -g INT       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
-		fprintf(stderr, "    -r INT       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
-		fprintf(stderr, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
-		fprintf(stderr, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
-//		fprintf(stderr, "    -T INT       SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
-		fprintf(stderr, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
-		fprintf(stderr, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
-		fprintf(stderr, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
-		fprintf(stderr, "    -G NUM       max intron length (only effective following -x splice) [200k]\n");
-		fprintf(stderr, "  Alignment:\n");
-		fprintf(stderr, "    -A INT       matching score [%d]\n", opt.a);
-		fprintf(stderr, "    -B INT       mismatch penalty [%d]\n", opt.b);
-		fprintf(stderr, "    -O INT[,INT] gap open penalty [%d,%d]\n", opt.q, opt.q2);
-		fprintf(stderr, "    -E INT[,INT] gap extension penalty; a k-long gap costs min{O1+k*E1,O2+k*E2} [%d,%d]\n", opt.e, opt.e2);
-		fprintf(stderr, "    -z INT       Z-drop score [%d]\n", opt.zdrop);
-		fprintf(stderr, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
-		fprintf(stderr, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
-		fprintf(stderr, "  Input/Output:\n");
-		fprintf(stderr, "    -Q           ignore base quality in the input\n");
-		fprintf(stderr, "    -a           output in the SAM format (PAF by default)\n");
-		fprintf(stderr, "    -c           output CIGAR in PAF\n");
-		fprintf(stderr, "    -S           output the cs tag in PAF\n");
-		fprintf(stderr, "    -t INT       number of threads [%d]\n", n_threads);
-		fprintf(stderr, "    -K NUM       minibatch size [200M]\n");
-//		fprintf(stderr, "    -v INT       verbose level [%d]\n", mm_verbose);
-		fprintf(stderr, "    -V           show version number\n");
-		fprintf(stderr, "  Preset:\n");
-		fprintf(stderr, "    -x STR       preset (recommended to be applied before other options) []\n");
-		fprintf(stderr, "                 map10k/map-pb: -Hk19 (PacBio/ONT vs reference mapping)\n");
-		fprintf(stderr, "                 map-ont: -k15 (slightly more sensitive than 'map10k' for ONT vs reference)\n");
-		fprintf(stderr, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
-		fprintf(stderr, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
-		fprintf(stderr, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
-		fprintf(stderr, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
-		fprintf(stderr, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
-		fprintf(stderr, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
-		return 1;
+	if (argc == optind || fp_help == stdout) {
+		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
+		fprintf(fp_help, "Options:\n");
+		fprintf(fp_help, "  Indexing:\n");
+		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer\n");
+		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", k);
+		fprintf(fp_help, "    -w INT       minizer window size [{-k}*2/3]\n");
+		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [4G]\n");
+		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
+		fprintf(fp_help, "  Mapping:\n");
+		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
+		fprintf(fp_help, "    -g INT       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
+		fprintf(fp_help, "    -r INT       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
+		fprintf(fp_help, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
+		fprintf(fp_help, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
+//		fprintf(fp_help, "    -T INT       SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
+		fprintf(fp_help, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
+		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
+		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
+		fprintf(fp_help, "    -G NUM       max intron length (only effective following -x splice) [200k]\n");
+		fprintf(fp_help, "  Alignment:\n");
+		fprintf(fp_help, "    -A INT       matching score [%d]\n", opt.a);
+		fprintf(fp_help, "    -B INT       mismatch penalty [%d]\n", opt.b);
+		fprintf(fp_help, "    -O INT[,INT] gap open penalty [%d,%d]\n", opt.q, opt.q2);
+		fprintf(fp_help, "    -E INT[,INT] gap extension penalty; a k-long gap costs min{O1+k*E1,O2+k*E2} [%d,%d]\n", opt.e, opt.e2);
+		fprintf(fp_help, "    -z INT       Z-drop score [%d]\n", opt.zdrop);
+		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
+		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
+		fprintf(fp_help, "  Input/Output:\n");
+		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
+		fprintf(fp_help, "    -Q           don't output base quality in SAM\n");
+		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
+		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
+		fprintf(fp_help, "    -S           output the cs tag in PAF (cs encodes both query and ref sequences)\n");
+		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
+		fprintf(fp_help, "    -K NUM       minibatch size [200M]\n");
+//		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
+		fprintf(fp_help, "    --version    show version number\n");
+		fprintf(fp_help, "  Preset:\n");
+		fprintf(fp_help, "    -x STR       preset (recommended to be applied before other options) []\n");
+		fprintf(fp_help, "                 map10k/map-pb: -Hk19 (PacBio/ONT vs reference mapping)\n");
+		fprintf(fp_help, "                 map-ont: -k15 (slightly more sensitive than 'map10k' for ONT vs reference)\n");
+		fprintf(fp_help, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
+		fprintf(fp_help, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
+		fprintf(fp_help, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
+		fprintf(fp_help, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
+		fprintf(fp_help, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
+		fprintf(fp_help, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
+		return fp_help == stdout? 0 : 1;
 	}
 
 	is_idx = mm_idx_is_idx(argv[optind]);
