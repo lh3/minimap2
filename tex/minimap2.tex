@@ -65,21 +65,21 @@ and the ability to produce detailed alignment.
 
 \subsection{Chaining}
 
-%\subsubsection{Chaining}
+\subsubsection{Chaining}
 An \emph{anchor} is a 3-tuple $(x,y,w)$, indicating interval $[x-w+1,x]$ on the
 reference matching interval $[y-w+1,y]$ on the query. Given a list of anchors
 sorted by ending reference position $x$, let $f(i)$ be the maximal chaining
 score up to the $i$-th anchor in the list. $f(i)$ can be calculated with
 dynamic programming (DP):
 \begin{equation}\label{eq:chain}
-f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+d(j,i)-\beta_c(j,i) \},w_i\big\}
+f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+\alpha(j,i)-\beta(j,i) \},w_i\big\}
 \end{equation}
-where $d(j,i)=\min\big\{\min\{y_i-y_j,x_i-x_j\},w_i\big\}$ is the number of
-matching bases between the two anchors. $\beta_c(j,i)>0$ is the gap cost. It
+where $\alpha(j,i)=\min\big\{\min\{y_i-y_j,x_i-x_j\},w_i\big\}$ is the number of
+matching bases between the two anchors. $\beta(j,i)>0$ is the gap cost. It
 equals $\infty$ if $y_j\ge y_i$ or $\max\{y_i-y_j,x_i-x_j\}>G$ (i.e. the
 distance between two anchors is too large); otherwise
 \begin{equation}\label{eq:chain-gap}
-\beta_c(j,i)=\gamma_c\big((y_i-y_j)-(x_i-x_j)\big)
+\beta(j,i)=\gamma_c\big((y_i-y_j)-(x_i-x_j)\big)
 \end{equation}
 In implementation, a gap of length $l$ costs $\gamma_c(l)=0.01\cdot \bar{w}\cdot
 |l|+0.5\log_2|l|$, where $\bar{w}$ is the average seed length. For $m$ anchors, directly computing all $f(\cdot)$ with
@@ -96,15 +96,15 @@ score after up to $h$ iterations. This approach reduces the average time to
 $O(h\cdot m)$. In practice, we can almost always find the optimal chain with
 $h=50$; even if the heuristic fails, the optimal chain is often close.
 
-%\subsubsection{Backtracking}
-For backtracking, let $P(i)$ be the index of the best predecessor of anchor
-$i$. It equals 0 if $f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$
-otherwise. For each anchor $i$ in the descending order of $f(i)$, we apply
-$P(\cdot)$ repeatedly to find its predecessor and mark each visited $i$ as
-`used', until $P(i)=0$ or we reach an already `used' $i$. This way we find all
-chains with no anchors used in more than one chains.
+\subsubsection{Backtracking}
+Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
+$f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$ otherwise. For each
+anchor $i$ in the descending order of $f(i)$, we apply $P(\cdot)$ repeatedly to
+find its predecessor and mark each visited $i$ as `used', until $P(i)=0$ or we
+reach an already `used' $i$. This way we find all chains with no anchors used
+in more than one chains.
 
-%\subsubsection{Identifying primary chains}
+\subsubsection{Identifying primary chains}
 In the absence of copy number changes, each query segment should not be mapped
 to two places in the reference. However, chains found at the previous step may
 have significant or complete overlaps due to repeats in the reference.
@@ -117,32 +117,134 @@ add the chain to $Q$. In the end, $Q$ contains all the primary chains. We did
 not choose a more sophisticated data structure (e.g. range tree or k-d tree)
 because this step is not the performance bottleneck.
 
-\subsection{Alignment}
+\subsection{Aligning genomic DNA}
 
-Minimap2 performs global alignment between adjacent anchors in a chain. It
-adopted difference-based formulation to derive
-alignment~\citep{Wu:1996aa,Suzuki:2016}. When combined with SSE vectorization,
-this formulation has two advantages. First, because each score in the DP matrix
-is bounded by the gap cost and the maximum matching score, we can usually
-achieve 16-way SSE vectorization regardless of the peak score of the
-alignment. Second, filling the DP matrix along the diagonal, we can simplify
-banded alignment, which is critical to performance. In practice, our
-implementation is three times as fast as Parasail's 4-way
-vectorization~\citep{Daily:2016aa} for global alignment.
-Without banding, our implementation is slower than Edlib~\citep{Sosic:2017aa},
-but with a 1000bp band, it is considerably faster. When performing global
-alignment between anchors, we expect the alignment to stay close to the
-diagonal of the DP matrix. Banding is often applicable.
+\subsubsection{Alignment with 2-piece affine gap cost}
 
-Minimap2 uses a 2-piece affine gap cost~\citep{Gotoh:1990aa}:
+Minimap2 performs DP-based global alignment between adjacent anchors in a
+chain. It uses a 2-piece affine gap cost~\citep{Gotoh:1990aa}:
 \begin{equation}\label{eq:2-piece}
 \gamma_a(l)=\min\{q+|l|\cdot e,\tilde{q}+|l|\cdot\tilde{e}\}
 \end{equation}
-On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, this
-cost function is concave. It applies cost $q+|l|\cdot e$ to gaps shorter than
-$\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
-$\tilde{q}+|l|\cdot\tilde{e}$ to longer gaps. This scheme helps to recover
-longer insertions and deletions~(INDEL).
+Without losing generality, we always assume $q+e<\tilde{q}+\tilde{e}$.
+On the condition that $e>\tilde{e}$, it applies cost $q+|l|\cdot e$ to gaps
+shorter than $\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
+$\tilde{q}+|l|\cdot\tilde{e}$ to longer gaps.  This scheme helps to recover
+longer insertions and deletions~(INDELs).
+
+The equation to compute the optimal alignment under $\gamma_a(\cdot)$ is
+\begin{equation}\label{eq:ae86}
+\left\{\begin{array}{l}
+H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij},\tilde{F}_{ij}\}\\
+E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
+F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
+\tilde{E}_{i+1,j}= \max\{H_{ij}-\tilde{q},\tilde{E}_{ij}\}-\tilde{e}\\
+\tilde{F}_{i,j+1}= \max\{H_{ij}-\tilde{q},\tilde{F}_{ij}\}-\tilde{e}
+\end{array}\right.
+\end{equation}
+where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
+base. It is a natural extension to the algorithm under affine gap
+cost~\citep{Gotoh:1982aa,Altschul:1986aa}.
+
+\subsubsection{Suzuki's formulation}
+
+To efficiently align long sequences, minimap2 did not directly use
+Eq.~(\ref{eq:ae86}) for alignment. It instead adopted a difference-based
+formulation first proposed by \citet{Wu:1996aa} and later adapted by
+\citet{Suzuki:2016} for affine gap cost. In case of 2-piece affine gap cost in
+Eq.~(\ref{eq:2-piece}), define
+\[
+\left\{\begin{array}{ll}
+u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
+x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-\tilde{H}_{ij} \\
+y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-\tilde{H}_{ij}
+\end{array}\right.
+\]
+We can transform Eq.~(\ref{eq:ae86}) to
+\begin{equation}\label{eq:suzuki}
+\left\{\begin{array}{lll}
+z_{ij}&=&\max\{s(i,j),x_{i-1,j}+v_{i-1,j},y_{i,j-1}+u_{i,j-1},\\
+&&\tilde{x}_{i-1,j}+v_{i-1,j},\tilde{y}_{i,j-1}+u_{i,j-1}\}\\
+u_{ij}&=&z_{ij}-v_{i-1,j}\\
+v_{ij}&=&z_{ij}-u_{i,j-1}\\
+x_{ij}&=&\max\{0,x_{i-1,j}+v_{i-1,j}-z_{ij}+q\}-q-e\\
+y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
+\tilde{x}_{ij}&=&\max\{0,\tilde{x}_{i-1,j}+v_{i-1,j}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
+\tilde{y}_{ij}&=&\max\{0,\tilde{y}_{i,j-1}+u_{i,j-1}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}
+\end{array}\right.
+\end{equation}
+where $z_{ij}$ is a temporary variable that does not need to be stored.
+This is Suzuki's formulation for 2-piece affine gap cost. An important property
+of this formulation is that all values are bounded. To see that,
+\[
+x_{ij}=E_{i+1,j}-H_{ij}=\max\{-q,E_{ij}-H_{ij}\}-e
+\]
+With $E_{ij}\le H_{ij}$, we have
+\[
+-q-e\le x_{ij}\le\max\{-q,0\}-e=-e
+\]
+and similar inequations for $y_{ij}$, $\tilde{x}_{ij}$ and $\tilde{y}_{ij}$.
+In addition,
+\[
+u_{ij}=z_{ij}-v_{i-1,j}\ge\max\{x_{i-1,j},\tilde{x}_{i-1,j}\}\ge-q-e
+\]
+As the maximum value of $z_{ij}=H_{ij}-H_{i-1,j-1}$ is $M$, the maximal
+matching score, we can derive
+\[
+u_{ij}\le M-v_{i-1,j}\le M+q+e
+\]
+In conclusion, in Eq.~(\ref{eq:suzuki}), $x$ and $y$ are bounded by $[-q-e,-e]$,
+$\tilde{x}$ and $\tilde{y}$ by $[-\tilde{q}-\tilde{e},-\tilde{e}]$, and $u$ and
+$v$ by $[-q-e,M+q+e]$. When $-128\le-q-e<M+q+e\le127$, each of them can be stored as
+a 8-bit integer. This enables 16-way SSE vectorization regardless of the peak
+score of the alignment.
+
+For a more efficient SSE implementation, we transform the row-column coordinate
+to diagonal-anti-diagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
+Eq.~(\ref{eq:suzuki}) becomes:
+\begin{equation*}
+\left\{\begin{array}{lll}
+z_{rt}&=&\max\{s(t,r-t),x_{r-1,t-1}+v_{r-1,t-1},y_{r-1,t}\\
+&&+u_{r-1,t},\tilde{x}_{r-1,t-1}+v_{r-1,t-1},\tilde{y}_{r-1,t}+u_{r-1,t}\}\\
+u_{rt}&=&z_{rt}-v_{r-1,t-1}\\
+v_{rt}&=&z_{rt}-u_{r-1,t}\\
+x_{rt}&=&\max\{0,x_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+q\}-q-e\\
+y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
+\tilde{x}_{rt}&=&\max\{0,\tilde{x}_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
+\tilde{y}_{rt}&=&\max\{0,\tilde{y}_{r-1,t}+u_{r-1,t}-z_{rt}+\tilde{q}\}-\tilde{q}-\tilde{e}
+\end{array}\right.
+\end{equation*}
+In this formulation, cells with the same diagonal index $r$ are independent of
+each other. This allows us to fully vectorize the computation of all cells on
+the same anti-diagonal in one inner loop.
+
+On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
+condition of this equation in the diagonal-anti-diagonal coordinate is
+\[
+\left\{\begin{array}{l}
+x_{r-1,-1}=y_{r-1,r}=-q-e\\
+\tilde{x}_{r-1,-1}=\tilde{y}_{r-1,r}=-\tilde{q}-\tilde{e}\\
+u_{r-1,r}=v_{r-1,-1}=\eta(r)\\
+\end{array}\right.
+\]
+where
+\[
+\eta(r)=\left\{\begin{array}{ll}
+-q-e & (r=0) \\
+-e & (r<\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
+r\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (r=\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
+-\tilde{e} & (r>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
+\end{array}\right.
+\]
+
+In practice, our 16-way vectorized implementation of global alignment is three
+times as fast as Parasail's 4-way vectorization~\citep{Daily:2016aa}.  Without
+banding, our implementation is slower than Edlib~\citep{Sosic:2017aa}, but with
+a 1000bp band, it is considerably faster. When performing global alignment
+between anchors, we expect the alignment to stay close to the diagonal of the
+DP matrix. Banding is applicable most of time.
+
+\subsubsection{The Z-drop heuristic}
 
 With global alignment, minimap2 may force to align unrelated sequences between
 two adjacent anchors. To avoid such an artifact, we compute accumulative
@@ -164,7 +266,7 @@ alignment between the two subsequences involved in the global alignment, but
 this time with the one subsequence reverse complemented. This additional
 alignment step may identify short inversions that are missed during chaining.
 
-\subsection{Spliced alignment}
+\subsection{Aligning spliced sequences}
 
 The algorithm described above can be adapted to spliced alignment. In this
 mode, the chaining gap cost distinguishes insertions to and deletions from the
@@ -183,10 +285,33 @@ q+l\cdot e & (l>0) \\
 \end{array}\right.
 \]
 In alignment, a deletion no shorter than $\lceil(\tilde{q}-q)/e\rceil$ is
-regarded as an intron, which pays no cost to gap extensions. With these
-modifications, minimap2 can retain multiple reasonably long introns in one
-alignment, rather than fragment the alignment into local hits, which often
-leads to the loss of small exons especially given noisy reads.
+regarded as an intron, which pays no cost to gap extensions.
+
+To pinpoint precise exon boundaries, minimap2 penalizes non-canonical splicing
+with the following equation
+\begin{equation}\label{eq:splice}
+\left\{\begin{array}{l}
+H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij}-a_i\}\\
+E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
+F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
+\tilde{E}_{i+1,j}= \max\{H_{ij}-d_i-\tilde{q},\tilde{E}_{ij}\}\\
+\end{array}\right.
+\end{equation}
+Let $T$ be the reference sequence. $d_i$ is the cost of a non-canonical donor
+site, which takes 0 if $T[i+1,i+2]={\tt GT}$, or a postive number $p$
+otherwise. Similarly, $a_i$ is the cost of a non-canonical acceptor site, which
+takes 0 if $T[i-1,i]={\tt AG}$, or $p$ otherwise. When the read strand relative
+to the underlying transcript is unknown, minimap2 aligns each chain twice, first
+assuming ${\tt GT}$--${\tt AG}$ as the splice signal and then assuming ${\tt
+CT}$--${\tt AC}$, the reverse complement of ${\tt GT}$--${\tt AG}$, as the
+splice signal. The alignment with a higher score is taken as the final
+alignment. This procedure also infers the relative strand of reads spanning
+canonical splicing sites.
+
+In the spliced alignment mode, minimap2 further increases the density of
+minimizers and disables banded alignment. Together with the two-round DP-based
+alignment, spliced alignment is several times slower than DNA sequence
+alignment.
 
 \end{methods}
 
@@ -258,112 +383,4 @@ issues.
 
 \bibliography{minimap2}
 
-\appendix
-
-\begin{methods}
-\section*{Appendix}
-A 2-piece gap cost function is
-\[
-\gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}
-\]
-Without losing generality, we assume $q+e\le\tilde{q}+\tilde{e}$. The equation
-to compute the optimal alignment under such a gap cost is~\citep{Gotoh:1990aa}
-\begin{equation}\label{eq:ae86}
-\left\{\begin{array}{l}
-H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij},\tilde{F}_{ij}\}\\
-E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
-F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
-\tilde{E}_{i+1,j}= \max\{H_{ij}-\tilde{q},\tilde{E}_{ij}\}-\tilde{e}\\
-\tilde{F}_{i,j+1}= \max\{H_{ij}-\tilde{q},\tilde{F}_{ij}\}-\tilde{e}
-\end{array}\right.
-\end{equation}
-where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
-base. If we define
-\[
-\left\{\begin{array}{ll}
-u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
-x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-\tilde{H}_{ij} \\
-y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-\tilde{H}_{ij}
-\end{array}\right.
-\]
-we can transform Eq.~(\ref{eq:ae86}) to
-\begin{equation}\label{eq:suzuki}
-\left\{\begin{array}{lll}
-z_{ij}&=&\max\{s(i,j),x_{i-1,j}+v_{i-1,j},y_{i,j-1}+u_{i,j-1},\\
-&&\tilde{x}_{i-1,j}+v_{i-1,j},\tilde{y}_{i,j-1}+u_{i,j-1}\}\\
-u_{ij}&=&z_{ij}-v_{i-1,j}\\
-v_{ij}&=&z_{ij}-u_{i,j-1}\\
-x_{ij}&=&\max\{0,x_{i-1,j}+v_{i-1,j}-z_{ij}+q\}-q-e\\
-y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
-\tilde{x}_{ij}&=&\max\{0,\tilde{x}_{i-1,j}+v_{i-1,j}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
-\tilde{y}_{ij}&=&\max\{0,\tilde{y}_{i,j-1}+u_{i,j-1}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}
-\end{array}\right.
-\end{equation}
-where $z_{ij}$ is a temporary variable that does not need to be stored.
-
-All values in Eq.~(\ref{eq:suzuki}) are bounded. To see that,
-\[
-x_{ij}=E_{i+1,j}-H_{ij}=\max\{-q,E_{ij}-H_{ij}\}-e
-\]
-With $E_{ij}\le H_{ij}$, we have
-\[
--q-e\le x_{ij}\le\max\{-q,0\}-e=-e
-\]
-and similar inequations for $y_{ij}$, $\tilde{x}_{ij}$ and $\tilde{y}_{ij}$.
-In addition,
-\[
-u_{ij}=z_{ij}-v_{i-1,j}\ge\max\{x_{i-1,j},\tilde{x}_{i-1,j}\}\ge-q-e
-\]
-As the maximum value of $z_{ij}=H_{ij}-H_{i-1,j-1}$ is $M$, the maximal
-matching score, we can derive
-\[
-u_{ij}\le M-v_{i-1,j}\le M+q+e
-\]
-In conclusion, $x$ and $y$ are bounded by $[-q-e,-e]$, $\tilde{x}$ and $\tilde{y}$ by
-$[-\tilde{q}-\tilde{e},-\tilde{e}]$, and $u$ and $v$ by $[-q-e,M+q+e]$. When
-matching score and gap cost are small, each of them can be stored as a 8-bit
-integer. This enables 16-way SSE vectorization regardless of the peak score of
-the alignment.
-
-For a more efficient SSE implementation, we transform the row-column coordinate
-to diagonal-anti-diagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
-Eq.~(\ref{eq:suzuki}) becomes:
-\begin{equation*}
-\left\{\begin{array}{lll}
-z_{rt}&=&\max\{s(t,r-t),x_{r-1,t-1}+v_{r-1,t-1},y_{r-1,t}+u_{r-1,t},\\
-&&\tilde{x}_{r-1,t-1}+v_{r-1,t-1},\tilde{y}_{r-1,t}+u_{r-1,t}\}\\
-u_{rt}&=&z_{rt}-v_{r-1,t-1}\\
-v_{rt}&=&z_{rt}-u_{r-1,t}\\
-x_{rt}&=&\max\{0,x_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+q\}-q-e\\
-y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
-\tilde{x}_{rt}&=&\max\{0,\tilde{x}_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+\tilde{q}\}-\tilde{q}-\tilde{e}\\
-\tilde{y}_{rt}&=&\max\{0,\tilde{y}_{r-1,t}+u_{r-1,t}-z_{rt}+\tilde{q}\}-\tilde{q}-\tilde{e}
-\end{array}\right.
-\end{equation*}
-In this formulation, cells with the same diagonal index $r$ are independent of
-each other. This allows us to fully vectorize the computation of all cells on
-the same anti-diagonal in one inner loop.
-
-On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
-condition of this equation in the diagonal-anti-diagonal coordinate is
-\[
-\left\{\begin{array}{l}
-x_{r-1,-1}=y_{r-1,r}=-q-e\\
-\tilde{x}_{r-1,-1}=\tilde{y}_{r-1,r}=-\tilde{q}-\tilde{e}\\
-u_{r-1,r}=v_{r-1,-1}=\eta(r)\\
-\end{array}\right.
-\]
-where
-\[
-\eta(r)=\left\{\begin{array}{ll}
--q-e & (r=0) \\
--e & (r<\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
-r\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (r=\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil) \\
--\tilde{e} & (r>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
-\end{array}\right.
-\]
-
-\citet{Suzuki:2016} first derived a similar set of equations under affine gap
-cost but with different notations.
-\end{methods}
 \end{document}
