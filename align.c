@@ -53,7 +53,7 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 		} else if (op == 1) {
 			score -= q + e * len, j += len;
 			if (test_zdrop_aux(score, i, j, &max, &max_i, &max_j, e, zdrop)) return 1;
-		} else if (op == 2) {
+		} else if (op == 2 || op == 3) {
 			score -= q + e * len, i += len;
 			if (test_zdrop_aux(score, i, j, &max, &max_i, &max_j, e, zdrop)) return 1;
 		}
@@ -64,12 +64,11 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e, int q_intron)
 {
 	uint32_t k, l, toff = 0, qoff = 0;
-	int32_t s = 0, max = 0, min_intron_len, n_gtag = 0, n_ctac = 0;
-	min_intron_len = mm_min_intron_len(q, e, q_intron);
+	int32_t s = 0, max = 0, n_gtag = 0, n_ctac = 0;
 	if (p == 0) return;
 	for (k = 0; k < p->n_cigar; ++k) {
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
-		if (op == 0) {
+		if (op == 0) { // match/mismatch
 			for (l = 0; l < len; ++l) {
 				int cq = qseq[qoff + l], ct = tseq[toff + l];
 				if (ct > 3 || cq > 3) ++p->n_ambi;
@@ -79,7 +78,7 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 				else max = max > s? max : s;
 			}
 			toff += len, qoff += len, p->blen += len;
-		} else if (op == 1) {
+		} else if (op == 1) { // insertion
 			int n_ambi = 0;
 			for (l = 0; l < len; ++l)
 				if (qseq[qoff + l] > 3) ++n_ambi;
@@ -87,23 +86,21 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 			p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
 			s -= q + e * len;
 			if (s < 0) s = 0;
-		} else if (op == 2) {
+		} else if (op == 2) { // deletion
 			int n_ambi = 0;
-			if (len < min_intron_len) {
-				for (l = 0; l < len; ++l)
-					if (tseq[toff + l] > 3) ++n_ambi;
-				toff += len, p->blen += len;
-				p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
-				s -= q + e * len;
-				if (s < 0) s = 0;
-			} else { // intron
-				uint8_t b[4];
-				b[0] = tseq[toff], b[1] = tseq[toff+1];
-				b[2] = tseq[toff+len-2], b[3] = tseq[toff+len-1];
-				if (memcmp(b, "\2\3\0\2", 4) == 0) ++n_gtag;
-				else if (memcmp(b, "\1\3\0\1", 4) == 0) ++n_ctac;
-				toff += len, p->blen += len;
-			}
+			for (l = 0; l < len; ++l)
+				if (tseq[toff + l] > 3) ++n_ambi;
+			toff += len, p->blen += len;
+			p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
+			s -= q + e * len;
+			if (s < 0) s = 0;
+		} else if (op == 3) { // intron
+			uint8_t b[4];
+			b[0] = tseq[toff], b[1] = tseq[toff+1];
+			b[2] = tseq[toff+len-2], b[3] = tseq[toff+len-1];
+			if (memcmp(b, "\2\3\0\2", 4) == 0) ++n_gtag;
+			else if (memcmp(b, "\1\3\0\1", 4) == 0) ++n_ctac;
+			toff += len, p->blen += len;
 		}
 	}
 	p->dp_max = max;
@@ -337,7 +334,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_idx_getseq(mi, rid, rs, re, tseq);
 			mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag|KSW_EZ_APPROX_MAX, ez);
 			if (mm_check_zdrop(qseq, tseq, ez->n_cigar, ez->cigar, mat, opt->q, opt->e, opt->zdrop))
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, 0, ez);
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag, ez);
 			if (ez->n_cigar > 0)
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.

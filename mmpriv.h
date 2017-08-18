@@ -42,8 +42,8 @@ uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
 
 void mm_set_rg(const char *s);
 void sam_write_sam_header(const mm_idx_t *idx);
-void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag, int intron_thres);
-void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs, int intron_thres);
+void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag);
+void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs);
 int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int64_t n, mm128_t *a, uint64_t **_u, void *km);
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a);
 
@@ -61,11 +61,5 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc);
 #ifdef __cplusplus
 }
 #endif
-
-static inline int32_t mm_min_intron_len(int32_t q, int32_t e, int32_t q_intron)
-{
-	int32_t x = q_intron > q? (int)((float)(q_intron - q) / e + .999) : INT32_MAX;
-	return x > 4? x : 4;
-}
 
 #endif

@@ -346,24 +346,21 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		void *km = 0;
         step_t *s = (step_t*)in;
 		const mm_idx_t *mi = p->mi;
-		int intron_thres = -1;
 		for (i = 0; i < p->n_threads; ++i) mm_tbuf_destroy(s->buf[i]);
 		free(s->buf);
-		if (p->opt->flag & MM_F_SPLICE)
-			intron_thres = mm_min_intron_len(p->opt->q, p->opt->e, p->opt->q2);
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (i = 0; i < s->n_seq; ++i) {
 			mm_bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
 				if (p->opt->flag & MM_F_OUT_SAM)
-					mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i], intron_thres);
+					mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i]);
 				else
-					mm_write_paf(&p->str, mi, t, r, km, p->opt->flag, intron_thres);
+					mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
 				puts(p->str.s);
 			}
 			if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
-				mm_write_sam(&p->str, 0, t, 0, 0, 0, 0);
+				mm_write_sam(&p->str, 0, t, 0, 0, 0);
 				puts(p->str.s);
 			}
 			for (j = 0; j < s->n_reg[i]; ++j) free(s->reg[i][j].p);
