@@ -123,7 +123,7 @@ Interval.find_ovlp = function(a, st, en)
  * Main function *
  *****************/
 
-var c, l_fuzzy = 10, min_ov_ratio = 0.95, print_ovlp = false, print_err_only = false, first_only = false;
+var c, l_fuzzy = 0, min_ov_ratio = 0.95, print_ovlp = false, print_err_only = false, first_only = false;
 while ((c = getopt(arguments, "l:r:ep1")) != null) {
 	if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 	else if (c == 'r') min_ov_ratio = parseFloat(getopt.arg);
@@ -168,7 +168,7 @@ var n_ext_hit = 0, n_int_hit = 0, n_sgl_hit = 0;
 
 file = new File(arguments[getopt.ind+1]);
 var last_qname = null;
-var re_cigar = /(\d+)([MIDNSH])/g;
+var re_cigar = /(\d+)([MIDNSHX=])/g;
 while (file.readline(buf) >= 0) {
 	var m, t = buf.toString().split("\t");
 	if (t[0].charAt(0) == '@') continue;
@@ -190,7 +190,7 @@ while (file.readline(buf) >= 0) {
 			exon.push([exon_st, en]);
 			en += len;
 			exon_st = en;
-		} else if (op == 'M' || op == 'D') en += len;
+		} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') en += len;
 	}
 	exon.push([exon_st, en]);
 	n_exon += exon.length;
@@ -212,22 +212,19 @@ while (file.readline(buf) >= 0) {
 					var l1 = o[j][1] - o[j][0];
 					var min = l0 < l1? l0 : l1;
 					var ov_ratio = ol / min;
-					if (ov_ratio >= min_ov_ratio) {
-						var st_diff = exon[i][0] - o[j][0];
-						var en_diff = exon[i][1] - o[j][1];
-						if (st_diff < 0) st_diff = -st_diff;
-						if (en_diff < 0) en_diff = -en_diff;
-						if (i == 0 && exon.length == 1) {
-							++n_sgl_hit, hit = true;
-						} else if (i == 0) {
-							if (en_diff <= l_fuzzy) ++n_ext_hit, hit = true;
-						} else if (i == exon.length - 1) {
-							if (st_diff <= l_fuzzy) ++n_ext_hit, hit = true;
-						} else {
-							//if (en_diff <= l_fuzzy && st_diff <= l_fuzzy && ol / span >= min_ov_ratio)
-							if (en_diff + st_diff <= l_fuzzy || ol / span >= min_ov_ratio)
-								++n_int_hit, hit = true;
-						}
+					var st_diff = exon[i][0] - o[j][0];
+					var en_diff = exon[i][1] - o[j][1];
+					if (st_diff < 0) st_diff = -st_diff;
+					if (en_diff < 0) en_diff = -en_diff;
+					if (i == 0 && exon.length == 1) {
+						if (ov_ratio >= min_ov_ratio) ++n_sgl_hit, hit = true;
+					} else if (i == 0) {
+						if (en_diff <= l_fuzzy) ++n_ext_hit, hit = true;
+					} else if (i == exon.length - 1) {
+						if (st_diff <= l_fuzzy) ++n_ext_hit, hit = true;
+					} else {
+						if (en_diff + st_diff <= l_fuzzy)
+							++n_int_hit, hit = true;
 					}
 					if (hit) break;
 				}
