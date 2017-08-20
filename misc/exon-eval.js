@@ -123,10 +123,11 @@ Interval.find_ovlp = function(a, st, en)
  * Main function *
  *****************/
 
-var c, l_fuzzy = 0, min_ov_ratio = 0.95, print_ovlp = false, print_err_only = false, first_only = false;
-while ((c = getopt(arguments, "l:r:ep1")) != null) {
+var c, l_fuzzy = 0, min_ov_ratio = 0.95, min_span_ratio = 0.9, print_ovlp = false, print_err_only = false, first_only = false;
+while ((c = getopt(arguments, "l:r:s:ep1")) != null) {
 	if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 	else if (c == 'r') min_ov_ratio = parseFloat(getopt.arg);
+	else if (c == 's') min_span_ratio = parseFloat(getopt.arg);
 	else if (c == 'p') print_ovlp = true;
 	else if (c == 'e') print_err_only = print_ovlp = true;
 	else if (c == '1') first_only = true;
@@ -163,7 +164,7 @@ for (var chr in anno) {
 	Interval.index_end(e);
 }
 
-var n_novel = 0, n_partial = 0, n_unmapped = 0, n_mapped = 0, n_exon = 0, n_pri = 0;
+var n_novel = 0, n_int_novel = 0, n_ext_novel = 0, n_sgl_novel = 0, n_partial = 0, n_unmapped = 0, n_mapped = 0, n_exon = 0, n_int_exon = 0, n_pri = 0, n_sgl_exon = 0, n_ext_exon = 0;
 var n_ext_hit = 0, n_int_hit = 0, n_sgl_hit = 0;
 
 file = new File(arguments[getopt.ind+1]);
@@ -194,9 +195,15 @@ while (file.readline(buf) >= 0) {
 	}
 	exon.push([exon_st, en]);
 	n_exon += exon.length;
+	n_int_exon += exon.length > 2? exon.length - 2 : 0;
+	n_sgl_exon += exon.length == 1? 1 : 0;
+	n_ext_exon += exon.length > 1? 2 : 0;
 	var chr = anno[t[2]];
 	if (chr == null) {
 		n_novel += exon.length;
+		n_int_novel += exon.length > 2? exon.length - 2 : 0;
+		n_sgl_novel += exon.length == 1? 1 : 0;
+		n_ext_novel += exon.length > 1? 2 : 0;
 	} else {
 		for (var i = 0; i < exon.length; ++i) {
 			var o = Interval.find_ovlp(chr, exon[i][0], exon[i][1]);
@@ -219,11 +226,11 @@ while (file.readline(buf) >= 0) {
 					if (i == 0 && exon.length == 1) {
 						if (ov_ratio >= min_ov_ratio) ++n_sgl_hit, hit = true;
 					} else if (i == 0) {
-						if (en_diff <= l_fuzzy) ++n_ext_hit, hit = true;
+						if (ov_ratio >= min_ov_ratio && en_diff <= l_fuzzy) ++n_ext_hit, hit = true;
 					} else if (i == exon.length - 1) {
-						if (st_diff <= l_fuzzy) ++n_ext_hit, hit = true;
+						if (ov_ratio >= min_ov_ratio && st_diff <= l_fuzzy) ++n_ext_hit, hit = true;
 					} else {
-						if (en_diff + st_diff <= l_fuzzy)
+						if (en_diff + st_diff <= l_fuzzy && ol / span >= min_span_ratio)
 							++n_int_hit, hit = true;
 					}
 					if (hit) break;
@@ -241,6 +248,9 @@ while (file.readline(buf) >= 0) {
 				}
 			} else {
 				++n_novel;
+				if (i > 0 && i < exon.length - 1) ++n_int_novel;
+				if (exon.length > 1 && (i == 0 || i == exon.length - 1)) ++n_ext_novel;
+				if (exon.length == 1) ++n_sgl_novel;
 				if (print_ovlp)
 					print('N', t[0], i+1, t[2], exon[i][0], exon[i][1]);
 			}
@@ -259,4 +269,7 @@ if (!print_ovlp) {
 	print("Number of mapped exons: " + n_exon);
 	print("Number of novel exons: " + n_novel);
 	print("Number of correct exons: " + (n_ext_hit + n_int_hit + n_sgl_hit) + " (" + ((n_ext_hit + n_int_hit + n_sgl_hit) / n_exon * 100).toFixed(2) + "%)");
+	print("Internal exons: " + n_int_novel + ", " + n_int_hit + " / " + n_int_exon + " = " + (n_int_hit / n_int_exon * 100).toFixed(2) + "%");
+	print("External exons: " + n_ext_novel + ", " + n_ext_hit + " / " + n_ext_exon + " = " + (n_ext_hit / n_ext_exon * 100).toFixed(2) + "%");
+	print("Singleton exons: " + n_sgl_novel + ", " + n_sgl_hit + " / " + n_sgl_exon + " = " + (n_sgl_hit / n_sgl_exon * 100).toFixed(2) + "%");
 }
