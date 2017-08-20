@@ -316,6 +316,9 @@ alignment.
 \end{methods}
 
 \section{Results}
+
+\subsection{Aligning genomic reads}
+
 \begin{figure}[!tb]
 \centering
 \includegraphics[width=.5\textwidth]{roc-color.pdf}
@@ -357,6 +360,56 @@ minimap2 are over 70 times faster than others. We have also examined tens of
 $\ge$100bp INDELs in IGV~\citep{Robinson:2011aa} and can confirm the
 observation by~\citet{Sedlazeck169557} that BWA-MEM often breaks them into
 shorter gaps. Minimap2 does not have this issue.
+
+\subsection{Aligning spliced reads}
+
+\begin{table}[!tb]
+\processtable{Exon-level evaluation of 2D ONT reads from mouse}
+{\footnotesize\label{tab:exon}
+\begin{tabular}{p{3.1cm}rrrr}
+\toprule
+& GMAP & minimap2 & SpAln & STAR\\
+\midrule
+Run time (CPU min) & 631 & 15.5 & 2\,076 & 33.9 \\
+Peak RAM (GByte) & 8.9 & 14.5 & 3.2 & 29.2\vspace{1em}\\
+\# aligned reads & 103\,669 & 103\,917 & 103\,711 & 26\,479\\
+\# chimeric alignments & 1\,904 & 1\,671 & 0 & 0\\
+\# non-spliced alignments & 15\,854 & 14\,483 & 17\,033 & 10\,545\vspace{1em}\\
+\# aligned introns & 692\,275 & 694\,237 & 692\,945 & 78\,603 \\
+\# novel introns & 11\,239 & 3\,217 & 8\,550 & 1\,214 \\
+\% exact introns & 83.8\% & 91.8\% & 87.9\% & 55.2\% \\
+\% approx. introns & 91.8\% & 96.5\% & 92.5\% & 82.4\% \\
+\botrule
+\end{tabular}
+}{Reads (AC:SRR5286960) were mapped to the primary assembly of mouse genome
+GRCm38 with the following tools and command options: minimap2 (`-ax splice');
+GMAP (`-n 0 --min-intronlength 30 --cross-species'); SpAln (`-Q7 -LS -S3');
+STARlong (according to
+\href{http://bit.ly/star-pb}{http://bit.ly/star-pb}). The alignments were
+compared to the EnsEMBL gene annotation, release 89. A predicted intron
+is \emph{novel} if it has no overlaps with any annotated introns. An intron
+is \emph{exact} if it is identical to an annotated intron. An intron is
+\emph{approximate} if both of its 5'- and 3'-end are within 10bp around an
+annotated intron.}
+\end{table}
+
+We evaluated minimap2 along with GMAP~(v2017-06-20; \citealp{Wu:2005vn}),
+SpAln~(v2.3.1; \citealp{Iwata:2012aa}) and STAR~(v2.5.3a;
+\citealp{Dobin:2013kx}) on real RNA-seq reads~\citep{Byrne:2017aa}.
+In general, minimap2 is more consistent with existing annotations
+(Table~\ref{tab:exon}). It finds more annotated spliced exons and predicts
+fewer novel exons. Most novel exons identified by GMAP and SpAln are
+very short, partly because the two aligners implement special routines to
+identify micro-exons. It should be possible to optimize GMAP and SpAln on this
+data set to reduce such errors. On run time, minimap2 is over 40 times faster
+than GMAP and SpAln. While STAR is close to minimap2 in speed, it does not work
+well with noisy reads.
+
+We have also run aligners on the SIRV spkie-in control data (AC:SRR5286959;
+\citealp{Byrne:2017aa}) where the truth is know. Minimap2 is still the most 
+accurate. 91.9\% of internal exons in the minimap2 alignment are exact.
+The percentage increases to 97.4\% if we allow up to 10bp around the splicing
+boundaries. The difference between the two percentage is mostly caused by 
 
 \section{Discussions}
 
