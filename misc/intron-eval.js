@@ -123,24 +123,21 @@ Interval.find_ovlp = function(a, st, en)
  * Main function *
  *****************/
 
-var c, l_fuzzy = 0, min_ov_ratio = 0.95, min_span_ratio = 0.9, print_ovlp = false, print_err_only = false, first_only = false;
-while ((c = getopt(arguments, "l:r:s:ep1")) != null) {
+var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false;
+while ((c = getopt(arguments, "l:ep")) != null) {
 	if (c == 'l') l_fuzzy = parseInt(getopt.arg);
-	else if (c == 'r') min_ov_ratio = parseFloat(getopt.arg);
-	else if (c == 's') min_span_ratio = parseFloat(getopt.arg);
-	else if (c == 'p') print_ovlp = true;
 	else if (c == 'e') print_err_only = print_ovlp = true;
-	else if (c == '1') first_only = true;
+	else if (c == 'p') print_ovlp = true;
 }
 
 if (arguments.length - getopt.ind < 2) {
-	print("Usage: k8 cdna-eval.js [options] <gene.gtf> <aln.sam>");
+	print("Usage: k8 intron-eval.js [options] <gene.gtf> <aln.sam>");
 	exit(1);
 }
 
 var file, buf = new Bytes();
 
-var anno = {};
+var tr = {};
 file = new File(arguments[getopt.ind]);
 while (file.readline(buf) >= 0) {
 	var m, t = buf.toString().split("\t");
@@ -148,13 +145,31 @@ while (file.readline(buf) >= 0) {
 	if (t[2] != 'exon') continue;
 	var st = parseInt(t[3]) - 1;
 	var en = parseInt(t[4]);
-	if (anno[t[0]] == null) anno[t[0]] = [];
-	anno[t[0]].push([st, en]);
+	if ((m = /transcript_id "(\S+)"/.exec(t[8])) == null) continue;
+	var tid = m[1];
+	if (tr[tid] == null) tr[tid] = [t[0], t[6], 0, 0, []];
+	tr[tid][4].push([st, en]);
 }
 file.close();
 
+var anno = {};
+for (var tid in tr) {
+	var t = tr[tid];
+	Interval.sort(t[4]);
+	t[2] = t[4][0][0];
+	t[3] = t[4][t[4].length - 1][1];
+	if (anno[t[0]] == null) anno[t[0]] = [];
+	var s = t[4];
+	for (var i = 0; i < s.length - 1; ++i) {
+		if (s[i][1] >= s[i+1][0]) throw Error("ERROR: wrong annotation!");
+		anno[t[0]].push([s[i][1], s[i+1][0]]);
+	}
+}
+tr = null;
+
 for (var chr in anno) {
 	var e = anno[chr];
+	if (e.length == 0) continue;
 	Interval.sort(e);
 	var k = 0;
 	for (var i = 1; i < e.length; ++i) // dedup
@@ -164,14 +179,15 @@ for (var chr in anno) {
 	Interval.index_end(e);
 }
 
-var n_novel = 0, n_int_novel = 0, n_ext_novel = 0, n_sgl_novel = 0, n_partial = 0, n_unmapped = 0, n_mapped = 0, n_exon = 0, n_int_exon = 0, n_pri = 0, n_sgl_exon = 0, n_ext_exon = 0;
-var n_ext_hit = 0, n_int_hit = 0, n_sgl_hit = 0;
+var n_pri = 0, n_unmapped = 0, n_mapped = 0;
+var n_sgl = 0, n_splice = 0, n_splice_hit = 0, n_splice_novel = 0;
 
 file = new File(arguments[getopt.ind+1]);
 var last_qname = null;
 var re_cigar = /(\d+)([MIDNSHX=])/g;
 while (file.readline(buf) >= 0) {
 	var m, t = buf.toString().split("\t");
+
 	if (t[0].charAt(0) == '@') continue;
 	var flag = parseInt(t[1]);
 	if (flag&0x100) continue;
@@ -183,56 +199,34 @@ while (file.readline(buf) >= 0) {
 		++n_pri;
 		if (last_qname != t[0]) ++n_mapped;
 	}
-	var st = parseInt(t[3]) - 1, en = st, exon_st = st;
-	var exon = [];
+
+	var pos = parseInt(t[3]) - 1, intron = [];
 	while ((m = re_cigar.exec(t[5])) != null) {
 		var len = parseInt(m[1]), op = m[2];
 		if (op == 'N') {
-			exon.push([exon_st, en]);
-			en += len;
-			exon_st = en;
-		} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') en += len;
+			intron.push([pos, pos + len]);
+			pos += len;
+		} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
 	}
-	exon.push([exon_st, en]);
-	n_exon += exon.length;
-	n_int_exon += exon.length > 2? exon.length - 2 : 0;
-	n_sgl_exon += exon.length == 1? 1 : 0;
-	n_ext_exon += exon.length > 1? 2 : 0;
+	if (intron.length == 0) {
+		++n_sgl;
+		continue;
+	}
+	n_splice += intron.length;
+
 	var chr = anno[t[2]];
-	if (chr == null) {
-		n_novel += exon.length;
-		n_int_novel += exon.length > 2? exon.length - 2 : 0;
-		n_sgl_novel += exon.length == 1? 1 : 0;
-		n_ext_novel += exon.length > 1? 2 : 0;
-	} else {
-		for (var i = 0; i < exon.length; ++i) {
-			var o = Interval.find_ovlp(chr, exon[i][0], exon[i][1]);
+	if (chr != null) {
+		for (var i = 0; i < intron.length; ++i) {
+			var o = Interval.find_ovlp(chr, intron[i][0], intron[i][1]);
 			if (o.length > 0) {
 				var hit = false;
 				for (var j = 0; j < o.length; ++j) {
-					var min_st = exon[i][0] < o[j][0]? exon[i][0] : o[j][0];
-					var max_st = exon[i][0] > o[j][0]? exon[i][0] : o[j][0];
-					var min_en = exon[i][1] < o[j][1]? exon[i][1] : o[j][1];
-					var max_en = exon[i][1] > o[j][1]? exon[i][1] : o[j][1];
-					var ol = min_en - max_st, span = max_en - min_st;
-					var l0 = exon[i][1] - exon[i][0];
-					var l1 = o[j][1] - o[j][0];
-					var min = l0 < l1? l0 : l1;
-					var ov_ratio = ol / min;
-					var st_diff = exon[i][0] - o[j][0];
-					var en_diff = exon[i][1] - o[j][1];
+					var st_diff = intron[i][0] - o[j][0];
+					var en_diff = intron[i][1] - o[j][1];
 					if (st_diff < 0) st_diff = -st_diff;
 					if (en_diff < 0) en_diff = -en_diff;
-					if (i == 0 && exon.length == 1) {
-						if (ov_ratio >= min_ov_ratio) ++n_sgl_hit, hit = true;
-					} else if (i == 0) {
-						if (ov_ratio >= min_ov_ratio && en_diff <= l_fuzzy) ++n_ext_hit, hit = true;
-					} else if (i == exon.length - 1) {
-						if (ov_ratio >= min_ov_ratio && st_diff <= l_fuzzy) ++n_ext_hit, hit = true;
-					} else {
-						if (en_diff + st_diff <= l_fuzzy && ol / span >= min_span_ratio)
-							++n_int_hit, hit = true;
-					}
+					if (st_diff <= l_fuzzy && en_diff <= l_fuzzy)
+						++n_splice_hit, hit = true;
 					if (hit) break;
 				}
 				if (print_ovlp) {
@@ -244,17 +238,16 @@ while (file.readline(buf) >= 0) {
 						x += '(' + o[j][0] + "," + o[j][1] + ')';
 					}
 					x += ']';
-					print(type, t[0], i+1, t[2], exon[i][0], exon[i][1], x);
+					print(type, t[0], i+1, t[2], intron[i][0], intron[i][1], x);
 				}
 			} else {
-				++n_novel;
-				if (i > 0 && i < exon.length - 1) ++n_int_novel;
-				if (exon.length > 1 && (i == 0 || i == exon.length - 1)) ++n_ext_novel;
-				if (exon.length == 1) ++n_sgl_novel;
+				++n_splice_novel;
 				if (print_ovlp)
-					print('N', t[0], i+1, t[2], exon[i][0], exon[i][1]);
+					print('N', t[0], i+1, t[2], intron[i][0], intron[i][1]);
 			}
 		}
+	} else {
+		n_splice_novel += intron.length;
 	}
 	last_qname = t[0];
 }
@@ -263,13 +256,11 @@ file.close();
 buf.destroy();
 
 if (!print_ovlp) {
-	print("Number of unmapped reads: " + n_unmapped);
-	print("Number of mapped reads: " + n_mapped);
-	print("Number of primary alignments: " + n_pri);
-	print("Number of mapped exons: " + n_exon);
-	print("Number of novel exons: " + n_novel);
-	print("Number of correct exons: " + (n_ext_hit + n_int_hit + n_sgl_hit) + " (" + ((n_ext_hit + n_int_hit + n_sgl_hit) / n_exon * 100).toFixed(2) + "%)");
-	print("Internal exons: " + n_int_novel + ", " + n_int_hit + " / " + n_int_exon + " = " + (n_int_hit / n_int_exon * 100).toFixed(2) + "%");
-	print("External exons: " + n_ext_novel + ", " + n_ext_hit + " / " + n_ext_exon + " = " + (n_ext_hit / n_ext_exon * 100).toFixed(2) + "%");
-	print("Singleton exons: " + n_sgl_novel + ", " + n_sgl_hit + " / " + n_sgl_exon + " = " + (n_sgl_hit / n_sgl_exon * 100).toFixed(2) + "%");
+	print("# unmapped reads: " + n_unmapped);
+	print("# mapped reads: " + n_mapped);
+	print("# primary alignments: " + n_pri);
+	print("# singletons: " + n_sgl);
+	print("# predicted introns: " + n_splice);
+	print("# non-overlapping introns: " + n_splice_novel);
+	print("# correct introns: " + n_splice_hit + " (" + (n_splice_hit / n_splice * 100).toFixed(2) + "%)");
 }
