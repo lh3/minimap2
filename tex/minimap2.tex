@@ -20,7 +20,7 @@
 \begin{document}
 \firstpage{1}
 
-\title[Long DNA sequence alignment with minimap2]{Minimap2: fast pairwise alignment for long DNA sequences}
+\title[Aligning long nucleotide sequences with minimap2]{Minimap2: fast pairwise alignment for long nucleotide sequences}
 \author[Li]{Heng Li}
 \address{Broad Institute, 415 Main Street, Cambridge, MA 02142, USA}
 
@@ -28,11 +28,14 @@
 
 \begin{abstract}
 \section{Summary:} Minimap2 is a general-purpose mapper to align long noisy DNA
-sequences against a large reference database. It targets query sequences of
-1kb--100Mb in length with per-base divergence typically below 25\%. Minimap2 is
-$\sim$30 times faster than many mainstream long-read aligners and achieves
-higher accuracy on simulated data. It also employs concave gap cost and rescues
-inversions for improved alignment around potential structural variations.
+or mRNA sequences against a large reference database. It targets query
+sequences of 1kb--100Mb in length with per-base divergence typically below
+25\%. For DNA sequence reads, minimap2 is $\sim$30 times faster than many
+mainstream long-read aligners and achieves higher accuracy on simulated data.
+It also employs concave gap cost and rescues inversions for improved alignment
+around potential structural variations. For real long RNA-seq reads, minimap2
+is $\sim$40 times faster than peers and produces alignment more consistent with
+existing gene annotations.
 
 \section{Availability and implementation:}
 \href{https://github.com/lh3/minimap2}{https://github.com/lh3/minimap2}
@@ -53,15 +56,26 @@ easier to map than 100bp reads because we can more effectively skip repetitive
 regions, which are often the bottleneck of short-read alignment. We confirmed
 our speculation by achieving approximate mapping 50 times faster than
 BWA-MEM~\citep{Li:2016aa}.  \citet{Suzuki:2016} extended our work with a fast
-and novel algorithm on generating detailed alignment, which in turn inspired us
-to develop minimap2 towards higher accuracy and more practical functionality.
+and novel algorithm on generating base-level alignment, which in turn inspired
+us to develop minimap2 towards higher accuracy and more practical
+functionality.
 
 \begin{methods}
 \section{Methods}
 
-Minimap2 is the successor of minimap~\citep{Li:2016aa}. It uses similar
-indexing and seeding algorithms, and furthers it with more accurate chaining
-and the ability to produce detailed alignment.
+Minimap2 follows a typical seed-chain-align procedure as is used by most
+full-genome aligners. It collects minimizers~\citep{Roberts:2004fv} of the
+reference sequences and indexes them in a hash table. Then for each query
+sequence, minimap2 takes query minimizers as \emph{seeds}, finds matches to the
+reference, and identifies sets of colinear seeds, which are called
+\emph{chains}. If base-level alignment is requested, minimap2 applies dynamic
+programming (DP) to extend from the ends of chains and to close unseeded
+regions between adjacent seeds in chains.
+
+Minimap2 uses indexing and seeding algorithms similar to
+minimap~\citep{Li:2016aa}, and furthers the predecessor with more accurate
+chaining, the ability to produce base-level alignment and the support of
+spliced alignment.
 
 \subsection{Chaining}
 
@@ -69,8 +83,7 @@ and the ability to produce detailed alignment.
 An \emph{anchor} is a 3-tuple $(x,y,w)$, indicating interval $[x-w+1,x]$ on the
 reference matching interval $[y-w+1,y]$ on the query. Given a list of anchors
 sorted by ending reference position $x$, let $f(i)$ be the maximal chaining
-score up to the $i$-th anchor in the list. $f(i)$ can be calculated with
-dynamic programming (DP):
+score up to the $i$-th anchor in the list. $f(i)$ can be calculated with DP:
 \begin{equation}\label{eq:chain}
 f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+\alpha(j,i)-\beta(j,i) \},w_i\big\}
 \end{equation}
@@ -91,7 +104,7 @@ accelerate chaining.
 
 We note that if anchor $i$ is chained to $j$, chaining $i$ to a predecessor
 of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
-we start from anchor $i-1$ and stop the evaluation if we cannot find a better
+we start from anchor $i-1$ and stop the process if we cannot find a better
 score after up to $h$ iterations. This approach reduces the average time to
 $O(h\cdot m)$. In practice, we can almost always find the optimal chain with
 $h=50$; even if the heuristic fails, the optimal chain is often close.
@@ -143,13 +156,13 @@ F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
 \end{array}\right.
 \end{equation}
 where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
-base. It is a natural extension to the algorithm under affine gap
-cost~\citep{Gotoh:1982aa,Altschul:1986aa}.
+base. Eq.~(\ref{eq:ae86}) is a natural extension to the equation under affine
+gap cost~\citep{Gotoh:1982aa,Altschul:1986aa}.
 
 \subsubsection{Suzuki's formulation}
 
-To efficiently align long sequences, minimap2 did not directly use
-Eq.~(\ref{eq:ae86}) for alignment. It instead adopted a difference-based
+To efficiently align long sequences, minimap2 did not directly implement
+Eq.~(\ref{eq:ae86}). It instead adopted a difference-based
 formulation first proposed by \citet{Wu:1996aa} and later adapted by
 \citet{Suzuki:2016} for affine gap cost. In case of 2-piece affine gap cost in
 Eq.~(\ref{eq:2-piece}), define
@@ -200,7 +213,7 @@ a 8-bit integer. This enables 16-way SSE vectorization regardless of the peak
 score of the alignment.
 
 For a more efficient SSE implementation, we transform the row-column coordinate
-to diagonal-anti-diagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
+to the diagonal-antidiagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
 Eq.~(\ref{eq:suzuki}) becomes:
 \begin{equation*}
 \left\{\begin{array}{lll}
@@ -219,7 +232,7 @@ each other. This allows us to fully vectorize the computation of all cells on
 the same anti-diagonal in one inner loop.
 
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
-condition of this equation in the diagonal-anti-diagonal coordinate is
+condition of this equation in the diagonal-antidiagonal coordinate is
 \[
 \left\{\begin{array}{l}
 x_{r-1,-1}=y_{r-1,r}=-q-e\\
@@ -285,28 +298,37 @@ q+l\cdot e & (l>0) \\
 \end{array}\right.
 \]
 In alignment, a deletion no shorter than $\lceil(\tilde{q}-q)/e\rceil$ is
-regarded as an intron, which pays no cost to gap extensions.
-
-To pinpoint precise exon boundaries, minimap2 penalizes non-canonical splicing
-with the following equation
+regarded as an intron, which pays no cost to gap extensions. Minimap2 further
+introduces reference-dependent cost to penalize non-canonical splicing:
 \begin{equation}\label{eq:splice}
 \left\{\begin{array}{l}
-H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij}-a_i\}\\
+H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij}-a(i)\}\\
 E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
 F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
-\tilde{E}_{i+1,j}= \max\{H_{ij}-d_i-\tilde{q},\tilde{E}_{ij}\}\\
+\tilde{E}_{i+1,j}= \max\{H_{ij}-d(i)-\tilde{q},\tilde{E}_{ij}\}\\
 \end{array}\right.
 \end{equation}
-Let $T$ be the reference sequence. $d_i$ is the cost of a non-canonical donor
+Let $T$ be the reference sequence. $d(i)$ is the cost of a non-canonical donor
 site, which takes 0 if $T[i+1,i+2]={\tt GT}$, or a postive number $p$
-otherwise. Similarly, $a_i$ is the cost of a non-canonical acceptor site, which
-takes 0 if $T[i-1,i]={\tt AG}$, or $p$ otherwise. When the read strand relative
-to the underlying transcript is unknown, minimap2 aligns each chain twice, first
-assuming ${\tt GT}$--${\tt AG}$ as the splice signal and then assuming ${\tt
-CT}$--${\tt AC}$, the reverse complement of ${\tt GT}$--${\tt AG}$, as the
-splice signal. The alignment with a higher score is taken as the final
-alignment. This procedure also infers the relative strand of reads spanning
-canonical splicing sites.
+otherwise. Similarly, $a(i)$ is the cost of a non-canonical acceptor site, which
+takes 0 if $T[i-1,i]={\tt AG}$, or $p$ otherwise. Eq.~(\ref{eq:splice}) is
+almost the same as the equation used by EXALIN~\citep{Zhang:2006aa} and
+CAT~\citep{Li:2007aa} except that we allow insertions immediately followed by
+deletions and vice versa; in addition, we use Suzuki's diagonal formulation in
+actual implementation.
+
+%Given that $d_i$ and $a_i$
+%are a function of the reference sequence, it is possible to incorporate
+%splicing signals with more sophisticated models, such as positional weight
+%matrices. We have not tried this approach.
+
+If RNA-seq reads are not sequenced from stranded libraries, the read strand
+relative to the underlying transcript is unknown. By default, minimap2 aligns
+each chain twice, first assuming ${\tt GT}$--${\tt AG}$ as the splicing signal
+and then assuming ${\tt CT}$--${\tt AC}$, the reverse complement of ${\tt
+GT}$--${\tt AG}$, as the splicing signal. The alignment with a higher score is
+taken as the final alignment. This procedure also infers the relative strand of
+reads that span canonical splicing sites.
 
 In the spliced alignment mode, minimap2 further increases the density of
 minimizers and disables banded alignment. Together with the two-round DP-based
@@ -363,9 +385,21 @@ shorter gaps. Minimap2 does not have this issue.
 
 \subsection{Aligning spliced reads}
 
+We first evaluated minimap2 on SIRV control data~(AC:SRR5286959;
+\citealp{Byrne:2017aa}) where the truth is known. Minimap2 predicted 59\,916
+introns, 93.0\% of which are precise. We examined wrongly predicted introns and
+found the majority were caused by clustered splicing signals (e.g. two adjacent
+${\tt GT}$ sites). When INDEL sequencing errors are frequent, it is difficult
+to found precise splicing sites in this case. If we allow up to 10bp distance
+from true splicing sites, 98.4\% of aligned introns are approximately correct.
+Given this observation, we might be able to improve boundary detection by
+initializing $d(\cdot)$ and $a(\cdot)$ in Eq.~(\ref{eq:splice}) with
+position-specific scoring matrices or more sophisticated models. We have
+not tried this approach.
+
 \begin{table}[!tb]
-\processtable{Exon-level evaluation of 2D ONT reads from mouse}
-{\footnotesize\label{tab:exon}
+\processtable{Evaluation of splicing accuracy on 2D ONT reads}
+{\footnotesize\label{tab:intron}
 \begin{tabular}{p{3.1cm}rrrr}
 \toprule
 & GMAP & minimap2 & SpAln & STAR\\
@@ -381,35 +415,28 @@ Peak RAM (GByte) & 8.9 & 14.5 & 3.2 & 29.2\vspace{1em}\\
 \% approx. introns & 91.8\% & 96.5\% & 92.5\% & 82.4\% \\
 \botrule
 \end{tabular}
-}{Reads (AC:SRR5286960) were mapped to the primary assembly of mouse genome
-GRCm38 with the following tools and command options: minimap2 (`-ax splice');
-GMAP (`-n 0 --min-intronlength 30 --cross-species'); SpAln (`-Q7 -LS -S3');
-STARlong (according to
+}{Mouse reads (AC:SRR5286960) were mapped to the primary assembly of mouse
+genome GRCm38 with the following tools and command options: minimap2 (`-ax
+splice'); GMAP (`-n 0 --min-intronlength 30 --cross-species'); SpAln (`-Q7 -LS
+-S3'); STARlong (according to
 \href{http://bit.ly/star-pb}{http://bit.ly/star-pb}). The alignments were
 compared to the EnsEMBL gene annotation, release 89. A predicted intron
 is \emph{novel} if it has no overlaps with any annotated introns. An intron
 is \emph{exact} if it is identical to an annotated intron. An intron is
-\emph{approximate} if both of its 5'- and 3'-end are within 10bp around an
-annotated intron.}
+\emph{approximate} if both its 5'- and 3'-end are within 10bp around the ends
+of an annotated intron.}
 \end{table}
 
-We evaluated minimap2 along with GMAP~(v2017-06-20; \citealp{Wu:2005vn}),
-SpAln~(v2.3.1; \citealp{Iwata:2012aa}) and STAR~(v2.5.3a;
-\citealp{Dobin:2013kx}) on real RNA-seq reads~\citep{Byrne:2017aa}.
-In general, minimap2 is more consistent with existing annotations
-(Table~\ref{tab:exon}). It finds more annotated spliced exons and predicts
-fewer novel exons. Most novel exons identified by GMAP and SpAln are
-very short, partly because the two aligners implement special routines to
-identify micro-exons. It should be possible to optimize GMAP and SpAln on this
-data set to reduce such errors. On run time, minimap2 is over 40 times faster
-than GMAP and SpAln. While STAR is close to minimap2 in speed, it does not work
-well with noisy reads.
-
-We have also run aligners on the SIRV spkie-in control data (AC:SRR5286959;
-\citealp{Byrne:2017aa}) where the truth is know. Minimap2 is still the most 
-accurate. 91.9\% of internal exons in the minimap2 alignment are exact.
-The percentage increases to 97.4\% if we allow up to 10bp around the splicing
-boundaries. The difference between the two percentage is mostly caused by 
+We next aligned real mouse reads~\citep{Byrne:2017aa} with GMAP~(v2017-06-20;
+\citealp{Wu:2005vn}), minimap2, SpAln~(v2.3.1; \citealp{Iwata:2012aa}) and
+STAR~(v2.5.3a; \citealp{Dobin:2013kx}). In general, minimap2 is more
+consistent with existing annotations (Table~\ref{tab:intron}): it finds
+more splicing with a higher percentage being exactly or approximately correct.
+We noted that GMAP and SpAln have not been optimized for noisy reads. We have
+tried different settings, but their developers should be able to improve the
+accuracy further. On run time, minimap2 is over 40 times faster than GMAP and
+SpAln. While STAR is close to minimap2 in speed, it does not work well with
+noisy reads.
 
 \section{Discussions}
 
@@ -421,11 +448,12 @@ further accelerate minimap2 with a few other tweaks such as adaptive
 banding~\citep{Suzuki130633} or incremental banding.
 
 In addition to reference-based read mapping, minimap2 inherits minimap's
-ability to search against huge multi-species databases and to find read
+functionality to search against huge multi-species databases and to find read
 overlaps. On a few test data sets, minimap2 appears to yield slightly better
-miniasm assembly. Minimap2 can also align closely related genomes, though it
-would benefit from more thorough evaluations. Genome alignment is an intricate
-topic.
+miniasm assembly~\citep{Li:2016aa}. Minimap2 can also align closely related
+genomes or different assemblies of the same species. However, full-genome
+alignment is an intricate research topic. More thorough evaluations would be
+necessary to justify the use of minimap2 for such applications.
 
 \section*{Acknowledgements}
 We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
