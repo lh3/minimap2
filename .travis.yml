@@ -2,4 +2,4 @@ language: c
 compiler:
   - gcc
   - clang
-script: make
+script: bash test/test.sh
