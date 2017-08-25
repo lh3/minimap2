@@ -177,8 +177,8 @@ based on Eq.~(\ref{eq:ae86}) can achieve 16-way parallelization for short
 sequences, but only 4-way parallelization when the peak alignment score reaches
 32767. Long sequence alignment may exceed this threshold. Inspired by
 \citet{Wu:1996aa} and the following work, \citet{Suzuki:2016} proposed a
-difference-based formulation that lifted this limitation. In case of 2-piece
-gap cost, define
+difference-based formulation that lifted this limitation.
+In case of 2-piece gap cost, define
 \[
 \left\{\begin{array}{ll}
 u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
@@ -199,9 +199,10 @@ y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
 \tilde{y}_{ij}&=&\max\{0,\tilde{y}_{i,j-1}+u_{i,j-1}-z_{ij}+\tilde{q}\}-\tilde{q}-\tilde{e}
 \end{array}\right.
 \end{equation}
-where $z_{ij}$ is a temporary variable that does not need to be stored.  An
-important property of Eq.~(\ref{eq:suzuki}) is that all values are bounded. To
-see that,
+where $z_{ij}$ is a temporary variable that does not need to be stored.
+
+An important property of Eq.~(\ref{eq:suzuki}) is that all values are bounded
+by scoring parameters. To see that,
 \[
 x_{ij}=E_{i+1,j}-H_{ij}=\max\{-q,E_{ij}-H_{ij}\}-e
 \]
@@ -245,8 +246,8 @@ each other. This allows us to fully vectorize the computation of all cells on
 the same anti-diagonal in one inner loop. It also simplifies banded alignment,
 which would be difficult with striped vectorization~\citep{Farrar:2007hs}.
 
-On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
-condition of the equation above is
+On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the initial
+values in the diagonal-antidiagonal formuation is
 \[
 \left\{\begin{array}{l}
 x_{r-1,-1}=y_{r-1,r}=-q-e\\
@@ -263,7 +264,7 @@ r\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (r=\lceil\frac{\tilde{q}-q}{e-\til
 -\tilde{e} & (r>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
 \end{array}\right.
 \]
-These can be derived from the initial conditions of Eq.~(\ref{eq:ae86}).
+These can be derived from the initial values for Eq.~(\ref{eq:ae86}).
 
 In practice, our 16-way vectorized implementation of global alignment is three
 times as fast as Parasail's 4-way vectorization~\citep{Daily:2016aa}.  Without
@@ -285,9 +286,9 @@ $j'<j$, such that
 S(i',j')-S(i,j)>Z+e\cdot|(i-i')-(j-j')|
 \]
 where $e$ is the gap extension cost and $Z$ is an arbitrary threshold.
-This strategy is similar to X-drop employed in BLAST~\citep{Altschul:1997vn}.
-However, unlike X-drop, it would not break the alignment in the presence of a
-single long gap.
+This strategy is first used in BWA-MEM. It is similar to X-drop employed in
+BLAST~\citep{Altschul:1997vn}, but unlike X-drop, it would not break the
+alignment in the presence of a single long gap.
 
 When minimap2 breaks a global alignment between two anchors, it performs local
 alignment between the two subsequences involved in the global alignment, but
@@ -326,7 +327,7 @@ F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
 \end{array}\right.
 \end{equation}
 Let $T$ be the reference sequence. $d(i)$ is the cost of a non-canonical donor
-site, which takes 0 if $T[i+1,i+2]={\tt GT}$, or a postive number $p$
+site, which takes 0 if $T[i+1,i+2]={\tt GT}$, or a positive number $p$
 otherwise. Similarly, $a(i)$ is the cost of a non-canonical acceptor site, which
 takes 0 if $T[i-1,i]={\tt AG}$, or $p$ otherwise. Eq.~(\ref{eq:splice}) is
 almost equivalent to the equation used by EXALIN~\citep{Zhang:2006aa} except
@@ -361,18 +362,18 @@ alignment.
 \centering
 \includegraphics[width=.5\textwidth]{roc-color.pdf}
 \caption{Evaluation on simulated SMRT reads aligned against human genome
-GRCh38. (a) ROC-like curve. Alignments are sorted by mapping quality in the
-descending order. For each mapping quality threshold, the fraction of
-alignments with mapping quality above the threshold and their error rate
-are plotted. (b) Accumulative mapping error rate as a function of mapping
-quality. 33,088 $\ge$1000bp reads were simulated using pbsim~\citep{Ono:2013aa}
+GRCh38.  33,088 $\ge$1000bp reads were simulated using pbsim~\citep{Ono:2013aa}
 with error profile sampled from file `m131017\_060208\_42213\_*.1.*' downloaded
 at \href{http://bit.ly/chm1p5c3}{http://bit.ly/chm1p5c3}. The N50 read length
 is 11,628. A read is considered correctly mapped if the true position overlaps
 with the best mapping position by 10\% of the read length. All aligners were
-run under the default setting for SMRT reads. Kart outputted all alignments at
-mapping quality 60, so is not shown in the figure. It mapped nearly all reads
-with 4.1\% of alignments being wrong, less accurate than others.}\label{fig:eval}
+run under the default setting for SMRT reads.  (a) ROC-like curve. Alignments
+are sorted by mapping quality in the descending order. For each mapping quality
+threshold, the fraction of alignments with mapping quality above the threshold
+and their error rate are plotted.  Kart outputted all alignments at mapping
+quality 60, so is not shown in the figure. It mapped nearly all reads with
+4.1\% of alignments being wrong, less accurate than others.  (b) Accumulative
+mapping error rate as a function of mapping quality.}\label{fig:eval}
 \end{figure}
 
 As a sanity check, we evaluated minimap2 on simulated human reads along with
@@ -383,7 +384,7 @@ Kart~(v2.2.5; \citealp{Lin:2017aa}),
 minialign~(v0.5.3; \citealp{Suzuki:2016}) and
 NGMLR~(v0.2.5; \citealp{Sedlazeck169557}). We excluded rHAT~\citep{Liu:2016ab}
 and LAMSA~\citep{Liu:2017aa} because they either
-crashed or produced malformatted output. In this evaluation, Minimap2 has
+crashed or produced malformatted output. In this evaluation, minimap2 has
 higher power to distinguish unique and repetitive hits, and achieves overall
 higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
 even if we skip DP-based alignment (data not shown), confirming chaining alone
@@ -500,8 +501,8 @@ necessary to justify the use of minimap2 for such applications.
 We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
 insightful notes before formal publication. We thank M. Schatz, P. Rescheneder
 and F.  Sedlazeck for pointing out the limitation of BWA-MEM. We are also
-grateful to early minimap2 testers who have greatly helped to fix various
-issues.
+grateful to early minimap2 testers who have greatly helped to suggest features
+and to fix various issues.
 
 \bibliography{minimap2}
 
