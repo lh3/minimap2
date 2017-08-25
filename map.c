@@ -385,7 +385,8 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 	if (pl.fp == 0) return -1;
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads, pl.mini_batch_size = mini_batch_size;
-	if (opt->flag & MM_F_OUT_SAM) sam_write_sam_header(idx);
+	if ((opt->flag & MM_F_OUT_SAM) && !(opt->flag & MM_F_NO_SAM_SQ))
+		mm_write_sam_SQ(idx);
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
 	free(pl.str.s);
 	mm_bseq_close(pl.fp);

@@ -61,7 +61,7 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 	return 0;
 }
 
-static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e, int q_intron)
+static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e)
 {
 	uint32_t k, l, toff = 0, qoff = 0;
 	int32_t s = 0, max = 0, n_gtag = 0, n_ctac = 0;
@@ -374,7 +374,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(re1 - rs1 <= re0 - rs0);
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
-		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e, (opt->flag&MM_F_SPLICE)? opt->q2 : 0);
+		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
@@ -417,7 +417,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (ez->n_cigar == 0) goto end_align1_inv; // should never be here
 	mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
 	r_inv->p->dp_score = ez->max;
-	mm_update_extra(r_inv->p, qseq + q_off, tseq + t_off, mat, opt->q, opt->e, (opt->flag&MM_F_SPLICE)? opt->q2 : 0);
+	mm_update_extra(r_inv->p, qseq + q_off, tseq + t_off, mat, opt->q, opt->e);
 	r_inv->id = -1;
 	r_inv->parent = MM_PARENT_UNSET;
 	r_inv->inv = 1;

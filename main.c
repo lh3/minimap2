@@ -8,7 +8,7 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-#define MM_VERSION "2.0-r301-dirty"
+#define MM_VERSION "2.0-r309-dirty"
 
 void liftrlimit()
 {
@@ -33,6 +33,7 @@ static struct option long_options[] = {
 	{ "print-aln-seq",  no_argument,       0, 0 },
 	{ "splice",         no_argument,       0, 0 },
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
+	{ "no-sam-sq",      no_argument,       0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -58,11 +59,11 @@ static inline int64_t mm_parse_num(const char *str)
 int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
-	int i, c, k = 15, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx, idx_par_set = 0, max_intron_len = 0;
+	int i, c, k = 15, w = -1, bucket_bits = MM_IDX_DEF_B, n_threads = 3, keep_name = 1, is_idx, is_hpc = 0, long_idx, idx_par_set = 0, max_intron_len = 0, n_idx_part = 0;
 	int minibatch_size = 200000000;
 	uint64_t batch_size = 4000000000ULL;
 	mm_bseq_file_t *fp = 0;
-	char *fnw = 0, *s;
+	char *fnw = 0, *rg = 0, *s;
 	FILE *fpr = 0, *fpw = 0, *fp_help = stderr;
 
 	liftrlimit();
@@ -97,7 +98,7 @@ int main(int argc, char *argv[])
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
 		else if (c == 'I') batch_size = mm_parse_num(optarg);
 		else if (c == 'K') minibatch_size = (int)mm_parse_num(optarg);
-		else if (c == 'R') mm_set_rg(optarg); // WARNING: this modifies global variables in format.c
+		else if (c == 'R') rg = optarg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == 0 && long_idx == 0) bucket_bits = atoi(optarg); // --bucket-bits
 		else if (c == 0 && long_idx == 2) keep_name = 0; // --int-rname
@@ -110,6 +111,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 9) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ; // --print-aln-seq
 		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
 		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
+		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_SAM_SQ; // --no-sam-sq
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -222,27 +224,31 @@ int main(int argc, char *argv[])
 
 	is_idx = mm_idx_is_idx(argv[optind]);
 	if (is_idx < 0) {
-		fprintf(stderr, "[E::%s] failed to open file '%s'\n", __func__, argv[optind]);
+		fprintf(stderr, "[ERROR] failed to open file '%s'\n", argv[optind]);
 		return 1;
 	}
 	if (!is_idx && fnw == 0 && argc - optind < 2) {
-		fprintf(stderr, "[E::%s] missing input: please specify a query file or option -d\n", __func__);
+		fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 		return 1;
 	}
 	if (is_idx) fpr = fopen(argv[optind], "rb");
 	else fp = mm_bseq_open(argv[optind]);
 	if (fnw) fpw = fopen(fnw, "wb");
+	if (opt.flag & MM_F_OUT_SAM)
+		mm_write_sam_hdr_no_SQ(rg, MM_VERSION, argc, argv);
 	for (;;) {
-		mm_idx_t *mi = 0;
+		mm_idx_t *mi;
 		if (fpr) {
 			mi = mm_idx_load(fpr);
 			if (idx_par_set && mm_verbose >= 2 && (mi->k != k || mi->w != w || mi->is_hpc != is_hpc))
-				fprintf(stderr, "[W::%s::%.3f*%.2f] Indexing parameters on the command line (-k/-w/-H) overridden by parameters in the prebuilt index.\n",
-						__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
-		} else if (!mm_bseq_eof(fp)) {
+				fprintf(stderr, "[WARNING] \033[1;31mIndexing parameters on the command line (-k/-w/-H) overridden by parameters in the prebuilt index.\033[0m\n");
+		} else {
 			mi = mm_idx_gen(fp, w, k, bucket_bits, is_hpc, minibatch_size, n_threads, batch_size, keep_name);
 		}
 		if (mi == 0) break;
+		++n_idx_part;
+		if (mm_verbose >= 2 && n_idx_part > 1 && (opt.flag&MM_F_OUT_SAM) && !(opt.flag&MM_F_NO_SAM_SQ))
+			fprintf(stderr, "[WARNING] \033[1;31mSAM output is malformated due to internal @SQ lines. Please add option --no-sam-sq or filter afterwards.\033[0m\n");
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);

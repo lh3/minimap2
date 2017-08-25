@@ -6,7 +6,7 @@
 #include "kalloc.h"
 #include "mmpriv.h"
 
-static char *mm_rg_line, mm_rg_id[256];
+static char mm_rg_id[256];
 
 static inline void str_enlarge(kstring_t *s, int l)
 {
@@ -58,15 +58,13 @@ static void mm_sprintf_lite(kstring_t *s, const char *fmt, ...)
 	s->s[s->l] = 0;
 }
 
-static inline char *mm_escape(char *s)
+static char *mm_escape(char *s)
 {
 	char *p, *q;
 	for (p = q = s; *p; ++p) {
 		if (*p == '\\') {
 			++p;
 			if (*p == 't') *q++ = '\t';
-			else if (*p == 'n') *q++ = '\n';
-			else if (*p == 'r') *q++ = '\r';
 			else if (*p == '\\') *q++ = '\\';
 		} else *q++ = *p;
 	}
@@ -74,42 +72,54 @@ static inline char *mm_escape(char *s)
 	return s;
 }
 
-void mm_set_rg(const char *s)
+static void sam_write_rg_line(kstring_t *str, const char *s)
 {
 	char *p, *q, *r, *rg_line = 0;
 	memset(mm_rg_id, 0, 256);
-	if (mm_rg_line) {
-		free(mm_rg_line);
-		mm_rg_line = 0;
-	}
 	if (s == 0) return;
 	if (strstr(s, "@RG") != s) {
-		if (mm_verbose >= 1) fprintf(stderr, "[E::%s] the read group line is not started with @RG\n", __func__);
+		if (mm_verbose >= 1) fprintf(stderr, "[ERROR] the read group line is not started with @RG\n");
 		goto err_set_rg;
 	}
 	if (strstr(s, "\t") != NULL) {
-		if (mm_verbose >= 1) fprintf(stderr, "[E::%s] the read group line contained literal <tab> characters -- replace with escaped tabs: \\t\n", __func__);
+		if (mm_verbose >= 1) fprintf(stderr, "[ERROR] the read group line contained literal <tab> characters -- replace with escaped tabs: \\t\n");
 		goto err_set_rg;
 	}
 	rg_line = strdup(s);
 	mm_escape(rg_line);
 	if ((p = strstr(rg_line, "\tID:")) == 0) {
-		if (mm_verbose >= 1) fprintf(stderr, "[E::%s] no ID within the read group line\n", __func__);
+		if (mm_verbose >= 1) fprintf(stderr, "[ERROR] no ID within the read group line\n");
 		goto err_set_rg;
 	}
 	p += 4;
 	for (q = p; *q && *q != '\t' && *q != '\n'; ++q);
 	if (q - p + 1 > 256) {
-		if (mm_verbose >= 1) fprintf(stderr, "[E::%s] @RG:ID is longer than 255 characters\n", __func__);
+		if (mm_verbose >= 1) fprintf(stderr, "[ERROR] @RG:ID is longer than 255 characters\n");
 		goto err_set_rg;
 	}
 	for (q = p, r = mm_rg_id; *q && *q != '\t' && *q != '\n'; ++q)
 		*r++ = *q;
-	mm_rg_line = rg_line;
-	return;
+	mm_sprintf_lite(str, "%s\n", rg_line);
 
 err_set_rg:
 	free(rg_line);
+}
+
+void mm_write_sam_hdr_no_SQ(const char *rg, const char *ver, int argc, char *argv[])
+{
+	kstring_t str = {0,0,0};
+	sam_write_rg_line(&str, rg);
+	mm_sprintf_lite(&str, "@PG\tID:minimap2\tPN:minimap2");
+	if (ver) mm_sprintf_lite(&str, "\tVN:%s", ver);
+	if (argc > 1) {
+		int i;
+		mm_sprintf_lite(&str, "\tCL:minimap2");
+		for (i = 1; i < argc; ++i)
+			mm_sprintf_lite(&str, " %s", argv[i]);
+	}
+	mm_sprintf_lite(&str, "\n");
+	fputs(str.s, stdout);
+	free(str.s);
 }
 
 static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r)
@@ -214,12 +224,11 @@ static char comp_tab[] = {
 	'p', 'q', 'y', 's', 'a', 'a', 'b', 'w', 'x', 'r', 'z', 123, 124, 125, 126, 127
 };
 
-void sam_write_sam_header(const mm_idx_t *idx)
+void mm_write_sam_SQ(const mm_idx_t *idx)
 {
 	uint32_t i;
 	for (i = 0; i < idx->n_seq; ++i)
 		printf("@SQ\tSN:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
-	if (mm_rg_line) puts(mm_rg_line);
 }
 
 static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
@@ -274,8 +283,7 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			else mm_sprintf_lite(s, "*");
 		}
 		write_tags(s, r);
-		if (mm_rg_line && mm_rg_id[0])
-			mm_sprintf_lite(s, "\tRG:Z:%s", mm_rg_id);
+		if (mm_rg_id[0]) mm_sprintf_lite(s, "\tRG:Z:%s", mm_rg_id);
 		if (r->parent == r->id && r->p && n_regs > 1 && regs && r >= regs && r - regs < n_regs) { // supplementary aln may exist
 			int i, n_sa = 0; // n_sa: number of SA fields
 			for (i = 0; i < n_regs; ++i)

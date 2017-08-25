@@ -1,4 +1,4 @@
-.TH minimap2 1 "13 August 2017" "minimap2-2.0-r296-dirty" "Bioinformatics tools"
+.TH minimap2 1 "25 August 2017" "minimap2-2.0-r309-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -255,8 +255,13 @@ and
 use
 .BR -K500m .
 .TP
-.B -V
+.B --version
 Print version number to stdout
+.TP
+.B --no-sam-hdr
+Don't output SAM header lines. Use this option if the index consists of
+multiple parts; otherwise the SAM output is malformated due to internal header
+lines.
 .SS Preset options
 .TP 10
 .BI -x \ STR
@@ -320,7 +325,7 @@ is that this preset is not using HPC minimizers.
 Long-read spliced alignment
 .RB ( -k15
 .B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -z200 -ub --cost-non-gt-ag
-.BR 4 ).
+.BR 5 ).
 In the splice mode, 1) long deletions are taken as introns and represented as
 the
 .RB ` N '

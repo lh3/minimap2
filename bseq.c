@@ -8,7 +8,6 @@
 KSEQ_INIT(gzFile, gzread)
 
 struct mm_bseq_file_s {
-	int is_eof;
 	gzFile fp;
 	kseq_t *ks;
 };
@@ -53,12 +52,11 @@ mm_bseq1_t *mm_bseq_read(mm_bseq_file_t *fp, int chunk_size, int with_qual, int 
 		size += seqs[n++].l_seq;
 		if (size >= chunk_size) break;
 	}
-	if (size < chunk_size) fp->is_eof = 1;
 	*n_ = n;
 	return seqs;
 }
 
 int mm_bseq_eof(mm_bseq_file_t *fp)
 {
-	return fp->is_eof;
+	return ks_eof(fp->ks->f);
 }
