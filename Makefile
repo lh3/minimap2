@@ -28,7 +28,7 @@ minimap2-lite:example.o libminimap2.a
 		$(CC) $(CFLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
 
 libminimap2.a:$(OBJS)
-		$(AR) -csru $@ $(OBJS)
+		$(AR) -csr $@ $(OBJS)
 
 sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< kalloc.o -o $@ -lz
