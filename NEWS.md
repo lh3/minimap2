@@ -1,3 +1,28 @@
+Release 2.1-r311 (25 August 2017)
+---------------------------------
+
+This release adds spliced alignment for long noisy RNA-seq reads. On a SMRT
+Iso-Seq and a Oxford Nanopore data sets, minimap2 appears to outperform
+traditional mRNA aligners. For DNA alignment, this release gives almost
+identical output to v2.0. Other changes include:
+
+ * Added option `-R` to set the read group header line in SAM.
+
+ * Optionally output the `cs:Z` tag in PAF to encode both the query and the
+   reference sequences in the alignment.
+
+ * Fixed an issue where DP alignment uses excessive memory.
+
+The minimap2 technical report has been updated with more details and the
+evaluation of spliced alignment:
+
+ * Li, H. (2017). Minimap2: fast pairwise alignment for long nucleotide
+   sequences. [arXiv:1708.01492v2](https://arxiv.org/abs/1708.01492v2).
+
+(2.1: 25 August 2017, r311)
+
+
+
 Release 2.0-r275 (8 August 2017)
 --------------------------------
 
