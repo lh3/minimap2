@@ -5,15 +5,20 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_IDX_DEF_B    14
+#define MM_IDX_DEF_B     14
 
-#define MM_F_NO_SELF   0x01
-#define MM_F_AVA       0x02
-#define MM_F_CIGAR     0x04
-#define MM_F_OUT_SAM   0x08
-#define MM_F_NO_QUAL   0x10
-#define MM_F_OUT_CG    0x20
-#define MM_F_OUT_CS    0x40
+#define MM_F_NO_SELF     0x001
+#define MM_F_AVA         0x002
+#define MM_F_CIGAR       0x004
+#define MM_F_OUT_SAM     0x008
+#define MM_F_NO_QUAL     0x010
+#define MM_F_OUT_CG      0x020
+#define MM_F_OUT_CS      0x040
+#define MM_F_SPLICE      0x080
+#define MM_F_SPLICE_FOR  0x100
+#define MM_F_SPLICE_REV  0x200
+#define MM_F_SPLICE_BOTH 0x400
+#define MM_F_NO_SAM_SQ   0x800
 
 #define MM_IDX_MAGIC   "MMI\2"
 
@@ -55,7 +60,8 @@ typedef struct {
 	uint32_t capacity;
 	int32_t dp_score, dp_max, dp_max2;
 	uint32_t blen;
-	uint32_t n_diff, n_ambi;
+	uint32_t n_diff;
+	uint32_t n_ambi:30, trans_strand:2;
 	uint32_t n_cigar;
 	uint32_t cigar[];
 } mm_extra_t;
@@ -80,7 +86,7 @@ typedef struct {
 	int flag;    // see MM_F_* macros
 
 	int bw;  // bandwidth
-	int max_gap; // break a chain if there are no minimizers in a max_gap window
+	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
 	int max_chain_skip;
 	int min_cnt;
 	int min_chain_score;
@@ -93,6 +99,7 @@ typedef struct {
 	int min_join_flank_sc;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
+	int noncan;
 	int zdrop;
 	int min_dp_max;
 	int min_ksw_len;

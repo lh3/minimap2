@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
 ## Getting Started
 ```sh
 git clone https://github.com/lh3/minimap2
@@ -9,6 +10,8 @@ cd minimap2 && make
 ./minimap2 -ax map10k MT-human.mmi test/MT-orang.fa > test.sam
 # long-read overlap (no test data)
 ./minimap2 -x ava-pb your-reads.fa your-reads.fa > overlaps.paf
+# spliced alignment (no test data)
+./minimap2 -ax splice ref.fa rna-seq-reads.fa > spliced.sam
 # man page
 man ./minimap2.1
 ```

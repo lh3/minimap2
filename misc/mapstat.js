@@ -94,7 +94,7 @@ while (file.readline(buf) >= 0) {
 			ori_qlen = parseInt(t[1]);
 		} else { // SAM
 			var flag = parseInt(t[1]);
-			if (flag & 4) continue;
+			if ((flag & 4) || t[2] == '*' || t[5] == '*') continue;
 			if (flag & 0x100) {
 				++n_2nd;
 				continue;

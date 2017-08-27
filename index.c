@@ -285,12 +285,12 @@ static void *worker_pipeline(void *shared, int step, void *in)
 mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name)
 {
 	pipeline_t pl;
+	if (fp == 0 || mm_bseq_eof(fp)) return 0;
 	memset(&pl, 0, sizeof(pipeline_t));
 	pl.mini_batch_size = mini_batch_size < batch_size? mini_batch_size : batch_size;
 	pl.keep_name = keep_name;
 	pl.batch_size = batch_size;
 	pl.fp = fp;
-	if (pl.fp == 0) return 0;
 	pl.mi = mm_idx_init(w, k, b, is_hpc);
 
 	kt_pipeline(n_threads < 3? n_threads : 3, worker_pipeline, &pl, 3);

@@ -1,4 +1,4 @@
-.TH minimap2 1 "30 July 2017" "minimap2-2.0rc1-r232" "Bioinformatics tools"
+.TH minimap2 1 "25 August 2017" "minimap2-2.1-r311" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -162,6 +162,12 @@ secondary alignments [5]. This option has no effect when
 .B -X
 is applied.
 .TP
+.BI -G \ NUM
+Maximal intron length in the splice mode [200k]. This option also changes the
+bandwidth to
+.IR NUM .
+Increasing this option slows down spliced alignment.
+.TP
 .BI --max-chain-skip \ INT
 A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
@@ -199,14 +205,31 @@ the contiguity of the alignment at the cost of poor alignment in the middle
 Minimal peak DP alignment score to output [40]. The peak score is computed from
 the final CIGAR. It is the score of the max scoring segment in the alignment
 and may be different from the total alignment score.
+.TP
+.BI -u \ CHAR
+How to find canonical splicing sites GT-AG -
+.BR f :
+transcript strand;
+.BR b :
+both strands;
+.BR n :
+no attempt to match GT-AG [n]
+.TP
+.BI --cost-non-gt-ag \ INT
+Cost of non-canonical splicing sites [0].
 .SS Input/output options
 .TP 10
-.B -Q
-Ignore base quality in the input file.
-.TP
 .B -a
 Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
 by default.
+.TP
+.B -Q
+Ignore base quality in the input file.
+.TP
+.BI -R \ STR
+SAM read group line in a format like
+.B @RG\\\\tID:foo\\\\tSM:bar
+[].
 .TP
 .B -c
 Generate CIGAR. In PAF, the CIGAR is written to the `cg' custom tag.
@@ -232,8 +255,13 @@ and
 use
 .BR -K500m .
 .TP
-.B -V
+.B --version
 Print version number to stdout
+.TP
+.B --no-sam-hdr
+Don't output SAM header lines. Use this option if the index consists of
+multiple parts; otherwise the SAM output is malformated due to internal header
+lines.
 .SS Preset options
 .TP 10
 .BI -x \ STR
@@ -247,37 +275,64 @@ are:
 .RS
 .TP 8
 .B map-pb
-PacBio/Oxford Nanopore read to reference mapping (-Hk19)
+PacBio/Oxford Nanopore read to reference mapping
+.RB ( -Hk19 )
 .TP
 .B map10k
 The same as
 .B map-pb
-(-Hk19)
+.RB ( -Hk19 )
 .TP
 .B map-ont
-Slightly more sensitive for Oxford Nanopore to reference mapping (-k15). For
-PacBio reads, HPC minimizers consistently leads to faster performance and more
-sensitive results in comparison to normal minimizers. For Oxford Nanopore data,
-normal minimizers are better, though not much. The effectiveness of HPC is
-determined by the sequencing error mode.
+Slightly more sensitive for Oxford Nanopore to reference mapping
+.RB ( -k15 ).
+For PacBio reads, HPC minimizers consistently leads to faster performance and
+more sensitive results in comparison to normal minimizers. For Oxford Nanopore
+data, normal minimizers are better, though not much. The effectiveness of HPC
+is determined by the sequencing error mode.
 .TP
 .B asm5
-Long assembly to reference mapping (-k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200).
+Long assembly to reference mapping
+.RB ( -k19
+.B -w19 -A1 -B19 -O39,81 -E3,1 -s200
+.BR -z200 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
 .TP
 .B asm10
-Long assembly to reference mapping (-k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200). Up
-to 10% sequence divergence.
-.TP 8
+Long assembly to reference mapping
+.RB ( -k19
+.B -w19 -A1 -B9 -O16,41 -E2,1 -s200
+.BR -z200 ).
+Up to 10% sequence divergence.
+.TP
 .B ava-pb
-PacBio all-vs-all overlap mapping (-Hk19 -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip 25)
-.TP 8
+PacBio all-vs-all overlap mapping
+.RB ( -Hk19
+.B -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip
+.BR 25 ).
+.TP
 .B ava-ont
-Oxford Nanopore all-vs-all overlap mapping (-k15 -w5 -Xp0 -m100 -K500m -g10000
---max-chain-skip 25). Similarly, the major difference from
+Oxford Nanopore all-vs-all overlap mapping
+.RB ( -k15
+.B -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip
+.BR 25 ).
+Similarly, the major difference from
 .B ava-pb
 is that this preset is not using HPC minimizers.
+.TP
+.B splice
+Long-read spliced alignment
+.RB ( -k15
+.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -z200 -ub --cost-non-gt-ag
+.BR 5 ).
+In the splice mode, 1) long deletions are taken as introns and represented as
+the
+.RB ` N '
+CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
+costs are different during chaining; 4) the computation of the
+.RB ` ms '
+tag ignores introns to demote hits to pseudogenes.
 .RE
 .SS Miscellaneous options
 .TP 10

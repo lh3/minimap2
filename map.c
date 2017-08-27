@@ -19,6 +19,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_chain_score = 40;
 	opt->bw = 500;
 	opt->max_gap = 5000;
+	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 
 	opt->mask_level = 0.5f;
@@ -37,6 +38,8 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 {
+	if (opt->flag & MM_F_SPLICE_BOTH)
+		opt->flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV);
 	opt->max_occ = mm_idx_cal_max_occ(mi, opt->max_occ_frac);
 	opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
 	if (mm_verbose >= 3)
@@ -167,7 +170,7 @@ void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
 #endif
 mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
 {
-	int i, n = m_en - m_st, j, n_u;
+	int i, n = m_en - m_st, j, n_u, max_gap_ref;
 	int64_t n_a;
 	uint64_t *u;
 	mm_match_t *m;
@@ -243,7 +246,8 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
-	n_u = mm_chain_dp(opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, n_a, a, &u, b->km);
+	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
+	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_a, a, &u, b->km);
 	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
 	*n_regs = n_u;
 
@@ -256,7 +260,8 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
 		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
+		if (!(opt->flag & MM_F_SPLICE))
+			mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
 	if (opt->flag & MM_F_CIGAR) {
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
@@ -348,8 +353,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			mm_bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
-				if (p->opt->flag & MM_F_OUT_SAM) mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i]);
-				else mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
+				if (p->opt->flag & MM_F_OUT_SAM)
+					mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i]);
+				else
+					mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
 				puts(p->str.s);
 			}
 			if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
@@ -378,11 +385,8 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 	if (pl.fp == 0) return -1;
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads, pl.mini_batch_size = mini_batch_size;
-	if (opt->flag & MM_F_OUT_SAM) {
-		uint32_t i;
-		for (i = 0; i < idx->n_seq; ++i)
-			printf("@SQ\tSN:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
-	}
+	if ((opt->flag & MM_F_OUT_SAM) && !(opt->flag & MM_F_NO_SAM_SQ))
+		mm_write_sam_SQ(idx);
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
 	free(pl.str.s);
 	mm_bseq_close(pl.fp);

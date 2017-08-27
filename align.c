@@ -53,7 +53,7 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 		} else if (op == 1) {
 			score -= q + e * len, j += len;
 			if (test_zdrop_aux(score, i, j, &max, &max_i, &max_j, e, zdrop)) return 1;
-		} else if (op == 2) {
+		} else if (op == 2 || op == 3) {
 			score -= q + e * len, i += len;
 			if (test_zdrop_aux(score, i, j, &max, &max_i, &max_j, e, zdrop)) return 1;
 		}
@@ -64,11 +64,11 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e)
 {
 	uint32_t k, l, toff = 0, qoff = 0;
-	int32_t s = 0, max = 0;
+	int32_t s = 0, max = 0, n_gtag = 0, n_ctac = 0;
 	if (p == 0) return;
 	for (k = 0; k < p->n_cigar; ++k) {
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
-		if (op == 0) {
+		if (op == 0) { // match/mismatch
 			for (l = 0; l < len; ++l) {
 				int cq = qseq[qoff + l], ct = tseq[toff + l];
 				if (ct > 3 || cq > 3) ++p->n_ambi;
@@ -78,7 +78,7 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 				else max = max > s? max : s;
 			}
 			toff += len, qoff += len, p->blen += len;
-		} else if (op == 1) {
+		} else if (op == 1) { // insertion
 			int n_ambi = 0;
 			for (l = 0; l < len; ++l)
 				if (qseq[qoff + l] > 3) ++n_ambi;
@@ -86,7 +86,7 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 			p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
 			s -= q + e * len;
 			if (s < 0) s = 0;
-		} else if (op == 2) {
+		} else if (op == 2) { // deletion
 			int n_ambi = 0;
 			for (l = 0; l < len; ++l)
 				if (tseq[toff + l] > 3) ++n_ambi;
@@ -94,9 +94,18 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 			p->n_ambi += n_ambi, p->n_diff += len - n_ambi;
 			s -= q + e * len;
 			if (s < 0) s = 0;
+		} else if (op == 3) { // intron
+			uint8_t b[4];
+			b[0] = tseq[toff], b[1] = tseq[toff+1];
+			b[2] = tseq[toff+len-2], b[3] = tseq[toff+len-1];
+			if (memcmp(b, "\2\3\0\2", 4) == 0) ++n_gtag;
+			else if (memcmp(b, "\1\3\0\1", 4) == 0) ++n_ctac;
+			toff += len, p->blen += len;
 		}
 	}
 	p->dp_max = max;
+	if (n_gtag > n_ctac) p->trans_strand = 1;
+	else if (n_gtag < n_ctac) p->trans_strand = 2;
 }
 
 static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // TODO: this calls the libc realloc()
@@ -132,7 +141,9 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		for (i = 0; i < tlen; ++i) fputc("ACGTN"[tseq[i]], stderr); fputc('\n', stderr);
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr); fputc('\n', stderr);
 	}
-	if (opt->q == opt->q2 && opt->e == opt->e2)
+	if (opt->flag & MM_F_SPLICE)
+		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, opt->zdrop, flag, ez);
+	else if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, opt->zdrop, flag, ez);
 	else
 		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, opt->zdrop, flag, ez);
@@ -159,8 +170,8 @@ static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2],
 		c = mm_get_hplen_back(mi, a->x<<1>>33, (int32_t)a->x);
 		*r = (int32_t)a->x + 1 - c;
 	} else {
-		*r = (int32_t)a->x + 1;
-		*q = (int32_t)a->y + 1;
+		*r = (int32_t)a->x - (mi->k>>1);
+		*q = (int32_t)a->y - (mi->k>>1);
 	}
 }
 
@@ -240,11 +251,11 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int32_
 	}
 }
 
-static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a, ksw_extz_t *ez)
+static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
 	uint8_t *tseq, *qseq;
-	int32_t i, l, bw, dropped = 0, rs0, re0, qs0, qe0;
+	int32_t i, l, bw, dropped = 0, extra_flag = 0, rs0, re0, qs0, qe0;
 	int32_t rs, re, qs, qe;
 	int32_t rs1, qs1, re1, qe1;
 	int8_t mat[25];
@@ -254,10 +265,18 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	bw = (int)(opt->bw * 1.5 + 1.);
 
 	r2->cnt = 0;
-	mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
+	if (!(opt->flag & MM_F_SPLICE))
+		mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
+	else as1 = r->as, cnt1 = r->cnt;
 	mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 	mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
+
+	if (opt->flag & MM_F_SPLICE) {
+		if (splice_flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
+		if (splice_flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
+		if (splice_flag & MM_F_SPLICE_BOTH) extra_flag |= KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV;
+	}
 
 	// compute rs0 and qs0
 	if (r->split && as1 > 0) {
@@ -291,7 +310,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		mm_idx_getseq(mi, rid, rs0, rs, tseq);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
-		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, mat, bw, KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
+		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, mat, bw, extra_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;
@@ -313,9 +332,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
 			qseq = &qseq0[rev][qs];
 			mm_idx_getseq(mi, rid, rs, re, tseq);
-			mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, KSW_EZ_APPROX_MAX, ez);
+			mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag|KSW_EZ_APPROX_MAX, ez);
 			if (mm_check_zdrop(qseq, tseq, ez->n_cigar, ez->cigar, mat, opt->q, opt->e, opt->zdrop))
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, 0, ez);
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag, ez);
 			if (ez->n_cigar > 0)
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.
@@ -338,7 +357,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (!dropped && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
 		mm_idx_getseq(mi, rid, re, re0, tseq);
-		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, mat, bw, KSW_EZ_EXTZ_ONLY, ez);
+		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, mat, bw, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;
@@ -356,6 +375,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
 		mm_update_extra(r->p, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
+		if (rev && r->p->trans_strand)
+			r->p->trans_strand ^= 3; // flip to the read strand
 	}
 
 	kfree(km, tseq);
@@ -438,7 +459,28 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	memset(&ez, 0, sizeof(ksw_extz_t));
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t r2;
-		mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, a, &ez);
+		if ((opt->flag&MM_F_SPLICE) && (opt->flag&MM_F_SPLICE_FOR) && (opt->flag&MM_F_SPLICE_REV)) {
+			mm_reg1_t s[2], s2[2];
+			int which, trans_strand;
+			s[0] = s[1] = regs[i];
+			mm_align1(km, opt, mi, qlen, qseq0, &s[0], &s2[0], a, &ez, MM_F_SPLICE_FOR);
+			mm_align1(km, opt, mi, qlen, qseq0, &s[1], &s2[1], a, &ez, MM_F_SPLICE_REV);
+			if (s[0].p->dp_score > s[1].p->dp_score) which = 0, trans_strand = 1;
+			else if (s[0].p->dp_score < s[1].p->dp_score) which = 1, trans_strand = 2;
+			else trans_strand = 3, which = (qlen + s[0].p->dp_score) & 1; // randomly choose a strand, effectively
+			if (which == 0) {
+				regs[i] = s[0], r2 = s2[0];
+				free(s[1].p);
+			} else {
+				regs[i] = s[1], r2 = s2[1];
+				free(s[0].p);
+			}
+			regs[i].p->trans_strand = trans_strand;
+		} else {
+			mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, a, &ez, opt->flag);
+			if ((opt->flag&MM_F_SPLICE) && !(opt->flag&MM_F_SPLICE_BOTH))
+				regs[i].p->trans_strand = opt->flag&MM_F_SPLICE_FOR? 1 : 2;
+		}
 		if (r2.cnt > 0) regs = mm_insert_reg(&r2, i, &n_regs, regs);
 		if (i > 0 && mm_align1_inv(km, opt, mi, qlen, qseq0, &regs[i-1], &regs[i], &r2, &ez)) {
 			regs = mm_insert_reg(&r2, i, &n_regs, regs);

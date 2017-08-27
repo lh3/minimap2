@@ -20,7 +20,7 @@
 \begin{document}
 \firstpage{1}
 
-\title[Long DNA sequence alignment with minimap2]{Minimap2: fast pairwise alignment for long DNA sequences}
+\title[Aligning long nucleotide sequences with minimap2]{Minimap2: fast pairwise alignment for long nucleotide sequences}
 \author[Li]{Heng Li}
 \address{Broad Institute, 415 Main Street, Cambridge, MA 02142, USA}
 
@@ -28,11 +28,14 @@
 
 \begin{abstract}
 \section{Summary:} Minimap2 is a general-purpose mapper to align long noisy DNA
-sequences against a large reference database. It targets query sequences of
-1kb--100Mb in length with per-base divergence typically below 25\%. Minimap2 is
-$\sim$30 times faster than many mainstream long-read aligners and achieves
-higher accuracy on simulated data. It also employs concave gap cost and rescues
-inversions for improved alignment around potential structural variations.
+or mRNA sequences against a large reference database. It targets query
+sequences of 1kb--100Mb in length with per-base divergence typically below
+25\%. For DNA sequence reads, minimap2 is $\sim$30 times faster than many
+mainstream long-read aligners and achieves higher accuracy on simulated data.
+It also employs concave gap cost and rescues inversions for improved alignment
+around potential structural variations. For real long RNA-seq reads, minimap2
+is $\sim$40 times faster than peers and produces alignment more consistent with
+existing gene annotations.
 
 \section{Availability and implementation:}
 \href{https://github.com/lh3/minimap2}{https://github.com/lh3/minimap2}
@@ -46,43 +49,62 @@ Single Molecule Real-Time (SMRT) sequencing technology and Oxford Nanopore
 technologies (ONT) produce reads over 10kbp in length at an error rate
 $\sim$15\%. Several aligners have been developed for such
 data~\citep{Chaisson:2012aa,Li:2013aa,Liu:2016ab,Sovic:2016aa,Liu:2017aa,Lin:2017aa,Sedlazeck169557}.
-They are usually five times as slow as mainstream short-read
-aligners~\citep{Langmead:2012fk,Li:2013aa}. We speculated there could be
-substantial room for speedup on the thought that 10kb long sequences should be
-easier to map than 100bp reads because we can more effectively skip repetitive
-regions, which are often the bottleneck of short-read alignment. We confirmed
-our speculation by achieving approximate mapping 50 times faster than
-BWA-MEM~\citep{Li:2016aa}.  \citet{Suzuki:2016} extended our work with a fast
-and novel algorithm on generating detailed alignment, which in turn inspired us
-to develop minimap2 towards higher accuracy and more practical functionality.
+Most of them were five times as slow as mainstream short-read
+aligners~\citep{Langmead:2012fk,Li:2013aa} in terms of the number of bases
+mapped per second. We speculated there could be substantial room for speedup on
+the thought that 10kb long sequences should be easier to map than 100bp reads
+because we can more effectively skip repetitive regions, which are often the
+bottleneck of short-read alignment. We confirmed our speculation by achieving
+approximate mapping 50 times faster than BWA-MEM~\citep{Li:2016aa}.
+\citet{Suzuki:2016} extended our work with a fast and novel algorithm on
+generating base-level alignment, which in turn inspired us to develop minimap2
+towards higher accuracy and more practical functionality.
+
+Both SMRT and ONT have been applied to sequence spliced mRNAs (RNA-seq). While
+traditional mRNA aligners work~\citep{Wu:2005vn,Iwata:2012aa}, they are not
+optimized for long noisy sequence reads and are tens of times slower than
+dedicated long-read aligners. When developing minimap2 initially for aligning
+genomic DNA only, we realized minor modifications could make it competitive for
+aligning mRNAs as well. Minimap2 is a first RNA-seq aligner specifically
+designed for long noisy reads.
 
 \begin{methods}
 \section{Methods}
 
-Minimap2 is the successor of minimap~\citep{Li:2016aa}. It uses similar
-indexing and seeding algorithms, and furthers it with more accurate chaining
-and the ability to produce detailed alignment.
+Minimap2 follows a typical seed-chain-align procedure as is used by most
+full-genome aligners. It collects minimizers~\citep{Roberts:2004fv} of the
+reference sequences and indexes them in a hash table. Then for each query
+sequence, minimap2 takes query minimizers as \emph{seeds}, finds matches to the
+reference, and identifies sets of colinear seeds, which are called
+\emph{chains}. If base-level alignment is requested, minimap2 applies dynamic
+programming (DP) to extend from the ends of chains and to close unseeded
+regions between adjacent seeds in chains.
+
+Minimap2 uses indexing and seeding algorithms similar to
+minimap~\citep{Li:2016aa}, and furthers the predecessor with more accurate
+chaining, the ability to produce base-level alignment and the support of
+spliced alignment.
 
 \subsection{Chaining}
 
-%\subsubsection{Chaining}
+\subsubsection{Chaining}
 An \emph{anchor} is a 3-tuple $(x,y,w)$, indicating interval $[x-w+1,x]$ on the
 reference matching interval $[y-w+1,y]$ on the query. Given a list of anchors
 sorted by ending reference position $x$, let $f(i)$ be the maximal chaining
 score up to the $i$-th anchor in the list. $f(i)$ can be calculated with
-dynamic programming (DP):
+dynamic programming:
 \begin{equation}\label{eq:chain}
-f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+d(j,i)-\gamma(j,i) \},w_i\big\}
+f(i)=\max\big\{\max_{i>j\ge 1} \{ f(j)+\alpha(j,i)-\beta(j,i) \},w_i\big\}
 \end{equation}
-where $d(j,i)=\min\big\{\min\{y_i-y_j,x_i-x_j\},w_i\big\}$ is the number of
-matching bases between the two anchors. $\gamma(j,i)>0$ is the gap cost. It
+where $\alpha(j,i)=\min\big\{\min\{y_i-y_j,x_i-x_j\},w_i\big\}$ is the number of
+matching bases between the two anchors. $\beta(j,i)>0$ is the gap cost. It
 equals $\infty$ if $y_j\ge y_i$ or $\max\{y_i-y_j,x_i-x_j\}>G$ (i.e. the
 distance between two anchors is too large); otherwise
-\[
-\gamma(j,i)=\gamma'(\max\{y_i-y_j,x_i-x_j\}-\min\{y_i-y_j,x_i-x_j\})
-\]
-In implementation, a gap of length $l$ costs $\gamma'(l)=\alpha\cdot
-l+\beta\log_2(l)$. For $m$ anchors, directly computing all $f(\cdot)$ with
+\begin{equation}\label{eq:chain-gap}
+\beta(j,i)=\gamma_c\big((y_i-y_j)-(x_i-x_j)\big)
+\end{equation}
+In implementation, a gap of length $l$ costs $\gamma_c(l)=0.01\cdot \bar{w}\cdot
+|l|+0.5\log_2|l|$, where $\bar{w}$ is the average seed length. For $m$ anchors, directly computing all $f(\cdot)$ with
 Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. Although theoretically faster
 chaining algorithms exist~\citep{Abouelhoda:2005aa}, they
 are inapplicable to generic gap cost, complex to implement and usually
@@ -91,20 +113,20 @@ accelerate chaining.
 
 We note that if anchor $i$ is chained to $j$, chaining $i$ to a predecessor
 of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
-we start from anchor $i-1$ and stop the evaluation if we cannot find a better
+we start from anchor $i-1$ and stop the process if we cannot find a better
 score after up to $h$ iterations. This approach reduces the average time to
 $O(h\cdot m)$. In practice, we can almost always find the optimal chain with
 $h=50$; even if the heuristic fails, the optimal chain is often close.
 
-%\subsubsection{Backtracking}
-For backtracking, let $P(i)$ be the index of the best predecessor of anchor
-$i$. It equals 0 if $f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$
-otherwise. For each anchor $i$ in the descending order of $f(i)$, we apply
-$P(\cdot)$ repeatedly to find its predecessor and mark each visited $i$ as
-`used', until $P(i)=0$ or we reach an already `used' $i$. This way we find all
-chains with no anchors used in more than one chains.
+\subsubsection{Backtracking}
+Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
+$f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$ otherwise. For each
+anchor $i$ in the descending order of $f(i)$, we apply $P(\cdot)$ repeatedly to
+find its predecessor and mark each visited $i$ as `used', until $P(i)=0$ or we
+reach an already `used' $i$. This way we find all chains with no anchors used
+in more than one chains.
 
-%\subsubsection{Identifying primary chains}
+\subsubsection{Identifying primary chains}
 In the absence of copy number changes, each query segment should not be mapped
 to two places in the reference. However, chains found at the previous step may
 have significant or complete overlaps due to repeats in the reference.
@@ -117,132 +139,22 @@ add the chain to $Q$. In the end, $Q$ contains all the primary chains. We did
 not choose a more sophisticated data structure (e.g. range tree or k-d tree)
 because this step is not the performance bottleneck.
 
-\subsection{Alignment}
+\subsection{Aligning genomic DNA}
 
-Minimap2 performs global alignment between adjacent anchors in a chain. It
-adopted difference-based formulation to derive
-alignment~\citep{Wu:1996aa,Suzuki:2016}. When combined with SSE vectorization,
-this formulation has two advantages. First, because each score in the DP matrix
-is bounded by the gap cost and the maximum matching score, we can usually
-achieve 16-way SSE vectorization regardless of the peak score of the
-alignment. Second, filling the DP matrix along the diagonal, we can simplify
-banded alignment, which is critical to performance. In practice, our
-implementation is three times as fast as Parasail's 4-way
-vectorization~\citep{Daily:2016aa} for global alignment.
-Without banding, our implementation is slower than Edlib~\citep{Sosic:2017aa},
-but with a 1000bp band, it is considerably faster. When performing global
-alignment between anchors, we expect the alignment to stay close to the
-diagonal of the DP matrix. Banding is often applicable.
+\subsubsection{Alignment with 2-piece affine gap cost}
 
-Minimap2 uses a 2-piece affine gap cost
-$\gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}$.
-On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, this
-cost function is concave. It applies cost $q+l\cdot e$ to gaps shorter than
-$\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
-$\tilde{q}+l\cdot\tilde{e}$ to longer gaps. This scheme helps to recover
-longer insertions and deletions~(INDEL; \citealp{Gotoh:1990aa}).
+Minimap2 performs DP-based global alignment between adjacent anchors in a
+chain. It uses a 2-piece affine gap cost~\citep{Gotoh:1990aa}:
+\begin{equation}\label{eq:2-piece}
+\gamma_a(l)=\min\{q+|l|\cdot e,\tilde{q}+|l|\cdot\tilde{e}\}
+\end{equation}
+Without losing generality, we always assume $q+e<\tilde{q}+\tilde{e}$.
+On the condition that $e>\tilde{e}$, it applies cost $q+|l|\cdot e$ to gaps
+shorter than $\lceil(\tilde{q}-q)/(e-\tilde{e})\rceil$ and applies
+$\tilde{q}+|l|\cdot\tilde{e}$ to longer gaps.  This scheme helps to recover
+longer insertions and deletions~(INDELs).
 
-With global alignment, minimap2 may force to align unrelated sequences between
-two adjacent anchors. To avoid such an artifact, we compute accumulative
-alignment score along the alignment path and break the alignment where the
-score drops too fast in the diagonal direction. More precisely, let $S(i,j)$ be
-the alignment score along the alignment path ending at cell $(i,j)$ in the DP
-matrix. We break the alignment if there exist $(i',j')$ and $(i,j)$, $i'<i$ and
-$j'<j$, such that
-\[
-S(i',j')-S(i,j)>Z+e\cdot(\max\{i-i',j-j'\}-\min\{i-i',j-j'\})
-\]
-where $e$ is the gap extension cost and $Z$ is an arbitrary threshold.
-This strategy is similar to X-drop employed in BLAST~\citep{Altschul:1997vn}.
-However, unlike X-drop, it would not break the alignment in the presence of a
-single long gap.
-
-When minimap2 breaks a global alignment between two anchors, it performs local
-alignment between the two subsequences involved in the global alignment, but
-this time with the one subsequence reverse complemented. This additional
-alignment step may identify short inversions that are missed during chaining.
-
-\end{methods}
-
-\section{Results}
-\begin{figure}[!tb]
-\centering
-\includegraphics[width=.5\textwidth]{roc-color.pdf}
-\caption{Evaluation on simulated SMRT reads aligned against human genome
-GRCh38. (a) ROC-like curve. (b) Accumulative mapping error rate as a function
-of mapping quality. 33,088 $\ge$1000bp reads were simulated using
-pbsim~\citep{Ono:2013aa} with error profile sampled from file
-`m131017\_060208\_42213\_*.1.*' downloaded at
-\href{http://bit.ly/chm1p5c3}{http://bit.ly/chm1p5c3}. The N50 read length is
-11,628. A read is considered correctly mapped if the true position overlaps
-with the best mapping position by 10\% of the read length. All aligners were
-run under the default setting for SMRT reads.}\label{fig:eval}
-\end{figure}
-
-As a sanity check, we evaluated minimap2 on simulated human reads along with
-BLASR~\citep{Chaisson:2012aa}, 
-BWA-MEM~\citep{Li:2013aa},
-GraphMap~\citep{Sovic:2016aa},
-minialign~\citep{Suzuki:2016} and
-NGMLR~\citep{Sedlazeck169557}. We excluded rHAT~\citep{Liu:2016ab},
-LAMSA~\citep{Liu:2017aa} and Kart~\citep{Lin:2017aa} because they either
-crashed or produced malformatted output. In this evaluation, Minimap2 has
-higher power to distinguish unique and repetitive hits, and achieves overall
-higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
-even if we skip DP-based alignment (data not shown), suggesting chaining alone
-is sufficient to achieve high accuracy for approximate mapping. Minimap2 and
-NGMLR provide better mapping quality estimate: they rarely give repetitive hits
-high mapping quality (Fig.~\ref{fig:eval}b).  Apparently, other aligners may
-occasionally miss close suboptimal hits and be overconfident in wrong mappings.
-On run time, minialign is slightly faster than minimap2. They are over 30 times
-faster than the rest.  Minimap2 consumed 6.1GB memory at the peak, more than
-BWA-MEM but less than others.
-
-On real human SMRT reads, the relative performance and sensitivity of
-these aligners are broadly similar to those on simulated data. We are unable to
-provide a good estimate of mapping error rate due to the lack of the truth.  On
-ONT ultra-long human reads~\citep{Jain128835}, BWA-MEM failed. Minialign and
-minimap2 are over 70 times faster than others. We have also examined tens of
-$\ge$100bp INDELs in IGV~\citep{Robinson:2011aa} and can confirm the
-observation by~\citet{Sedlazeck169557} that BWA-MEM often breaks them into
-shorter gaps. Minimap2 does not have this issue.
-
-\section{Discussions}
-
-Minialign and minimap2 are fast because a) with chaining, they can quickly
-filter out most false seed hits~\citep{Li:2016aa} and reduce unsuccessful but
-costly DP-based alignments; b) they implemented so far the fastest DP-based
-alignment algorithm for long sequences~\citep{Suzuki:2016}. It is possible to
-further accelerate minimap2 with a few other tweaks such as adaptive
-banding~\citep{Suzuki130633} or incremental banding.
-
-In addition to reference-based read mapping, minimap2 inherits minimap's
-ability to search against huge multi-species databases and to find read
-overlaps. On a few test data sets, minimap2 appears to yield slightly better
-miniasm assembly. Minimap2 can also align closely related genomes, though it
-would benefit from more thorough evaluations. Genome alignment is an intricate
-topic.
-
-\section*{Acknowledgements}
-We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
-insightful notes before formal publication. We thank M. Schatz, P. Rescheneder
-and F.  Sedlazeck for pointing out the limitation of BWA-MEM. We are also
-grateful to early minimap2 testers who have greatly helped to fix various
-issues.
-
-\bibliography{minimap2}
-
-\pagebreak
-\appendix
-
-\begin{methods}
-\section*{Appendix}
-A 2-piece gap cost function is
-\[
-\gamma(l)=\min\{q+l\cdot e,\tilde{q}+l\cdot\tilde{e}\}
-\]
-Without losing generality, we assume $q+e\le\tilde{q}+\tilde{e}$. The equation
-to compute the optimal alignment under such a gap cost is~\citep{Gotoh:1990aa}
+The equation to compute the optimal alignment under $\gamma_a(\cdot)$ is
 \begin{equation}\label{eq:ae86}
 \left\{\begin{array}{l}
 H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij},\tilde{F}_{ij}\}\\
@@ -253,7 +165,20 @@ F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
 \end{array}\right.
 \end{equation}
 where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
-base. If we define
+base. Eq.~(\ref{eq:ae86}) is a natural extension to the equation under affine
+gap cost~\citep{Gotoh:1982aa,Altschul:1986aa}.
+
+\subsubsection{Suzuki's formulation}
+
+When we allow gaps longer than several hundred base pairs, nucleotide-level
+alignment is much slower than chaining. SSE acceleration is critical to the
+performance of minimap2. Traditional SSE implementations~\citep{Farrar:2007hs}
+based on Eq.~(\ref{eq:ae86}) can achieve 16-way parallelization for short
+sequences, but only 4-way parallelization when the peak alignment score reaches
+32767. Long sequence alignment may exceed this threshold. Inspired by
+\citet{Wu:1996aa} and the following work, \citet{Suzuki:2016} proposed a
+difference-based formulation that lifted this limitation.
+In case of 2-piece gap cost, define
 \[
 \left\{\begin{array}{ll}
 u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
@@ -261,7 +186,7 @@ x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-\
 y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-\tilde{H}_{ij}
 \end{array}\right.
 \]
-we can transform Eq.~(\ref{eq:ae86}) to
+We can transform Eq.~(\ref{eq:ae86}) to
 \begin{equation}\label{eq:suzuki}
 \left\{\begin{array}{lll}
 z_{ij}&=&\max\{s(i,j),x_{i-1,j}+v_{i-1,j},y_{i,j-1}+u_{i,j-1},\\
@@ -276,7 +201,8 @@ y_{ij}&=&\max\{0,y_{i,j-1}+u_{i,j-1}-z_{ij}+q\}-q-e\\
 \end{equation}
 where $z_{ij}$ is a temporary variable that does not need to be stored.
 
-All values in Eq.~(\ref{eq:suzuki}) are bounded. To see that,
+An important property of Eq.~(\ref{eq:suzuki}) is that all values are bounded
+by scoring parameters. To see that,
 \[
 x_{ij}=E_{i+1,j}-H_{ij}=\max\{-q,E_{ij}-H_{ij}\}-e
 \]
@@ -294,19 +220,19 @@ matching score, we can derive
 \[
 u_{ij}\le M-v_{i-1,j}\le M+q+e
 \]
-In conclusion, $x$ and $y$ are bounded by $[-q-e,-e]$, $\tilde{x}$ and $\tilde{y}$ by
-$[-\tilde{q}-\tilde{e},-\tilde{e}]$, and $u$ and $v$ by $[-q-e,M+q+e]$. When
-matching score and gap cost are small, each of them can be stored as a 8-bit
-integer. This enables 16-way SSE vectorization regardless of the peak score of
-the alignment.
+In conclusion, in Eq.~(\ref{eq:suzuki}), $x$ and $y$ are bounded by $[-q-e,-e]$,
+$\tilde{x}$ and $\tilde{y}$ by $[-\tilde{q}-\tilde{e},-\tilde{e}]$, and $u$ and
+$v$ by $[-q-e,M+q+e]$. When $-128\le-q-e<M+q+e\le127$, each of them can be stored as
+a 8-bit integer. This enables 16-way SSE vectorization regardless of the peak
+score of the alignment.
 
 For a more efficient SSE implementation, we transform the row-column coordinate
-to diagonal-anti-diagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
+to the diagonal-antidiagonal coordinate by letting $r\gets i+j$ and $t\gets i$.
 Eq.~(\ref{eq:suzuki}) becomes:
 \begin{equation*}
 \left\{\begin{array}{lll}
-z_{rt}&=&\max\{s(t,r-t),x_{r-1,t-1}+v_{r-1,t-1},y_{r-1,t}+u_{r-1,t},\\
-&&\tilde{x}_{r-1,t-1}+v_{r-1,t-1},\tilde{y}_{r-1,t}+u_{r-1,t}\}\\
+z_{rt}&=&\max\{s(t,r-t),x_{r-1,t-1}+v_{r-1,t-1},y_{r-1,t}\\
+&&+u_{r-1,t},\tilde{x}_{r-1,t-1}+v_{r-1,t-1},\tilde{y}_{r-1,t}+u_{r-1,t}\}\\
 u_{rt}&=&z_{rt}-v_{r-1,t-1}\\
 v_{rt}&=&z_{rt}-u_{r-1,t}\\
 x_{rt}&=&\max\{0,x_{r-1,t-1}+v_{r-1,t-1}-z_{rt}+q\}-q-e\\
@@ -317,10 +243,11 @@ y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
 \end{equation*}
 In this formulation, cells with the same diagonal index $r$ are independent of
 each other. This allows us to fully vectorize the computation of all cells on
-the same anti-diagonal in one inner loop.
+the same anti-diagonal in one inner loop. It also simplifies banded alignment,
+which would be difficult with striped vectorization~\citep{Farrar:2007hs}.
 
-On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the boundary
-condition of this equation in the diagonal-anti-diagonal coordinate is
+On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the initial
+values in the diagonal-antidiagonal formuation is
 \[
 \left\{\begin{array}{l}
 x_{r-1,-1}=y_{r-1,r}=-q-e\\
@@ -337,8 +264,246 @@ r\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (r=\lceil\frac{\tilde{q}-q}{e-\til
 -\tilde{e} & (r>\lceil\frac{\tilde{q}-q}{e-\tilde{e}}-1\rceil)
 \end{array}\right.
 \]
+These can be derived from the initial values for Eq.~(\ref{eq:ae86}).
 
-\citet{Suzuki:2016} first derived a similar set of equations under affine gap
-cost but with different notations.
+In practice, our 16-way vectorized implementation of global alignment is three
+times as fast as Parasail's 4-way vectorization~\citep{Daily:2016aa}.  Without
+banding, our implementation is slower than Edlib~\citep{Sosic:2017aa}, but with
+a 1000bp band, it is considerably faster. When performing global alignment
+between anchors, we expect the alignment to stay close to the diagonal of the
+DP matrix. Banding is applicable most of time.
+
+\subsubsection{The Z-drop heuristic}
+
+With global alignment, minimap2 may force to align unrelated sequences between
+two adjacent anchors. To avoid such an artifact, we compute accumulative
+alignment score along the alignment path and break the alignment where the
+score drops too fast in the diagonal direction. More precisely, let $S(i,j)$ be
+the alignment score along the alignment path ending at cell $(i,j)$ in the DP
+matrix. We break the alignment if there exist $(i',j')$ and $(i,j)$, $i'<i$ and
+$j'<j$, such that
+\[
+S(i',j')-S(i,j)>Z+e\cdot|(i-i')-(j-j')|
+\]
+where $e$ is the gap extension cost and $Z$ is an arbitrary threshold.
+This strategy is first used in BWA-MEM. It is similar to X-drop employed in
+BLAST~\citep{Altschul:1997vn}, but unlike X-drop, it would not break the
+alignment in the presence of a single long gap.
+
+When minimap2 breaks a global alignment between two anchors, it performs local
+alignment between the two subsequences involved in the global alignment, but
+this time with the one subsequence reverse complemented. This additional
+alignment step may identify short inversions that are missed during chaining.
+
+\subsection{Aligning spliced sequences}
+
+The algorithm described above can be adapted to spliced alignment. In this
+mode, the chaining gap cost distinguishes insertions to and deletions from the
+reference: $\gamma_c(l)$ in Eq.~(\ref{eq:chain-gap}) takes the form of
+\[
+\gamma_c(l)=\left\{\begin{array}{ll}
+0.01\cdot\bar{w}\cdot l+0.5\log_2 l & (l>0) \\
+\min\{0.01\cdot\bar{w}\cdot|l|,\log_2|l|\} & (l<0)
+\end{array}\right.
+\]
+Similarly, the gap cost function used for DP-based alignment is changed to
+\[
+\gamma_a(l)=\left\{\begin{array}{ll}
+q+l\cdot e & (l>0) \\
+\min\{q+|l|\cdot e,\tilde{q}\} & (l<0)
+\end{array}\right.
+\]
+In alignment, a deletion no shorter than $\lceil(\tilde{q}-q)/e\rceil$ is
+regarded as an intron, which pays no cost to gap extensions.
+
+To pinpoint precise splicing junctions, minimap2 introduces reference-dependent
+cost to penalize non-canonical splicing:
+\begin{equation}\label{eq:splice}
+\left\{\begin{array}{l}
+H_{ij} = \max\{H_{i-1,j-1}+s(i,j),E_{ij},F_{ij},\tilde{E}_{ij}-a(i)\}\\
+E_{i+1,j}= \max\{H_{ij}-q,E_{ij}\}-e\\
+F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
+\tilde{E}_{i+1,j}= \max\{H_{ij}-d(i)-\tilde{q},\tilde{E}_{ij}\}\\
+\end{array}\right.
+\end{equation}
+Let $T$ be the reference sequence. $d(i)$ is the cost of a non-canonical donor
+site, which takes 0 if $T[i+1,i+2]={\tt GT}$, or a positive number $p$
+otherwise. Similarly, $a(i)$ is the cost of a non-canonical acceptor site, which
+takes 0 if $T[i-1,i]={\tt AG}$, or $p$ otherwise. Eq.~(\ref{eq:splice}) is
+almost equivalent to the equation used by EXALIN~\citep{Zhang:2006aa} except
+that we allow insertions immediately followed by deletions and vice versa; in
+addition, we use Suzuki's diagonal formulation in actual implementation.
+
+%Given that $d_i$ and $a_i$
+%are a function of the reference sequence, it is possible to incorporate
+%splicing signals with more sophisticated models, such as positional weight
+%matrices. We have not tried this approach.
+
+If RNA-seq reads are not sequenced from stranded libraries, the read strand
+relative to the underlying transcript is unknown. By default, minimap2 aligns
+each chain twice, first assuming ${\tt GT}$--${\tt AG}$ as the splicing signal
+and then assuming ${\tt CT}$--${\tt AC}$, the reverse complement of ${\tt
+GT}$--${\tt AG}$, as the splicing signal. The alignment with a higher score is
+taken as the final alignment. This procedure also infers the relative strand of
+reads that span canonical splicing sites.
+
+In the spliced alignment mode, minimap2 further increases the density of
+minimizers and disables banded alignment. Together with the two-round DP-based
+alignment, spliced alignment is several times slower than DNA sequence
+alignment.
+
 \end{methods}
+
+\section{Results}
+
+\subsection{Aligning genomic reads}
+
+\begin{figure}[!tb]
+\centering
+\includegraphics[width=.5\textwidth]{roc-color.pdf}
+\caption{Evaluation on simulated SMRT reads aligned against human genome
+GRCh38.  33,088 $\ge$1000bp reads were simulated using pbsim~\citep{Ono:2013aa}
+with error profile sampled from file `m131017\_060208\_42213\_*.1.*' downloaded
+at \href{http://bit.ly/chm1p5c3}{http://bit.ly/chm1p5c3}. The N50 read length
+is 11,628. A read is considered correctly mapped if the true position overlaps
+with the best mapping position by 10\% of the read length. All aligners were
+run under the default setting for SMRT reads.  (a) ROC-like curve. Alignments
+are sorted by mapping quality in the descending order. For each mapping quality
+threshold, the fraction of alignments with mapping quality above the threshold
+and their error rate are plotted.  Kart outputted all alignments at mapping
+quality 60, so is not shown in the figure. It mapped nearly all reads with
+4.1\% of alignments being wrong, less accurate than others.  (b) Accumulative
+mapping error rate as a function of mapping quality.}\label{fig:eval}
+\end{figure}
+
+As a sanity check, we evaluated minimap2 on simulated human reads along with
+BLASR~(v1.MC.rc64; \citealp{Chaisson:2012aa}),
+BWA-MEM~(v0.7.15; \citealp{Li:2013aa}),
+GraphMap~(v0.5.2; \citealp{Sovic:2016aa}),
+Kart~(v2.2.5; \citealp{Lin:2017aa}),
+minialign~(v0.5.3; \citealp{Suzuki:2016}) and
+NGMLR~(v0.2.5; \citealp{Sedlazeck169557}). We excluded rHAT~\citep{Liu:2016ab}
+and LAMSA~\citep{Liu:2017aa} because they either
+crashed or produced malformatted output. In this evaluation, minimap2 has
+higher power to distinguish unique and repetitive hits, and achieves overall
+higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
+even if we skip DP-based alignment (data not shown), confirming chaining alone
+is sufficient to achieve high accuracy for approximate mapping. Minimap2 and
+NGMLR provide better mapping quality estimate: they rarely give repetitive hits
+high mapping quality (Fig.~\ref{fig:eval}b).  Apparently, other aligners may
+occasionally miss close suboptimal hits and be overconfident in wrong mappings.
+On run time, minialign is slightly faster than minimap2 and Kart. They are over
+30 times faster than the rest.  Minimap2 consumed 6.1GB memory at the peak,
+more than BWA-MEM but less than others.
+
+On real human SMRT reads, the relative performance and sensitivity of
+these aligners are broadly similar to the metrics on simulated data. We are
+unable to provide a good estimate of mapping error rate due to the lack of the
+truth.  On ONT $\sim$100kb human reads~\citep{Jain128835}, BWA-MEM failed.
+Kart, minialign and minimap2 are over 70 times faster than others. We have also
+examined tens of $\ge$100bp INDELs in IGV~\citep{Robinson:2011aa} and can
+confirm the observation by~\citet{Sedlazeck169557} that BWA-MEM often breaks
+them into shorter gaps. The issue is much alleviated with minimap2, thanks
+to the 2-piece affine gap cost.
+
+\subsection{Aligning spliced reads}
+
+We evaluated minimap2 on SIRV control data~(AC:SRR5286959;
+\citealp{Byrne:2017aa}) where the truth is known. Minimap2 predicted 59\,916
+introns from 11\,017 reads. 93.0\% of splice juctions are precise. We examined
+wrongly predicted junctions and found the majority were caused by clustered
+splicing signals (e.g. two adjacent ${\tt GT}$ sites). When INDEL sequencing
+errors are frequent, it is difficult to find precise splicing sites in this
+case. If we allow up to 10bp distance from true splicing sites, 98.4\% of
+aligned introns are approximately correct.  Given this observation, we might be
+able to improve boundary detection by initializing $d(\cdot)$ and $a(\cdot)$ in
+Eq.~(\ref{eq:splice}) with position-specific scoring matrices or more
+sophisticated models. We have not tried this approach.
+
+\begin{table}[!tb]
+\processtable{Evaluation of junction accuracy on 2D ONT reads}
+{\footnotesize\label{tab:intron}
+\begin{tabular}{p{3.1cm}rrrr}
+\toprule
+& GMAP & minimap2 & SpAln & STAR\\
+\midrule
+Run time (CPU min) & 631 & 15.5 & 2\,076 & 33.9 \\
+Peak RAM (GByte) & 8.9 & 14.5 & 3.2 & 29.2\vspace{1em}\\
+\# aligned reads & 103\,669 & 103\,917 & 103\,711 & 26\,479\\
+\# chimeric alignments & 1\,904 & 1\,671 & 0 & 0\\
+\# non-spliced alignments & 15\,854 & 14\,483 & 17\,033 & 10\,545\vspace{1em}\\
+\# aligned introns & 692\,275 & 694\,237 & 692\,945 & 78\,603 \\
+\# novel introns & 11\,239 & 3\,217 & 8\,550 & 1\,214 \\
+\% exact introns & 83.8\% & 91.8\% & 87.9\% & 55.2\% \\
+\% approx. introns & 91.8\% & 96.5\% & 92.5\% & 82.4\% \\
+\botrule
+\end{tabular}
+}{Mouse reads (AC:SRR5286960) were mapped to the primary assembly of mouse
+genome GRCm38 with the following tools and command options: minimap2 (`-ax
+splice'); GMAP (`-n 0 --min-intronlength 30 --cross-species'); SpAln (`-Q7 -LS
+-S3'); STARlong (according to
+\href{http://bit.ly/star-pb}{http://bit.ly/star-pb}). The alignments were
+compared to the EnsEMBL gene annotation, release 89. A predicted intron
+is \emph{novel} if it has no overlaps with any annotated introns. An intron
+is \emph{exact} if it is identical to an annotated intron. An intron is
+\emph{approximate} if both its 5'- and 3'-end are within 10bp around the ends
+of an annotated intron.}
+\end{table}
+
+We next aligned real mouse reads~\citep{Byrne:2017aa} with GMAP~(v2017-06-20;
+\citealp{Wu:2005vn}), minimap2, SpAln~(v2.3.1; \citealp{Iwata:2012aa}) and
+STAR~(v2.5.3a; \citealp{Dobin:2013kx}). In general, minimap2 is more
+consistent with existing annotations (Table~\ref{tab:intron}): it finds
+more junctions with a higher percentage being exactly or approximately correct.
+Minimap2 is over 40 times faster than GMAP and SpAln. While STAR is close to
+minimap2 in speed, it does not work well with noisy reads.  We have also
+evaluated spliced aligners on public Iso-Seq data (human Alzheimer brain
+from \href{http://bit.ly/isoseqpub}{http://bit.ly/isoseqpub}). The observation
+is similar: minimap2 is faster at higher junction accuracy.
+
+We noted that GMAP and SpAln have not been optimized for noisy reads. We are
+showing the best setting we have experimented, but their developers should be
+able to improve their accuracy further.
+
+%\begin{table}[!tb]
+%\processtable{Evaluation of junction accuracy on SMRT Iso-Seq reads}
+%{\footnotesize
+%\begin{tabular}{lrrrr}
+%\toprule
+%& GMAP & minimap2 & SpAln & STAR\\
+%\midrule
+%Run time (CPU min) & & 243 & 2\,352 & 1\,647 \\
+%\# aligned reads & & 1\,123\,025 & 1\,094\,092 & 682\,452\\
+%\# chimeric alignments & & 33\,091 & 0 & 0\\
+%\# non-spliced alignments & & 339\,081 & 291\,447 & 272\,536\vspace{1em}\\
+%\# aligned introns & & 9\,071\,755 & 9\,208\,564 & 3\,029\,121 \\
+%\# novel introns & & 42\,773 & 82\,230 & 17\,791 \\
+%\% exact introns & & 94.9\% & 91.7\% & 84.7\% \\
+%\% approx. introns&& 96.9\% & 93.4\% & 93.8\% \\
+%\botrule
+%\end{tabular}
+%}{}
+%\end{table}
+
+
+\section{Conclusion}
+
+Minimap2 is a fast, accurate and versatile aligner for long nucleotide
+sequences.  In addition to reference-based read mapping, minimap2 inherits
+minimap's functionality to search against huge multi-species databases and to
+find read overlaps. On a few test data sets, minimap2 appears to yield slightly
+better miniasm assembly~\citep{Li:2016aa}. Minimap2 can also align similar
+genomes or different assemblies of the same species. However, full-genome
+alignment is an intricate research topic. More thorough evaluations would be
+necessary to justify the use of minimap2 for such applications.
+
+\section*{Acknowledgements}
+We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
+insightful notes before formal publication. We thank M. Schatz, P. Rescheneder
+and F.  Sedlazeck for pointing out the limitation of BWA-MEM. We are also
+grateful to early minimap2 testers who have greatly helped to suggest features
+and to fix various issues.
+
+\bibliography{minimap2}
+
 \end{document}

@@ -19,7 +19,7 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int64_t n, mm128_t *a, uint64_t **_u, void *km)
+int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int64_t n, mm128_t *a, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t st = 0, k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j;
@@ -42,17 +42,23 @@ int mm_chain_dp(int max_dist, int bw, int max_skip, int min_cnt, int min_sc, int
 		uint64_t ri = a[i].x;
 		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
 		int32_t max_f = q_span, max_j = -1, n_skip = 0, min_d, max_f_past = -INT32_MAX;
-		while (st < i && ri - a[st].x > max_dist) ++st;
+		while (st < i && ri - a[st].x > max_dist_x) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
 			int32_t dq = qi - (int32_t)a[j].y, dd, sc;
-			if (dr == 0 || dq <= 0 || dq > max_dist) continue;
+			if (dr == 0 || dq <= 0 || dq > max_dist_y) continue;
 			dd = dr > dq? dr - dq : dq - dr;
 			if (dd > bw) continue;
 			max_f_past = max_f_past > f[j]? max_f_past : f[j];
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
-			sc -= (int)(dd * .01 * avg_qspan) + (ilog2_32(dd)>>1);
+			if (is_cdna) {
+				int c_log, c_lin;
+				c_lin = (int)(dd * .01 * avg_qspan);
+				c_log = ilog2_32(dd);
+				if (dr > dq) sc -= c_lin < c_log? c_lin : c_log;
+				else sc -= c_lin + (c_log>>1);
+			} else sc -= (int)(dd * .01 * avg_qspan) + (ilog2_32(dd)>>1);
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
