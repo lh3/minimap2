@@ -2,8 +2,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef WIN32
+#include <time.h>
+#else
 #include <sys/resource.h>
 #include <sys/time.h>
+#endif
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"

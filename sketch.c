@@ -5,6 +5,11 @@
 #include "kvec.h"
 #include "minimap.h"
 
+#ifdef WIN32
+#include <malloc.h>
+#define alloca _alloca
+#endif
+
 unsigned char seq_nt4_table[256] = {
 	0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
