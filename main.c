@@ -1,4 +1,3 @@
-#include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,8 +6,9 @@
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
+#include "getopt.h"
 
-#define MM_VERSION "2.1-r311"
+#define MM_VERSION "2.1-r316-dirty"
 
 void liftrlimit()
 {
