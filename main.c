@@ -240,6 +240,7 @@ int main(int argc, char *argv[])
 		mm_idx_t *mi;
 		if (fpr) {
 			mi = mm_idx_load(fpr);
+			if (mi == 0) break;
 			if (idx_par_set && mm_verbose >= 2 && (mi->k != k || mi->w != w || mi->is_hpc != is_hpc))
 				fprintf(stderr, "[WARNING] \033[1;31mIndexing parameters on the command line (-k/-w/-H) overridden by parameters in the prebuilt index.\033[0m\n");
 		} else {
