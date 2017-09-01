@@ -21,8 +21,8 @@ all:$(PROG)
 
 extra:all $(PROG_EXTRA)
 
-minimap2:main.o libminimap2.a
-		$(CC) $(CFLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
+minimap2:main.o getopt.o libminimap2.a
+		$(CC) $(CFLAGS) main.o getopt.o -o $@ -L. -lminimap2 $(LIBS)
 
 minimap2-lite:example.o libminimap2.a
 		$(CC) $(CFLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
