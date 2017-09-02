@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <assert.h>
-#ifdef WIN32
-#include <io.h>
+#if defined(WIN32) || defined(_WIN32)
+#include <io.h> // for open(2)
 #else
 #include <unistd.h>
 #endif

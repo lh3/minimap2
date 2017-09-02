@@ -3,7 +3,7 @@
 #include <limits.h>
 #include <stdint.h>
 
-#ifdef WIN32
+#if defined(WIN32) || defined(_WIN32)
 #include <malloc.h>
 #define alloca _alloca
 #define __sync_fetch_and_add(ptr, addend)     _InterlockedExchangeAdd((void*)ptr, addend)

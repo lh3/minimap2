@@ -176,7 +176,7 @@ uint64_t *sdust(void *km, const uint8_t *seq, int l_seq, int T, int W, int *n)
 #ifdef _SDUST_MAIN
 #include <zlib.h>
 #include <stdio.h>
-#include <unistd.h>
+#include "getopt.h"
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 

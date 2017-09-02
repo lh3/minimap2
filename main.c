@@ -1,12 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#ifdef WIN32
-#include <time.h>
-#else
-#include <sys/resource.h>
-#include <sys/time.h>
-#endif
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
@@ -14,15 +8,19 @@
 
 #define MM_VERSION "2.1-r316-dirty"
 
+#ifdef __linux__
+#include <sys/resource.h>
+#include <sys/time.h>
 void liftrlimit()
 {
-#ifdef __linux__
 	struct rlimit r;
 	getrlimit(RLIMIT_AS, &r);
 	r.rlim_cur = r.rlim_max;
 	setrlimit(RLIMIT_AS, &r);
-#endif
 }
+#else
+void liftrlimit() {}
+#endif
 
 static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },

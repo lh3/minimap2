@@ -30,8 +30,8 @@ minimap2-lite:example.o libminimap2.a
 libminimap2.a:$(OBJS)
 		$(AR) -csru $@ $(OBJS)
 
-sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h sdust.h
-		$(CC) -D_SDUST_MAIN $(CFLAGS) $< kalloc.o -o $@ -lz
+sdust:sdust.c getopt.o kalloc.o kalloc.h kdq.h kvec.h kseq.h sdust.h
+		$(CC) -D_SDUST_MAIN $(CFLAGS) $< getopt.o kalloc.o -o $@ -lz
 
 clean:
 		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM session*
@@ -46,6 +46,7 @@ bseq.o: bseq.h kseq.h
 chain.o: minimap.h mmpriv.h bseq.h kalloc.h
 example.o: minimap.h kseq.h
 format.o: kalloc.h mmpriv.h minimap.h bseq.h
+getopt.o: getopt.h
 hit.o: mmpriv.h minimap.h bseq.h kalloc.h
 index.o: kthread.h bseq.h minimap.h mmpriv.h kvec.h kalloc.h khash.h
 kalloc.o: kalloc.h
@@ -53,7 +54,7 @@ ksw2_extd2_sse.o: ksw2.h kalloc.h
 ksw2_exts2_sse.o: ksw2.h kalloc.h
 ksw2_extz2_sse.o: ksw2.h kalloc.h
 ksw2_ll_sse.o: ksw2.h kalloc.h
-main.o: bseq.h minimap.h mmpriv.h
+main.o: bseq.h minimap.h mmpriv.h getopt.h
 map.o: kthread.h kvec.h kalloc.h sdust.h mmpriv.h minimap.h bseq.h
 misc.o: minimap.h ksort.h
 sdust.o: kalloc.h kdq.h kvec.h sdust.h

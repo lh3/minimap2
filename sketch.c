@@ -5,7 +5,7 @@
 #include "kvec.h"
 #include "minimap.h"
 
-#ifdef WIN32
+#if defined(WIN32) || defined(_WIN32)
 #include <malloc.h>
 #define alloca _alloca
 #endif
