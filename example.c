@@ -35,13 +35,13 @@ int main(int argc, char *argv[])
 	opt.flag |= MM_F_CIGAR; // perform alignment
 	mm_tbuf_t *tbuf = mm_tbuf_init(); // thread buffer; for multi-threading, allocate one tbuf for each thread
 	while (kseq_read(ks) >= 0) { // each kseq_read() call reads one query sequence
-		const mm_reg1_t *reg;
+		mm_reg1_t *reg;
 		int j, i, n_reg;
 		// get all hits for the query
 		reg = mm_map(mi, ks->seq.l, ks->seq.s, &n_reg, tbuf, &opt, 0);
 		// traverse hits and print them out
 		for (j = 0; j < n_reg; ++j) {
-			const mm_reg1_t *r = &reg[j];
+			mm_reg1_t *r = &reg[j];
 			assert(r->p); // with MM_F_CIGAR, this should not be NULL
 			printf("%s\t%d\t%d\t%d\t%c\t", ks->name.s, ks->seq.l, r->qs, r->qe, "+-"[r->rev]);
 			printf("%s\t%d\t%d\t%d\t%d\t%d\t%d\tcg:Z:", mi->seq[r->rid].name, mi->seq[r->rid].len, r->rs, r->re,
@@ -49,7 +49,9 @@ int main(int argc, char *argv[])
 			for (i = 0; i < r->p->n_cigar; ++i) // IMPORTANT: this gives the CIGAR in the aligned regions. NO soft/hard clippings!
 				printf("%d%c", r->p->cigar[i]>>4, "MIDSHN"[r->p->cigar[i]&0xf]);
 			putchar('\n');
+			free(r->p);
 		}
+		free(reg);
 	}
 	mm_tbuf_destroy(tbuf);
 
