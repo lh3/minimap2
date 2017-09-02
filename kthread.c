@@ -3,9 +3,7 @@
 #include <limits.h>
 #include <stdint.h>
 
-#if defined(WIN32) || defined(_WIN32)
-#include <malloc.h>
-#define alloca _alloca
+#if (defined(WIN32) || defined(_WIN32)) && defined(_MSC_VER)
 #define __sync_fetch_and_add(ptr, addend)     _InterlockedExchangeAdd((void*)ptr, addend)
 #endif
 
@@ -59,12 +57,13 @@ void kt_for(int n_threads, void (*func)(void*,long,int), void *data, long n)
 		kt_for_t t;
 		pthread_t *tid;
 		t.func = func, t.data = data, t.n_threads = n_threads, t.n = n;
-		t.w = (ktf_worker_t*)alloca(n_threads * sizeof(ktf_worker_t));
-		tid = (pthread_t*)alloca(n_threads * sizeof(pthread_t));
+		t.w = (ktf_worker_t*)calloc(n_threads, sizeof(ktf_worker_t));
+		tid = (pthread_t*)calloc(n_threads, sizeof(pthread_t));
 		for (i = 0; i < n_threads; ++i)
 			t.w[i].t = &t, t.w[i].i = i;
 		for (i = 0; i < n_threads; ++i) pthread_create(&tid[i], 0, ktf_worker, &t.w[i]);
 		for (i = 0; i < n_threads; ++i) pthread_join(tid[i], 0);
+		free(tid); free(t.w);
 	} else {
 		long j;
 		for (j = 0; j < n; ++j) func(data, j, 0);

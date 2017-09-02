@@ -5,11 +5,6 @@
 #include "kvec.h"
 #include "minimap.h"
 
-#if defined(WIN32) || defined(_WIN32)
-#include <malloc.h>
-#define alloca _alloca
-#endif
-
 unsigned char seq_nt4_table[256] = {
 	0, 1, 2, 3,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
 	4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4,  4, 4, 4, 4, 
@@ -86,7 +81,7 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 	tiny_queue_t tq;
 
 	assert(len > 0 && w > 0 && k > 0 && k <= 28); // 56 bits for k-mer; could use long k-mers, but 28 enough in practice
-	buf = (mm128_t*)alloca(w * 16);
+	buf = (mm128_t*)calloc(w, 16);
 	memset(buf, 0xff, w * 16);
 	memset(&tq, 0, sizeof(tiny_queue_t));
 	kv_resize(mm128_t, km, *p, p->n + len/w);
@@ -145,4 +140,5 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 	}
 	if (min.x != UINT64_MAX)
 		kv_push(mm128_t, km, *p, min);
+	free(buf);
 }
