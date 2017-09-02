@@ -11,12 +11,16 @@ int optind=1, opterr=1, optopt, __optpos, optreset=0;
 static void __getopt_msg(const char *a, const char *b, const char *c, size_t l)
 {
 	FILE *f = stderr;
+#if !defined(WIN32) && !defined(_WIN32)
 	flockfile(f);
+#endif
 	fputs(a, f);
 	fwrite(b, strlen(b), 1, f);
 	fwrite(c, 1, l, f);
 	fputc('\n', f);
+#if !defined(WIN32) && !defined(_WIN32)
 	funlockfile(f);
+#endif
 }
 
 int getopt(int argc, char * const argv[], const char *optstring)
