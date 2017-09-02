@@ -141,16 +141,17 @@ void kt_pipeline(int n_threads, void *(*func)(void*, int, void*), void *shared_d
 	pthread_mutex_init(&aux.mutex, 0);
 	pthread_cond_init(&aux.cv, 0);
 
-	aux.workers = (ktp_worker_t*)alloca(n_threads * sizeof(ktp_worker_t));
+	aux.workers = (ktp_worker_t*)calloc(n_threads, sizeof(ktp_worker_t));
 	for (i = 0; i < n_threads; ++i) {
 		ktp_worker_t *w = &aux.workers[i];
 		w->step = 0; w->pl = &aux; w->data = 0;
 		w->index = aux.index++;
 	}
 
-	tid = (pthread_t*)alloca(n_threads * sizeof(pthread_t));
+	tid = (pthread_t*)calloc(n_threads, sizeof(pthread_t));
 	for (i = 0; i < n_threads; ++i) pthread_create(&tid[i], 0, ktp_worker, &aux.workers[i]);
 	for (i = 0; i < n_threads; ++i) pthread_join(tid[i], 0);
+	free(tid); free(aux.workers);
 
 	pthread_mutex_destroy(&aux.mutex);
 	pthread_cond_destroy(&aux.cv);
