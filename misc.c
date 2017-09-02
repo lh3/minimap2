@@ -1,10 +1,32 @@
-#include <sys/resource.h>
-#include <sys/time.h>
-#include "minimap.h"
-
 int mm_verbose = 3;
 int mm_dbg_flag = 0;
 double mm_realtime0;
+
+#include "minimap.h"
+
+#ifdef WIN32
+#include "gettimeofday.h"
+
+// taken from https://stackoverflow.com/questions/5272470/c-get-cpu-usage-on-linux-and-windows
+#include <windows.h>
+double cputime() {
+  HANDLE hProcess = GetCurrentProcess();
+  FILETIME ftCreation, ftExit, ftKernel, ftUser;
+  SYSTEMTIME stKernel;
+  SYSTEMTIME stUser;
+
+  GetProcessTimes(hProcess, &ftCreation, &ftExit, &ftKernel, &ftUser);
+  FileTimeToSystemTime(&ftKernel, &stKernel);
+  FileTimeToSystemTime(&ftUser, &stUser);
+
+  double kernelModeTime = ((stKernel.wHour * 60.) + stKernel.wMinute * 60.) + stKernel.wSecond * 1. + stKernel.wMilliseconds / 1000.;
+  double userModeTime = ((stUser.wHour * 60.) + stUser.wMinute * 60.) + stUser.wSecond * 1. + stUser.wMilliseconds / 1000.;
+
+  return kernelModeTime + userModeTime;
+}
+#else
+#include <sys/resource.h>
+#include <sys/time.h>
 
 double cputime()
 {
@@ -12,6 +34,7 @@ double cputime()
 	getrusage(RUSAGE_SELF, &r);
 	return r.ru_utime.tv_sec + r.ru_stime.tv_sec + 1e-6 * (r.ru_utime.tv_usec + r.ru_stime.tv_usec);
 }
+#endif /* WIN32 */
 
 double realtime()
 {
