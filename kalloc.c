@@ -46,7 +46,7 @@ static size_t *morecore(kmem_t *km, size_t nu)
 	up = (size_t*)malloc(rnu * sizeof(size_t));
 	if (!up) { /* fail to allocate memory */
 		km_stat(km);
-		fprintf(stderr, "[morecore] %lu bytes requested but not available.\n", rnu * sizeof(size_t));
+		fprintf(stderr, "[morecore] %zu bytes requested but not available.\n", rnu * sizeof(size_t));
 		exit(1);
 	}
 	/* put the pointer in km->list_head */
@@ -209,6 +209,6 @@ void km_stat(const void *_km)
 	
 	--n_blocks;
 	frag = 1.0/1024.0 * n_units * sizeof(size_t) / n_blocks;
-	fprintf(stderr, "[kr_stat] tot=%lu, free=%lu, n_block=%u, max_block=%lu, frag_len=%.3fK\n",
+	fprintf(stderr, "[kr_stat] tot=%zu, free=%zu, n_block=%u, max_block=%zu, frag_len=%.3fK\n",
 			km->total_allocated, n_units * sizeof(size_t), n_blocks, max_block * sizeof(size_t), frag);
 }
