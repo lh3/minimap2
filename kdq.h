@@ -3,11 +3,12 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include "kalloc.h"
 
 #define __KDQ_TYPE(type) \
 	typedef struct { \
-		size_t front:58, bits:6, count, mask; \
+		uint64_t front:58, bits:6, count, mask; \
 		type *a; \
 		void *km; \
 	} kdq_##type##_t;
