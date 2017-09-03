@@ -1,24 +1,26 @@
-#include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <sys/resource.h>
-#include <sys/time.h>
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
+#include "getopt.h"
 
-#define MM_VERSION "2.1-r311"
+#define MM_VERSION "2.1-r335-dirty"
 
+#ifdef __linux__
+#include <sys/resource.h>
+#include <sys/time.h>
 void liftrlimit()
 {
-#ifdef __linux__
 	struct rlimit r;
 	getrlimit(RLIMIT_AS, &r);
 	r.rlim_cur = r.rlim_max;
 	setrlimit(RLIMIT_AS, &r);
-#endif
 }
+#else
+void liftrlimit() {}
+#endif
 
 static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
@@ -250,6 +252,7 @@ int main(int argc, char *argv[])
 		mm_idx_t *mi;
 		if (fpr) {
 			mi = mm_idx_load(fpr);
+			if (mi == 0) break;
 			if (idx_par_set && mm_verbose >= 2 && (mi->k != k || mi->w != w || mi->is_hpc != is_hpc))
 				fprintf(stderr, "[WARNING] \033[1;31mIndexing parameters on the command line (-k/-w/-H) overridden by parameters in the prebuilt index.\033[0m\n");
 		} else {

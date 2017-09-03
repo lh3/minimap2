@@ -1,6 +1,10 @@
 #include <stdlib.h>
 #include <assert.h>
+#if defined(WIN32) || defined(_WIN32)
+#include <io.h> // for open(2)
+#else
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 #include <stdio.h>
 #include "kthread.h"

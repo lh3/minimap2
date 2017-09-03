@@ -382,7 +382,11 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 	pipeline_t pl;
 	memset(&pl, 0, sizeof(pipeline_t));
 	pl.fp = mm_bseq_open(fn);
-	if (pl.fp == 0) return -1;
+	if (pl.fp == 0) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "ERROR: failed to open file '%s'\n", fn);
+		return -1;
+	}
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads, pl.mini_batch_size = mini_batch_size;
 	if ((opt->flag & MM_F_OUT_SAM) && !(opt->flag & MM_F_NO_SAM_SQ))

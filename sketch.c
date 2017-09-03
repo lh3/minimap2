@@ -77,11 +77,10 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 {
 	uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
 	int i, j, l, buf_pos, min_pos, kmer_span = 0;
-	mm128_t *buf, min = { UINT64_MAX, UINT64_MAX };
+	mm128_t buf[256], min = { UINT64_MAX, UINT64_MAX };
 	tiny_queue_t tq;
 
-	assert(len > 0 && w > 0 && k > 0 && k <= 28); // 56 bits for k-mer; could use long k-mers, but 28 enough in practice
-	buf = (mm128_t*)alloca(w * 16);
+	assert(len > 0 && (w > 0 && w < 256) && (k > 0 && k <= 28)); // 56 bits for k-mer; could use long k-mers, but 28 enough in practice
 	memset(buf, 0xff, w * 16);
 	memset(&tq, 0, sizeof(tiny_queue_t));
 	kv_resize(mm128_t, km, *p, p->n + len/w);
