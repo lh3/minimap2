@@ -130,7 +130,7 @@ typedef const char *ksstr_t;
 	void radix_sort_##name(rstype_t *beg, rstype_t *end) \
 	{ \
 		if (end - beg <= RS_MIN_SIZE) rs_insertsort_##name(beg, end); \
-		else rs_sort_##name(beg, end, RS_MAX_BITS, (sizeof_key - 1) * RS_N_BITS); \
+		else rs_sort_##name(beg, end, RS_MAX_BITS, (sizeof_key - 1) * RS_MAX_BITS); \
 	}
 
 #endif
