@@ -1,15 +1,19 @@
 CC=			gcc
 CFLAGS=		-g -Wall -O2 -Wc++-compat
 CPPFLAGS=	-DHAVE_KALLOC
-INCLUDES=	-I.
-OBJS=		kthread.o kalloc.o ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o ksw2_ll_sse.o \
-			misc.o bseq.o sketch.o sdust.o index.o chain.o align.o hit.o map.o format.o
+INCLUDES=
+OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o index.o chain.o align.o hit.o map.o format.o ksw2_ll_sse.o
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
 
+ifneq ($(cpu_dispatch),)
+	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
+else
 ifeq ($(sse2only),)
 	CFLAGS+=-msse4
+endif
+	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
 endif
 
 .SUFFIXES:.c .o
@@ -32,6 +36,27 @@ libminimap2.a:$(OBJS)
 
 sdust:sdust.c getopt.o kalloc.o kalloc.h kdq.h kvec.h kseq.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< getopt.o kalloc.o -o $@ -lz
+
+ksw2_extz2_sse41.o:ksw2_extz2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) -msse4 $< -o $@
+
+ksw2_extz2_sse2.o:ksw2_extz2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) -mno-sse4 -msse2 $< -o $@
+
+ksw2_extd2_sse41.o:ksw2_extd2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) -msse4 $< -o $@
+
+ksw2_extd2_sse2.o:ksw2_extd2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) -mno-sse4 -msse2 $< -o $@
+
+ksw2_exts2_sse41.o:ksw2_exts2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) -msse4 $< -o $@
+
+ksw2_exts2_sse2.o:ksw2_exts2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) -mno-sse4 -msse2 $< -o $@
+
+ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
 clean:
 		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM session*
