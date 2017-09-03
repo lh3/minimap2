@@ -30,6 +30,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 typedef struct {
 	void *left, *right;
@@ -78,6 +79,7 @@ typedef const char *ksstr_t;
 #define KSORT_INIT_STR KSORT_INIT(str, ksstr_t, ks_lt_str)
 
 #define RS_MIN_SIZE 64
+#define RS_MAX_BITS 8
 
 #define KRADIX_SORT_INIT(name, rstype_t, rskey, sizeof_key) \
 	typedef struct { \
@@ -98,7 +100,8 @@ typedef const char *ksstr_t;
 	{ \
 		rstype_t *i; \
 		int size = 1<<n_bits, m = size - 1; \
-		rsbucket_##name##_t *k, b[size], *be = b + size; \
+		rsbucket_##name##_t *k, b[1<<RS_MAX_BITS], *be = b + size; \
+		assert(n_bits <= RS_MAX_BITS); \
 		for (k = b; k != be; ++k) k->b = k->e = beg; \
 		for (i = beg; i != end; ++i) ++b[rskey(*i)>>s&m].e; \
 		for (k = b + 1; k != be; ++k) \
@@ -127,7 +130,7 @@ typedef const char *ksstr_t;
 	void radix_sort_##name(rstype_t *beg, rstype_t *end) \
 	{ \
 		if (end - beg <= RS_MIN_SIZE) rs_insertsort_##name(beg, end); \
-		else rs_sort_##name(beg, end, 8, sizeof_key * 8 - 8); \
+		else rs_sort_##name(beg, end, RS_MAX_BITS, (sizeof_key - 1) * RS_N_BITS); \
 	}
 
 #endif
