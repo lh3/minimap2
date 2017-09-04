@@ -6,6 +6,10 @@
 #ifdef __SSE2__
 #include <emmintrin.h>
 
+#ifdef KSW_SSE2_ONLY
+#undef __SSE4_1__
+#endif
+
 #ifdef __SSE4_1__
 #include <smmintrin.h>
 #endif
