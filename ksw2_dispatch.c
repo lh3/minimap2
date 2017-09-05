@@ -5,30 +5,48 @@
 #define SIMD_SSE     0x1
 #define SIMD_SSE2    0x2
 #define SIMD_SSE3    0x4
-#define SIMD_SSE4_1  0x8
-#define SIMD_SSE4_2  0x10
-#define SIMD_AVX     0x20
-#define SIMD_AVX2    0x40
-#define SIMD_AVX512F 0x80
+#define SIMD_SSSE3   0x8
+#define SIMD_SSE4_1  0x10
+#define SIMD_SSE4_2  0x20
+#define SIMD_AVX     0x40
+#define SIMD_AVX2    0x80
+#define SIMD_AVX512F 0x100
 
-unsigned x86_simd(void)
+#ifndef _MSC_VER
+// adapted from https://github.com/01org/linux-sgx/blob/master/common/inc/internal/linux/cpuid_gnu.h
+void __cpuidex(int cpuid[4], int func_id, int subfunc_id)
 {
-	unsigned eax, ebx, ecx, edx, flag = 0;
-#ifdef _MSC_VER
-	int cpuid[4];
-	__cpuid(cpuid, 1);
-	eax = cpuid[0], ebx = cpuid[1], ecx = cpuid[2], edx = cpuid[3];
-#else
-	asm volatile("cpuid" : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx) : "a" (1));
+#if defined(__x86_64__)
+	asm volatile ("cpuid"
+			: "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+			: "0" (func_id), "2" (subfunc_id));
+#else // on 32bit, ebx can NOT be used as PIC code
+	asm volatile ("xchgl %%ebx, %1; cpuid; xchgl %%ebx, %1"
+			: "=a" (cpuid[0]), "=r" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
+			: "0" (func_id), "2" (subfunc_id));
 #endif
-	if (edx>>25&1) flag |= SIMD_SSE;
-	if (edx>>26&1) flag |= SIMD_SSE2;
-	if (ecx>>0 &1) flag |= SIMD_SSE3;
-	if (ecx>>19&1) flag |= SIMD_SSE4_1;
-	if (ecx>>20&1) flag |= SIMD_SSE4_2;
-	if (ecx>>28&1) flag |= SIMD_AVX;
-	if (ebx>>5 &1) flag |= SIMD_AVX2;
-	if (ebx>>16&1) flag |= SIMD_AVX512F;
+}
+#endif
+
+int x86_simd(void)
+{
+	int flag = 0, cpuid[4], max_id;
+	__cpuidex(cpuid, 0, 0);
+	max_id = cpuid[0];
+	if (max_id == 0) return 0;
+	__cpuidex(cpuid, 1, 0);
+	if (cpuid[3]>>25&1) flag |= SIMD_SSE;
+	if (cpuid[3]>>26&1) flag |= SIMD_SSE2;
+	if (cpuid[2]>>0 &1) flag |= SIMD_SSE3;
+	if (cpuid[2]>>9 &1) flag |= SIMD_SSSE3;
+	if (cpuid[2]>>19&1) flag |= SIMD_SSE4_1;
+	if (cpuid[2]>>20&1) flag |= SIMD_SSE4_2;
+	if (cpuid[2]>>28&1) flag |= SIMD_AVX;
+	if (max_id >= 7) {
+		__cpuidex(cpuid, 7, 0);
+		if (cpuid[1]>>5 &1) flag |= SIMD_AVX2;
+		if (cpuid[1]>>16&1) flag |= SIMD_AVX512F;
+	}
 	return flag;
 }
 
