@@ -1,3 +1,26 @@
+Release 2.1.1-r341 (6 September 2017)
+-------------------------------------
+
+This is a maintenance release that is expected to output identical alignment to
+v2.1. Detailed changes include:
+
+ * Support CPU dispatch. By default, minimap2 is compiled with both SSE2 and
+   SSE4 based implementation of alignment and automatically chooses the right
+   one at runtime. This avoids unexpected errors on older CPUs (#21).
+
+ * Improved Windows support as is requested by Oxford Nanopore (#19). Minimap2
+   now avoids variable-length stacked arrays, eliminates alloca(), ships with
+   getopt_long() and provides timing functions implemented with Windows APIs.
+
+ * Fixed a potential segmentation fault when specifying -k/-w/-H with
+   multi-part index (#23).
+
+ * Fixed two memory leaks in example.c
+
+(2.1.1: 6 September 2017, r341)
+
+
+
 Release 2.1-r311 (25 August 2017)
 ---------------------------------
 
