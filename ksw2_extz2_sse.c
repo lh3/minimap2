@@ -5,11 +5,23 @@
 #ifdef __SSE2__
 #include <emmintrin.h>
 
+#ifdef KSW_SSE2_ONLY
+#undef __SSE4_1__
+#endif
+
 #ifdef __SSE4_1__
 #include <smmintrin.h>
 #endif
 
+#ifdef KSW_CPU_DISPATCH
+#ifdef __SSE4_1__
+void ksw_extz2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez)
+#else
+void ksw_extz2_sse2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez)
+#endif
+#else
 void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez)
+#endif // ~KSW_CPU_DISPATCH
 {
 #define __dp_code_block1 \
 	z = _mm_add_epi8(_mm_load_si128(&s[t]), qe2_); \
