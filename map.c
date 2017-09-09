@@ -102,72 +102,7 @@ static void mm_dust_minier(mm128_v *mini, int l_seq, const char *seq, int sdust_
 	}
 	mini->n = k;
 }
-#if 0
-int mm_pair_thin_core(mm_tbuf_t *b, uint64_t x, int radius, int rel, int st0, int n, const uint64_t *z, uint64_v *a)
-{
-	int i, st = st0, en = n, mid = en - 1;
-	while (st < en) {
-		uint64_t y;
-		mid = st + ((en - st) >> 1);
-		y = z[mid];
-		if (y < x && (x - y)>>1 > radius) st = mid + 1;
-		else if (y >= x && (y - x)>>1 > radius) en = mid;
-		else break;
-	}
-	if (st < en) {
-		for (en = mid + 1; en < n; ++en)
-			if (z[en] > x && (z[en] - x)>>1 > radius)
-				break;
-		for (st = mid - 1; st >= st0; --st)
-			if (z[st] < x && (x - z[st])>>1 > radius)
-				break;
-		++st;
-		for (i = st; i < en; ++i) {
-			uint64_t y = z[i];
-			if (((x ^ y) & 1) == rel) {
-//				printf("* %d,%d\n", (uint32_t)x>>1, (uint32_t)y>>1);
-				kv_push(uint64_t, b->km, *a, y);
-			}
-		}
-		return en;
-	} else return st < n && z[st] < x? st + 1 : en;
-}
 
-void mm_pair_thin(mm_tbuf_t *b, int radius, mm_match_t *m1, mm_match_t *m2)
-{
-	mm_match_t *m[2];
-	const uint64_t *z[2];
-	uint64_v a[2];
-	int i, n[2], k[2], u = 0, rel = (m1->qpos ^ m2->qpos) & 1;
-
-	m[0] = m1, m[1] = m2;
-	for (i = 0; i < 2; ++i) {
-		n[i] = m[i]->n;
-		z[i] = m[i]->x.cr;
-		k[i] = 0;
-		kv_init(a[i]);
-		kv_resize(uint64_t, b->km, a[i], 256);
-	}
-	while (k[0] < n[0] && k[1] < n[1]) {
-		//printf("%d; %d,%d\n", u, k[0], k[1]);
-		int v = u^1, dist = (int)(m[v]->qpos>>1) - (int)(m[u]->qpos>>1);
-		uint64_t x = z[u][k[u]];
-		int uori = (x ^ m[u]->qpos) & 1, last;
-		int64_t tpos = x>>1 & 0x7fffffff;
-		tpos = uori == 0? tpos + dist : tpos - dist;
-		if (tpos < 0) tpos = 0;
-		x = x>>32<<32 | tpos<<1 | (x&1);
-		last = a[v].n;
-		k[v] = mm_pair_thin_core(b, x, radius, rel, k[v], n[v], z[v], &a[v]);
-		if (a[v].n > last) kv_push(uint64_t, b->km, a[u], z[u][k[u]]);
-		++k[u];
-		u ^= 1;
-	}
-	for (i = 0; i < 2; ++i)
-		m[i]->n = a[i].n, m[i]->x.r = a[i].a, m[i]->is_alloc = 1;
-//	printf("%d,%d; %d,%d\n", m[0]->qpos>>1, m[1]->qpos>>1, m[0]->n, m[1]->n);
-}
-#endif
 mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
 {
 	int i, n = m_en - m_st, j, n_u, max_gap_ref;
@@ -187,23 +122,7 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 		m[i].x.cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
 	}
-#if 0
-	int last = -1, last2 = -1;
-	// pair k-mer thinning
-	for (i = 0; i < n; ++i) {
-		if (m[i].n >= opt->mid_occ && m[i].n < opt->max_occ) {
-			if (last2 < 0) last2 = i;
-			if (last < 0 || m[last].n < m[i].n) last = i;
-			if (last >= 0 && (m[last].qpos>>1) + (m[last].span>>1) <= m[i].qpos>>1) {
-				mm_pair_thin(b, opt->bw, &m[last], &m[i]);
-				last2 = last = -1;
-			} else if (last2 >= 0 && (m[last2].qpos>>1) + (m[last2].span>>1) <= m[i].qpos>>1) {
-				mm_pair_thin(b, opt->bw, &m[last2], &m[i]);
-				last2 = last = -1;
-			}
-		}
-	}
-#endif
+
 	// fill the _a_ array
 	for (i = 0, n_a = 0; i < n; ++i) // find the length of a[]
 		if (m[i].n < opt->mid_occ) n_a += m[i].n;
