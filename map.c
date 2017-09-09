@@ -217,13 +217,15 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 		if (i > 0 && p->x>>8 == b->mini.a[m_st + i - 1].x>>8) is_tandem = 1;
 		if (i < n - 1 && p->x>>8 == b->mini.a[m_st + i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
-			const char *tname = mi->seq[r[k]>>32].name;
 			int32_t rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
-			if (qname && (opt->flag&MM_F_NO_SELF) && strcmp(qname, tname) == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
-				continue;
-			if (qname && (opt->flag&MM_F_AVA) && strcmp(qname, tname) > 0) // all-vs-all mode: map once
-				continue;
+			if (qname && (opt->flag&(MM_F_NO_SELF|MM_F_AVA))) {
+				const char *tname = mi->seq[r[k]>>32].name;
+				if ((opt->flag&MM_F_NO_SELF) && strcmp(qname, tname) == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
+					continue;
+				if ((opt->flag&MM_F_AVA) && strcmp(qname, tname) > 0) // all-vs-all mode: map once
+					continue;
+			}
 			p = &a[j++];
 			if ((r[k]&1) == (q->qpos&1)) { // forward strand
 				p->x = (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
