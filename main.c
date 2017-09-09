@@ -166,6 +166,7 @@ int main(int argc, char *argv[])
 				opt.min_dp_max = 50;
 				opt.best_n = 10;
 				opt.bw = 100;
+				opt.mid_occ_frac = 1e-4f;
 			} else if (strcmp(optarg, "splice") == 0 || strcmp(optarg, "cdna") == 0) {
 				k = 15, w = 5;
 				opt.flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV;
