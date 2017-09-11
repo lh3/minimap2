@@ -48,7 +48,7 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 }
 
 typedef struct {
-	uint32_t n:31, is_alloc:1;
+	uint32_t n;
 	uint32_t qpos;
 	union {
 		const uint64_t *cr;
@@ -103,21 +103,28 @@ static void mm_dust_minier(mm128_v *mini, int l_seq, const char *seq, int sdust_
 	mini->n = k;
 }
 
-mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b, uint32_t m_st, uint32_t m_en, const char *qname, int qlen, const char *seq, int *n_regs)
+mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, n = m_en - m_st, j, n_u, max_gap_ref;
+	int i, n, j, n_u, max_gap_ref;
 	int64_t n_a;
 	uint64_t *u;
 	mm_match_t *m;
 	mm128_t *a;
 	mm_reg1_t *regs;
 
+	// collect minimizers
+	b->mini.n = 0;
+	mm_sketch(b->km, seq, qlen, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
+	n = b->mini.n;
+
+	if (opt->sdust_thres > 0)
+		mm_dust_minier(&b->mini, qlen, seq, opt->sdust_thres, b->sdb);
+
 	// convert to local representation
 	m = (mm_match_t*)kmalloc(b->km, n * sizeof(mm_match_t));
 	for (i = 0; i < n; ++i) {
 		int t;
-		mm128_t *p = &b->mini.a[i + m_st];
-		m[i].is_alloc = 0;
+		mm128_t *p = &b->mini.a[i];
 		m[i].qpos = (uint32_t)p->y;
 		m[i].x.cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
@@ -128,13 +135,13 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 		if (m[i].n < opt->mid_occ) n_a += m[i].n;
 	a = (mm128_t*)kmalloc(b->km, n_a * sizeof(mm128_t));
 	for (i = j = 0; i < n; ++i) {
-		mm128_t *p = &b->mini.a[i + m_st];
+		mm128_t *p = &b->mini.a[i];
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->x.cr;
 		int k, q_span = p->x & 0xff, is_tandem = 0;
 		if (q->n >= opt->mid_occ) continue;
-		if (i > 0 && p->x>>8 == b->mini.a[m_st + i - 1].x>>8) is_tandem = 1;
-		if (i < n - 1 && p->x>>8 == b->mini.a[m_st + i + 1].x>>8) is_tandem = 1;
+		if (i > 0 && p->x>>8 == b->mini.a[i - 1].x>>8) is_tandem = 1;
+		if (i < n - 1 && p->x>>8 == b->mini.a[i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
 			int32_t rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
@@ -158,8 +165,6 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	}
 	n_a = j;
 	radix_sort_128x(a, a + n_a);
-	for (i = 0; i < n; ++i)
-		if (m[i].is_alloc) kfree(b->km, m[i].x.r);
 	kfree(b->km, m);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
@@ -197,17 +202,6 @@ mm_reg1_t *mm_map_frag(const mm_mapopt_t *opt, const mm_idx_t *mi, mm_tbuf_t *b,
 	// free
 	kfree(b->km, a);
 	kfree(b->km, u);
-	return regs;
-}
-
-mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
-{
-	mm_reg1_t *regs;
-	b->mini.n = 0;
-	mm_sketch(b->km, seq, l_seq, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
-	if (opt->sdust_thres > 0)
-		mm_dust_minier(&b->mini, l_seq, seq, opt->sdust_thres, b->sdb);
-	regs = mm_map_frag(opt, mi, b, 0, b->mini.n, qname, l_seq, seq, n_regs);
 	return regs;
 }
 
