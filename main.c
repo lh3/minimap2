@@ -156,17 +156,19 @@ int main(int argc, char *argv[])
 				k = 19, w = 19;
 				opt.a = 1, opt.b = 9, opt.q = 16, opt.q2 = 41, opt.e = 2, opt.e2 = 1, opt.zdrop = 200;
 				opt.min_dp_max = 200;
-			} else if (strcmp(optarg, "short") == 0) {
-				k = 17, w = 7, is_hpc = 0;
+			} else if (strcmp(optarg, "short") == 0 || strcmp(optarg, "sr") == 0) {
+				k = 21, w = 11, is_hpc = 0;
+				minibatch_size = 50000000;
+				opt.flag |= MM_F_SR;
 				opt.a = 2, opt.b = 8, opt.q = 12, opt.e = 2, opt.q2 = 32, opt.e2 = 1;
 				opt.max_gap = 100;
 				opt.pri_ratio = 0.5f;
 				opt.min_cnt = 2;
 				opt.min_chain_score = 20;
-				opt.min_dp_max = 50;
-				opt.best_n = 10;
-				opt.bw = 100;
-				opt.mid_occ_frac = 1e-4f;
+				opt.min_dp_max = 40;
+				opt.best_n = 20;
+				opt.bw = 50;
+				opt.mid_occ_frac = 2e-5f;
 			} else if (strcmp(optarg, "splice") == 0 || strcmp(optarg, "cdna") == 0) {
 				k = 15, w = 5;
 				opt.flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV;
