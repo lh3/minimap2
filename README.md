@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
 [![BioConda Pacakge](https://anaconda.org/bioconda/minimap2/badges/installer/conda.svg)](https://anaconda.org/bioconda/minimap2)
+[![BioConda Version](https://anaconda.org/bioconda/minimap2/badges/version.svg)](https://anaconda.org/bioconda/minimap2)
 ## Getting Started
 ```sh
 git clone https://github.com/lh3/minimap2
