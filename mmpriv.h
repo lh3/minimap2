@@ -58,7 +58,7 @@ void mm_select_sub(void *km, float mask_level, float pri_ratio, int min_diff, in
 void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs);
 void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs, mm128_t *a);
 void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r);
-void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc);
+void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int n_rep_mini);
 
 #ifdef __cplusplus
 }

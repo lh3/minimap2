@@ -105,12 +105,13 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compu
 			if (ol > mask_level * min) {
 				ri->parent = rp->parent;
 				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
+				if (ri->cnt >= rp->cnt) ++ri->n_sub;
 				if (rp->p && ri->p)
 					rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
 				break;
 			}
 		}
-		if (j == k) w[k++] = i, ri->parent = i;
+		if (j == k) w[k++] = i, ri->parent = i, ri->n_sub = 0;
 	}
 	kfree(km, w);
 }
@@ -288,7 +289,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 	}
 }
 
-void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc)
+void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int n_rep_mini)
 {
 	static const float q_coef = 30.0f;
 	int i;
@@ -298,12 +299,16 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc)
 			r->mapq = 0;
 		} else if (r->parent == r->id) {
 			int mapq, subsc;
-			float pen_cm = r->cnt >= 10? 1.0f : 0.1f * r->cnt;
+			float pen_cm = 1.0f;
+			if (r->cnt < 10)
+				pen_cm = 0.1f * r->cnt * (r->cnt > n_rep_mini? 1.0f : (1.0f + r->cnt) / (1.0f + n_rep_mini));
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
 				float identity = (float)(r->p->blen - r->p->n_diff - r->p->n_ambi) / (r->p->blen - r->p->n_ambi);
-				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score) * logf(r->score));
+				float chain_ratio = subsc > r->score? (float)subsc / r->score : 1.0f;
+				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)chain_ratio * r->p->dp_max2 / r->p->dp_max) * logf(r->score));
 			} else mapq = (int)(pen_cm * q_coef * (1. - (float)subsc / r->score) * logf(r->score));
+			mapq -= (int)(4.343 * log(r->n_sub + 1) + .499);
 			mapq = mapq > 0? mapq : 0;
 			r->mapq = mapq < 60? mapq : 60;
 		} else r->mapq = 0;

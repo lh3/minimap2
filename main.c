@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.1.1-r360-dirty"
+#define MM_VERSION "2.1.1-r361-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -29,7 +29,7 @@ static struct option long_options[] = {
 	{ "no-kalloc",      no_argument,       0, 0 },
 	{ "print-qname",    no_argument,       0, 0 },
 	{ "no-self",        no_argument,       0, 0 },
-	{ "print-seed",     no_argument,       0, 0 },
+	{ "print-seeds",    no_argument,       0, 0 },
 	{ "max-chain-skip", required_argument, 0, 0 },
 	{ "min-dp-len",     required_argument, 0, 0 },
 	{ "print-aln-seq",  no_argument,       0, 0 },

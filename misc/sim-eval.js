@@ -181,11 +181,11 @@ var sum_tot = 0, sum_err = 0, q_out = -1, sum_tot2 = 0, sum_err2 = 0;
 for (var q = max_mapq; q >= 0; --q) {
 	if (tot[q] == 0) continue;
 	if (q_out < 0 || err[q] > 0) {
-		if (q_out >= 0) print('Q', q_out, sum_tot, sum_err, (sum_err2/sum_tot2).toFixed(9));
+		if (q_out >= 0) print('Q', q_out, sum_tot, sum_err, (sum_err2/sum_tot2).toFixed(9), sum_tot2);
 		sum_tot = sum_err = 0, q_out = q;
 	}
 	sum_tot += tot[q], sum_err += err[q];
 	sum_tot2 += tot[q], sum_err2 += err[q];
 }
-print('Q', q_out, sum_tot, sum_err, (sum_err2/sum_tot2).toFixed(9));
+print('Q', q_out, sum_tot, sum_err, (sum_err2/sum_tot2).toFixed(9), sum_tot2);
 if (n_unmapped != null) print('U', n_unmapped);

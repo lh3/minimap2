@@ -107,7 +107,7 @@ static void mm_dust_minier(mm128_v *mini, int l_seq, const char *seq, int sdust_
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, n, j, n_u, max_gap_ref;
+	int i, n, j, n_u, max_gap_ref, n_rep_mini = 0;
 	int64_t n_a;
 	uint64_t *u;
 	mm_match_t *m;
@@ -141,7 +141,10 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->x.cr;
 		int k, q_span = p->x & 0xff, is_tandem = 0;
-		if (q->n >= opt->mid_occ) continue;
+		if (q->n >= opt->mid_occ) {
+			++n_rep_mini;
+			continue;
+		}
 		if (i > 0 && p->x>>8 == b->mini.a[i - 1].x>>8) is_tandem = 1;
 		if (i < n - 1 && p->x>>8 == b->mini.a[i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
@@ -156,10 +159,10 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 			}
 			p = &a[j++];
 			if ((r[k]&1) == (q->qpos&1)) { // forward strand
-				p->x = (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
+				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
 				p->y = (uint64_t)q_span << 32 | q->qpos >> 1;
 			} else { // reverse strand
-				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | (uint32_t)r[k]>>1;
+				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
 				p->y = (uint64_t)q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
 			}
 			if (is_tandem) p->y |= MM_SEED_TANDEM;
@@ -169,10 +172,12 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 	radix_sort_128x(a, a + n_a);
 	kfree(b->km, m);
 
-	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
+	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
+		fprintf(stderr, "RS\t%d\n", n_rep_mini);
 		for (i = 0; i < n_a; ++i)
 			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
+	}
 
 	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
 	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_a, a, &u, b->km);
@@ -199,7 +204,7 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 			mm_set_sam_pri(*n_regs, regs);
 		}
 	}
-	mm_set_mapq(*n_regs, regs, opt->min_chain_score);
+	mm_set_mapq(*n_regs, regs, opt->min_chain_score, n_rep_mini);
 
 	// free
 	kfree(b->km, a);
