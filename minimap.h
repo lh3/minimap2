@@ -105,8 +105,7 @@ typedef struct {
 	int min_dp_max;
 	int min_ksw_len;
 
-	int max_occ;
-	int mid_occ;
+	int32_t max_occ, mid_occ;
 } mm_mapopt_t;
 
 extern int mm_verbose, mm_dbg_flag;
@@ -127,7 +126,6 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc);
 void mm_idx_destroy(mm_idx_t *mi);
 mm_idx_t *mm_idx_gen(struct mm_bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
-uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 void mm_idx_stat(const mm_idx_t *idx);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);

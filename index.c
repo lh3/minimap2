@@ -104,13 +104,13 @@ int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, ui
 	return en - st;
 }
 
-uint32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
+int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 {
 	int i;
 	size_t n = 0;
 	uint32_t thres;
 	khint_t *a, k;
-	if (f <= 0.) return UINT32_MAX;
+	if (f <= 0.) return INT32_MAX;
 	for (i = 0; i < 1<<mi->b; ++i)
 		if (mi->B[i].h) n += kh_size((idxhash_t*)mi->B[i].h);
 	a = (uint32_t*)malloc(n * 4);

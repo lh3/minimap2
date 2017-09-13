@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.1.1-r347-dirty"
+#define MM_VERSION "2.1.1-r360-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
 		else if (c == 'H') is_hpc = 1, idx_par_set = 1;
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.bw = (int)mm_parse_num(optarg);
-		else if (c == 'f') opt.mid_occ_frac = atof(optarg);
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(optarg);
@@ -117,6 +116,11 @@ int main(int argc, char *argv[])
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
+		} else if (c == 'f') {
+			double x;
+			x = atof(optarg);
+			if (x < 1.0) opt.mid_occ_frac = x, opt.mid_occ = 0;
+			else opt.mid_occ = (int)(x + .499);
 		} else if (c == 'u') {
 			if (*optarg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV;
 			else if (*optarg == 'B') opt.flag |= MM_F_SPLICE_BOTH;
@@ -168,7 +172,7 @@ int main(int argc, char *argv[])
 				opt.min_dp_max = 40;
 				opt.best_n = 20;
 				opt.bw = 50;
-				opt.mid_occ_frac = 2e-5f;
+				opt.mid_occ = 1000;
 			} else if (strcmp(optarg, "splice") == 0 || strcmp(optarg, "cdna") == 0) {
 				k = 15, w = 5;
 				opt.flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV;
