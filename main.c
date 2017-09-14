@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.1.1-r364-dirty"
+#define MM_VERSION "2.1.1-r365-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -36,6 +36,7 @@ static struct option long_options[] = {
 	{ "splice",         no_argument,       0, 0 },
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
 	{ "no-sam-sq",      no_argument,       0, 0 },
+	{ "approx-ext",     no_argument,       0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -113,6 +114,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
 		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_SAM_SQ; // --no-sam-sq
+		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_APPROX_EXT; // --approx-ext
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -163,7 +165,7 @@ int main(int argc, char *argv[])
 			} else if (strcmp(optarg, "short") == 0 || strcmp(optarg, "sr") == 0) {
 				k = 21, w = 11, is_hpc = 0;
 				minibatch_size = 50000000;
-				opt.flag |= MM_F_SR;
+				opt.flag |= MM_F_APPROX_EXT;
 				opt.a = 2, opt.b = 8, opt.q = 12, opt.e = 2, opt.q2 = 32, opt.e2 = 1;
 				opt.max_gap = 100;
 				opt.pri_ratio = 0.5f;
@@ -237,6 +239,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
 		fprintf(fp_help, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(fp_help, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
+		fprintf(fp_help, "                 sr: short single-end reads without splicing (see minimap2.1 for details)\n");
 		fprintf(fp_help, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return fp_help == stdout? 0 : 1;
 	}

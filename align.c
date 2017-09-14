@@ -143,7 +143,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr);
 		fputc('\n', stderr);
 	}
-	if (opt->flag & MM_F_SR) {
+	if (opt->flag & MM_F_APPROX_EXT) {
 		flag |= KSW_EZ_APPROX_MAX;
 		if (flag & KSW_EZ_EXTZ_ONLY) flag |= KSW_EZ_APPROX_DROP;
 	}

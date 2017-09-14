@@ -19,7 +19,7 @@
 #define MM_F_SPLICE_REV  0x200
 #define MM_F_SPLICE_BOTH 0x400
 #define MM_F_NO_SAM_SQ   0x800
-#define MM_F_SR          0x1000
+#define MM_F_APPROX_EXT  0x1000
 
 #define MM_IDX_MAGIC   "MMI\2"
 

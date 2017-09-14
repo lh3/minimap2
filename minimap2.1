@@ -1,4 +1,4 @@
-.TH minimap2 1 "6 September 2017" "minimap2-2.1.1-r341" "Bioinformatics tools"
+.TH minimap2 1 "14 September 2017" "minimap2-2.1.1-r364-dirty" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -333,6 +333,12 @@ CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
 costs are different during chaining; 4) the computation of the
 .RB ` ms '
 tag ignores introns to demote hits to pseudogenes.
+.TP
+.B sr
+Short single-end reads without splicing
+.RB ( -k21
+.B -w11 -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000 -n2 -m20 -s40 -g100 -K50m
+.BR --approx-ext ).
 .RE
 .SS Miscellaneous options
 .TP 10
