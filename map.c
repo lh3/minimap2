@@ -107,7 +107,7 @@ static void mm_dust_minier(mm128_v *mini, int l_seq, const char *seq, int sdust_
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, n, j, n_u, max_gap_ref, n_rep_mini = 0;
+	int i, n, j, n_u, max_gap_ref, rep_st = 0, rep_en = 0, rep_len = 0;
 	int64_t n_a;
 	uint64_t *u;
 	mm_match_t *m;
@@ -142,7 +142,11 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 		const uint64_t *r = q->x.cr;
 		int k, q_span = p->x & 0xff, is_tandem = 0;
 		if (q->n >= opt->mid_occ) {
-			++n_rep_mini;
+			int en = (q->qpos>>1) + 1, st = en - q_span;
+			if (st > rep_en) {
+				rep_len += rep_en - rep_st;
+				rep_st = st, rep_en = en;
+			} else rep_en = en;
 			continue;
 		}
 		if (i > 0 && p->x>>8 == b->mini.a[i - 1].x>>8) is_tandem = 1;
@@ -168,12 +172,13 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 			if (is_tandem) p->y |= MM_SEED_TANDEM;
 		}
 	}
+	rep_len += rep_en - rep_st;
 	n_a = j;
 	radix_sort_128x(a, a + n_a);
 	kfree(b->km, m);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
-		fprintf(stderr, "RS\t%d\n", n_rep_mini);
+		fprintf(stderr, "RS\t%d\n", rep_len);
 		for (i = 0; i < n_a; ++i)
 			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
@@ -191,7 +196,7 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 						i == regs[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
-		mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
+		mm_set_parent(b->km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		if (!(opt->flag & MM_F_SPLICE))
 			mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
@@ -199,12 +204,12 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 	if (opt->flag & MM_F_CIGAR) {
 		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
 		if (!(opt->flag & MM_F_AVA)) {
-			mm_set_parent(b->km, opt->mask_level, *n_regs, regs);
+			mm_set_parent(b->km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 			mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 			mm_set_sam_pri(*n_regs, regs);
 		}
 	}
-	mm_set_mapq(*n_regs, regs, opt->min_chain_score, n_rep_mini);
+	mm_set_mapq(*n_regs, regs, opt->min_chain_score, opt->a, rep_len);
 
 	// free
 	kfree(b->km, a);

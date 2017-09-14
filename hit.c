@@ -87,7 +87,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r->split |= 1, r2->split |= 2;
 }
 
-void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compute mm_reg1_t::subsc
+void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
 	if (n <= 0) return;
@@ -103,11 +103,15 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r) // and compu
 			int min = ej - sj < ei - si? ej - sj : ei - si;
 			int ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si);
 			if (ol > mask_level * min) {
+				int cnt_sub = 0;
 				ri->parent = rp->parent;
 				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
-				if (ri->cnt >= rp->cnt) ++ri->n_sub;
-				if (rp->p && ri->p)
+				if (ri->cnt >= rp->cnt) cnt_sub = 1;
+				if (rp->p && ri->p) {
 					rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
+					if (rp->p->dp_max - ri->p->dp_max <= sub_diff) cnt_sub = 1;
+				}
+				if (cnt_sub) ++rp->n_sub;
 				break;
 			}
 		}
@@ -289,9 +293,9 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 	}
 }
 
-void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int n_rep_mini)
+void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len)
 {
-	static const float q_coef = 30.0f;
+	static const float q_coef = 40.0f;
 	int i;
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
@@ -301,13 +305,19 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int n_rep_mini)
 			int mapq, subsc;
 			float pen_s1 = r->score > 100? 1.0f : 0.01f * r->score;
 			float pen_cm = r->cnt > 10? 1.0f : 0.1f * r->cnt;
+			if (r->score <= 100 && rep_len > 0) {
+				pen_s1 = 0.01f * (r->score - rep_len);
+				pen_s1 = pen_s1 > 0.1f? pen_s1 : 0.1f;
+			}
 			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
 				float identity = (float)(r->p->blen - r->p->n_diff - r->p->n_ambi) / (r->p->blen - r->p->n_ambi);
-				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score) * logf(r->score));
+				int mapq_alt = (int)(6.02f * identity * identity * (r->p->dp_max - r->p->dp_max2) / match_sc + .499f); // BWA-MEM like mapQ, mostly for short reads
+				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score) * logf(r->score)); // more for long reads
+				mapq = mapq < mapq_alt? mapq : mapq_alt; // in case the long-read heuristic fails
 			} else mapq = (int)(pen_cm * q_coef * (1. - (float)subsc / r->score) * logf(r->score));
-			mapq -= (int)(4.343 * log(r->n_sub + 1) + .499);
+			mapq -= (int)(4.343f * logf(r->n_sub + 1) + .499f);
 			mapq = mapq > 0? mapq : 0;
 			r->mapq = mapq < 60? mapq : 60;
 		} else r->mapq = 0;
