@@ -299,14 +299,13 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int n_rep_mini)
 			r->mapq = 0;
 		} else if (r->parent == r->id) {
 			int mapq, subsc;
-			float pen_cm = 1.0f;
-			if (r->cnt < 10)
-				pen_cm = 0.1f * r->cnt * (r->cnt > n_rep_mini? 1.0f : (1.0f + r->cnt) / (1.0f + n_rep_mini));
+			float pen_s1 = r->score > 100? 1.0f : 0.01f * r->score;
+			float pen_cm = r->cnt > 10? 1.0f : 0.1f * r->cnt;
+			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
 				float identity = (float)(r->p->blen - r->p->n_diff - r->p->n_ambi) / (r->p->blen - r->p->n_ambi);
-				float chain_ratio = subsc > r->score? (float)subsc / r->score : 1.0f;
-				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)chain_ratio * r->p->dp_max2 / r->p->dp_max) * logf(r->score));
+				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score) * logf(r->score));
 			} else mapq = (int)(pen_cm * q_coef * (1. - (float)subsc / r->score) * logf(r->score));
 			mapq -= (int)(4.343 * log(r->n_sub + 1) + .499);
 			mapq = mapq > 0? mapq : 0;
