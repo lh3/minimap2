@@ -45,20 +45,21 @@ int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cn
 		while (st < i && ri - a[st].x > max_dist_x) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
-			int32_t dq = qi - (int32_t)a[j].y, dd, sc;
+			int32_t dq = qi - (int32_t)a[j].y, dd, sc, log_dd;
 			if (dr == 0 || dq <= 0 || dq > max_dist_y) continue;
 			dd = dr > dq? dr - dq : dq - dr;
 			if (dd > bw) continue;
 			max_f_past = max_f_past > f[j]? max_f_past : f[j];
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
+			log_dd = dd? ilog2_32(dd) : 0;
 			if (is_cdna) {
 				int c_log, c_lin;
 				c_lin = (int)(dd * .01 * avg_qspan);
-				c_log = ilog2_32(dd);
+				c_log = log_dd;
 				if (dr > dq) sc -= c_lin < c_log? c_lin : c_log;
 				else sc -= c_lin + (c_log>>1);
-			} else sc -= (int)(dd * .01 * avg_qspan) + (ilog2_32(dd)>>1);
+			} else sc -= (int)(dd * .01 * avg_qspan) + (log_dd>>1);
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
