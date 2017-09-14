@@ -21,6 +21,15 @@ typedef khash_t(idx) idxhash_t;
 
 #define kroundup64(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, (x)|=(x)>>32, ++(x))
 
+void mm_idxopt_init(mm_idxopt_t *opt)
+{
+	memset(opt, 0, sizeof(mm_idxopt_t));
+	opt->k = 15, opt->w = 10, opt->is_hpc = 0;
+	opt->bucket_bits = 14;
+	opt->mini_batch_size = 50000000;
+	opt->batch_size = 4000000000ULL;
+}
+
 mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc)
 {
 	mm_idx_t *mi;
@@ -314,7 +323,7 @@ mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads) 
 	mm_idx_t *mi;
 	fp = mm_bseq_open(fn);
 	if (fp == 0) return 0;
-	mi = mm_idx_gen(fp, w, k, MM_IDX_DEF_B, is_hpc, 1<<18, n_threads, UINT64_MAX, 1);
+	mi = mm_idx_gen(fp, w, k, 14, is_hpc, 1<<18, n_threads, UINT64_MAX, 1);
 	mm_bseq_close(fp);
 	return mi;
 }
@@ -428,4 +437,37 @@ int mm_idx_is_idx(const char *fn)
 	}
 	close(fd);
 	return is_idx;
+}
+
+mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt)
+{
+	int is_idx;
+	mm_idx_reader_t *r;
+	is_idx = mm_idx_is_idx(fn);
+	if (is_idx < 0) return 0; // failed to open the index
+	r = (mm_idx_reader_t*)calloc(1, sizeof(mm_idx_reader_t));
+	r->is_idx = is_idx;
+	r->opt = *opt;
+	if (r->is_idx) r->fp.idx = fopen(fn, "rb");
+	else r->fp.seq = mm_bseq_open(fn);
+	return r;
+}
+
+void mm_idx_reader_close(mm_idx_reader_t *r)
+{
+	if (r->is_idx) fclose(r->fp.idx);
+	else mm_bseq_close(r->fp.seq);
+}
+
+mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
+{
+	mm_idx_t *mi;
+	if (r->is_idx) {
+		mi = mm_idx_load(r->fp.idx);
+		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || mi->is_hpc != r->opt.is_hpc))
+			fprintf(stderr, "[WARNING] Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\n");
+	} else
+		mi = mm_idx_gen(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.is_hpc, r->opt.mini_batch_size, n_threads, r->opt.batch_size, 1);
+	if (mi) ++r->n_parts;
+	return mi;
 }

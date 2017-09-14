@@ -34,6 +34,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->zdrop = 400;
 	opt->min_dp_max = opt->min_chain_score * opt->a;
 	opt->min_ksw_len = 200;
+	opt->mini_batch_size = 200000000;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
@@ -47,6 +48,54 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d; max_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0),
 				opt->mid_occ, opt->max_occ);
+}
+
+int mm_preset(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
+{
+	if (strcmp(preset, "ava-ont") == 0) {
+		io->is_hpc = 0, io->k = 15, io->w = 5;
+		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
+		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
+		mo->mini_batch_size = 500000000;
+	} else if (strcmp(preset, "ava-pb") == 0) {
+		io->is_hpc = 1, io->k = 19, io->w = 5;
+		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
+		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
+		mo->mini_batch_size = 500000000;
+	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
+		io->is_hpc = 1, io->k = 19;
+	} else if (strcmp(preset, "map-ont") == 0) {
+		io->is_hpc = 0, io->k = 15;
+	} else if (strcmp(preset, "asm5") == 0) {
+		io->is_hpc = 0, io->k = 19, io->w = 19;
+		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 200;
+		mo->min_dp_max = 200;
+	} else if (strcmp(preset, "asm10") == 0) {
+		io->is_hpc = 0, io->k = 19, io->w = 19;
+		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 200;
+		mo->min_dp_max = 200;
+	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
+		io->is_hpc = 0, io->k = 21, io->w = 11;
+		mo->flag |= MM_F_APPROX_EXT;
+		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
+		mo->max_gap = 100;
+		mo->pri_ratio = 0.5f;
+		mo->min_cnt = 2;
+		mo->min_chain_score = 20;
+		mo->min_dp_max = 40;
+		mo->best_n = 20;
+		mo->bw = 50;
+		mo->mid_occ = 1000;
+		mo->mini_batch_size = 50000000;
+	} else if (strcmp(preset, "splice") == 0 || strcmp(preset, "cdna") == 0) {
+		io->is_hpc = 0, io->k = 15, io->w = 5;
+		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV;
+		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = 200000;
+		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
+		mo->noncan = 5;
+		mo->zdrop = 200;
+	} else return -1;
+	return 0;
 }
 
 typedef struct {
@@ -304,7 +353,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads, int mini_batch_size)
+int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads)
 {
 	pipeline_t pl;
 	memset(&pl, 0, sizeof(pipeline_t));
@@ -315,7 +364,7 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 		return -1;
 	}
 	pl.opt = opt, pl.mi = idx;
-	pl.n_threads = n_threads, pl.mini_batch_size = mini_batch_size;
+	pl.n_threads = n_threads, pl.mini_batch_size = opt->mini_batch_size;
 	if ((opt->flag & MM_F_OUT_SAM) && !(opt->flag & MM_F_NO_SAM_SQ))
 		mm_write_sam_SQ(idx);
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);

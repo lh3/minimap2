@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_IDX_DEF_B     14
-
 #define MM_F_NO_SELF     0x001
 #define MM_F_AVA         0x002
 #define MM_F_CIGAR       0x004
@@ -105,8 +103,26 @@ typedef struct {
 	int min_dp_max;
 	int min_ksw_len;
 
+	int mini_batch_size;
 	int32_t max_occ, mid_occ;
 } mm_mapopt_t;
+
+typedef struct {
+	short k, w, is_hpc, bucket_bits;
+	int mini_batch_size;
+	uint64_t batch_size;
+} mm_idxopt_t;
+
+struct mm_bseq_file_s;
+
+typedef struct {
+	int is_idx, n_parts;
+	mm_idxopt_t opt;
+	union {
+		struct mm_bseq_file_s *seq;
+		FILE *idx;
+	} fp;
+} mm_idx_reader_t;
 
 extern int mm_verbose, mm_dbg_flag;
 extern double mm_realtime0;
@@ -114,37 +130,38 @@ extern double mm_realtime0;
 struct mm_tbuf_s;
 typedef struct mm_tbuf_s mm_tbuf_t;
 
-struct mm_bseq_file_s;
-
 #define mm_seq4_set(s, i, c) ((s)[(i)>>3] |= (uint32_t)(c) << (((i)&7)<<2))
 #define mm_seq4_get(s, i)    ((s)[(i)>>3] >> (((i)&7)<<2) & 0xf)
 
-// compute minimizers
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p);
+void mm_idxopt_init(mm_idxopt_t *opt);
+void mm_mapopt_init(mm_mapopt_t *opt);
+int mm_preset(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo);
+void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
+
+mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt);
+int mm_idx_reader_is_idx(const mm_idx_reader_t *r);
+mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads);
+void mm_idx_reader_close(mm_idx_reader_t *r);
+void mm_idx_destroy(mm_idx_t *mi);
 
 // minimizer indexing
-mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc);
-void mm_idx_destroy(mm_idx_t *mi);
-mm_idx_t *mm_idx_gen(struct mm_bseq_file_s *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name);
 void mm_idx_stat(const mm_idx_t *idx);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
-
-mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
-int mm_idx_is_idx(const char *fn);
 
 // minimizer index I/O
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
 mm_idx_t *mm_idx_load(FILE *fp);
 
 // mapping
-void mm_mapopt_init(mm_mapopt_t *opt);
-void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
 mm_tbuf_t *mm_tbuf_init(void);
 void mm_tbuf_destroy(mm_tbuf_t *b);
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
 
-int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads, int tbatch_size);
+int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads);
+
+// obsolete APIs (for backward compatibility)
+mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
 
 #ifdef __cplusplus
 }
