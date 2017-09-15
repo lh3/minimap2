@@ -454,7 +454,8 @@ mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt, cons
 	if (is_idx < 0) return 0; // failed to open the index
 	r = (mm_idx_reader_t*)calloc(1, sizeof(mm_idx_reader_t));
 	r->is_idx = is_idx;
-	r->opt = *opt;
+	if (opt) r->opt = *opt;
+	else mm_idxopt_init(&r->opt);
 	if (r->is_idx) r->fp.idx = fopen(fn, "rb");
 	else r->fp.seq = mm_bseq_open(fn);
 	if (fn_out) r->fp_out = fopen(fn_out, "wb");
