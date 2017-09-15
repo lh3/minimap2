@@ -21,6 +21,13 @@ typedef khash_t(idx) idxhash_t;
 
 #define kroundup64(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, (x)|=(x)>>32, ++(x))
 
+typedef struct mm_idx_bucket_s {
+	mm128_v a;   // (minimizer, position) array
+	int32_t n;   // size of the _p_ array
+	uint64_t *p; // position array for minimizers appearing >1 times
+	void *h;     // hash table indexing _p_ and minimizers appearing once
+} mm_idx_bucket_t;
+
 void mm_idxopt_init(mm_idxopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_idxopt_t));
@@ -439,7 +446,7 @@ int mm_idx_is_idx(const char *fn)
 	return is_idx;
 }
 
-mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt)
+mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt, const char *fn_out)
 {
 	int is_idx;
 	mm_idx_reader_t *r;
@@ -450,6 +457,7 @@ mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt)
 	r->opt = *opt;
 	if (r->is_idx) r->fp.idx = fopen(fn, "rb");
 	else r->fp.seq = mm_bseq_open(fn);
+	if (fn_out) r->fp_out = fopen(fn_out, "wb");
 	return r;
 }
 
@@ -457,6 +465,8 @@ void mm_idx_reader_close(mm_idx_reader_t *r)
 {
 	if (r->is_idx) fclose(r->fp.idx);
 	else mm_bseq_close(r->fp.seq);
+	if (r->fp_out) fclose(r->fp_out);
+	free(r);
 }
 
 mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
@@ -468,6 +478,9 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 			fprintf(stderr, "[WARNING] Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\n");
 	} else
 		mi = mm_idx_gen(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.is_hpc, r->opt.mini_batch_size, n_threads, r->opt.batch_size, 1);
-	if (mi) ++r->n_parts;
+	if (mi) {
+		if (r->fp_out) mm_idx_dump(r->fp_out, mi);
+		++r->n_parts;
+	}
 	return mi;
 }

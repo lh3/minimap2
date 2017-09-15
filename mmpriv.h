@@ -21,6 +21,9 @@
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 #endif
 
+#define mm_seq4_set(s, i, c) ((s)[(i)>>3] |= (uint32_t)(c) << (((i)&7)<<2))
+#define mm_seq4_get(s, i)    ((s)[(i)>>3] >> (((i)&7)<<2) & 0xf)
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -47,6 +50,8 @@ void mm_write_sam_hdr_no_SQ(const char *rg, const char *ver, int argc, char *arg
 void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag);
 void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs);
 
+void mm_idxopt_init(mm_idxopt_t *opt);
+const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int64_t n, mm128_t *a, uint64_t **_u, void *km);
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a);

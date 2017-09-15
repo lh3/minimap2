@@ -11,7 +11,6 @@
 void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
-	opt->max_occ_frac = 1e-5f;
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0;
 
@@ -41,18 +40,18 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 {
 	if (opt->flag & MM_F_SPLICE_BOTH)
 		opt->flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV);
-	if (opt->max_occ <= 0)
-		opt->max_occ = mm_idx_cal_max_occ(mi, opt->max_occ_frac);
 	if (opt->mid_occ <= 0)
 		opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
 	if (mm_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d; max_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0),
-				opt->mid_occ, opt->max_occ);
+		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
 }
 
-int mm_preset(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
+int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 {
-	if (strcmp(preset, "ava-ont") == 0) {
+	if (preset == 0) {
+		mm_idxopt_init(io);
+		mm_mapopt_init(mo);
+	} else if (strcmp(preset, "ava-ont") == 0) {
 		io->is_hpc = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;

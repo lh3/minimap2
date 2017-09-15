@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.1.1-r365-dirty"
+#define MM_VERSION "2.1.1-r367-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -65,13 +65,12 @@ int main(int argc, char *argv[])
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx, max_intron_len = 0;
 	char *fnw = 0, *rg = 0, *s;
-	FILE *fpw = 0, *fp_help = stderr;
+	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 
 	liftrlimit();
 	mm_realtime0 = realtime();
-	mm_mapopt_init(&opt);
-	mm_idxopt_init(&ipt);
+	mm_set_opt(0, &ipt, &opt);
 
 	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:h", long_options, &long_idx)) >= 0) {
 		if (c == 'w') ipt.w = atoi(optarg);
@@ -139,7 +138,7 @@ int main(int argc, char *argv[])
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		} else if (c == 'x') {
-			if (mm_preset(optarg, &ipt, &opt) < 0) {
+			if (mm_set_opt(optarg, &ipt, &opt) < 0) {
 				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
 				return 1;
 			}
@@ -200,7 +199,7 @@ int main(int argc, char *argv[])
 		return fp_help == stdout? 0 : 1;
 	}
 
-	idx_rdr = mm_idx_reader_open(argv[optind], &ipt);
+	idx_rdr = mm_idx_reader_open(argv[optind], &ipt, fnw);
 	if (idx_rdr == 0) {
 		fprintf(stderr, "[ERROR] failed to open file '%s'\n", argv[optind]);
 		return 1;
@@ -209,7 +208,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 		return 1;
 	}
-	if (fnw) fpw = fopen(fnw, "wb");
 	if (opt.flag & MM_F_OUT_SAM)
 		mm_write_sam_hdr_no_SQ(rg, MM_VERSION, argc, argv);
 	for (;;) {
@@ -220,18 +218,13 @@ int main(int argc, char *argv[])
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
-		if (fpw) {
-			mm_idx_dump(fpw, mi);
-			if (mm_verbose >= 3)
-				fprintf(stderr, "[M::%s::%.3f*%.2f] dumpped the current part of the index to disk\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
-		}
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		for (i = optind + 1; i < argc; ++i)
 			mm_map_file(mi, argv[i], &opt, n_threads);
 		mm_idx_destroy(mi);
 	}
-	if (fpw) fclose(fpw);
+	mm_idx_reader_close(idx_rdr);
 
 	fprintf(stderr, "[M::%s] Version: %s\n", __func__, MM_VERSION);
 	fprintf(stderr, "[M::%s] CMD:", __func__);
