@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.1.1-r368-dirty"
+#define MM_VERSION "2.1.1-r369-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -67,6 +67,7 @@ int main(int argc, char *argv[])
 	char *fnw = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
+	mm_idx_t *mi;
 
 	liftrlimit();
 	mm_realtime0 = realtime();
@@ -210,9 +211,7 @@ int main(int argc, char *argv[])
 	}
 	if (opt.flag & MM_F_OUT_SAM)
 		mm_write_sam_hdr_no_SQ(rg, MM_VERSION, argc, argv);
-	for (;;) {
-		mm_idx_t *mi;
-		if ((mi = mm_idx_reader_read(idx_rdr, n_threads)) == 0) break;
+	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
 		if (mm_verbose >= 2 && idx_rdr->n_parts > 1 && (opt.flag&MM_F_OUT_SAM) && !(opt.flag&MM_F_NO_SAM_SQ))
 			fprintf(stderr, "[WARNING] \033[1;31mSAM output is malformated due to internal @SQ lines. Please add option --no-sam-sq or filter afterwards.\033[0m\n");
 		if (mm_verbose >= 3)
