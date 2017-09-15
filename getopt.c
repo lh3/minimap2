@@ -113,7 +113,7 @@ static int __getopt_long_core(int argc, char *const *argv, const char *optstring
 		 (argv[optind][1] == '-' && argv[optind][2])))
 	{
 		int colon = optstring[optstring[0]=='+'||optstring[0]=='-']==':';
-		int i, cnt, match;
+		int i, cnt, match = -1;
 		char *opt;
 		for (cnt=i=0; longopts[i].name; i++) {
 			const char *name = longopts[i].name;

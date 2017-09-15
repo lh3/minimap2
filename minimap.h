@@ -25,11 +25,6 @@
 extern "C" {
 #endif
 
-// hidden structures
-struct mm_idx_bucket_s;
-struct mm_bseq_file_s;
-struct mm_tbuf_s;
-
 // emulate 128-bit integers and arrays
 typedef struct { uint64_t x, y; } mm128_t;
 typedef struct { size_t n, m; mm128_t *a; } mm128_v;
@@ -82,31 +77,31 @@ typedef struct {
 } mm_idxopt_t;
 
 typedef struct {
-	float mid_occ_frac;
 	int sdust_thres; // score threshold for SDUST; 0 to disable
 	int flag;        // see MM_F_* macros
 
 	int bw;          // bandwidth
 	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
 	int max_chain_skip;
-	int min_cnt;
-	int min_chain_score;
+	int min_cnt;         // min number of minimizers on each chain
+	int min_chain_score; // min chaining score
 
 	float mask_level;
 	float pri_ratio;
-	int best_n;
+	int best_n;      // top best_n chains are subjected to DP alignment
 
 	int max_join_long, max_join_short;
 	int min_join_flank_sc;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
-	int noncan;
-	int zdrop;
-	int min_dp_max;
+	int noncan;      // cost of non-canonical splicing sites
+	int zdrop;       // break alignment if alignment score drops too fast along the diagonal
+	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
 	int min_ksw_len;
 
-	int mini_batch_size;
-	int32_t mid_occ;
+	float mid_occ_frac;  // only used by mm_mapopt_update(); see below
+	int32_t mid_occ;     // ignore seeds with occurrences above this threshold
+	int mini_batch_size; // size of a batch of query bases to process in parallel
 } mm_mapopt_t;
 
 // index reader
@@ -127,19 +122,127 @@ typedef struct mm_tbuf_s mm_tbuf_t;
 extern int mm_verbose, mm_dbg_flag; // verbose level: 0 for no info, 1 for error, 2 for warning, 3 for message (default); debugging flag
 extern double mm_realtime0; // wall-clock timer
 
+/**
+ * Set default or preset parameters
+ *
+ * @param preset     NULL to set all parameters as default; otherwise apply preset to affected parameters
+ * @param io         pointer to indexing parameters
+ * @param mo         pointer to mapping parameters
+ *
+ * @return 0 if success; -1 if _present_ unknown
+ */
 int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo);
+
+/**
+ * Update mm_mapopt_t::mid_occ via mm_mapopt_t::mid_occ_frac
+ *
+ * If mm_mapopt_t::mid_occ is 0, this function sets it to a number such that no
+ * more than mm_mapopt_t::mid_occ_frac of minimizers in the index have a higher
+ * occurrence.
+ *
+ * @param opt        mapping parameters
+ * @param mi         minimap2 index
+ */
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
 
+/**
+ * Initialize an index reader
+ *
+ * @param fn         index or fasta/fastq file name (this function tests the file type)
+ * @param opt        indexing parameters
+ * @param fn_out     if not NULL, write built index to this file
+ *
+ * @return an index reader on success; NULL if fail to open _fn_
+ */
 mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt, const char *fn_out);
+
+/**
+ * Read/build an index
+ *
+ * If the input file is an index file, this function reads one part of the
+ * index and returns. If the input file is a sequence file (fasta or fastq),
+ * this function constructs the index for about mm_idxopt_t::batch_size bases.
+ * Importantly, for a huge collection of sequences, this function may only
+ * return an index for part of sequences. It needs to be repeatedly called
+ * to traverse the entire index/sequence file.
+ *
+ * @param r          index reader
+ * @param n_threads  number of threads for constructing index
+ *
+ * @return an index on success; NULL if reaching the end of the input file
+ */
 mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads);
+
+/**
+ * Destroy/deallocate an index reader
+ *
+ * @param r          index reader
+ */
 void mm_idx_reader_close(mm_idx_reader_t *r);
+
+/**
+ * Print index statistics to stderr
+ *
+ * @param mi         minimap2 index
+ */
 void mm_idx_stat(const mm_idx_t *idx);
-int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
+
+/**
+ * Destroy/deallocate an index
+ *
+ * @param r          minimap2 index
+ */
 void mm_idx_destroy(mm_idx_t *mi);
 
+/**
+ * Initialize a thread-local buffer for mapping
+ *
+ * Each mapping thread requires a buffer specific to the thread (see mm_map()
+ * below). The primary purpose of this buffer is to reduce frequent heap
+ * allocations across threads. A buffer shall not be used by two or more
+ * threads.
+ *
+ * @return pointer to a thread-local buffer
+ */
 mm_tbuf_t *mm_tbuf_init(void);
+
+/**
+ * Destroy/deallocate a thread-local buffer for mapping
+ *
+ * @param b          the buffer
+ */
 void mm_tbuf_destroy(mm_tbuf_t *b);
+
+/**
+ * Align a query sequence against an index
+ *
+ * This function possibly finds multiple alignments of the query sequence.
+ * The returned array and the mm_reg1_t::p field of each element are allocated
+ * with malloc().
+ *
+ * @param mi         minimap2 index
+ * @param l_seq      length of the query sequence
+ * @param seq        the query sequence
+ * @param n_regs     number of hits (out)
+ * @param b          thread-local buffer; two mm_map() calls shall not use one buffer at the same time!
+ * @param opt        mapping parameters
+ * @param name       query name, used for all-vs-all overlapping and debugging
+ *
+ * @return an array of hits which need to be deallocated with free() together
+ *         with mm_reg1_t::p of each element. The size is written to _n_regs_.
+ */
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
+
+/**
+ * Align a fasta/fastq file and print alignments to stdout
+ *
+ * @param idx        minimap2 index
+ * @param fn         fasta/fastq file name
+ * @param opt        mapping parameters
+ * @param n_threads  number of threads
+ *
+ * @return 0 on success; -1 if _fn_ can't be read
+ */
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads);
 
 // deprecated APIs for backward compatibility
