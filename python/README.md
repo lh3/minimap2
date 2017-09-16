@@ -26,9 +26,9 @@ a = mm.Aligner("test/MT-human.fa")
 for hit in a.map("GGTTAAATACAGACCAAGAGCCTTCAAAGCCCTCAGTAAGTTGCAATACTTAATTTCTGT"):
 	print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
 ```
-It builds an index from `myref.fa` (or loads an index if a pre-built index is
-supplied), aligns a sequence against it, traverses each hit and prints them
-out.
+It builds an index from the specified sequence file (or loads an index if a
+pre-built index is supplied), aligns a sequence against it, traverses each hit
+and prints them out.
 
 ### APIs
 

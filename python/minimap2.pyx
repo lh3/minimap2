@@ -35,7 +35,7 @@ cdef class Alignment:
 	def strand(self): return self.strand
 
 	@property
-	def trans_strand(self): return self.trans_strand
+	def trans_strand(self): return self._trans_strand
 
 	@property
 	def NM(self): return self._NM
