@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.1.1-r369-dirty"
+#define MM_VERSION "2.1.1-r372-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -69,6 +69,7 @@ int main(int argc, char *argv[])
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
 
+	mm_verbose = 3;
 	liftrlimit();
 	mm_realtime0 = realtime();
 	mm_set_opt(0, &ipt, &opt);

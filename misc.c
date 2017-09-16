@@ -1,6 +1,6 @@
 #include "minimap.h"
 
-int mm_verbose = 3;
+int mm_verbose = 1;
 int mm_dbg_flag = 0;
 double mm_realtime0;
 

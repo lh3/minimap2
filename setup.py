@@ -1,4 +1,9 @@
-from setuptools import setup, Extension
+try:
+	from setuptools import setup, Extension
+except ImportError:
+	from distutils.core import setup
+	from distutils.extension import Extension
+
 from Cython.Build import cythonize
 import sys
 
@@ -16,6 +21,6 @@ setup(
 		['python/minimap2.pyx', 'align.c', 'bseq.c', 'chain.c', 'format.c', 'hit.c', 'index.c', 'kalloc.c',
 		 'ksw2_extd2_sse.c', 'ksw2_exts2_sse.c', 'ksw2_extz2_sse.c', 'ksw2_ll_sse.c', 'kthread.c', 'map.c',
 		 'misc.c', 'sdust.c', 'sketch.c'],
-		extra_compile_args = ['-msse4'],
+		extra_compile_args = ['-msse4'], # WARNING: ancient x86_64 CPUs don't have SSE4
 		include_dirs = ['.'])])
 )
