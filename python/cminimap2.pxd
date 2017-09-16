@@ -74,6 +74,9 @@ cdef extern from "minimap.h":
 	void mm_tbuf_destroy(mm_tbuf_t *b)
 	mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name)
 
+#
+# Helper header (because it is hard to expose mm_reg1_t with Cython
+#
 cdef extern from "cminimap2.h":
 	ctypedef struct mm_hitpy_t:
 		const char *ctg

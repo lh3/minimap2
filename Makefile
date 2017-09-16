@@ -56,7 +56,7 @@ ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
 clean:
-		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM session*
+		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM build dist minimap2.so minimap2.c
 
 depend:
 		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(CPPFLAGS) -- *.c)

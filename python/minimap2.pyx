@@ -31,11 +31,11 @@ cdef class Alignment:
 
 	@property
 	def is_rev(self):
-		return self._is_rev
+		return (self._is_rev != 0)
 
 	@property
 	def is_primary(self):
-		return self._is_primary
+		return (self._is_primary != 0)
 
 	@property
 	def q_st(self):
@@ -68,7 +68,7 @@ cdef class Aligner:
 	cdef public cminimap2.mm_mapopt_t map_opt
 
 	def __cinit__(self, fn, preset=None):
-		self.config(preset)
+		self._config(preset)
 		cdef cminimap2.mm_idx_reader_t *r;
 		r = cminimap2.mm_idx_reader_open(fn, &self.idx_opt, NULL)
 		self._idx = cminimap2.mm_idx_reader_read(r, 3) # NB: ONLY read the first part
@@ -79,7 +79,7 @@ cdef class Aligner:
 		if self._idx is not NULL:
 			cminimap2.mm_idx_destroy(self._idx)
 
-	def config(self, preset=None):
+	def _config(self, preset=None):
 		cminimap2.mm_set_opt(NULL, &self.idx_opt, &self.map_opt)
 		if preset is not None:
 			cminimap2.mm_set_opt(preset, &self.idx_opt, &self.map_opt)
@@ -90,6 +90,8 @@ cdef class Aligner:
 		cdef ThreadBuffer b
 		cdef int n_regs
 
+		if self._idx is NULL:
+			return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
 		regs = cminimap2.mm_map(self._idx, len(seq), seq, &n_regs, b._b, &self.map_opt, NULL)
