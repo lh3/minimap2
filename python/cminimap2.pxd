@@ -79,12 +79,13 @@ cdef extern from "minimap.h":
 #
 cdef extern from "cminimap2.h":
 	ctypedef struct mm_hitpy_t:
-		const char *ctg
-		int32_t ctg_start, ctg_end
-		int32_t qry_start, qry_end
-		int32_t n_cigar32
-		uint8_t strand, mapq, is_primary
-		uint32_t *cigar32
+		const char *ctg;
+		int32_t ctg_start, ctg_end;
+		int32_t qry_start, qry_end;
+		int32_t blen, NM, ctg_len;
+		uint8_t strand, mapq, is_primary, trans_strand;
+		int32_t n_cigar32;
+		uint32_t *cigar32;
 	
-	mm_hitpy_t *mm_reg2hitpy(const mm_idx_t *mi, int n_regs, mm_reg1_t *regs)
+	void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 	void mm_free_reg1(mm_reg1_t *r)
