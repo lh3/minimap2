@@ -79,13 +79,14 @@ cdef class ThreadBuffer:
 
 cdef class Aligner:
 	cdef cminimap2.mm_idx_t *_idx
-	cdef public cminimap2.mm_idxopt_t idx_opt
-	cdef public cminimap2.mm_mapopt_t map_opt
+	cdef cminimap2.mm_idxopt_t idx_opt
+	cdef cminimap2.mm_mapopt_t map_opt
 
 	def __cinit__(self, fn_idx_in, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None):
-		cdef cminimap2.mm_idx_reader_t *r;
-
-		self._config(preset)
+		cminimap2.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
+		if preset is not None:
+			cminimap2.mm_set_opt(preset, &self.idx_opt, &self.map_opt) # apply preset
+		self.map_opt.flag |= 4 # always perform alignment
 		self.idx_opt.batch_size = 0x7fffffffffffffffL # always build a uni-part index
 		if k is not None: self.idx_opt.k = k
 		if w is not None: self.idx_opt.w = w
@@ -95,6 +96,7 @@ cdef class Aligner:
 		if bw is not None: self.map_opt.bw = bw
 		if best_n is not None: self.best_n = best_n
 
+		cdef cminimap2.mm_idx_reader_t *r;
 		if fn_idx_out is None:
 			r = cminimap2.mm_idx_reader_open(fn_idx_in, &self.idx_opt, NULL)
 		else:
@@ -107,12 +109,6 @@ cdef class Aligner:
 	def __dealloc__(self):
 		if self._idx is not NULL:
 			cminimap2.mm_idx_destroy(self._idx)
-
-	cdef _config(self, preset=None):
-		cminimap2.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
-		if preset is not None:
-			cminimap2.mm_set_opt(preset, &self.idx_opt, &self.map_opt) # preset
-		self.map_opt.flag |= 4 # always perform alignment
 
 	def map(self, seq, buf=None):
 		cdef cminimap2.mm_reg1_t *regs

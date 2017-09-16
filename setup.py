@@ -22,5 +22,6 @@ setup(
 		 'ksw2_extd2_sse.c', 'ksw2_exts2_sse.c', 'ksw2_extz2_sse.c', 'ksw2_ll_sse.c', 'kthread.c', 'map.c',
 		 'misc.c', 'sdust.c', 'sketch.c'],
 		extra_compile_args = ['-msse4'], # WARNING: ancient x86_64 CPUs don't have SSE4
-		include_dirs = ['.'])])
+		include_dirs = ['.'],
+		libraries = ['z', 'm', 'pthread'])])
 )

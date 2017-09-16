@@ -90,7 +90,7 @@ double cputime()
 #include <sys/resource.h>
 #include <sys/time.h>
 
-double cputime()
+double cputime(void)
 {
 	struct rusage r;
 	getrusage(RUSAGE_SELF, &r);
@@ -98,7 +98,7 @@ double cputime()
 }
 #endif /* WIN32 || _WIN32 */
 
-double realtime()
+double realtime(void)
 {
 	struct timeval tp;
 	struct timezone tzp;
