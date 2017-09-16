@@ -1,4 +1,4 @@
-from libc.stdint cimport uint8_t, int32_t, int64_t, uint32_t, uint64_t
+from libc.stdint cimport int8_t, uint8_t, int32_t, int64_t, uint32_t, uint64_t
 
 cdef extern from "minimap.h":
 	#
@@ -79,13 +79,14 @@ cdef extern from "minimap.h":
 #
 cdef extern from "cminimap2.h":
 	ctypedef struct mm_hitpy_t:
-		const char *ctg;
-		int32_t ctg_start, ctg_end;
-		int32_t qry_start, qry_end;
-		int32_t blen, NM, ctg_len;
-		uint8_t strand, mapq, is_primary, trans_strand;
-		int32_t n_cigar32;
-		uint32_t *cigar32;
+		const char *ctg
+		int32_t ctg_start, ctg_end
+		int32_t qry_start, qry_end
+		int32_t blen, NM, ctg_len
+		uint8_t mapq, is_primary
+		int8_t strand, trans_strand
+		int32_t n_cigar32
+		uint32_t *cigar32
 	
 	void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 	void mm_free_reg1(mm_reg1_t *r)
