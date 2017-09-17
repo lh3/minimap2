@@ -142,7 +142,7 @@ def fastx_read(fn):
 	if ks is NULL: return None
 	while cmappy.kseq_read(ks) >= 0:
 		if ks.qual.l > 0: qual = str(ks.qual.s)
-		else qual = None
+		else: qual = None
 		yield str(ks.name.s), str(ks.seq.s), qual
 	cmappy.mm_fastx_close(ks)
 
