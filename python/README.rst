@@ -2,7 +2,7 @@
 Minimap2 Python Binding
 =======================
 
-`Minimap2 <https://github.com/lh3/minimap2>` is a fast and accurate pairwise
+`Minimap2 <https://github.com/lh3/minimap2>`_ is a fast and accurate pairwise
 aligner for genomic and transcribed nucleotide sequences. This module wraps
 minimap2 and provides a convenient interface to calling minimap2 in Python.
 
@@ -17,7 +17,7 @@ The minimap2 model can be installed directly with:
 	cd minimap2
 	python setup.py install
 
-or with pip:
+or with `pip <https://en.wikipedia.org/wiki/Pip_(package_manager)>`_:
 
 .. code:: shell
 
