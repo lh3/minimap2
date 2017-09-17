@@ -4,8 +4,8 @@ include ksw2_dispatch.c
 include getopt.c
 include main.c
 include README.md
-include python/minimap2.c
-include python/cminimap2.h
-include python/cminimap2.pxd
-include python/minimap2.pyx
+include python/mmappy.c
+include python/cmmappy.h
+include python/cmmappy.pxd
+include python/mmappy.pyx
 include python/README.rst

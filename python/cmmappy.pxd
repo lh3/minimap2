@@ -62,7 +62,7 @@ cdef extern from "minimap.h":
 	void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 
 	#
-	# Mapping (key struct defined in cminimap2.h below)
+	# Mapping (key struct defined in cmmappy.h below)
 	#
 	ctypedef struct mm_reg1_t:
 		pass
@@ -77,7 +77,7 @@ cdef extern from "minimap.h":
 #
 # Helper header (because it is hard to expose mm_reg1_t with Cython
 #
-cdef extern from "cminimap2.h":
+cdef extern from "cmmappy.h":
 	ctypedef struct mm_hitpy_t:
 		const char *ctg
 		int32_t ctg_start, ctg_end

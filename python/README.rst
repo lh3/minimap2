@@ -1,6 +1,6 @@
-=======================
-Minimap2 Python Binding
-=======================
+===============================
+Mmappy: Minimap2 Python Binding
+===============================
 
 `Minimap2 <https://github.com/lh3/minimap2>`_ is a fast and accurate pairwise
 aligner for genomic and transcribed nucleotide sequences. This module wraps
@@ -21,7 +21,7 @@ or with `pip <https://en.wikipedia.org/wiki/Pip_(package_manager)>`_:
 
 .. code:: shell
 
-	pip install --user minimap2
+	pip install --user mmappy
 
 Usage
 -----
@@ -30,7 +30,7 @@ The following Python program shows the key functionality of this module:
 
 .. code:: python
 
-	import minimap2 as mm
+	import mmappy as mm
 	a = mm.Aligner("test/MT-human.fa")  # load or build index
 	if not a: raise Exception("ERROR: failed to load/build index")
 	for hit in a.map("GGTTAAATACAGACCAAGAGCCTTCAAAGCCCTCAGTAAGTTGCAATACTTAATTTCTGT"):
@@ -86,7 +86,7 @@ Arguments:
 This method maps :code:`seq` against the index. It *yields* a generator,
 generating a series of :code:`Alignment` objects.
 
-Class minimap2.Alignment
+Class mmappy.Alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 This class has the following properties:

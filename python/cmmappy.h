@@ -1,5 +1,5 @@
-#ifndef CMINIMAP2_H
-#define CMINIMAP2_H
+#ifndef CMMAPPY_H
+#define CMMAPPY_H
 
 #include <stdlib.h>
 #include "minimap.h"

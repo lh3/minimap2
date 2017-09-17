@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys, getopt
-import minimap2 as mm
+import mmappy as mm
 
 def readfq(fp): # multi-line fasta/fastq parser
 	last = None
