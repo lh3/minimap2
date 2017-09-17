@@ -87,6 +87,6 @@ cdef extern from "cminimap2.h":
 		int8_t strand, trans_strand
 		int32_t n_cigar32
 		uint32_t *cigar32
-	
+
 	void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 	void mm_free_reg1(mm_reg1_t *r)

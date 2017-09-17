@@ -8,4 +8,4 @@ include python/minimap2.c
 include python/cminimap2.h
 include python/cminimap2.pxd
 include python/minimap2.pyx
-include python/README.md
+include python/README.rst

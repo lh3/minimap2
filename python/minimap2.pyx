@@ -105,7 +105,7 @@ cdef class Aligner:
 			self._idx = cminimap2.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
 			cminimap2.mm_idx_reader_close(r)
 			cminimap2.mm_mapopt_update(&self.map_opt, self._idx)
-	
+
 	def __dealloc__(self):
 		if self._idx is not NULL:
 			cminimap2.mm_idx_destroy(self._idx)

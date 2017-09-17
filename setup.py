@@ -17,11 +17,16 @@ else: # with Cython
 import sys
 sys.path.append('python')
 
+def readme():
+    with open('python/README.rst') as f:
+        return f.read()
+
 setup(
 	name = 'minimap2',
 	version = '2.2rc',
 	url = 'https://github.com/lh3/minimap2',
 	description = 'Minimap2 python binding',
+	long_description = readme(),
 	author = 'Heng Li',
 	author_email = 'lh3@me.com',
 	license = 'MIT',
