@@ -11,7 +11,7 @@ cdef class Alignment:
 	cdef _ctg, _cigar # these are python objects
 
 	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, blen, NM, trans_strand):
-		self._ctg, self._ctg_len, self._r_st, self._r_en = ctg.decode("ascii"), cl, cs, ce
+		self._ctg, self._ctg_len, self._r_st, self._r_en = str(ctg), cl, cs, ce
 		self._strand, self._q_st, self._q_en = strand, qs, qe
 		self._NM, self._blen = NM, blen
 		self._mapq = mapq
@@ -133,3 +133,13 @@ cdef class Aligner:
 			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.blen, h.NM, h.trans_strand)
 			cmappy.mm_free_reg1(&regs[i])
 		free(regs)
+
+def fastx_read(fn):
+	cdef cmappy.kseq_t *ks
+	ks = cmappy.mm_fastx_open(str.encode(fn))
+	if ks is NULL: return None
+	while cmappy.kseq_read(ks) >= 0:
+		qual = None
+		if ks.qual.l > 0: qual = str(ks.qual.s)
+		yield str(ks.name.s), str(ks.seq.s), qual
+	cmappy.mm_fastx_close(ks)

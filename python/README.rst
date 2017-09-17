@@ -2,14 +2,21 @@
 Mappy: Minimap2 Python Binding
 ==============================
 
-`Minimap2 <https://github.com/lh3/minimap2>`_ is a fast and accurate pairwise
-aligner for genomic and transcribed nucleotide sequences. This Python extension
-provides a convenient interface to calling minimap2 in Python.
+Mappy provides a convenient interface to `minimap2
+<https://github.com/lh3/minimap2>`_, a fast and accurate C program to align
+genomic and transcribe nucleotide sequences.
 
 Installation
 ------------
 
-The mappy module can be installed directly with:
+Mappy depends on `zlib <http://zlib.net>`_. It can be installed with `pip
+<https://en.wikipedia.org/wiki/Pip_(package_manager)>`_:
+
+.. code:: shell
+
+	pip install --user mappy
+
+or from the minimap2 github repo:
 
 .. code:: shell
 
@@ -17,40 +24,33 @@ The mappy module can be installed directly with:
 	cd minimap2
 	python setup.py install
 
-or with `pip <https://en.wikipedia.org/wiki/Pip_(package_manager)>`_:
-
-.. code:: shell
-
-	pip install --user mappy
-
 Usage
 -----
 
-The following Python program shows the key functionality of this module:
+The following Python program shows the key functionality of mappy:
 
 .. code:: python
 
 	import mappy as mp
 	a = mp.Aligner("test/MT-human.fa")  # load or build index
 	if not a: raise Exception("ERROR: failed to load/build index")
-	for hit in a.map("GGTTAAATACAGACCAAGAGCCTTCAAAGCCCTCAGTAAGTTGCAATACTTAATTTCTGT"):
-		print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
-
-It builds an index from the specified sequence file (or loads an index if a
-pre-built index is specified), aligns a sequence against it, traverses each hit
-and prints them out.
+	for name, seq, qual in mp.fastx_read("test/MT-orang.fa"): # read a fasta/q sequence
+		for hit in a.map(seq): # traverse alignments
+			print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
 
 APIs
 ----
 
+Mappy implements two classes and one global function.
+
 Class mappy.Aligner
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~
 
 .. code:: python
 
-	Aligner(fn_idx_in, preset=None, ...)
+	mappy.Aligner(fn_idx_in, preset=None, ...)
 
-Arguments:
+This constructor accepts the following arguments:
 
 * **fn_idx_in**: index or sequence file name. Minimap2 automatically tests the
   file type. If a sequence file is provided, minimap2 builds an index. The
@@ -81,15 +81,16 @@ Arguments:
 
 .. code:: python
 
-	map(seq)
+	mappy.Aligner.map(seq)
 
-This method maps :code:`seq` against the index. It *yields* a generator,
-generating a series of :code:`Alignment` objects.
+This method aligns :code:`seq` against the index. It is a generator, *yielding*
+a series of :code:`mappy.Alignment` objects.
 
 Class mappy.Alignment
-~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
 
-This class has the following properties:
+This class describes an alignment. An object of this class has the following
+properties:
 
 * **ctg**: name of the reference sequence the query is mapped to
 
@@ -118,8 +119,23 @@ This class has the following properties:
 * **cigar**: CIGAR returned as an array of shape :code:`(n_cigar,2)`. The two
   numbers give the length and the operator of each CIGAR operation.
 
-An :code:`Alignment` object can be converted to a string in the following format:
+An :code:`Alignment` object can be converted to a string with :code:`str()` in
+the following format:
 
 ::
 
 	q_st  q_en  strand  ctg  ctg_len  r_st  r_en  blen-NM  blen  mapq  cg:Z:cigar_str
+
+It is effectively the PAF format without the QueryName and QueryLength columns
+(the first two columns in PAF).
+
+Function mappy.fastx_read
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. code:: python
+
+	mappy.fastx_read(fn)
+
+This generator function opens a FASTA/FASTQ file and *yields* a
+:code:`(name,seq,qual)` tuple for each sequence entry. The input file may be
+optionally gzip'd.

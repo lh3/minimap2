@@ -75,7 +75,7 @@ cdef extern from "minimap.h":
 	mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name)
 
 #
-# Helper header (because it is hard to expose mm_reg1_t with Cython
+# Helper header (because it is hard to expose mm_reg1_t with Cython)
 #
 cdef extern from "cmappy.h":
 	ctypedef struct mm_hitpy_t:
@@ -90,3 +90,19 @@ cdef extern from "cmappy.h":
 
 	void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 	void mm_free_reg1(mm_reg1_t *r)
+
+	ctypedef struct kstring_t:
+		unsigned l, m
+		char *s
+
+	ctypedef struct kstream_t:
+		pass
+
+	ctypedef struct kseq_t:
+		kstring_t name, comment, seq, qual
+		int last_char
+		kstream_t *f
+
+	kseq_t *mm_fastx_open(const char *fn)
+	void mm_fastx_close(kseq_t *ks)
+	int kseq_read(kseq_t *seq)
