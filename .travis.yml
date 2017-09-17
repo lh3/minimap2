@@ -4,6 +4,11 @@ matrix:
       compiler: gcc
       script: make
 
+    - language: c
+      compiler: clang
+      script: make
+
     - language: python
       python: "2.7"
+      before_install: sudo apt-get install cython
       script: python setup.py build_ext
