@@ -9,7 +9,7 @@ minimap2 and provides a convenient interface to calling minimap2 in Python.
 Installation
 ------------
 
-The minimap2 module can be installed directly with:
+The mmappy module can be installed directly with:
 
 .. code:: shell
 
@@ -43,7 +43,7 @@ and prints them out.
 APIs
 ----
 
-Class minimap2.Aligner
+Class mmappy.Aligner
 ~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: python
