@@ -1,6 +1,6 @@
 from libc.stdint cimport uint8_t, int8_t
 from libc.stdlib cimport free
-cimport cmmappy
+cimport cmappy
 
 cdef class Alignment:
 	cdef int _ctg_len, _r_st, _r_en
@@ -69,23 +69,23 @@ cdef class Alignment:
 				str(self._blen - self._NM), str(self._blen), str(self._mapq), "NM:i:" + str(self._NM), tp, "cg:Z:" + self.cigar_str])
 
 cdef class ThreadBuffer:
-	cdef cmmappy.mm_tbuf_t *_b
+	cdef cmappy.mm_tbuf_t *_b
 
 	def __cinit__(self):
-		self._b = cmmappy.mm_tbuf_init()
+		self._b = cmappy.mm_tbuf_init()
 
 	def __dealloc__(self):
-		cmmappy.mm_tbuf_destroy(self._b)
+		cmappy.mm_tbuf_destroy(self._b)
 
 cdef class Aligner:
-	cdef cmmappy.mm_idx_t *_idx
-	cdef cmmappy.mm_idxopt_t idx_opt
-	cdef cmmappy.mm_mapopt_t map_opt
+	cdef cmappy.mm_idx_t *_idx
+	cdef cmappy.mm_idxopt_t idx_opt
+	cdef cmappy.mm_mapopt_t map_opt
 
 	def __cinit__(self, fn_idx_in, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None):
-		cmmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
+		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
-			cmmappy.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
+			cmappy.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
 		self.map_opt.flag |= 4 # always perform alignment
 		self.idx_opt.batch_size = 0x7fffffffffffffffL # always build a uni-part index
 		if k is not None: self.idx_opt.k = k
@@ -96,40 +96,40 @@ cdef class Aligner:
 		if bw is not None: self.map_opt.bw = bw
 		if best_n is not None: self.best_n = best_n
 
-		cdef cmmappy.mm_idx_reader_t *r;
+		cdef cmappy.mm_idx_reader_t *r;
 		if fn_idx_out is None:
-			r = cmmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
+			r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
 		else:
-			r = cmmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, fn_idx_out)
+			r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, fn_idx_out)
 		if r is not NULL:
-			self._idx = cmmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
-			cmmappy.mm_idx_reader_close(r)
-			cmmappy.mm_mapopt_update(&self.map_opt, self._idx)
+			self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
+			cmappy.mm_idx_reader_close(r)
+			cmappy.mm_mapopt_update(&self.map_opt, self._idx)
 
 	def __dealloc__(self):
 		if self._idx is not NULL:
-			cmmappy.mm_idx_destroy(self._idx)
+			cmappy.mm_idx_destroy(self._idx)
 
 	def __bool__(self):
 		return (self._idx != NULL)
 
 	def map(self, seq, buf=None):
-		cdef cmmappy.mm_reg1_t *regs
-		cdef cmmappy.mm_hitpy_t h
+		cdef cmappy.mm_reg1_t *regs
+		cdef cmappy.mm_hitpy_t h
 		cdef ThreadBuffer b
 		cdef int n_regs
 
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
-		regs = cmmappy.mm_map(self._idx, len(seq), str.encode(seq), &n_regs, b._b, &self.map_opt, NULL)
+		regs = cmappy.mm_map(self._idx, len(seq), str.encode(seq), &n_regs, b._b, &self.map_opt, NULL)
 
 		for i in range(n_regs):
-			cmmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
+			cmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
 			cigar = []
 			for k in range(h.n_cigar32):
 				c = h.cigar32[k]
 				cigar.append([c>>4, c&0xf])
 			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.blen, h.NM, h.trans_strand)
-			cmmappy.mm_free_reg1(&regs[i])
+			cmappy.mm_free_reg1(&regs[i])
 		free(regs)

@@ -4,8 +4,8 @@ include ksw2_dispatch.c
 include getopt.c
 include main.c
 include README.md
-include python/mmappy.c
-include python/cmmappy.h
-include python/cmmappy.pxd
-include python/mmappy.pyx
+include python/mappy.c
+include python/cmappy.h
+include python/cmappy.pxd
+include python/mappy.pyx
 include python/README.rst

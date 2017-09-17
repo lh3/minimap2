@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys, getopt
-import mmappy as mm
+import mappy as mp
 
 def readfq(fp): # multi-line fasta/fastq parser
 	last = None
@@ -39,7 +39,7 @@ def main(argv):
 	if len(args) < 2:
 		print("Usage: mm2-lite.py <ref.fa>|<ref.mmi> <query.fq>")
 		sys.exit(1)
-	a = mm.Aligner(args[0]) # load/build index
+	a = mp.Aligner(args[0]) # load/build index
 	if not a:
 		print("ERROR: failed to load/build index")
 		return
