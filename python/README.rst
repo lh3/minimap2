@@ -52,71 +52,71 @@ Class minimap2.Aligner
 
 Arguments:
 
-* `fn_idx_in`: index or sequence file name. Minimap2 automatically tests the
+* **fn_idx_in**: index or sequence file name. Minimap2 automatically tests the
   file type. If a sequence file is provided, minimap2 builds an index. The
   sequence file can be optionally gzip'd.
 
-* `preset`: minimap2 preset. Currently, minimap2 supports the following
-  presets: `sr` for single-end short reads; `map-pb` for PacBio
-  read-to-reference mapping; `map-ont` for Oxford Nanopore read mapping;
-  `splice` for long-read spliced alignment; `asm5` for assembly-to-assembly
-  alignment; `asm10` for full genome alignment of closely related species. Note
+* **preset**: minimap2 preset. Currently, minimap2 supports the following
+  presets: **sr** for single-end short reads; **map-pb** for PacBio
+  read-to-reference mapping; **map-ont** for Oxford Nanopore read mapping;
+  **splice** for long-read spliced alignment; **asm5** for assembly-to-assembly
+  alignment; **asm10** for full genome alignment of closely related species. Note
   that the Python module does not support all-vs-all read overlapping.
 
-* `k`: k-mer length, no larger than 28
+* **k**: k-mer length, no larger than 28
 
-* `w`: minimizer window size, no larger than 255
+* **w**: minimizer window size, no larger than 255
 
-* `min_cnt`: mininum number of minimizers on a chain
+* **min_cnt**: mininum number of minimizers on a chain
 
-* `min_chain_score`: minimum chaing score
+* **min_chain_score**: minimum chaing score
 
-* `bw`: chaining and alignment band width
+* **bw**: chaining and alignment band width
 
-* `best_n`: max number of alignments to return
+* **best_n**: max number of alignments to return
 
-* `n_threads`: number of indexing threads; 3 by default
+* **n_threads**: number of indexing threads; 3 by default
 
-* `fn_idx_out`: name of file to which the index is written
+* **fn_idx_out**: name of file to which the index is written
 
 .. code:: python
 
 	map(query_seq)
 
-This methods maps `query_seq` against the index. It *yields* a generator,
-generating a series of `Alignment` objects.
+This methods maps :code:`query_seq` against the index. It *yields* a generator,
+generating a series of :code:`Alignment` objects.
 
 Class minimap2.Alignment
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 This class has the following properties:
 
-* `ctg`: name of the reference sequence the query is mapped to
+* **ctg**: name of the reference sequence the query is mapped to
 
-* `ctg_len`: total length of the reference sequence
+* **ctg_len**: total length of the reference sequence
 
-* `r_st` and `r_en`: start and end positions on the reference
+* **r_st** and **r_en**: start and end positions on the reference
 
-* `q_st` and `q_en`: start and end positions on the query
+* **q_st** and **q_en**: start and end positions on the query
 
-* `strand`: +1 if on the forward strand; -1 if on the reverse strand
+* **strand**: +1 if on the forward strand; -1 if on the reverse strand
 
-* `mapq`: mapping quality
+* **mapq**: mapping quality
 
-* `NM`: number of mismatches and gaps in the alignment
+* **NM**: number of mismatches and gaps in the alignment
 
-* `blen`: length of the alignment, including both alignment matches and gaps
+* **blen**: length of the alignment, including both alignment matches and gaps
 
-* `trans_strand`: transcript strand. +1 if on the forward strand; -1 if on the
+* **trans_strand**: transcript strand. +1 if on the forward strand; -1 if on the
   reverse strand; 0 if unknown
 
-* `is_primary`: if the alignment is primary (typically the best and the first
+* **is_primary**: if the alignment is primary (typically the best and the first
   to generate)
 
-* `cigar_str`: CIGAR string
+* **cigar_str**: CIGAR string
 
-* `cigar`: CIGAR returned as an array of shape `(n_cigar,2)`. The two numbers
-  give the length and the operator of each CIGAR operation.
+* **cigar**: CIGAR returned as an array of shape :code:`(n_cigar,2)`. The two
+  numbers give the length and the operator of each CIGAR operation.
 
 An Alignment object can be converted to a string in the following format:
 
