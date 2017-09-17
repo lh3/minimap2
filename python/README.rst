@@ -9,7 +9,7 @@ minimap2 and provides a convenient interface to calling minimap2 in Python.
 Installation
 ------------
 
-The minimap2 model can be installed directly with:
+The minimap2 module can be installed directly with:
 
 .. code:: shell
 
@@ -31,13 +31,13 @@ The following Python program shows the key functionality of this module:
 .. code:: python
 
 	import minimap2 as mm
-	a = mm.Aligner("test/MT-human.fa")
+	a = mm.Aligner("test/MT-human.fa")  # load or build index
 	if not a: raise Exception("ERROR: failed to load/build index")
 	for hit in a.map("GGTTAAATACAGACCAAGAGCCTTCAAAGCCCTCAGTAAGTTGCAATACTTAATTTCTGT"):
 		print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
 
 It builds an index from the specified sequence file (or loads an index if a
-pre-built index is supplied), aligns a sequence against it, traverses each hit
+pre-built index is specified), aligns a sequence against it, traverses each hit
 and prints them out.
 
 APIs
@@ -81,9 +81,9 @@ Arguments:
 
 .. code:: python
 
-	map(query_seq)
+	map(seq)
 
-This methods maps :code:`query_seq` against the index. It *yields* a generator,
+This method maps :code:`seq` against the index. It *yields* a generator,
 generating a series of :code:`Alignment` objects.
 
 Class minimap2.Alignment
@@ -118,7 +118,7 @@ This class has the following properties:
 * **cigar**: CIGAR returned as an array of shape :code:`(n_cigar,2)`. The two
   numbers give the length and the operator of each CIGAR operation.
 
-An Alignment object can be converted to a string in the following format:
+An :code:`Alignment` object can be converted to a string in the following format:
 
 ::
 
