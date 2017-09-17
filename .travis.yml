@@ -1,5 +1,13 @@
-language: c
-compiler:
-  - gcc
-  - clang
-script: make
+matrix:
+  include:
+    - language: c
+      compiler:
+        - gcc
+        - clange
+      script: make
+
+    - language: python
+      python:
+        - 2.7
+        - 3.5
+      script: python setup.py build_ext
