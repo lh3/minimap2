@@ -110,6 +110,9 @@ cdef class Aligner:
 		if self._idx is not NULL:
 			cminimap2.mm_idx_destroy(self._idx)
 
+	def __bool__(self):
+		return (self._idx != NULL)
+
 	def map(self, seq, buf=None):
 		cdef cminimap2.mm_reg1_t *regs
 		cdef cminimap2.mm_hitpy_t h

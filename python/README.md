@@ -23,6 +23,7 @@ The following Python program shows the key functionality of this module:
 ```python
 import minimap2 as mm
 a = mm.Aligner("test/MT-human.fa")
+if not a: raise Exception("ERROR: failed to load/build index")
 for hit in a.map("GGTTAAATACAGACCAAGAGCCTTCAAAGCCCTCAGTAAGTTGCAATACTTAATTTCTGT"):
 	print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
 ```

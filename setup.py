@@ -11,7 +11,7 @@ sys.path.append('python')
 
 setup(
 	name = 'minimap2',
-	version = '2.1.1',
+	version = '2.2rc',
 	url = 'https://github.com/lh3/minimap2',
 	description = 'Minimap2 python binding',
 	author = 'Heng Li',

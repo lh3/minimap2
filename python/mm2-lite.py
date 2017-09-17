@@ -40,6 +40,9 @@ def main(argv):
 		print("Usage: mm2-lite.py <ref.fa>|<ref.mmi> <query.fq>")
 		sys.exit(1)
 	a = mm.Aligner(args[0]) # load/build index
+	if not a:
+		print("ERROR: failed to load/build index")
+		return
 	for name, seq, qual in readfq(open(args[1])): # read one sequence
 		for h in a.map(seq): # traverse hits
 			print('{}\t{}\t{}'.format(name, len(seq), h))
