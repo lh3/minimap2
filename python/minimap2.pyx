@@ -11,7 +11,7 @@ cdef class Alignment:
 	cdef _ctg, _cigar # these are python objects
 
 	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, blen, NM, trans_strand):
-		self._ctg, self._ctg_len, self._r_st, self._r_en = ctg, cl, cs, ce
+		self._ctg, self._ctg_len, self._r_st, self._r_en = ctg.decode("ascii"), cl, cs, ce
 		self._strand, self._q_st, self._q_en = strand, qs, qe
 		self._NM, self._blen = NM, blen
 		self._mapq = mapq
@@ -85,7 +85,7 @@ cdef class Aligner:
 	def __cinit__(self, fn_idx_in, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None):
 		cminimap2.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
-			cminimap2.mm_set_opt(preset, &self.idx_opt, &self.map_opt) # apply preset
+			cminimap2.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
 		self.map_opt.flag |= 4 # always perform alignment
 		self.idx_opt.batch_size = 0x7fffffffffffffffL # always build a uni-part index
 		if k is not None: self.idx_opt.k = k
@@ -98,9 +98,9 @@ cdef class Aligner:
 
 		cdef cminimap2.mm_idx_reader_t *r;
 		if fn_idx_out is None:
-			r = cminimap2.mm_idx_reader_open(fn_idx_in, &self.idx_opt, NULL)
+			r = cminimap2.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
 		else:
-			r = cminimap2.mm_idx_reader_open(fn_idx_in, &self.idx_opt, fn_idx_out)
+			r = cminimap2.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, fn_idx_out)
 		if r is not NULL:
 			self._idx = cminimap2.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
 			cminimap2.mm_idx_reader_close(r)
@@ -122,7 +122,7 @@ cdef class Aligner:
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
-		regs = cminimap2.mm_map(self._idx, len(seq), seq, &n_regs, b._b, &self.map_opt, NULL)
+		regs = cminimap2.mm_map(self._idx, len(seq), str.encode(seq), &n_regs, b._b, &self.map_opt, NULL)
 
 		for i in range(n_regs):
 			cminimap2.mm_reg2hitpy(self._idx, &regs[i], &h)
