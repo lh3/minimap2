@@ -1,7 +1,8 @@
-[![Release](https://img.shields.io/badge/Release-v2.1.1-blue.svg?style=flat-square)](https://github.com/lh3/minimap2/releases)
-[![BioConda](https://img.shields.io/conda/vn/bioconda/minimap2.svg?style=flat-square)](https://anaconda.org/bioconda/minimap2)
-[![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat-square)](https://pypi.python.org/pypi/mappy)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE.txt)
+[![Release](https://img.shields.io/badge/Release-v2.1.1-blue.svg?style=flat)](https://github.com/lh3/minimap2/releases)
+[![BioConda](https://img.shields.io/conda/vn/bioconda/minimap2.svg?style=flat)](https://anaconda.org/bioconda/minimap2)
+[![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
+[![Python Version](https://img.shields.io/pypi/pyversions/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](LICENSE.txt)
 [![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
 ## Getting Started
 ```sh
