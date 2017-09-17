@@ -5,7 +5,7 @@
 #include <assert.h>
 #include "bseq.h"
 #include "kseq.h"
-KSEQ_INIT(gzFile, gzread)
+KSEQ_INIT2(, gzFile, gzread)
 
 struct mm_bseq_file_s {
 	gzFile fp;
