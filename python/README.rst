@@ -1,43 +1,55 @@
-## Minimap2 Python Binding
+=======================
+Minimap2 Python Binding
+=======================
 
-[Minimap2][minimap2] is a fast and accurate pairwise aligner for genomic and
-transcribed nucleotide sequences. This module wraps minimap2 and provides a
-convenient interface to calling minimap2 in Python.
+`Minimap2 <https://github.com/lh3/minimap2>` is a fast and accurate pairwise
+aligner for genomic and transcribed nucleotide sequences. This module wraps
+minimap2 and provides a convenient interface to calling minimap2 in Python.
 
-### Installation
+Installation
+------------
 
 The minimap2 model can be installed directly with:
-```sh
-git clone https://github.com/lh3/minimap2
-cd minimap2
-python setup.py install
-```
-or with [pip][pip]:
-```sh
-pip install --user minimap2
-```
 
-### Usage
+.. code:: shell
+
+	git clone https://github.com/lh3/minimap2
+	cd minimap2
+	python setup.py install
+
+or with pip:
+
+.. code:: shell
+
+	pip install --user minimap2
+
+Usage
+-----
 
 The following Python program shows the key functionality of this module:
-```python
-import minimap2 as mm
-a = mm.Aligner("test/MT-human.fa")
-if not a: raise Exception("ERROR: failed to load/build index")
-for hit in a.map("GGTTAAATACAGACCAAGAGCCTTCAAAGCCCTCAGTAAGTTGCAATACTTAATTTCTGT"):
-	print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
-```
+
+.. code:: python
+
+	import minimap2 as mm
+	a = mm.Aligner("test/MT-human.fa")
+	if not a: raise Exception("ERROR: failed to load/build index")
+	for hit in a.map("GGTTAAATACAGACCAAGAGCCTTCAAAGCCCTCAGTAAGTTGCAATACTTAATTTCTGT"):
+		print("{}\t{}\t{}\t{}".format(hit.ctg, hit.r_st, hit.r_en, hit.cigar_str))
+
 It builds an index from the specified sequence file (or loads an index if a
 pre-built index is supplied), aligns a sequence against it, traverses each hit
 and prints them out.
 
-### APIs
+APIs
+----
 
-#### Class minimap2.Aligner
+Class minimap2.Aligner
+~~~~~~~~~~~~~~~~~~~~~~
 
-```python
-Aligner(fn_idx_in, preset=None, ...)
-```
+.. code:: python
+
+	Aligner(fn_idx_in, preset=None, ...)
+
 Arguments:
 
 * `fn_idx_in`: index or sequence file name. Minimap2 automatically tests the
@@ -67,13 +79,15 @@ Arguments:
 
 * `fn_idx_out`: name of file to which the index is written
 
-```python
-map(query_seq)
-```
+.. code:: python
+
+	map(query_seq)
+
 This methods maps `query_seq` against the index. It *yields* a generator,
 generating a series of `Alignment` objects.
 
-#### Class minimap2.Alignment
+Class minimap2.Alignment
+~~~~~~~~~~~~~~~~~~~~~~~~
 
 This class has the following properties:
 
@@ -105,11 +119,7 @@ This class has the following properties:
   give the length and the operator of each CIGAR operation.
 
 An Alignment object can be converted to a string in the following format:
-```
-q_st  q_en  strand  ctg  ctg_len  r_st  r_en  blen-NM  blen  mapq  cg:Z:cigar_str
-```
 
+::
 
-
-[minimap2]: https://github.com/lh3/minimap2
-[pip]: https://pypi.python.org/pypi/pip
+	q_st  q_en  strand  ctg  ctg_len  r_st  r_en  blen-NM  blen  mapq  cg:Z:cigar_str
