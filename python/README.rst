@@ -118,7 +118,7 @@ This class has the following properties:
 * **cigar**: CIGAR returned as an array of shape :code:`(n_cigar,2)`. The two
   numbers give the length and the operator of each CIGAR operation.
 
-An Alignment object can be converted to a string in the following format:
+An :code:`Alignment` object can be converted to a string in the following format:
 
 ::
 
