@@ -23,14 +23,15 @@ def readme():
 
 setup(
 	name = 'mappy',
-	version = '2.2rc0',
+	version = '2.2rc1',
 	url = 'https://github.com/lh3/minimap2',
 	description = 'Minimap2 python binding',
 	long_description = readme(),
 	author = 'Heng Li',
 	author_email = 'lh3@me.com',
 	license = 'MIT',
-	keywords = ['bioinformatics', 'sequence-alignment'],
+	keywords = 'sequence-alignment',
+	scripts = ['python/minimap2.py'],
     ext_modules = [Extension('mappy',
 		sources = [module_src, 'align.c', 'bseq.c', 'chain.c', 'format.c', 'hit.c', 'index.c',
 				   'ksw2_extd2_sse.c', 'ksw2_exts2_sse.c', 'ksw2_extz2_sse.c', 'ksw2_ll_sse.c',
@@ -41,4 +42,14 @@ setup(
 		extra_compile_args = ['-msse4'], # WARNING: ancient x86_64 CPUs don't have SSE4
 		include_dirs = ['.'],
 		libraries = ['z', 'm', 'pthread'])],
+	classifiers = [
+		'Development Status :: 4 - Beta',
+		'License :: OSI Approved :: MIT License',
+		'Operating System :: POSIX',
+		'Programming Language :: C',
+		'Programming Language :: Cython',
+		'Programming Language :: Python :: 2.7',
+		'Programming Language :: Python :: 3',
+		'Intended Audience :: Science/Research',
+		'Topic :: Scientific/Engineering :: Bio-Informatics'],
 	cmdclass = cmdclass)

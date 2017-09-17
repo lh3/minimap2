@@ -67,8 +67,11 @@ cdef class Alignment:
 		else: strand = '?'
 		if self._is_primary != 0: tp = 'tp:A:P'
 		else: tp = 'tp:A:S'
+		if self._trans_strand > 0: ts = 'ts:A:+'
+		elif self._trans_strand < 0: ts = 'ts:A:-'
+		else: ts = 'ts:A:.'
 		return "\t".join([str(self._q_st), str(self._q_en), strand, self._ctg, str(self._ctg_len), str(self._r_st), str(self._r_en),
-				str(self._blen - self._NM), str(self._blen), str(self._mapq), "NM:i:" + str(self._NM), tp, "cg:Z:" + self.cigar_str])
+				str(self._blen - self._NM), str(self._blen), str(self._mapq), tp, ts, "cg:Z:" + self.cigar_str])
 
 cdef class ThreadBuffer:
 	cdef cmappy.mm_tbuf_t *_b
