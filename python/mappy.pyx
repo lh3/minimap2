@@ -2,6 +2,8 @@ from libc.stdint cimport uint8_t, int8_t
 from libc.stdlib cimport free
 cimport cmappy
 
+cmappy.mm_reset_timer()
+
 cdef class Alignment:
 	cdef int _ctg_len, _r_st, _r_en
 	cdef int _q_st, _q_en
@@ -139,7 +141,11 @@ def fastx_read(fn):
 	ks = cmappy.mm_fastx_open(str.encode(fn))
 	if ks is NULL: return None
 	while cmappy.kseq_read(ks) >= 0:
-		qual = None
 		if ks.qual.l > 0: qual = str(ks.qual.s)
+		else qual = None
 		yield str(ks.name.s), str(ks.seq.s), qual
 	cmappy.mm_fastx_close(ks)
+
+def verbose(v=None):
+	if v is None: v = -1
+	return cmappy.mm_verbose_level(v)

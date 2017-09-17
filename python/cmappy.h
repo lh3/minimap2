@@ -55,4 +55,16 @@ static inline void mm_fastx_close(kseq_t *ks)
 	gzclose(fp);
 }
 
+static inline int mm_verbose_level(int v)
+{
+	if (v >= 0) mm_verbose = v;
+	return mm_verbose;
+}
+
+static inline void mm_reset_timer(void)
+{
+	extern double realtime(void);
+	mm_realtime0 = realtime();
+}
+
 #endif

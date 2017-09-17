@@ -32,6 +32,7 @@ cdef extern from "minimap.h":
 		int mini_batch_size
 
 	int mm_set_opt(char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
+	int mm_verbose
 
 	#
 	# Indexing
@@ -106,3 +107,6 @@ cdef extern from "cmappy.h":
 	kseq_t *mm_fastx_open(const char *fn)
 	void mm_fastx_close(kseq_t *ks)
 	int kseq_read(kseq_t *seq)
+
+	int mm_verbose_level(int v)
+	void mm_reset_timer()
