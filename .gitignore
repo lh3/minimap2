@@ -5,4 +5,4 @@
 *.o
 *.dSYM
 minimap2
-minimap2.c
+mappy.c

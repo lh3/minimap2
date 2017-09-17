@@ -37,7 +37,7 @@ def readfq(fp): # multi-line fasta/fastq parser
 def main(argv):
 	opts, args = getopt.getopt(argv[1:], "")
 	if len(args) < 2:
-		print("Usage: mm2-lite.py <ref.fa>|<ref.mmi> <query.fq>")
+		print("Usage: minimap2.py <ref.fa>|<ref.mmi> <query.fq>")
 		sys.exit(1)
 	a = mp.Aligner(args[0]) # load/build index
 	if not a:
