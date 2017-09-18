@@ -16,7 +16,7 @@ Mappy depends on `zlib <http://zlib.net>`_. It can be installed with `pip
 
 	pip install --user mappy
 
-or from the minimap2 github repo:
+or from the minimap2 github repo (`Cython <http://cython.org>`_ required):
 
 .. code:: shell
 
@@ -27,7 +27,7 @@ or from the minimap2 github repo:
 Usage
 -----
 
-The following Python program shows the key functionality of mappy:
+The following Python script demonstrates the key functionality of mappy:
 
 .. code:: python
 
