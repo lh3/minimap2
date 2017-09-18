@@ -1,13 +1,15 @@
 #ifndef _KALLOC_H_
 #define _KALLOC_H_
 
-#include <stdlib.h>
-
-#define km_size(x) (*(((size_t*)(x))-1) * sizeof(size_t))
+#include <stddef.h> /* for size_t */
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+typedef struct {
+	size_t capacity, available, n_blocks, n_cores;
+} km_stat_t;
 
 void *kmalloc(void *km, size_t size);
 void *krealloc(void *km, void *ptr, size_t size);
@@ -16,8 +18,7 @@ void kfree(void *km, void *ptr);
 
 void *km_init(void);
 void km_destroy(void *km);
-
-void km_stat(const void *km); // TODO: return numbers instead of print to stderr
+void km_stat(const void *_km, km_stat_t *s);
 
 #ifdef __cplusplus
 }

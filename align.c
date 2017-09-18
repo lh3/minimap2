@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 #include "minimap.h"
 #include "mmpriv.h"
 #include "ksw2.h"

@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include <math.h>
 #include "mmpriv.h"
 #include "kalloc.h"
