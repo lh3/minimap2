@@ -188,7 +188,7 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, const mm_idx_t *mi, co
 	for (i = 0, *n_a = 0; i < b->mini.n; ++i) // find the length of a[]
 		if (m[i].n < opt->mid_occ) *n_a += m[i].n;
 	a = (mm128_t*)kmalloc(b->km, *n_a * sizeof(mm128_t));
-	for (i = 0, *n_a = 0; i < b->mini.n; ++i) {
+	for (i = *rep_len = 0, *n_a = 0; i < b->mini.n; ++i) {
 		mm128_t *p = &b->mini.a[i];
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->x.cr;
