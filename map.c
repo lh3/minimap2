@@ -100,6 +100,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 typedef struct {
 	uint32_t n;
 	uint32_t qpos;
+	uint32_t seg_id;
 	union {
 		const uint64_t *cr;
 		uint64_t *r;
@@ -130,14 +131,14 @@ void mm_tbuf_destroy(mm_tbuf_t *b)
 	free(b);
 }
 
-static void mm_dust_minier(mm128_v *mini, int l_seq, const char *seq, int sdust_thres, sdust_buf_t *sdb)
+static int mm_dust_minier(int n, mm128_t *a, int l_seq, const char *seq, int sdust_thres, sdust_buf_t *sdb)
 {
 	int n_dreg, j, k, u = 0;
 	const uint64_t *dreg;
-	if (sdust_thres <= 0 || sdb == 0) return;
+	if (sdust_thres <= 0 || sdb == 0) return n;
 	dreg = sdust_core((const uint8_t*)seq, l_seq, sdust_thres, 64, &n_dreg, sdb);
-	for (j = k = 0; j < mini->n; ++j) { // squeeze out minimizers that significantly overlap with LCRs
-		int32_t qpos = (uint32_t)mini->a[j].y>>1, span = mini->a[j].x&0xff;
+	for (j = k = 0; j < n; ++j) { // squeeze out minimizers that significantly overlap with LCRs
+		int32_t qpos = (uint32_t)a[j].y>>1, span = a[j].x&0xff;
 		int32_t s = qpos - (span - 1), e = s + span;
 		while (u < n_dreg && (uint32_t)dreg[u] <= s) ++u;
 		if (u < n_dreg && dreg[u]>>32 < e) {
@@ -147,44 +148,47 @@ static void mm_dust_minier(mm128_v *mini, int l_seq, const char *seq, int sdust_
 				int ee = e < (uint32_t)dreg[v]? e : (uint32_t)dreg[v];
 				l += ee - ss;
 			}
-			if (l <= span>>1) mini->a[k++] = mini->a[j]; // keep the minimizer if less than half of it falls in masked region
+			if (l <= span>>1) a[k++] = a[j]; // keep the minimizer if less than half of it falls in masked region
 		}
 	}
-	mini->n = k;
+	return k; // the new size
 }
 
-mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+static int collect_minimizers(const mm_mapopt_t *opt, const mm_idx_t *mi, int n_segs, int *qlens, const char *seqs, mm_tbuf_t *b)
 {
-	int i, n, j, n_u, max_gap_ref, rep_st = 0, rep_en = 0, rep_len = 0;
-	int64_t n_a;
-	uint64_t *u;
+	int i, j, n;
+	const char *seq;
+	b->mini.n = 0, seq = seqs;
+	for (i = n = 0; i < n_segs; ++i) {
+		mm_sketch(b->km, seq, qlens[i], mi->w, mi->k, i, mi->is_hpc, &b->mini);
+		for (j = n; j < b->mini.n; ++j)
+			b->mini.a[j].x += (seq - seqs) << 1;
+		if (opt->sdust_thres > 0) // mask low-complexity minimizers
+			b->mini.n = n + mm_dust_minier(b->mini.n - n, b->mini.a + n, qlens[i], seq, opt->sdust_thres, b->sdb);
+		seq += qlens[i], n = b->mini.n;
+	}
+	return seq - seqs;
+}
+
+static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, const mm_idx_t *mi, const char *qname, int qlen, int64_t *n_a, int *rep_len, mm_tbuf_t *b)
+{
+	int rep_st, rep_en, i;
 	mm_match_t *m;
 	mm128_t *a;
-	mm_reg1_t *regs;
 
-	// collect minimizers
-	b->mini.n = 0;
-	mm_sketch(b->km, seq, qlen, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
-	n = b->mini.n;
-
-	if (opt->sdust_thres > 0)
-		mm_dust_minier(&b->mini, qlen, seq, opt->sdust_thres, b->sdb);
-
-	// convert to local representation
-	m = (mm_match_t*)kmalloc(b->km, n * sizeof(mm_match_t));
-	for (i = 0; i < n; ++i) {
+	m = (mm_match_t*)kmalloc(b->km, b->mini.n * sizeof(mm_match_t));
+	for (i = 0; i < b->mini.n; ++i) {
 		int t;
 		mm128_t *p = &b->mini.a[i];
 		m[i].qpos = (uint32_t)p->y;
 		m[i].x.cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
+		m[i].seg_id = p->y >> 32;
 	}
-
-	// fill the _a_ array
-	for (i = 0, n_a = 0; i < n; ++i) // find the length of a[]
-		if (m[i].n < opt->mid_occ) n_a += m[i].n;
-	a = (mm128_t*)kmalloc(b->km, n_a * sizeof(mm128_t));
-	for (i = j = 0; i < n; ++i) {
+	for (i = 0, *n_a = 0; i < b->mini.n; ++i) // find the length of a[]
+		if (m[i].n < opt->mid_occ) *n_a += m[i].n;
+	a = (mm128_t*)kmalloc(b->km, *n_a * sizeof(mm128_t));
+	for (i = 0, *n_a = 0; i < b->mini.n; ++i) {
 		mm128_t *p = &b->mini.a[i];
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->x.cr;
@@ -192,13 +196,13 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 		if (q->n >= opt->mid_occ) {
 			int en = (q->qpos>>1) + 1, st = en - q_span;
 			if (st > rep_en) {
-				rep_len += rep_en - rep_st;
+				*rep_len += rep_en - rep_st;
 				rep_st = st, rep_en = en;
 			} else rep_en = en;
 			continue;
 		}
 		if (i > 0 && p->x>>8 == b->mini.a[i - 1].x>>8) is_tandem = 1;
-		if (i < n - 1 && p->x>>8 == b->mini.a[i + 1].x>>8) is_tandem = 1;
+		if (i < b->mini.n - 1 && p->x>>8 == b->mini.a[i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
 			int32_t rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
@@ -209,7 +213,7 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 				if ((opt->flag&MM_F_AVA) && strcmp(qname, tname) > 0) // all-vs-all mode: map once
 					continue;
 			}
-			p = &a[j++];
+			p = &a[(*n_a)++];
 			if ((r[k]&1) == (q->qpos&1)) { // forward strand
 				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
 				p->y = (uint64_t)q_span << 32 | q->qpos >> 1;
@@ -217,13 +221,28 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
 				p->y = (uint64_t)q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
 			}
+			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
 			if (is_tandem) p->y |= MM_SEED_TANDEM;
 		}
 	}
-	rep_len += rep_en - rep_st;
-	n_a = j;
-	radix_sort_128x(a, a + n_a);
+	*rep_len += rep_en - rep_st;
 	kfree(b->km, m);
+	return a;
+}
+
+mm_reg1_t *mm_map_seg(const mm_idx_t *mi, int n_segs, int *qlens, const char *seqs, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+{
+	int i, j, n_u, max_gap_ref, rep_len, qlen_sum;
+	int64_t n_a;
+	uint64_t *u;
+	mm128_t *a;
+	mm_reg1_t *regs;
+
+	if (n_segs > MM_MAX_SEG || n_segs <= 0) return 0;
+
+	qlen_sum = collect_minimizers(opt, mi, n_segs, qlens, seqs, b);
+	a = collect_seed_hits(opt, mi, qname, qlen_sum, &n_a, &rep_len, b);
+	radix_sort_128x(a, a + n_a);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
 		fprintf(stderr, "RS\t%d\n", rep_len);
@@ -233,8 +252,8 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 	}
 
 	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
-	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_a, a, &u, b->km);
-	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
+	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &u, b->km);
+	regs = mm_gen_regs(b->km, qlen_sum, n_u, u, a);
 	*n_regs = n_u;
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
@@ -247,10 +266,10 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 		mm_set_parent(b->km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		if (!(opt->flag & MM_F_SPLICE))
-			mm_join_long(b->km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
+			mm_join_long(b->km, opt, qlen_sum, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
 	if (opt->flag & MM_F_CIGAR) {
-		regs = mm_align_skeleton(b->km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
+		regs = mm_align_skeleton(b->km, opt, mi, qlen_sum, seqs, n_regs, regs, a); // this calls mm_filter_regs()
 		if (!(opt->flag & MM_F_AVA)) {
 			mm_set_parent(b->km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 			mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
@@ -263,6 +282,11 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 	kfree(b->km, a);
 	kfree(b->km, u);
 	return regs;
+}
+
+mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+{
+	return mm_map_seg(mi, 1, &qlen, seq, n_regs, b, opt, qname);
 }
 
 /**************************

@@ -21,6 +21,8 @@
 
 #define MM_IDX_MAGIC   "MMI\2"
 
+#define MM_MAX_SEG       255
+
 #ifdef __cplusplus
 extern "C" {
 #endif

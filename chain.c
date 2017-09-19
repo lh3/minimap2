@@ -19,7 +19,7 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int64_t n, mm128_t *a, uint64_t **_u, void *km)
+int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mm128_t *a, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t st = 0, k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j;
@@ -42,13 +42,16 @@ int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cn
 		uint64_t ri = a[i].x;
 		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
 		int32_t max_f = q_span, max_j = -1, n_skip = 0, min_d, max_f_past = -INT32_MAX;
+		int32_t sidi = (a[i].y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
 		while (st < i && ri - a[st].x > max_dist_x) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
 			int32_t dq = qi - (int32_t)a[j].y, dd, sc, log_dd;
+			int32_t sidj = (a[j].y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
 			if (dr == 0 || dq <= 0 || dq > max_dist_y) continue;
 			dd = dr > dq? dr - dq : dq - dr;
-			if (dd > bw) continue;
+			if (sidi == sidj && dd > bw) continue;
+			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
 			max_f_past = max_f_past > f[j]? max_f_past : f[j];
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
