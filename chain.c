@@ -27,7 +27,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	float avg_qspan;
 	mm128_t *b, *w;
 
-	if (_u) *_u = 0;
+	if (_u) *_u = 0, *n_u_ = 0;
 	f = (int32_t*)kmalloc(km, n * 4);
 	p = (int32_t*)kmalloc(km, n * 4);
 	t = (int32_t*)kmalloc(km, n * 4);
@@ -84,7 +84,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		if (t[i] == 0 && v[i] >= min_sc)
 			++n_u;
 	if (n_u == 0) {
-		kfree(km, f); kfree(km, p); kfree(km, t); kfree(km, v);
+		kfree(km, a); kfree(km, f); kfree(km, p); kfree(km, t); kfree(km, v);
 		return 0;
 	}
 	u = (uint64_t*)kmalloc(km, n_u * 8);
@@ -119,9 +119,9 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		}
 		if (k0 == k) n_v = n_v0; // no new chain added, reset
 	}
-	n_u = k, *_u = u; // NB: note that u[] may not be sorted by score here
+	*n_u_ = n_u = k, *_u = u; // NB: note that u[] may not be sorted by score here
 
-	// free
+	// free temporary arrays
 	kfree(km, f); kfree(km, p); kfree(km, t);
 
 	// write the result to b[]
@@ -148,10 +148,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		k += n;
 	}
 	memcpy(u, u2, n_u * 8);
-
-	// write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
-	memcpy(b, a, n_v * sizeof(mm128_t));
-	*n_u_ = n_u;
+	memcpy(b, a, k * sizeof(mm128_t)); // write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
 	kfree(km, a); kfree(km, w); kfree(km, u2);
 	return b;
 }
