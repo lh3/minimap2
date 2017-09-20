@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r414-dirty"
+#define MM_VERSION "2.2-r421-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -124,11 +124,10 @@ int main(int argc, char *argv[])
 			if (x < 1.0) opt.mid_occ_frac = x, opt.mid_occ = 0;
 			else opt.mid_occ = (int)(x + .499);
 		} else if (c == 'u') {
-			if (*optarg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV;
-			else if (*optarg == 'B') opt.flag |= MM_F_SPLICE_BOTH;
-			else if (*optarg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV;
-			else if (*optarg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR;
-			else if (*optarg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV);
+			if (*optarg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
+			else if (*optarg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
+			else if (*optarg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR; // match CT-AC (reverse complement of GT-AG)
+			else if (*optarg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV); // don't try to match the GT-AG signal
 			else {
 				fprintf(stderr, "[E::%s] unrecognized cDNA direction\n", __func__);
 				return 1;

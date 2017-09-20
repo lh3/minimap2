@@ -65,7 +65,7 @@ static int mm_check_zdrop(const uint8_t *qseq, const uint8_t *tseq, uint32_t n_c
 static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e)
 {
 	uint32_t k, l, toff = 0, qoff = 0;
-	int32_t s = 0, max = 0, n_gtag = 0, n_ctac = 0;
+	int32_t s = 0, max = 0;
 	if (p == 0) return;
 	for (k = 0; k < p->n_cigar; ++k) {
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
@@ -99,14 +99,10 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 			uint8_t b[4];
 			b[0] = tseq[toff], b[1] = tseq[toff+1];
 			b[2] = tseq[toff+len-2], b[3] = tseq[toff+len-1];
-			if (memcmp(b, "\2\3\0\2", 4) == 0) ++n_gtag;
-			else if (memcmp(b, "\1\3\0\1", 4) == 0) ++n_ctac;
 			toff += len, p->blen += len;
 		}
 	}
 	p->dp_max = max;
-	if (n_gtag > n_ctac) p->trans_strand = 1;
-	else if (n_gtag < n_ctac) p->trans_strand = 2;
 }
 
 static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // TODO: this calls the libc realloc()
@@ -282,7 +278,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (opt->flag & MM_F_SPLICE) {
 		if (splice_flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
 		if (splice_flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
-		if (splice_flag & MM_F_SPLICE_BOTH) extra_flag |= KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV;
 	}
 
 	// compute rs0 and qs0
@@ -466,7 +461,7 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	memset(&ez, 0, sizeof(ksw_extz_t));
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t r2;
-		if ((opt->flag&MM_F_SPLICE) && (opt->flag&MM_F_SPLICE_FOR) && (opt->flag&MM_F_SPLICE_REV)) {
+		if ((opt->flag&MM_F_SPLICE) && (opt->flag&MM_F_SPLICE_FOR) && (opt->flag&MM_F_SPLICE_REV)) { // then do two rounds of alignments for both strands
 			mm_reg1_t s[2], s2[2];
 			int which, trans_strand;
 			s[0] = s[1] = regs[i];
@@ -483,9 +478,9 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 				free(s[0].p);
 			}
 			regs[i].p->trans_strand = trans_strand;
-		} else {
+		} else { // one round of alignment
 			mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, a, &ez, opt->flag);
-			if ((opt->flag&MM_F_SPLICE) && !(opt->flag&MM_F_SPLICE_BOTH))
+			if (opt->flag&MM_F_SPLICE)
 				regs[i].p->trans_strand = opt->flag&MM_F_SPLICE_FOR? 1 : 2;
 		}
 		if (r2.cnt > 0) regs = mm_insert_reg(&r2, i, &n_regs, regs);
