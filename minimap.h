@@ -12,10 +12,9 @@
 #define MM_F_NO_QUAL     0x010
 #define MM_F_OUT_CG      0x020
 #define MM_F_OUT_CS      0x040
-#define MM_F_SPLICE      0x080
-#define MM_F_SPLICE_FOR  0x100
-#define MM_F_SPLICE_REV  0x200
-#define MM_F_SPLICE_BOTH 0x400
+#define MM_F_SPLICE      0x080 // splice mode
+#define MM_F_SPLICE_FOR  0x100 // match GT-AG
+#define MM_F_SPLICE_REV  0x200 // match CT-AC, the reverse complement of GT-AG
 #define MM_F_NO_SAM_SQ   0x800
 #define MM_F_SR          0x1000
 
