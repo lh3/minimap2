@@ -271,12 +271,17 @@ mm_reg1_t *mm_map_seg(const mm_idx_t *mi, int n_segs, int *qlens, const char *se
 		if (!(opt->flag & MM_F_SPLICE))
 			mm_join_long(b->km, opt, qlen_sum, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
+
 	if (opt->flag & MM_F_CIGAR) {
-		regs = mm_align_skeleton(b->km, opt, mi, qlen_sum, seqs, n_regs, regs, a); // this calls mm_filter_regs()
-		if (!(opt->flag & MM_F_AVA)) {
-			mm_set_parent(b->km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
-			mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-			mm_set_sam_pri(*n_regs, regs);
+		if (n_segs == 1) {
+			regs = mm_align_skeleton(b->km, opt, mi, qlen_sum, seqs, n_regs, regs, a); // this calls mm_filter_regs()
+			if (!(opt->flag & MM_F_AVA)) {
+				mm_set_parent(b->km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
+				mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
+				mm_set_sam_pri(*n_regs, regs);
+			}
+		} else {
+			abort();
 		}
 	}
 	mm_set_mapq(*n_regs, regs, opt->min_chain_score, opt->a, rep_len);
