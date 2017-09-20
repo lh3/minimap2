@@ -39,6 +39,12 @@ typedef struct __kstring_t {
 } kstring_t;
 #endif
 
+typedef struct {
+	int n_regs, n_a;
+	mm_reg1_t *regs;
+	mm128_t *a;
+} mm_segreg_t;
+
 double cputime(void);
 double realtime(void);
 

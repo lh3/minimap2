@@ -293,7 +293,19 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		mm_sync_regs(km, *n_regs_, regs);
 	}
 }
-
+/*
+void mm_sep_seg(void *km, int n_segs, int qlen_sum, int n_regs0, mm_reg1_t *regs0, mm128_t *a, mm_segreg_t *seg)
+{ // TODO: this implement is inefficient given a large n_segs
+	int s, i, j;
+	memset(seg, 0, n_segs * sizeof(mm_segreg_t));
+	for (i = 0; i < n_regs0; ++i) {
+		mm_reg1_t *r = &regs0[i];
+		for (j = 0; j < r->cnt; ++j) {
+			++seg[(a[r->as + j].y&MM_SEED_SEG_MASK)>>MM_SEED_SEG_SHIFT].n_a;
+		}
+	}
+}
+*/
 void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len)
 {
 	static const float q_coef = 40.0f;

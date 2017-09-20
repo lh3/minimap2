@@ -268,7 +268,7 @@ mm_reg1_t *mm_map_seg(const mm_idx_t *mi, int n_segs, int *qlens, const char *se
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(b->km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		mm_select_sub(b->km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		if (!(opt->flag & MM_F_SPLICE))
+		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR))
 			mm_join_long(b->km, opt, qlen_sum, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
 
