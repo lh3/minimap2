@@ -252,7 +252,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 
 void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, j, n_u, max_gap_ref, rep_len, qlen_sum, n_regs0;
+	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0;
 	int64_t n_a;
 	uint64_t *u;
 	mm128_t *a;
@@ -275,23 +275,11 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 	}
 
 	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
-	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &u, b->km);
-	if (n_u > 0) { // shrink _a_ because after chaining, the size of _a_ may be much reduced
-		int64_t n_a0 = n_a;
-		for (j = 0, n_a = 0; j < n_u; ++j)
-			n_a += (int32_t)u[j];
-		if (n_a < n_a0>>1) {
-			mm128_t *a0 = a;
-			a = (mm128_t*)kmalloc(b->km, n_a * sizeof(mm128_t));
-			memcpy(a, a0, n_a * sizeof(mm128_t)); // anything beyond n_a is not used
-			kfree(b->km, a0);
-		}
-	}
-	regs0 = mm_gen_regs(b->km, qlen_sum, n_u, u, a);
-	n_regs0 = n_u;
+	a = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &n_regs0, &u, b->km);
+	regs0 = mm_gen_regs(b->km, qlen_sum, n_regs0, u, a);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
-		for (j = 0; j < n_u; ++j)
+		for (j = 0; j < n_regs0; ++j)
 			for (i = regs0[j].as; i < regs0[j].as + regs0[j].cnt; ++i)
 				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));

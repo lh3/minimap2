@@ -19,7 +19,7 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mm128_t *a, uint64_t **_u, void *km)
+mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t st = 0, k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j;
@@ -148,6 +148,10 @@ int mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cn
 		k += n;
 	}
 	memcpy(u, u2, n_u * 8);
-	kfree(km, b); kfree(km, w); kfree(km, u2);
-	return n_u;
+
+	// write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
+	memcpy(b, a, n_v * sizeof(mm128_t));
+	*n_u_ = n_u;
+	kfree(km, a); kfree(km, w); kfree(km, u2);
+	return b;
 }
