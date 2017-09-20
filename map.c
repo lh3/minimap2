@@ -237,6 +237,17 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 
 	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
 	n_u = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_a, a, &u, b->km);
+	if (n_u > 0) { // shrink _a_ because after chaining, the size of _a_ may be much reduced
+		int64_t n_a0 = n_a;
+		for (j = 0, n_a = 0; j < n_u; ++j)
+			n_a += (int32_t)u[j];
+		if (n_a < n_a0>>1) {
+			mm128_t *a0 = a;
+			a = (mm128_t*)kmalloc(b->km, n_a * sizeof(mm128_t));
+			memcpy(a, a0, n_a * sizeof(mm128_t)); // anything beyond n_a is not used
+			kfree(b->km, a0);
+		}
+	}
 	regs = mm_gen_regs(b->km, qlen, n_u, u, a);
 	*n_regs = n_u;
 
