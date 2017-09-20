@@ -293,19 +293,67 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		mm_sync_regs(km, *n_regs_, regs);
 	}
 }
-/*
-void mm_sep_seg(void *km, int n_segs, int qlen_sum, int n_regs0, mm_reg1_t *regs0, mm128_t *a, mm_segreg_t *seg)
-{ // TODO: this implement is inefficient given a large n_segs
-	int s, i, j;
-	memset(seg, 0, n_segs * sizeof(mm_segreg_t));
+
+mm_seg_t *mm_seg_gen(void *km, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a)
+{
+	int s, i, j, acc_qlen[MM_MAX_SEG+1], qlen_sum = 0;
+	mm_seg_t *seg;
+
+	assert(n_segs <= MM_MAX_SEG);
+	for (s = 1, acc_qlen[0] = 0; s < n_segs; ++s)
+		acc_qlen[s] = acc_qlen[s-1] + qlens[s-1];
+	qlen_sum = acc_qlen[n_segs - 1] + qlens[n_segs - 1];
+
+	seg = (mm_seg_t*)kcalloc(km, n_segs, sizeof(mm_seg_t));
+	for (s = 0; s < n_segs; ++s) {
+		seg[s].u = (uint64_t*)kmalloc(km, n_regs0 * 8);
+		for (i = 0; i < n_regs0; ++i)
+			seg[s].u[i] = (uint64_t)regs0[i].score << 32;
+	}
 	for (i = 0; i < n_regs0; ++i) {
-		mm_reg1_t *r = &regs0[i];
+		const mm_reg1_t *r = &regs0[i];
 		for (j = 0; j < r->cnt; ++j) {
-			++seg[(a[r->as + j].y&MM_SEED_SEG_MASK)>>MM_SEED_SEG_SHIFT].n_a;
+			int sid = (a[r->as + j].y&MM_SEED_SEG_MASK)>>MM_SEED_SEG_SHIFT;
+			++seg[sid].u[i];
+			++seg[sid].n_a;
 		}
 	}
+	for (s = 0; s < n_segs; ++s) {
+		mm_seg_t *sr = &seg[s];
+		for (i = 0, sr->n_u = 0; i < n_regs0; ++i) // squeeze out zero-length per-segment chains
+			if ((int32_t)sr->u[i] != 0)
+				sr->u[sr->n_u++] = sr->u[i];
+		sr->a = (mm128_t*)kmalloc(km, sr->n_a * sizeof(mm128_t));
+		sr->n_a = 0;
+	}
+
+	for (i = 0; i < n_regs0; ++i) {
+		const mm_reg1_t *r = &regs0[i];
+		for (j = 0; j < r->cnt; ++j) {
+			int sid = (a[r->as + j].y&MM_SEED_SEG_MASK)>>MM_SEED_SEG_SHIFT;
+			mm128_t a1 = a[r->as + j];
+			// on reverse strand, the segment position is:
+			//   x_for_cat = qlen_sum - 1 - (int32_t)a1.y - 1 + q_span
+			//   (int32_t)new_a1.y = qlens[sid] - (x_for_cat - acc_qlen[sid] + 1 - q_span) - 1 = (int32_t)a1.y - (qlen_sum - (qlens[sid] + acc_qlen[sid]))
+			a1.y -= a1.x>>63? qlen_sum - (qlens[sid] + acc_qlen[sid]) : acc_qlen[sid];
+			seg[sid].a[seg[sid].n_a++] = a1;
+		}
+	}
+	for (s = 0; s < n_segs; ++s) {
+		regs[s] = mm_gen_regs(km, qlens[s], seg[s].n_u, seg[s].u, seg[s].a);
+		n_regs[s] = seg[s].n_u;
+	}
+	return seg;
 }
-*/
+
+void mm_seg_free(void *km, int n_segs, mm_seg_t *segs)
+{
+	int i;
+	for (i = 0; i < n_segs; ++i) kfree(km, segs[i].u);
+	for (i = 0; i < n_segs; ++i) kfree(km, segs[i].a);
+	kfree(km, segs);
+}
+
 void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len)
 {
 	static const float q_coef = 40.0f;

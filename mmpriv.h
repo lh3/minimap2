@@ -40,10 +40,10 @@ typedef struct __kstring_t {
 #endif
 
 typedef struct {
-	int n_regs, n_a;
-	mm_reg1_t *regs;
+	int n_u, n_a;
+	uint64_t *u;
 	mm128_t *a;
-} mm_segreg_t;
+} mm_seg_t;
 
 double cputime(void);
 double realtime(void);
@@ -76,6 +76,9 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs, mm128_t *a);
 void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r);
 void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len);
+
+mm_seg_t *mm_seg_gen(void *km, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a);
+void mm_seg_free(void *km, int n_segs, mm_seg_t *segs);
 
 #ifdef __cplusplus
 }
