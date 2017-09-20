@@ -36,7 +36,7 @@ static struct option long_options[] = {
 	{ "splice",         no_argument,       0, 0 },
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
 	{ "no-sam-sq",      no_argument,       0, 0 },
-	{ "approx-ext",     no_argument,       0, 0 },
+	{ "sr",             no_argument,       0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -114,7 +114,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
 		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_SAM_SQ; // --no-sam-sq
-		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_APPROX_EXT; // --approx-ext
+		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
 		else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
