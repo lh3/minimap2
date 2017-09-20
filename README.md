@@ -4,6 +4,7 @@
 [![Python Version](https://img.shields.io/pypi/pyversions/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](LICENSE.txt)
 [![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
+[![Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=flat)](https://github.com/lh3/minimap2/releases)
 ## Getting Started
 ```sh
 git clone https://github.com/lh3/minimap2
