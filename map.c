@@ -241,6 +241,9 @@ mm_reg1_t *mm_map_seg(const mm_idx_t *mi, int n_segs, int *qlens, const char *se
 	if (n_segs > MM_MAX_SEG || n_segs <= 0) return 0;
 
 	qlen_sum = collect_minimizers(opt, mi, n_segs, qlens, seqs, b);
+
+	*n_regs = 0;
+	if (qlen_sum == 0) return 0;
 	a = collect_seed_hits(opt, mi, qname, qlen_sum, &n_a, &rep_len, b);
 	radix_sort_128x(a, a + n_a);
 
