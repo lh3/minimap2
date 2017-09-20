@@ -162,6 +162,9 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
 	mm128_t *a;
 	mm_reg1_t *regs;
 
+	*n_regs = 0;
+	if (qlen == 0) return 0;
+
 	// collect minimizers
 	b->mini.n = 0;
 	mm_sketch(b->km, seq, qlen, mi->w, mi->k, 0, mi->is_hpc, &b->mini);
