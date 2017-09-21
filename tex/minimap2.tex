@@ -470,16 +470,16 @@ able to improve their accuracy further.
 %{\footnotesize
 %\begin{tabular}{lrrrr}
 %\toprule
-%& GMAP & minimap2 & SpAln & STAR\\
+%                          &      GMAP &  minimap2 &     SpAln &      STAR \\ % one GMAP thread took 14 days to align a tiny fraction of reads
 %\midrule
-%Run time (CPU min) & & 243 & 2\,352 & 1\,647 \\
-%\# aligned reads & & 1\,123\,025 & 1\,094\,092 & 682\,452\\
-%\# chimeric alignments & & 33\,091 & 0 & 0\\
-%\# non-spliced alignments & & 339\,081 & 291\,447 & 272\,536\vspace{1em}\\
-%\# aligned introns & & 9\,071\,755 & 9\,208\,564 & 3\,029\,121 \\
-%\# novel introns & & 42\,773 & 82\,230 & 17\,791 \\
-%\% exact introns & & 94.9\% & 91.7\% & 84.7\% \\
-%\% approx. introns&& 96.9\% & 93.4\% & 93.8\% \\
+%Run time (CPU min)        &         - &       243 &     2,352 &     1,647 \\
+%\# aligned reads          & 1,113,502 & 1,123,025 & 1,094,092 &   682,452 \\
+%\# chimeric alignments    &    48,927 &    33,091 &         0 &         0 \\
+%\# non-spliced alignments &   334,097 &   339,081 &   291,447 &   272,536 \vspace{1em}\\
+%\# aligned introns        & 8,922,221 & 9,071,755 & 9,208,564 & 3,029,121 \\
+%\# novel introns          &    48,927 &    42,773 &    82,230 &    17,791 \\
+%\% exact introns          &    90.6\% &    94.9\% &    91.7\% &    84.7\% \\
+%\% approx. introns        &    94.0\% &    96.9\% &    93.4\% &    93.8\% \\
 %\botrule
 %\end{tabular}
 %}{}
