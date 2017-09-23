@@ -196,7 +196,7 @@ static void worker_post(void *g, long i, int tid)
 	assert(b->n == start_p);
 
 	// deallocate and clear b->a
-	free(b->a.a);
+	kfree(0, b->a.a);
 	b->a.n = b->a.m = 0, b->a.a = 0;
 }
  
@@ -297,7 +297,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     } else if (step == 2) { // dispatch sketch to buckets
         step_t *s = (step_t*)in;
 		mm_idx_add(p->mi, s->a.n, s->a.a);
-		free(s->a.a); free(s);
+		kfree(0, s->a.a); free(s);
 	}
     return 0;
 }
