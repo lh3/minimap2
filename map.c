@@ -317,18 +317,18 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
  **************************/
 
 typedef struct {
-	int mini_batch_size, n_processed, n_threads;
+	int mini_batch_size, n_processed, n_threads, n_fp;
 	const mm_mapopt_t *opt;
-	mm_bseq_file_t *fp;
+	mm_bseq_file_t **fp;
 	const mm_idx_t *mi;
 	kstring_t str;
 } pipeline_t;
 
 typedef struct {
 	const pipeline_t *p;
-    int n_seq;
+    int n_seq, n_frag;
 	mm_bseq1_t *seq;
-	int *n_reg;
+	int *n_reg, *n_seg;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
 } step_t;
@@ -349,7 +349,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		int with_qual = (!!(p->opt->flag & MM_F_OUT_SAM) && !(p->opt->flag & MM_F_NO_QUAL));
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
-		s->seq = mm_bseq_read(p->fp, p->mini_batch_size, with_qual, &s->n_seq);
+		if (p->n_fp > 1) s->seq = mm_bseq_read_multi(p->n_fp, p->fp, p->mini_batch_size, with_qual, &s->n_seq);
+		else s->seq = mm_bseq_read2(p->fp[0], p->mini_batch_size, with_qual, !!(p->opt->flag&MM_F_MULTI_SEG), &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
@@ -399,22 +400,38 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads)
+int mm_map_file_multi_seg(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads)
 {
+	int i, j;
 	pipeline_t pl;
+	if (n_segs < 1) return -1;
 	memset(&pl, 0, sizeof(pipeline_t));
-	pl.fp = mm_bseq_open(fn);
-	if (pl.fp == 0) {
-		if (mm_verbose >= 1)
-			fprintf(stderr, "ERROR: failed to open file '%s'\n", fn);
-		return -1;
+	pl.fp = (mm_bseq_file_t**)calloc(n_segs, sizeof(mm_bseq_file_t*));
+	for (i = 0; i < n_segs; ++i) {
+		pl.fp[i] = mm_bseq_open(fn[i]);
+		if (pl.fp[i] == 0) {
+			if (mm_verbose >= 1)
+				fprintf(stderr, "ERROR: failed to open file '%s'\n", fn[i]);
+			for (j = 0; j < i; ++j)
+				mm_bseq_close(pl.fp[j]);
+			free(pl.fp);
+			return -1;
+		}
 	}
 	pl.opt = opt, pl.mi = idx;
-	pl.n_threads = n_threads, pl.mini_batch_size = opt->mini_batch_size;
+	pl.n_threads = n_threads > 1? n_threads : 1;
+	pl.mini_batch_size = opt->mini_batch_size;
 	if ((opt->flag & MM_F_OUT_SAM) && !(opt->flag & MM_F_NO_SAM_SQ))
 		mm_write_sam_SQ(idx);
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
 	free(pl.str.s);
-	mm_bseq_close(pl.fp);
+	for (i = 0; i < n_segs; ++i)
+		mm_bseq_close(pl.fp[i]);
+	free(pl.fp);
 	return 0;
+}
+
+int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads)
+{
+	return mm_map_file_multi_seg(idx, 1, &fn, opt, n_threads);
 }
