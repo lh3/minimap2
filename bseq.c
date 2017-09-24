@@ -1,7 +1,6 @@
 #include <zlib.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <assert.h>
 #include "bseq.h"
 #include "kvec.h"
@@ -33,17 +32,6 @@ void mm_bseq_close(mm_bseq_file_t *fp)
 	kseq_destroy(fp->ks);
 	gzclose(fp->fp);
 	free(fp);
-}
-
-static inline int mm_qname_same(const char *s1, const char *s2)
-{
-	int l1, l2;
-	l1 = strlen(s1);
-	l2 = strlen(s2);
-	if (l1 != l2 || l1 < 3) return 0;
-	if (!(s1[l1-1] >= '1' && s1[l1-1] <= '2' && s1[l1-2] == '/')) return 0;
-	if (!(s2[l2-1] >= '1' && s2[l2-1] <= '2' && s2[l2-2] == '/')) return 0;
-	return (strncmp(s1, s2, l1 - 2) == 0);
 }
 
 static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual)

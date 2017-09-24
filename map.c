@@ -75,7 +75,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->is_hpc = 0, io->k = 21, io->w = 11;
-		mo->flag |= MM_F_SR;
+		mo->flag |= MM_F_SR | MM_F_MULTI_SEG;
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->max_gap = 100;
 		mo->pri_ratio = 0.5f;
@@ -328,17 +328,28 @@ typedef struct {
 	const pipeline_t *p;
     int n_seq, n_frag;
 	mm_bseq1_t *seq;
-	int *n_reg, *n_seg;
+	int *n_reg, *seg_off, *n_seg;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
 } step_t;
 
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
-    step_t *step = (step_t*)_data;
+    step_t *s = (step_t*)_data;
+	int *qlens, j, off = s->seg_off[i];
+	const char **qseqs;
+	mm_tbuf_t *b = s->buf[tid];
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
-		fprintf(stderr, "QR\t%s\t%d\n", step->seq[i].name, tid);
-	step->reg[i] = mm_map(step->p->mi, step->seq[i].l_seq, step->seq[i].seq, &step->n_reg[i], step->buf[tid], step->p->opt, step->seq[i].name);
+		fprintf(stderr, "QR\t%s\t%d\n", s->seq[off].name, tid);
+	qlens = (int*)kmalloc(b->km, s->n_seg[i] * sizeof(int));
+	qseqs = (const char**)kmalloc(b->km, s->n_seg[i] * sizeof(const char**));
+	for (j = 0; j < s->n_seg[i]; ++j) {
+		qlens[j] = s->seq[off + j].l_seq;
+		qseqs[j] = s->seq[off + j].seq;
+	}
+	mm_map_multi(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+	kfree(b->km, qlens);
+	kfree(b->km, qseqs);
 }
 
 static void *worker_pipeline(void *shared, int step, void *in)
@@ -347,10 +358,11 @@ static void *worker_pipeline(void *shared, int step, void *in)
     pipeline_t *p = (pipeline_t*)shared;
     if (step == 0) { // step 0: read sequences
 		int with_qual = (!!(p->opt->flag & MM_F_OUT_SAM) && !(p->opt->flag & MM_F_NO_QUAL));
+		int multi_seg = (p->n_fp > 1 || !!(p->opt->flag & MM_F_MULTI_SEG));
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
 		if (p->n_fp > 1) s->seq = mm_bseq_read_multi(p->n_fp, p->fp, p->mini_batch_size, with_qual, &s->n_seq);
-		else s->seq = mm_bseq_read2(p->fp[0], p->mini_batch_size, with_qual, !!(p->opt->flag&MM_F_MULTI_SEG), &s->n_seq);
+		else s->seq = mm_bseq_read2(p->fp[0], p->mini_batch_size, with_qual, multi_seg, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
@@ -358,12 +370,20 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mm_tbuf_t**)calloc(p->n_threads, sizeof(mm_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mm_tbuf_init();
-			s->n_reg = (int*)calloc(s->n_seq, sizeof(int));
+			s->n_reg = (int*)calloc(3 * s->n_seq, sizeof(int));
+			s->seg_off = s->n_reg + s->n_seq;
+			s->n_seg = s->seg_off + s->n_seq;
 			s->reg = (mm_reg1_t**)calloc(s->n_seq, sizeof(mm_reg1_t*));
+			for (i = 1, j = 0; i <= s->n_seq; ++i)
+				if (i == s->n_seq || !multi_seg || !mm_qname_same(s->seq[i-1].name, s->seq[i].name)) {
+					s->n_seg[s->n_frag] = i - j;
+					s->seg_off[s->n_frag++] = j;
+					j = i;
+				}
 			return s;
 		} else free(s);
     } else if (step == 1) { // step 1: map
-		kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_seq);
+		kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
 		return in;
     } else if (step == 2) { // step 2: output
 		void *km = 0;
