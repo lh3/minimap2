@@ -171,7 +171,7 @@ static void collect_minimizers(const mm_mapopt_t *opt, const mm_idx_t *mi, int n
 
 static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, const mm_idx_t *mi, const char *qname, int qlen, int64_t *n_a, int *rep_len, mm_tbuf_t *b)
 {
-	int rep_st, rep_en, i;
+	int rep_st = 0, rep_en = 0, i;
 	mm_match_t *m;
 	mm128_t *a;
 
