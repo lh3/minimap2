@@ -56,7 +56,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
 			log_dd = dd? ilog2_32(dd) : 0;
-			if (is_cdna) {
+			if (is_cdna || sidi != sidj) {
 				int c_log, c_lin;
 				c_lin = (int)(dd * .01 * avg_qspan);
 				c_log = log_dd;
