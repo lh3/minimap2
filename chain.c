@@ -73,7 +73,8 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 			}
 			if (p[j] >= 0) t[p[j]] = i;
 		}
-		f[i] = max_f, p[i] = max_j, v[i] = max_f_past; // v[] keeps the max score in the previous chain
+		f[i] = max_f, p[i] = max_j;
+		v[i] = max_f_past > max_f? max_f_past : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 	}
 
 	// find the ending positions of chains
@@ -91,7 +92,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	for (i = n_u = 0; i < n; ++i) {
 		if (t[i] == 0 && v[i] >= min_sc) {
 			j = i;
-			while (j >= 0 && f[j] < v[j]) j = p[j]; // find the point that maximizes f[]
+			while (j >= 0 && f[j] < v[j]) j = p[j]; // find the peak that maximizes f[]
 			if (j < 0) j = i; // TODO: this should really be assert(j>=0)
 			u[n_u++] = (uint64_t)f[j] << 32 | j;
 		}
