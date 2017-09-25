@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r424-dirty"
+#define MM_VERSION "2.2-r436-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -37,9 +37,8 @@ static struct option long_options[] = {
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
 	{ "no-sam-sq",      no_argument,       0, 0 },
 	{ "sr",             no_argument,       0, 0 },
-	{ "multi-segment",  no_argument,       0, 0 },
-	{ "2nd-seg-rev",    no_argument,       0, 0 },
-	{ "2nd-seg-for",    no_argument,       0, 0 },
+	{ "multi-seg",      optional_argument, 0, 0 },
+	{ "2nd-seg-rev",    optional_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -118,10 +117,15 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_SAM_SQ; // --no-sam-sq
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
-		else if (c == 0 && long_idx ==14) opt.flag |= MM_F_MULTI_SEG; // --multi-seg
-		else if (c == 0 && long_idx ==15) opt.flag |= MM_F_SEG_REV; // --2nd-seg-rev
-		else if (c == 0 && long_idx ==16) opt.flag &= ~MM_F_SEG_REV; // --2nd-seg-for
-		else if (c == 'V') {
+		else if (c == 0 && long_idx ==14) { // --multi-seg
+			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
+				opt.flag |= MM_F_MULTI_SEG;
+			else opt.flag &= ~MM_F_MULTI_SEG;
+		} else if (c == 0 && long_idx ==15) { // --2nd-seg-rev
+			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
+				opt.flag |= MM_F_SEG_REV;
+			else opt.flag &= ~MM_F_SEG_REV;
+		} else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
 		} else if (c == 'f') {
@@ -165,15 +169,15 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
-		fprintf(fp_help, "    -g INT       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
-		fprintf(fp_help, "    -r INT       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
+		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
+		fprintf(fp_help, "    -G NUM       max intron length (-x splice) [200k]; or insert size (-x sr) [1000] []\n");
+		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
 		fprintf(fp_help, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
 		fprintf(fp_help, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
 //		fprintf(fp_help, "    -T INT       SDUST threshold; 0 to disable SDUST [%d]\n", opt.sdust_thres); // TODO: this option is never used; might be buggy
 		fprintf(fp_help, "    -X           skip self and dual mappings (for the all-vs-all mode)\n");
 		fprintf(fp_help, "    -p FLOAT     min secondary-to-primary score ratio [%g]\n", opt.pri_ratio);
 		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
-		fprintf(fp_help, "    -G NUM       max intron length (only effective following -x splice) [200k]\n");
 		fprintf(fp_help, "  Alignment:\n");
 		fprintf(fp_help, "    -A INT       matching score [%d]\n", opt.a);
 		fprintf(fp_help, "    -B INT       mismatch penalty [%d]\n", opt.b);

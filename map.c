@@ -78,6 +78,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->flag |= MM_F_SR | MM_F_MULTI_SEG | MM_F_SEG_REV;
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->max_gap = 100;
+		mo->max_gap_ref = 1000;
 		mo->pri_ratio = 0.5f;
 		mo->min_cnt = 2;
 		mo->min_chain_score = 20;
