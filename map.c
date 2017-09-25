@@ -75,7 +75,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->is_hpc = 0, io->k = 21, io->w = 11;
-		mo->flag |= MM_F_SR | MM_F_MULTI_SEG;
+		mo->flag |= MM_F_SR | MM_F_MULTI_SEG | MM_F_SEG_REV;
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->max_gap = 100;
 		mo->pri_ratio = 0.5f;
@@ -161,7 +161,7 @@ static void collect_minimizers(const mm_mapopt_t *opt, const mm_idx_t *mi, int n
 	for (i = n = 0; i < n_segs; ++i) {
 		mm_sketch(b->km, seqs[i], qlens[i], mi->w, mi->k, i, mi->is_hpc, &b->mini);
 		for (j = n; j < b->mini.n; ++j)
-			b->mini.a[j].x += sum << 1;
+			b->mini.a[j].y += sum << 1;
 		if (opt->sdust_thres > 0) // mask low-complexity minimizers
 			b->mini.n = n + mm_dust_minier(b->mini.n - n, b->mini.a + n, qlens[i], seqs[i], opt->sdust_thres, b->sdb);
 		sum += qlens[i], n = b->mini.n;
@@ -295,6 +295,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 		seg = mm_seg_gen(b->km, n_segs, qlens, n_regs0, regs0, n_regs, regs, a);
 		free(regs0);
 		for (i = 0; i < n_segs; ++i) {
+			mm_set_parent(b->km, opt->mask_level, n_regs[i], regs[i], opt->a * 2 + opt->b);
 			regs[i] = align_regs(opt, mi, b->km, qlens[i], seqs[i], &n_regs[i], regs[i], seg[i].a);
 			mm_set_mapq(n_regs[i], regs[i], opt->min_chain_score, opt->a, rep_len);
 		}
@@ -344,10 +345,24 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	qlens = (int*)kmalloc(b->km, s->n_seg[i] * sizeof(int));
 	qseqs = (const char**)kmalloc(b->km, s->n_seg[i] * sizeof(const char**));
 	for (j = 0; j < s->n_seg[i]; ++j) {
+		if (j > 0 && (s->p->opt->flag & MM_F_SEG_REV))
+			mm_revcomp_bseq(&s->seq[off + j]);
 		qlens[j] = s->seq[off + j].l_seq;
 		qseqs[j] = s->seq[off + j].seq;
 	}
 	mm_map_multi(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+	if (s->n_seg[i] > 1 && (s->p->opt->flag & MM_F_SEG_REV))
+		for (j = 1; j < s->n_seg[i]; ++j) { // flip the query strand and coordinate to the original read strand
+			int k, t;
+			mm_revcomp_bseq(&s->seq[off + j]);
+			for (k = 0; k < s->n_reg[off + j]; ++k) {
+				mm_reg1_t *r = &s->reg[off + j][k];
+				t = r->qs;
+				r->qs = qlens[j] - r->qe;
+				r->qe = qlens[j] - t;
+				r->rev = !r->rev;
+			}
+		}
 	kfree(b->km, qlens);
 	kfree(b->km, qseqs);
 }
