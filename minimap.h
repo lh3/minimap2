@@ -61,7 +61,7 @@ typedef struct {
 
 typedef struct {
 	int32_t id;                     // ID for internal uses (see also parent below)
-	uint32_t cnt:31, rev:1;         // number of minimizers; if on the reverse strand
+	uint32_t cnt:30, rev:1, seg_split:1; // number of minimizers; if on the reverse strand
 	uint32_t rid:31, inv:1;         // reference index; if this is an alignment from inversion rescue
 	int32_t score;                  // DP alignment score
 	int32_t qs, qe, rs, re;         // query start and end; reference start and end

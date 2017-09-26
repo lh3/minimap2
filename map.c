@@ -234,7 +234,7 @@ static void chain_post(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, opt->max_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
+		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, opt->max_gap_ref, mi->k*2, opt->best_n * n_segs, n_segs, qlens, n_regs, regs);
 		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR))
 			mm_join_long(km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
