@@ -103,7 +103,10 @@ while (file.readline(buf) >= 0) {
 	if (flag&16) qs = clip[1], qe = qlen - clip[0];
 	else qs = clip[0], qe = qlen - clip[1];
 	var ts = parseInt(t[3]) - 1, te = ts + M + D[1] + N;
-	var a = [t[0], qlen, qs, qe, flag&16? '-' : '+', t[2], tlen, ts, te, match, blen, t[4]];
+	var qname = t[0];
+	if ((flag&1) && (flag&0x40)) qname += '/1';
+	if ((flag&1) && (flag&0x80)) qname += '/2';
+	var a = [qname, qlen, qs, qe, flag&16? '-' : '+', t[2], tlen, ts, te, match, blen, t[4]];
 	print(a.join("\t"), extra.join("\t"));
 }
 
