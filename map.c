@@ -229,11 +229,12 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, const mm_idx_t *mi, co
 	return a;
 }
 
-static void chain_post(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, int *n_regs, mm_reg1_t *regs, mm128_t *a)
+static void chain_post(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, int n_segs, const int *qlens, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
-		mm_select_sub(km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
+		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
+		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, opt->max_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
 		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR))
 			mm_join_long(km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
@@ -245,7 +246,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	regs = mm_align_skeleton(km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
 	if (!(opt->flag & MM_F_AVA)) {
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
-		mm_select_sub(km, opt->mask_level, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
+		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		mm_set_sam_pri(*n_regs, regs);
 	}
 	return regs;
@@ -285,7 +286,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
-	chain_post(opt, mi, b->km, qlen_sum, &n_regs0, regs0, a);
+	chain_post(opt, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
 
 	if (n_segs == 1) {
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], &n_regs0, regs0, a);
