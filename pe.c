@@ -1,6 +1,7 @@
 #include <stdlib.h>
+#include <math.h>
 #include "mmpriv.h"
-#include "kalloc.h"
+#include "kvec.h"
 
 void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int max_gap_ref, int min_diff, int best_n, int n_segs, const int *qlens, int *n_, mm_reg1_t *r)
 {
@@ -52,11 +53,12 @@ typedef struct {
 #define sort_key_pair(a) ((a).key)
 KRADIX_SORT_INIT(pair, pair_arr_t, sort_key_pair, 8)
 
-void mm_pair(void *km, int max_gap_ref, int pe_bonus, const int *qlens, int *n_regs, mm_reg1_t **regs)
+void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc, const int *qlens, int *n_regs, mm_reg1_t **regs)
 {
-	int i, j, s, n, last[2], dp_thres, segs = 0, n_pairs = 0, max_idx[2];
-	int64_t max, max2;
+	int i, j, s, n, last[2], dp_thres, segs = 0, max_idx[2];
+	int64_t max;
 	pair_arr_t *a;
+	kvec_t(uint64_t) sc = {0,0,0};
 
 	a = (pair_arr_t*)kmalloc(km, (n_regs[0] + n_regs[1]) * sizeof(pair_arr_t));
 	for (s = n = 0, dp_thres = 0; s < 2; ++s) {
@@ -80,9 +82,10 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, const int *qlens, int *n_r
 	if (dp_thres < 0) dp_thres = 0;
 	radix_sort_pair(a, a + n);
 
-	max = max2 = -1;
+	max = -1;
 	max_idx[0] = max_idx[1] = -1;
 	last[0] = last[1] = -1;
+	kv_resize(uint64_t, km, sc, n);
 	for (i = 0; i < n; ++i) {
 		if (a[i].key & 1) { // reverse first read or forward second read
 			mm_reg1_t *q, *r;
@@ -91,36 +94,48 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, const int *qlens, int *n_r
 			q = a[last[a[i].rev]].r;
 			if (r->rid != q->rid || r->rs - q->re > max_gap_ref) continue;
 			for (j = last[a[i].rev]; j >= 0; --j) {
-				int sum;
+				int64_t sum;
 				if (a[j].rev != a[i].rev || a[j].s == a[i].s) continue;
 				q = a[j].r;
 				if (r->rid != q->rid || r->rs - q->re > max_gap_ref) break;
 				if (r->p->dp_max + q->p->dp_max < dp_thres) continue;
-				++n_pairs;
 				sum = r->p->dp_max + q->p->dp_max;
-				if (sum > max) {
-					max_idx[a[j].s] = j, max_idx[a[i].s] = i;
-					max2 = max;
-					max = sum;
-				} else if (sum > max2)
-					max2 = sum;
+				if (sum > max)
+					max = sum, max_idx[a[j].s] = j, max_idx[a[i].s] = i;
+				kv_push(uint64_t, km, sc, sum);
 			}
 		} else { // forward first read or reverse second read
 			last[a[i].rev] = i;
 		}
 	}
+	radix_sort_64(sc.a, sc.a + sc.n);
 
-	if (max > 0) {
+	if (sc.n > 0 && max > 0) { // found at least one pair
+		int n_sub = 0, mapq_pe;
+		mm_reg1_t *r[2];
+		r[0] = a[max_idx[0]].r, r[1] = a[max_idx[1]].r;
 		for (s = 0; s < 2; ++s) {
-			mm_reg1_t *r = a[max_idx[s]].r;
-			if (r->id != r->parent) {
-				mm_reg1_t *p = &regs[s][r->parent];
+			if (r[s]->id != r[s]->parent) {
+				mm_reg1_t *p = &regs[s][r[s]->parent];
 				for (i = 0; i < n_regs[s]; ++i)
 					if (regs[s][i].parent == p->id)
-						regs[s][i].parent = r->id;
+						regs[s][i].parent = r[s]->id;
+				p->mapq = 0;
 			}
 		}
+		mapq_pe = r[0]->mapq > r[1]->mapq? r[0]->mapq : r[1]->mapq;
+		for (i = 0; i < sc.n; ++i)
+			if (sc.a[i] + sub_diff >= max)
+				++n_sub;
+		if (sc.n > 1) {
+			int mapq_pe_alt;
+			mapq_pe_alt = (int)(6.02f * (max - sc.a[1]) / match_sc - 4.343f * logf(n_sub)); // n_sub > 0 because it counts the optimal, too
+			mapq_pe = mapq_pe < mapq_pe_alt? mapq_pe : mapq_pe_alt;
+		}
+		if (r[0]->mapq < mapq_pe) r[0]->mapq = (r[0]->mapq + mapq_pe) / 2;
+		if (r[1]->mapq < mapq_pe) r[1]->mapq = (r[1]->mapq + mapq_pe) / 2;
 	}
 
 	kfree(km, a);
+	kfree(km, sc.a);
 }

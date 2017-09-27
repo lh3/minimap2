@@ -307,7 +307,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 		}
 		mm_seg_free(b->km, n_segs, seg);
 		if (n_segs == 2 && opt->pe_ori >= 0)
-			mm_pair(b->km, max_gap_ref, opt->pe_bonus, qlens, n_regs, regs);
+			mm_pair(b->km, max_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs);
 	}
 
 	kfree(b->km, a);
