@@ -68,6 +68,7 @@ typedef struct {
 	int32_t as;                     // offset in the a[] array (for internal uses only)
 	int32_t fuzzy_mlen, fuzzy_blen; // seeded exact match length; seeded alignment block length (approximate)
 	uint32_t mapq:8, split:2, sam_pri:1, n_sub:21; // mapQ; split pattern; if SAM primary; number of suboptimal mappings
+	uint64_t hash;
 	mm_extra_t *p;
 } mm_reg1_t;
 
@@ -81,7 +82,6 @@ typedef struct {
 typedef struct {
 	int sdust_thres; // score threshold for SDUST; 0 to disable
 	int flag;        // see MM_F_* macros
-	int pe_ori;
 
 	int bw;          // bandwidth
 	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
@@ -101,6 +101,8 @@ typedef struct {
 	int zdrop;       // break alignment if alignment score drops too fast along the diagonal
 	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
 	int min_ksw_len;
+
+	int pe_ori, pe_bonus;
 
 	float mid_occ_frac;  // only used by mm_mapopt_update(); see below
 	int32_t mid_occ;     // ignore seeds with occurrences above this threshold

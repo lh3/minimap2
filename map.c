@@ -13,7 +13,6 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	memset(opt, 0, sizeof(mm_mapopt_t));
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0; // no SDUST masking
-	opt->pe_ori = 0; // FF
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
@@ -35,6 +34,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_dp_max = opt->min_chain_score * opt->a;
 	opt->min_ksw_len = 200;
 	opt->mini_batch_size = 200000000;
+
+	opt->pe_ori = 0; // FF
+	opt->pe_bonus = 33;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
@@ -236,7 +238,7 @@ static void chain_post(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, opt->max_gap_ref, mi->k*2, opt->best_n * n_segs, n_segs, qlens, n_regs, regs);
+		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, opt->max_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
 		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR))
 			mm_join_long(km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
 	}
@@ -304,6 +306,8 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 			mm_set_mapq(n_regs[i], regs[i], opt->min_chain_score, opt->a, rep_len);
 		}
 		mm_seg_free(b->km, n_segs, seg);
+		if (n_segs == 2 && opt->pe_ori >= 0)
+			mm_pair(b->km, max_gap_ref, opt->pe_bonus, qlens, n_regs, regs);
 	}
 
 	kfree(b->km, a);
