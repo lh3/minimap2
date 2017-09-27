@@ -12,7 +12,8 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
 	opt->mid_occ_frac = 2e-4f;
-	opt->sdust_thres = 0;
+	opt->sdust_thres = 0; // no SDUST masking
+	opt->pe_ori = 0; // FF
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
@@ -75,7 +76,8 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->is_hpc = 0, io->k = 21, io->w = 11;
-		mo->flag |= MM_F_SR | MM_F_MULTI_SEG | MM_F_SEG_REV;
+		mo->flag |= MM_F_SR | MM_F_MULTI_SEG;
+		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->max_gap = 200;
 		mo->max_gap_ref = 1000;
@@ -339,7 +341,7 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *s = (step_t*)_data;
-	int *qlens, j, off = s->seg_off[i];
+	int *qlens, j, off = s->seg_off[i], pe_ori = s->p->opt->pe_ori;
 	const char **qseqs;
 	mm_tbuf_t *b = s->buf[tid];
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
@@ -347,14 +349,14 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	qlens = (int*)kmalloc(b->km, s->n_seg[i] * sizeof(int));
 	qseqs = (const char**)kmalloc(b->km, s->n_seg[i] * sizeof(const char**));
 	for (j = 0; j < s->n_seg[i]; ++j) {
-		if (j > 0 && (s->p->opt->flag & MM_F_SEG_REV))
+		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
 			mm_revcomp_bseq(&s->seq[off + j]);
 		qlens[j] = s->seq[off + j].l_seq;
 		qseqs[j] = s->seq[off + j].seq;
 	}
 	mm_map_multi(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
-	if (s->n_seg[i] > 1 && (s->p->opt->flag & MM_F_SEG_REV))
-		for (j = 1; j < s->n_seg[i]; ++j) { // flip the query strand and coordinate to the original read strand
+	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
+		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
 			int k, t;
 			mm_revcomp_bseq(&s->seq[off + j]);
 			for (k = 0; k < s->n_reg[off + j]; ++k) {

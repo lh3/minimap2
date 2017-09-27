@@ -40,3 +40,32 @@ void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int 
 	}
 }
 
+#include "ksort.h"
+
+typedef struct {
+	int s;
+	uint64_t key;
+	mm_reg1_t *r;
+} pair_arr_t;
+
+#define sort_key_pair(a) ((a).key)
+KRADIX_SORT_INIT(pair, pair_arr_t, sort_key_pair, 8)
+/*
+void mm_pair(void *km, int max_gap_ref, int *n_regs, mm_reg1_t **regs)
+{
+	int i, j, s, n, last = -1;
+	pair_arr_t *a;
+	a = (pair_arr_t*)kmalloc(km, (n_regs[0] + n_regs[1]) * sizeof(pair_arr_t));
+	for (s = n = 0; s < 2; ++s)
+		for (i = 0; i < n_regs[s]; ++i) {
+			a[n].s = s;
+			a[n].r = &regs[s][i];
+			a[n++].key = (uint64_t)a[n].r->rid << 32 | a[n].r->rs;
+		}
+	radix_sort_pair(n, a);
+	for (i = 0; i < n; ++i) {
+		int pre_dir = seg_rev? !a[i].r->rev : a[i].r->rev;
+	}
+	kfree(km, a);
+}
+*/

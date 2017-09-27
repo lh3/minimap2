@@ -18,7 +18,6 @@
 #define MM_F_NO_SAM_SQ   0x800
 #define MM_F_SR          0x1000
 #define MM_F_MULTI_SEG   0x2000
-#define MM_F_SEG_REV     0x4000
 
 #define MM_IDX_MAGIC   "MMI\2"
 
@@ -82,6 +81,7 @@ typedef struct {
 typedef struct {
 	int sdust_thres; // score threshold for SDUST; 0 to disable
 	int flag;        // see MM_F_* macros
+	int pe_ori;
 
 	int bw;          // bandwidth
 	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
