@@ -383,6 +383,7 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			mapq -= (int)(4.343f * logf(r->n_sub + 1) + .499f);
 			mapq = mapq > 0? mapq : 0;
 			r->mapq = mapq < 60? mapq : 60;
+			if (r->p && r->p->dp_max > r->p->dp_max2 && r->mapq == 0) r->mapq = 1;
 		} else r->mapq = 0;
 	}
 }

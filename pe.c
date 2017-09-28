@@ -135,6 +135,13 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 		}
 		if (r[0]->mapq < mapq_pe) r[0]->mapq = (r[0]->mapq + mapq_pe) / 2;
 		if (r[1]->mapq < mapq_pe) r[1]->mapq = (r[1]->mapq + mapq_pe) / 2;
+		if (sc.n == 1) {
+			if (r[0]->mapq < 2) r[0]->mapq = 2;
+			if (r[1]->mapq < 2) r[1]->mapq = 2;
+		} else if (max > sc.a[sc.n - 2]) {
+			if (r[0]->mapq < 1) r[0]->mapq = 1;
+			if (r[1]->mapq < 1) r[1]->mapq = 1;
+		}
 	}
 
 	kfree(km, a);
