@@ -366,12 +366,8 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			r->mapq = 0;
 		} else if (r->parent == r->id) {
 			int mapq, subsc;
-			float pen_s1 = r->score > 100? 1.0f : 0.01f * r->score;
+			float pen_s1 = (r->score > 100? 1.0f : 0.01f * r->score) * ((float)r->score / (r->score + rep_len));
 			float pen_cm = r->cnt > 10? 1.0f : 0.1f * r->cnt;
-			if (r->score <= 100 && rep_len > 0) {
-				pen_s1 = 0.01f * (r->score - rep_len);
-				pen_s1 = pen_s1 > 0.1f? pen_s1 : 0.1f;
-			}
 			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
