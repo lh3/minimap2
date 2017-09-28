@@ -211,9 +211,11 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, const mm_idx_t *mi, co
 			mm128_t *p;
 			if (qname && (opt->flag&(MM_F_NO_SELF|MM_F_AVA))) {
 				const char *tname = mi->seq[r[k]>>32].name;
-				if ((opt->flag&MM_F_NO_SELF) && strcmp(qname, tname) == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
+				int cmp;
+				cmp = strcmp(qname, tname);
+				if ((opt->flag&MM_F_NO_SELF) && cmp == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
 					continue;
-				if ((opt->flag&MM_F_AVA) && strcmp(qname, tname) > 0) // all-vs-all mode: map once
+				if ((opt->flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
 					continue;
 			}
 			p = &a[(*n_a)++];
