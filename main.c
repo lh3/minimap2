@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r451-dirty"
+#define MM_VERSION "2.2-r452-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
 {
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, long_idx, max_intron_len = 0;
+	int i, c, n_threads = 3, long_idx, max_gap_ref = 0;
 	char *fnw = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(optarg);
-		else if (c == 'G') max_intron_len = (int)mm_parse_num(optarg);
+		else if (c == 'G') max_gap_ref = (int)mm_parse_num(optarg);
 		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
@@ -150,8 +150,12 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-	if ((opt.flag & MM_F_SPLICE) && max_intron_len > 0)
-		opt.max_gap_ref = opt.bw = max_intron_len;
+	if (max_gap_ref > 0) {
+		if (opt.flag & MM_F_MULTI_SEG)
+			opt.max_gap_ref = max_gap_ref;
+		if (opt.flag & MM_F_SPLICE)
+			opt.max_gap_ref = opt.bw = max_gap_ref;
+	}
 
 	if (argc == optind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
