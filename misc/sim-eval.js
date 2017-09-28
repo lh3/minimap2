@@ -142,7 +142,9 @@ while (file.readline(buf) >= 0) {
 		} else { // SAM
 			var flag = parseInt(t[1]);
 			var read_no = flag>>6&0x3;
-			var qname = read_no == 1 || read_no == 2? t[0] + '/' + read_no : t[0];
+			var qname = t[0];
+			if (!/\/[12]$/.test(qname))
+				qname = read_no == 1 || read_no == 2? t[0] + '/' + read_no : t[0];
 			if (last != qname) {
 				if (last != null) count_err(last, a, tot, err, mode);
 				a = [], last = qname;
