@@ -108,7 +108,8 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 			last[a[i].rev] = i;
 		}
 	}
-	radix_sort_64(sc.a, sc.a + sc.n);
+	if (sc.n > 1)
+		radix_sort_64(sc.a, sc.a + sc.n);
 
 	if (sc.n > 0 && max > 0) { // found at least one pair
 		int n_sub = 0, mapq_pe;
@@ -129,7 +130,7 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 				++n_sub;
 		if (sc.n > 1) {
 			int mapq_pe_alt;
-			mapq_pe_alt = (int)(6.02f * (max - sc.a[1]) / match_sc - 4.343f * logf(n_sub)); // n_sub > 0 because it counts the optimal, too
+			mapq_pe_alt = (int)(6.02f * (max - sc.a[sc.n - 2]) / match_sc - 4.343f * logf(n_sub)); // n_sub > 0 because it counts the optimal, too
 			mapq_pe = mapq_pe < mapq_pe_alt? mapq_pe : mapq_pe_alt;
 		}
 		if (r[0]->mapq < mapq_pe) r[0]->mapq = (r[0]->mapq + mapq_pe) / 2;
