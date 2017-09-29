@@ -90,6 +90,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->best_n = 20;
 		mo->bw = 50;
 		mo->mid_occ = 1000;
+		mo->max_occ = 5000;
 		mo->mini_batch_size = 50000000;
 	} else if (strcmp(preset, "splice") == 0 || strcmp(preset, "cdna") == 0) {
 		io->is_hpc = 0, io->k = 15, io->w = 5;
@@ -173,7 +174,7 @@ static void collect_minimizers(const mm_mapopt_t *opt, const mm_idx_t *mi, int n
 	}
 }
 
-static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, const mm_idx_t *mi, const char *qname, int qlen, int64_t *n_a, int *rep_len, mm_tbuf_t *b)
+static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, int qlen, int64_t *n_a, int *rep_len, mm_tbuf_t *b)
 {
 	int rep_st = 0, rep_en = 0, i;
 	mm_match_t *m;
@@ -189,14 +190,14 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, const mm_idx_t *mi, co
 		m[i].seg_id = p->y >> 32;
 	}
 	for (i = 0, *n_a = 0; i < b->mini.n; ++i) // find the length of a[]
-		if (m[i].n < opt->mid_occ) *n_a += m[i].n;
+		if (m[i].n < max_occ) *n_a += m[i].n;
 	a = (mm128_t*)kmalloc(b->km, *n_a * sizeof(mm128_t));
 	for (i = *rep_len = 0, *n_a = 0; i < b->mini.n; ++i) {
 		mm128_t *p = &b->mini.a[i];
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->x.cr;
 		int k, q_span = p->x & 0xff, is_tandem = 0;
-		if (q->n >= opt->mid_occ) {
+		if (q->n >= max_occ) {
 			int en = (q->qpos>>1) + 1, st = en - q_span;
 			if (st > rep_en) {
 				*rep_len += rep_en - rep_st;
@@ -260,7 +261,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 
 void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0;
+	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0, rechain = 0;
 	int64_t n_a;
 	uint64_t *u;
 	mm128_t *a;
@@ -272,7 +273,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
 
 	collect_minimizers(opt, mi, n_segs, qlens, seqs, b);
-	a = collect_seed_hits(opt, mi, qname, qlen_sum, &n_a, &rep_len, b);
+	a = collect_seed_hits(opt, opt->mid_occ, mi, qname, qlen_sum, &n_a, &rep_len, b);
 	radix_sort_128x(a, a + n_a);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
@@ -284,6 +285,29 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 
 	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
 	a = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &n_regs0, &u, b->km);
+
+	if ((opt->flag & MM_F_SR) && rep_len > 0) {
+		if (n_regs0 > 0) {
+			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
+			for (i = 0; i < n_regs0; ++i) { // find the best chain
+				if (max < u[i]>>32) max = u[i]>>32, max_i = i, max_off = off;
+				off += (uint32_t)u[i];
+			}
+			for (i = 1; i < (uint32_t)u[max_i]; ++i) // count the number of segments in the best chain
+				if ((a[max_off+i].y&MM_SEED_SEG_MASK) != (a[max_off+i-1].y&MM_SEED_SEG_MASK))
+					++n_chained_segs;
+			if (n_chained_segs < n_segs)
+				rechain = 1;
+		} else rechain = 1;
+		if (rechain) { // redo chaining with a higher max_occ threshold
+			kfree(b->km, a);
+			kfree(b->km, u);
+			a = collect_seed_hits(opt, opt->max_occ, mi, qname, qlen_sum, &n_a, &rep_len, b);
+			radix_sort_128x(a, a + n_a);
+			a = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &n_regs0, &u, b->km);
+		}
+	}
+
 	regs0 = mm_gen_regs(b->km, qlen_sum, n_regs0, u, a);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
