@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r455-dirty"
+#define MM_VERSION "2.2-r456-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>

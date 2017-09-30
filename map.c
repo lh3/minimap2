@@ -85,7 +85,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->max_gap_ref = 1000;
 		mo->pri_ratio = 0.5f;
 		mo->min_cnt = 2;
-		mo->min_chain_score = 20;
+		mo->min_chain_score = 25;
 		mo->min_dp_max = 40;
 		mo->best_n = 20;
 		mo->bw = 50;
