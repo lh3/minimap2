@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r454-dirty"
+#define MM_VERSION "2.2-r455-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -125,9 +125,11 @@ int main(int argc, char *argv[])
 			return 0;
 		} else if (c == 'f') {
 			double x;
-			x = atof(optarg);
+			char *p;
+			x = strtod(optarg, &p);
 			if (x < 1.0) opt.mid_occ_frac = x, opt.mid_occ = 0;
 			else opt.mid_occ = (int)(x + .499);
+			if (*p == ',') opt.max_occ = (int)(x + .499);
 		} else if (c == 'u') {
 			if (*optarg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
 			else if (*optarg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
