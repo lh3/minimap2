@@ -80,7 +80,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->is_hpc = 0, io->k = 21, io->w = 11;
-		mo->flag |= MM_F_SR | MM_F_MULTI_SEG;
+		mo->flag |= MM_F_SR | MM_F_MULTI_SEG | MM_F_NO_PRINT_2ND;
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->max_gap = 200;
@@ -452,6 +452,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			mm_bseq1_t *t = &s->seq[i];
 			for (j = 0; j < s->n_reg[i]; ++j) {
 				mm_reg1_t *r = &s->reg[i][j];
+				assert(!r->sam_pri || r->id == r->parent);
+				if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
+					continue;
 				if (p->opt->flag & MM_F_OUT_SAM)
 					mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i]);
 				else

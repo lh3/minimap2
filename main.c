@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r462-dirty"
+#define MM_VERSION "2.2-r463-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -40,6 +40,7 @@ static struct option long_options[] = {
 	{ "multi",          optional_argument, 0, 0 },
 	{ "no-long-join",   no_argument,       0, 0 },
 	{ "seed",           required_argument, 0, 0 },
+	{ "print-2nd",      optional_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -124,6 +125,10 @@ int main(int argc, char *argv[])
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_MULTI_SEG;
 			else opt.flag &= ~MM_F_MULTI_SEG;
+		} else if (c == 0 && long_idx ==17) { // --print-2nd
+			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
+				opt.flag &= ~MM_F_NO_PRINT_2ND;
+			else opt.flag |= MM_F_NO_PRINT_2ND;
 		} else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
