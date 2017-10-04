@@ -69,7 +69,7 @@ typedef struct {
 	int32_t as;                     // offset in the a[] array (for internal uses only)
 	int32_t fuzzy_mlen, fuzzy_blen; // seeded exact match length; seeded alignment block length (approximate)
 	uint32_t mapq:8, split:2, sam_pri:1, n_sub:21; // mapQ; split pattern; if SAM primary; number of suboptimal mappings
-	uint64_t hash;
+	uint32_t hash, dummy;
 	mm_extra_t *p;
 } mm_reg1_t;
 
@@ -81,6 +81,7 @@ typedef struct {
 } mm_idxopt_t;
 
 typedef struct {
+	int seed;
 	int sdust_thres; // score threshold for SDUST; 0 to disable
 	int flag;        // see MM_F_* macros
 

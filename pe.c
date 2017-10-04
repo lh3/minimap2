@@ -94,15 +94,15 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 			q = a[last[a[i].rev]].r;
 			if (r->rid != q->rid || r->rs - q->re > max_gap_ref) continue;
 			for (j = last[a[i].rev]; j >= 0; --j) {
-				int64_t sum;
+				int64_t score;
 				if (a[j].rev != a[i].rev || a[j].s == a[i].s) continue;
 				q = a[j].r;
 				if (r->rid != q->rid || r->rs - q->re > max_gap_ref) break;
 				if (r->p->dp_max + q->p->dp_max < dp_thres) continue;
-				sum = r->p->dp_max + q->p->dp_max;
-				if (sum > max)
-					max = sum, max_idx[a[j].s] = j, max_idx[a[i].s] = i;
-				kv_push(uint64_t, km, sc, sum);
+				score = (int64_t)(r->p->dp_max + q->p->dp_max) | (r->hash + q->hash);
+				if (score > max)
+					max = score, max_idx[a[j].s] = j, max_idx[a[i].s] = i;
+				kv_push(uint64_t, km, sc, score);
 			}
 		} else { // forward first read or reverse second read
 			last[a[i].rev] = i;
@@ -138,7 +138,7 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 		if (sc.n == 1) {
 			if (r[0]->mapq < 2) r[0]->mapq = 2;
 			if (r[1]->mapq < 2) r[1]->mapq = 2;
-		} else if (max > sc.a[sc.n - 2]) {
+		} else if (max>>32 > sc.a[sc.n - 2]>>32) {
 			if (r[0]->mapq < 1) r[0]->mapq = 1;
 			if (r[1]->mapq < 1) r[1]->mapq = 1;
 		}

@@ -7,10 +7,12 @@
 #include "sdust.h"
 #include "mmpriv.h"
 #include "bseq.h"
+#include "khash.h"
 
 void mm_mapopt_init(mm_mapopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_mapopt_t));
+	opt->seed = 11;
 	opt->mid_occ_frac = 2e-4f;
 	opt->sdust_thres = 0; // no SDUST masking
 
@@ -243,7 +245,7 @@ static void chain_post(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int
 		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, opt->max_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
 		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR) && !(opt->flag & MM_F_NO_LJOIN))
-			mm_join_long(km, opt, qlen, n_regs, regs, a); // TODO: this can be applied to all-vs-all in principle
+			mm_join_long(km, opt, qlen, n_regs, regs, a);
 	}
 }
 
@@ -262,6 +264,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0, rechain = 0;
+	uint32_t hash;
 	int64_t n_a;
 	uint64_t *u;
 	mm128_t *a;
@@ -271,6 +274,10 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 		qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
 
 	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
+
+	hash  = qname? __ac_X31_hash_string(qname) : 0;
+	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
+	hash  = __ac_Wang_hash(hash);
 
 	collect_minimizers(opt, mi, n_segs, qlens, seqs, b);
 	a = collect_seed_hits(opt, opt->mid_occ, mi, qname, qlen_sum, &n_a, &rep_len, b);
@@ -308,7 +315,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 		}
 	}
 
-	regs0 = mm_gen_regs(b->km, qlen_sum, n_regs0, u, a);
+	regs0 = mm_gen_regs(b->km, hash, qlen_sum, n_regs0, u, a);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
 		for (j = 0; j < n_regs0; ++j)
@@ -324,7 +331,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 		n_regs[0] = n_regs0, regs[0] = regs0;
 	} else {
 		mm_seg_t *seg;
-		seg = mm_seg_gen(b->km, n_segs, qlens, n_regs0, regs0, n_regs, regs, a);
+		seg = mm_seg_gen(b->km, hash, n_segs, qlens, n_regs0, regs0, n_regs, regs, a);
 		free(regs0);
 		for (i = 0; i < n_segs; ++i) {
 			mm_set_parent(b->km, opt->mask_level, n_regs[i], regs[i], opt->a * 2 + opt->b);

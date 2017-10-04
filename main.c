@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r460-dirty"
+#define MM_VERSION "2.2-r461-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -37,8 +37,9 @@ static struct option long_options[] = {
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
 	{ "no-sam-sq",      no_argument,       0, 0 },
 	{ "sr",             no_argument,       0, 0 },
-	{ "multi-seg",      optional_argument, 0, 0 },
+	{ "multi",          optional_argument, 0, 0 },
 	{ "no-long-join",   no_argument,       0, 0 },
+	{ "seed",           required_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -118,7 +119,8 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_SAM_SQ; // --no-sam-sq
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
 		else if (c == 0 && long_idx ==15) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
-		else if (c == 0 && long_idx ==14) { // --multi-seg
+		else if (c == 0 && long_idx ==16) opt.seed = atoi(optarg); // --seed
+		else if (c == 0 && long_idx ==14) { // --multi
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_MULTI_SEG;
 			else opt.flag &= ~MM_F_MULTI_SEG;

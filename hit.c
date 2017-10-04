@@ -3,6 +3,7 @@
 #include <math.h>
 #include "mmpriv.h"
 #include "kalloc.h"
+#include "khash.h"
 
 static inline void mm_cal_fuzzy_len(mm_reg1_t *r, const mm128_t *a)
 {
@@ -36,7 +37,19 @@ static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
 	mm_cal_fuzzy_len(r, a);
 }
 
-mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a) // convert chains to hits
+static inline uint64_t hash64(uint64_t key)
+{
+	key = (~key + (key << 21));
+	key = key ^ key >> 24;
+	key = ((key + (key << 3)) + (key << 8));
+	key = key ^ key >> 14;
+	key = ((key + (key << 2)) + (key << 4));
+	key = key ^ key >> 28;
+	key = (key + (key << 31));
+	return key;
+}
+
+mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a) // convert chains to hits
 {
 	mm128_t *z, tmp;
 	mm_reg1_t *r;
@@ -47,7 +60,9 @@ mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a) // 
 	// sort by score
 	z = (mm128_t*)kmalloc(km, n_u * 16);
 	for (i = k = 0; i < n_u; ++i) {
-		z[i].x = u[i] >> 32;
+		uint32_t h;
+		h = (uint32_t)hash64((hash64(a[k].x) + hash64(a[k].y)) ^ hash);
+		z[i].x = u[i] ^ h; // u[i] -- higher 32 bits: chain score; lower 32 bits: number of seeds in the chain
 		z[i].y = (uint64_t)k << 32 | (int32_t)u[i];
 		k += (int32_t)u[i];
 	}
@@ -61,7 +76,8 @@ mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a) // 
 		mm_reg1_t *ri = &r[i];
 		ri->id = i;
 		ri->parent = MM_PARENT_UNSET;
-		ri->score = z[i].x;
+		ri->score = z[i].x >> 32;
+		ri->hash = (uint32_t)z[i].x;
 		ri->cnt = (int32_t)z[i].y;
 		ri->as = z[i].y >> 32;
 		mm_reg_set_coor(ri, qlen, a);
@@ -124,24 +140,25 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r)
 {
 	int32_t i, n_aux, n = *n_regs;
-	uint64_t *aux;
+	mm128_t *aux;
 	mm_reg1_t *t;
 
 	if (n <= 1) return;
-	aux = (uint64_t*)kmalloc(km, n * 8);
+	aux = (mm128_t*)kmalloc(km, n * 16);
 	t = (mm_reg1_t*)kmalloc(km, n * sizeof(mm_reg1_t));
 	for (i = n_aux = 0; i < n; ++i) {
 		if (r[i].inv || r[i].cnt > 0) { // squeeze out elements with cnt==0 (soft deleted)
 			assert(r[i].p);
-			aux[n_aux++] = (uint64_t)r[i].p->dp_max << 32 | i;
+			aux[n_aux].x = (uint64_t)r[i].p->dp_max << 32 | r[i].hash;
+			aux[n_aux++].y = i;
 		} else if (r[i].p) {
 			free(r[i].p);
 			r[i].p = 0;
 		}
 	}
-	radix_sort_64(aux, aux + n_aux);
+	radix_sort_128x(aux, aux + n_aux);
 	for (i = n_aux - 1; i >= 0; --i)
-		t[n_aux - 1 - i] = r[(int32_t)aux[i]];
+		t[n_aux - 1 - i] = r[aux[i].y];
 	memcpy(r, t, sizeof(mm_reg1_t) * n_aux);
 	*n_regs = n_aux;
 	kfree(km, aux);
@@ -294,7 +311,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 	}
 }
 
-mm_seg_t *mm_seg_gen(void *km, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a)
+mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a)
 {
 	int s, i, j, acc_qlen[MM_MAX_SEG+1], qlen_sum = 0;
 	mm_seg_t *seg;
@@ -340,7 +357,7 @@ mm_seg_t *mm_seg_gen(void *km, int n_segs, const int *qlens, int n_regs0, const 
 		}
 	}
 	for (s = 0; s < n_segs; ++s) {
-		regs[s] = mm_gen_regs(km, qlens[s], seg[s].n_u, seg[s].u, seg[s].a);
+		regs[s] = mm_gen_regs(km, hash, qlens[s], seg[s].n_u, seg[s].u, seg[s].a);
 		n_regs[s] = seg[s].n_u;
 		for (i = 0; i < n_regs[s]; ++i)
 			regs[s][i].seg_split = 1;

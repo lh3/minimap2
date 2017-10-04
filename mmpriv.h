@@ -66,7 +66,7 @@ int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km);
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a);
 
-mm_reg1_t *mm_gen_regs(void *km, int qlen, int n_u, uint64_t *u, mm128_t *a);
+mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a);
 void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a);
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs);
 int mm_set_sam_pri(int n, mm_reg1_t *r);
@@ -78,7 +78,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_re
 void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r);
 void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len);
 
-mm_seg_t *mm_seg_gen(void *km, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a);
+mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a);
 void mm_seg_free(void *km, int n_segs, mm_seg_t *segs);
 void mm_pair(void *km, int max_gap_ref, int dp_bonus, int sub_diff, int match_sc, const int *qlens, int *n_regs, mm_reg1_t **regs);
 
