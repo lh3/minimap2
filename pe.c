@@ -143,6 +143,8 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 			if (r[1]->mapq < 1) r[1]->mapq = 1;
 		}
 	}
+	mm_set_sam_pri(n_regs[0], regs[0]);
+	mm_set_sam_pri(n_regs[1], regs[1]);
 
 	kfree(km, a);
 	kfree(km, sc.a);
