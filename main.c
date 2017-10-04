@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r464-dirty"
+#define MM_VERSION "2.2-r465-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -65,6 +65,7 @@ static inline int64_t mm_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
+	const char *opt_str = "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:h";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx, max_gap_ref = 0;
@@ -78,7 +79,17 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_set_opt(0, &ipt, &opt);
 
-	while ((c = getopt_long(argc, argv, "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:h", long_options, &long_idx)) >= 0) {
+	while ((c = getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) // apply option -x/preset first
+		if (c == 'x') {
+			if (mm_set_opt(optarg, &ipt, &opt) < 0) {
+				fprintf(stderr, "[ERROR] unknown preset '%s'\n", optarg);
+				return 1;
+			}
+			break;
+		}
+	optreset = 1;
+
+	while ((c = getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) {
 		if (c == 'w') ipt.w = atoi(optarg);
 		else if (c == 'k') ipt.k = atoi(optarg);
 		else if (c == 'H') ipt.is_hpc = 1;
@@ -154,11 +165,6 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
-		} else if (c == 'x') {
-			if (mm_set_opt(optarg, &ipt, &opt) < 0) {
-				fprintf(stderr, "[E::%s] unknown preset '%s'\n", __func__, optarg);
-				return 1;
-			}
 		}
 	}
 	if (max_gap_ref > 0) {
@@ -207,7 +213,7 @@ int main(int argc, char *argv[])
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
-		fprintf(fp_help, "    -x STR       preset (recommended to be applied before other options) []\n");
+		fprintf(fp_help, "    -x STR       preset (always applied before other options) []\n");
 		fprintf(fp_help, "                 map10k/map-pb: -Hk19 (PacBio/ONT vs reference mapping)\n");
 		fprintf(fp_help, "                 map-ont: -k15 (slightly more sensitive than 'map10k' for ONT vs reference)\n");
 		fprintf(fp_help, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");

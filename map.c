@@ -339,7 +339,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 			mm_set_mapq(n_regs[i], regs[i], opt->min_chain_score, opt->a, rep_len);
 		}
 		mm_seg_free(b->km, n_segs, seg);
-		if (n_segs == 2 && opt->pe_ori >= 0)
+		if (n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
 			mm_pair(b->km, max_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs);
 	}
 
