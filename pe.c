@@ -99,7 +99,7 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 				q = a[j].r;
 				if (r->rid != q->rid || r->rs - q->re > max_gap_ref) break;
 				if (r->p->dp_max + q->p->dp_max < dp_thres) continue;
-				score = (int64_t)(r->p->dp_max + q->p->dp_max) | (r->hash + q->hash);
+				score = (int64_t)(r->p->dp_max + q->p->dp_max) << 32 | (r->hash + q->hash);
 				if (score > max)
 					max = score, max_idx[a[j].s] = j, max_idx[a[i].s] = i;
 				kv_push(uint64_t, km, sc, score);
@@ -126,11 +126,11 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 		}
 		mapq_pe = r[0]->mapq > r[1]->mapq? r[0]->mapq : r[1]->mapq;
 		for (i = 0; i < sc.n; ++i)
-			if (sc.a[i] + sub_diff >= max)
+			if ((sc.a[i]>>32) + sub_diff >= max>>32)
 				++n_sub;
 		if (sc.n > 1) {
 			int mapq_pe_alt;
-			mapq_pe_alt = (int)(6.02f * (max - sc.a[sc.n - 2]) / match_sc - 4.343f * logf(n_sub)); // n_sub > 0 because it counts the optimal, too
+			mapq_pe_alt = (int)(6.02f * ((max>>32) - (sc.a[sc.n - 2]>>32)) / match_sc - 4.343f * logf(n_sub)); // n_sub > 0 because it counts the optimal, too
 			mapq_pe = mapq_pe < mapq_pe_alt? mapq_pe : mapq_pe_alt;
 		}
 		if (r[0]->mapq < mapq_pe) r[0]->mapq = (r[0]->mapq + mapq_pe) / 2;
