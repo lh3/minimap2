@@ -427,28 +427,28 @@ mm_idx_t *mm_idx_load(FILE *fp)
 	return mi;
 }
 
-int mm_idx_is_idx(const char *fn)
+int64_t mm_idx_is_idx(const char *fn)
 {
 	int fd, is_idx = 0;
-	off_t ret;
+	off_t ret, off_end;
 	char magic[4];
 
 	if (strcmp(fn, "-") == 0) return 0; // read from pipe; not an index
 	fd = open(fn, O_RDONLY);
 	if (fd < 0) return -1; // error
-	if ((ret = lseek(fd, 0, SEEK_END)) >= 4) {
+	if ((off_end = lseek(fd, 0, SEEK_END)) >= 4) {
 		lseek(fd, 0, SEEK_SET);
 		ret = read(fd, magic, 4);
 		if (ret == 4 && strncmp(magic, MM_IDX_MAGIC, 4) == 0)
 			is_idx = 1;
 	}
 	close(fd);
-	return is_idx;
+	return is_idx? off_end : 0;
 }
 
 mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt, const char *fn_out)
 {
-	int is_idx;
+	int64_t is_idx;
 	mm_idx_reader_t *r;
 	is_idx = mm_idx_is_idx(fn);
 	if (is_idx < 0) return 0; // failed to open the index
@@ -456,8 +456,10 @@ mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt, cons
 	r->is_idx = is_idx;
 	if (opt) r->opt = *opt;
 	else mm_idxopt_init(&r->opt);
-	if (r->is_idx) r->fp.idx = fopen(fn, "rb");
-	else r->fp.seq = mm_bseq_open(fn);
+	if (r->is_idx) {
+		r->fp.idx = fopen(fn, "rb");
+		r->idx_size = is_idx;
+	} else r->fp.seq = mm_bseq_open(fn);
 	if (fn_out) r->fp_out = fopen(fn_out, "wb");
 	return r;
 }
@@ -484,4 +486,9 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 		++r->n_parts;
 	}
 	return mi;
+}
+
+int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases, mm_bseq_eof() might not work
+{
+	return r->is_idx? (feof(r->fp.idx) || ftell(r->fp.idx) == r->idx_size) : mm_bseq_eof(r->fp.seq);
 }

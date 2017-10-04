@@ -16,7 +16,6 @@
 #define MM_F_SPLICE_FOR  0x100 // match GT-AG
 #define MM_F_SPLICE_REV  0x200 // match CT-AC, the reverse complement of GT-AG
 #define MM_F_NO_LJOIN    0x400
-#define MM_F_NO_SAM_SQ   0x800
 #define MM_F_SR          0x1000
 #define MM_F_MULTI_SEG   0x2000
 #define MM_F_NO_PRINT_2ND  0x4000
@@ -116,6 +115,7 @@ typedef struct {
 // index reader
 typedef struct {
 	int is_idx, n_parts;
+	int64_t idx_size;
 	mm_idxopt_t opt;
 	FILE *fp_out;
 	union {
@@ -188,6 +188,8 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads);
  * @param r          index reader
  */
 void mm_idx_reader_close(mm_idx_reader_t *r);
+
+int mm_idx_reader_eof(const mm_idx_reader_t *r);
 
 /**
  * Print index statistics to stderr

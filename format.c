@@ -105,10 +105,15 @@ err_set_rg:
 	free(rg_line);
 }
 
-void mm_write_sam_hdr_no_SQ(const char *rg, const char *ver, int argc, char *argv[])
+void mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int argc, char *argv[])
 {
 	kstring_t str = {0,0,0};
-	sam_write_rg_line(&str, rg);
+	if (idx) {
+		uint32_t i;
+		for (i = 0; i < idx->n_seq; ++i)
+			printf("@SQ\tSN:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
+	}
+	if (rg) sam_write_rg_line(&str, rg);
 	mm_sprintf_lite(&str, "@PG\tID:minimap2\tPN:minimap2");
 	if (ver) mm_sprintf_lite(&str, "\tVN:%s", ver);
 	if (argc > 1) {
@@ -211,13 +216,6 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 	}
 	if (r->p && (opt_flag & MM_F_OUT_CS))
 		write_cs(km, s, mi, t, r);
-}
-
-void mm_write_sam_SQ(const mm_idx_t *idx)
-{
-	uint32_t i;
-	for (i = 0; i < idx->n_seq; ++i)
-		printf("@SQ\tSN:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
 }
 
 static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)

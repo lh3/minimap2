@@ -500,8 +500,6 @@ int mm_map_file_multi_seg(const mm_idx_t *idx, int n_segs, const char **fn, cons
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;
-	if ((opt->flag & MM_F_OUT_SAM) && !(opt->flag & MM_F_NO_SAM_SQ))
-		mm_write_sam_SQ(idx);
 	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
 	free(pl.str.s);
 	for (i = 0; i < n_segs; ++i)

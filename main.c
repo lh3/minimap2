@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r465-dirty"
+#define MM_VERSION "2.2-r466-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -25,7 +25,7 @@ void liftrlimit() {}
 static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
 	{ "mb-size",        required_argument, 0, 'K' },
-	{ "int-rname",      no_argument,       0, 0 }, // obsolete; kept as a placeholder
+	{ "seed",           required_argument, 0, 0 },
 	{ "no-kalloc",      no_argument,       0, 0 },
 	{ "print-qname",    no_argument,       0, 0 },
 	{ "no-self",        no_argument,       0, 0 },
@@ -35,11 +35,9 @@ static struct option long_options[] = {
 	{ "print-aln-seq",  no_argument,       0, 0 },
 	{ "splice",         no_argument,       0, 0 },
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
-	{ "no-sam-sq",      no_argument,       0, 0 },
+	{ "no-long-join",   no_argument,       0, 0 },
 	{ "sr",             no_argument,       0, 0 },
 	{ "multi",          optional_argument, 0, 0 },
-	{ "no-long-join",   no_argument,       0, 0 },
-	{ "seed",           required_argument, 0, 0 },
 	{ "print-2nd",      optional_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
@@ -119,6 +117,7 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = optarg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == 0 && long_idx == 0) ipt.bucket_bits = atoi(optarg); // --bucket-bits
+		else if (c == 0 && long_idx == 2) opt.seed = atoi(optarg); // --seed
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
 		else if (c == 0 && long_idx == 4) mm_dbg_flag |= MM_DBG_PRINT_QNAME; // --print-qname
 		else if (c == 0 && long_idx == 5) opt.flag |= MM_F_NO_SELF; // --no-self
@@ -128,15 +127,13 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 9) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ; // --print-aln-seq
 		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
 		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
-		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_SAM_SQ; // --no-sam-sq
+		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
-		else if (c == 0 && long_idx ==15) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
-		else if (c == 0 && long_idx ==16) opt.seed = atoi(optarg); // --seed
 		else if (c == 0 && long_idx ==14) { // --multi
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_MULTI_SEG;
 			else opt.flag &= ~MM_F_MULTI_SEG;
-		} else if (c == 0 && long_idx ==17) { // --print-2nd
+		} else if (c == 0 && long_idx ==15) { // --print-2nd
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag &= ~MM_F_NO_PRINT_2ND;
 			else opt.flag |= MM_F_NO_PRINT_2ND;
@@ -235,11 +232,16 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 		return 1;
 	}
-	if (opt.flag & MM_F_OUT_SAM)
-		mm_write_sam_hdr_no_SQ(rg, MM_VERSION, argc, argv);
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
-		if (mm_verbose >= 2 && idx_rdr->n_parts > 1 && (opt.flag&MM_F_OUT_SAM) && !(opt.flag&MM_F_NO_SAM_SQ))
-			fprintf(stderr, "[WARNING] \033[1;31mSAM output is malformated due to internal @SQ lines. Please add option --no-sam-sq or filter afterwards.\033[0m\n");
+		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
+			if (mm_idx_reader_eof(idx_rdr)) {
+				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
+			} else {
+				mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
+				if (mm_verbose >= 2)
+					fprintf(stderr, "[WARNING] \033[1;31mFor a multi-part index, no @SQ lines will be outputted.\033[0m\n");
+			}
+		}
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
