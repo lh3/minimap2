@@ -183,7 +183,7 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 			mm_sprintf_lite(s, "-%s", tmp);
 			t_off += len;
 		} else { // op == 3 && len >= 4
-			mm_sprintf_lite(s, "^%c%c%d%c%c", "acgtn"[tseq[t_off]], "acgtn"[tseq[t_off+1]],
+			mm_sprintf_lite(s, "~%c%c%d%c%c", "acgtn"[tseq[t_off]], "acgtn"[tseq[t_off+1]],
 				len, "acgtn"[tseq[t_off+len-2]], "acgtn"[tseq[t_off+len-1]]);
 			t_off += len;
 		}
