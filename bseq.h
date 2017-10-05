@@ -26,15 +26,19 @@ int mm_bseq_eof(mm_bseq_file_t *fp);
 extern unsigned char seq_nt4_table[256];
 extern unsigned char seq_comp_table[256];
 
+static inline int mm_qname_len(const char *s)
+{
+	int l;
+	l = strlen(s);
+	return l >= 3 && s[l-1] >= '0' && s[l-1] <= '9' && s[l-2] == '/'? l - 2 : l;
+}
+
 static inline int mm_qname_same(const char *s1, const char *s2)
 {
 	int l1, l2;
-	l1 = strlen(s1);
-	l2 = strlen(s2);
-	if (l1 != l2 || l1 < 3) return 0;
-	if (!(s1[l1-1] >= '0' && s1[l1-1] <= '9' && s1[l1-2] == '/')) return 0;
-	if (!(s2[l2-1] >= '0' && s2[l2-1] <= '9' && s2[l2-2] == '/')) return 0;
-	return (strncmp(s1, s2, l1 - 2) == 0);
+	l1 = mm_qname_len(s1);
+	l2 = mm_qname_len(s2);
+	return (l1 == l2 && strncmp(s1, s2, l1) == 0);
 }
 
 static inline void mm_revcomp_bseq(mm_bseq1_t *s)

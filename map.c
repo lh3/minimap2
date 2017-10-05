@@ -410,7 +410,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 
 static void *worker_pipeline(void *shared, int step, void *in)
 {
-	int i, j;
+	int i, j, k;
     pipeline_t *p = (pipeline_t*)shared;
     if (step == 0) { // step 0: read sequences
 		int with_qual = (!!(p->opt->flag & MM_F_OUT_SAM) && !(p->opt->flag & MM_F_NO_QUAL));
@@ -448,29 +448,34 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		for (i = 0; i < p->n_threads; ++i) mm_tbuf_destroy(s->buf[i]);
 		free(s->buf);
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
-		for (i = 0; i < s->n_seq; ++i) {
-			mm_bseq1_t *t = &s->seq[i];
-			for (j = 0; j < s->n_reg[i]; ++j) {
-				mm_reg1_t *r = &s->reg[i][j];
-				assert(!r->sam_pri || r->id == r->parent);
-				if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
-					continue;
-				if (p->opt->flag & MM_F_OUT_SAM)
-					mm_write_sam(&p->str, mi, t, r, s->n_reg[i], s->reg[i]);
-				else
-					mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
-				puts(p->str.s);
+		for (k = 0; k < s->n_frag; ++k) {
+			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
+			for (i = seg_st; i < seg_en; ++i) {
+				mm_bseq1_t *t = &s->seq[i];
+				for (j = 0; j < s->n_reg[i]; ++j) {
+					mm_reg1_t *r = &s->reg[i][j];
+					assert(!r->sam_pri || r->id == r->parent);
+					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
+						continue;
+					if (p->opt->flag & MM_F_OUT_SAM)
+						mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km);
+					else
+						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
+					puts(p->str.s);
+				}
+				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
+					mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km);
+					puts(p->str.s);
+				}
 			}
-			if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
-				mm_write_sam(&p->str, 0, t, 0, 0, 0);
-				puts(p->str.s);
+			for (i = seg_st; i < seg_en; ++i) {
+				for (j = 0; j < s->n_reg[i]; ++j) free(s->reg[i][j].p);
+				free(s->reg[i]);
+				free(s->seq[i].seq); free(s->seq[i].name);
+				if (s->seq[i].qual) free(s->seq[i].qual);
 			}
-			for (j = 0; j < s->n_reg[i]; ++j) free(s->reg[i][j].p);
-			free(s->reg[i]);
-			free(s->seq[i].seq); free(s->seq[i].name);
-			if (s->seq[i].qual) free(s->seq[i].qual);
 		}
-		free(s->reg); free(s->n_reg); free(s->seq);
+		free(s->reg); free(s->n_reg); free(s->seq); // seg_off and n_seg were allocated with reg; no memory leak here
 		km_destroy(km);
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequences\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), s->n_seq);

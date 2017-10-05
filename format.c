@@ -240,21 +240,30 @@ static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 	} else str_copy(s, seq, seq + l);
 }
 
-void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs)
+void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km)
 {
-	int flag = 0;
+	int flag = n_seg > 1? 0x1 : 0x0, n_regs = n_regss[seg_idx];
+	const mm_reg1_t *regs = regss[seg_idx];
+	const mm_reg1_t *r = n_regs > 0 && reg_idx < n_regs && reg_idx >= 0? &regs[reg_idx] : NULL;
+
+	// write QNAME
 	s->l = 0;
+	mm_sprintf_lite(s, "%s", t->name);
+	if (n_seg > 1) s->l = mm_qname_len(t->name); // trim the suffix like /1 or /2
+
+	// write up to CIGAR
 	if (r == 0) {
-		mm_sprintf_lite(s, "%s\t4\t*\t0\t0\t*\t*\t0\t0\t", t->name);
-		sam_write_sq(s, t->seq, t->l_seq, 0, 0);
-		mm_sprintf_lite(s, "\t");
-		if (t->qual) sam_write_sq(s, t->qual, t->l_seq, 0, 0);
-		else mm_sprintf_lite(s, "*");
+		mm_sprintf_lite(s, "\t4\t*\t0\t0\t*\t");
 	} else {
 		if (r->rev) flag |= 0x10;
 		if (r->parent != r->id) flag |= 0x100;
 		else if (!r->sam_pri) flag |= 0x800;
-		mm_sprintf_lite(s, "%s\t%d\t%s\t%d\t%d\t", t->name, flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
+		if (n_seg > 1) {
+			if (seg_idx == 0) flag |= 0x40;
+			else if (seg_idx == n_seg - 1) flag |= 0x80;
+			// TODO: set 0x2!!!
+		}
+		mm_sprintf_lite(s, "\t%d\t%s\t%d\t%d\t", flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
 		if (r->p) { // actually this should always be true for SAM output
 			uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
 			int clip_char = (flag&0x800)? 'H' : 'S';
@@ -264,7 +273,20 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			clip_len = r->rev? r->qs : t->l_seq - r->qe;
 			if (clip_len) mm_sprintf_lite(s, "%d%c", clip_len, clip_char);
 		} else mm_sprintf_lite(s, "*");
+	}
+
+	// write mate positions
+	if (n_seg > 1) {
 		mm_sprintf_lite(s, "\t*\t0\t0\t");
+	} else mm_sprintf_lite(s, "\t*\t0\t0\t");
+
+	// write SEQ and QUAL
+	if (r == 0) {
+		sam_write_sq(s, t->seq, t->l_seq, 0, 0);
+		mm_sprintf_lite(s, "\t");
+		if (t->qual) sam_write_sq(s, t->qual, t->l_seq, 0, 0);
+		else mm_sprintf_lite(s, "*");
+	} else {
 		if ((flag & 0x900) == 0) {
 			sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
 			mm_sprintf_lite(s, "\t");
@@ -278,8 +300,13 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			if (t->qual) sam_write_sq(s, t->qual + r->qs, r->qe - r->qs, r->rev, 0);
 			else mm_sprintf_lite(s, "*");
 		}
+	}
+
+	// write tags
+	if (mm_rg_id[0]) mm_sprintf_lite(s, "\tRG:Z:%s", mm_rg_id);
+	if (n_seg > 2) mm_sprintf_lite(s, "\tFI:i:%d", seg_idx);
+	if (r) {
 		write_tags(s, r);
-		if (mm_rg_id[0]) mm_sprintf_lite(s, "\tRG:Z:%s", mm_rg_id);
 		if (r->parent == r->id && r->p && n_regs > 1 && regs && r >= regs && r - regs < n_regs) { // supplementary aln may exist
 			int i, n_sa = 0; // n_sa: number of SA fields
 			for (i = 0; i < n_regs; ++i)
@@ -306,5 +333,14 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			}
 		}
 	}
+
 	s->s[s->l] = 0; // we always have room for an extra byte (see str_enlarge)
+}
+
+void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs)
+{
+	int i;
+	for (i = 0; i < n_regs; ++i)
+		if (r == &regs[i]) break;
+	mm_write_sam2(s, mi, t, 0, i, 1, &n_regs, &regs, NULL);
 }
