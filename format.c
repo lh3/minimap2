@@ -223,7 +223,7 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDN"[r->p->cigar[k]&0xf]);
 	}
 	if (r->p && (opt_flag & MM_F_OUT_CS))
-		write_cs(km, s, mi, t, r, opt_flag&MM_F_CS_NO_EQUAL);
+		write_cs(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG));
 }
 
 static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
@@ -391,7 +391,7 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 			}
 		}
 		if (r->p && (opt_flag & MM_F_OUT_CS))
-			write_cs(km, s, mi, t, r, MM_F_CS_NO_EQUAL);
+			write_cs(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG));
 	}
 
 	s->s[s->l] = 0; // we always have room for an extra byte (see str_enlarge)

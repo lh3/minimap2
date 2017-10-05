@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r473-dirty"
+#define MM_VERSION "2.2-r474-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -39,7 +39,7 @@ static struct option long_options[] = {
 	{ "sr",             no_argument,       0, 0 },
 	{ "multi",          optional_argument, 0, 0 },
 	{ "print-2nd",      optional_argument, 0, 0 },
-	{ "cs-no-equal",    no_argument,       0, 0 },
+	{ "cs",             optional_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -102,7 +102,6 @@ int main(int argc, char *argv[])
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
-		else if (c == 'S') opt.flag |= MM_F_OUT_CS | MM_F_CIGAR;
 		else if (c == 'X') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
@@ -130,15 +129,27 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
-		else if (c == 0 && long_idx ==16) opt.flag |= MM_F_CS_NO_EQUAL | MM_F_OUT_CS | MM_F_CIGAR; // --cs-no-equal
-		else if (c == 0 && long_idx ==14) { // --multi
+		else if (c == 0 && long_idx == 14) { // --multi
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_MULTI_SEG;
 			else opt.flag &= ~MM_F_MULTI_SEG;
-		} else if (c == 0 && long_idx ==15) { // --print-2nd
+		} else if (c == 0 && long_idx == 15) { // --print-2nd
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag &= ~MM_F_NO_PRINT_2ND;
 			else opt.flag |= MM_F_NO_PRINT_2ND;
+		} else if (c == 0 && long_idx == 16) { // --cs
+			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR;
+			if (optarg == 0 || strcmp(optarg, "short") == 0) {
+				opt.flag &= ~MM_F_OUT_CS_LONG;
+			} else if (strcmp(optarg, "long") == 0) {
+				opt.flag |= MM_F_OUT_CS_LONG;
+			} else if (mm_verbose >= 2) {
+				fprintf(stderr, "[WARNING]\033[1;31m --cs only takes 'short' or 'long'. Invalid values are assumed to be 'short'.\033[0m\n");
+			}
+		} else if (c == 'S') {
+			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
+			if (mm_verbose >= 2)
+				fprintf(stderr, "[WARNING]\033[1;31m option -S is deprecated and may be removed in future. Please use --cs=long instead.\033[0m\n");
 		} else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
@@ -171,6 +182,11 @@ int main(int argc, char *argv[])
 			opt.max_gap_ref = max_gap_ref;
 		if (opt.flag & MM_F_SPLICE)
 			opt.max_gap_ref = opt.bw = max_gap_ref;
+	}
+	if ((opt.flag & MM_F_OUT_SAM) && (opt.flag & MM_F_OUT_CS_LONG)) {
+		opt.flag &= ~MM_F_OUT_CS_LONG;
+		if (mm_verbose >= 2)
+			fprintf(stderr, "[WARNING]\033[1;31m in SAM, only the short form of the cs tag is outputted.\033[0m\n");
 	}
 
 	if (argc == optind || fp_help == stdout) {
@@ -206,7 +222,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -Q           don't output base quality in SAM\n");
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
-		fprintf(fp_help, "    -S           output the cs tag in PAF (cs encodes both query and ref sequences)\n");
+		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [no cs]\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [200M]\n");
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
@@ -241,7 +257,7 @@ int main(int argc, char *argv[])
 			} else {
 				mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
 				if (mm_verbose >= 2)
-					fprintf(stderr, "[WARNING] \033[1;31mFor a multi-part index, no @SQ lines will be outputted.\033[0m\n");
+					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted.\033[0m\n");
 			}
 		}
 		if (mm_verbose >= 3)

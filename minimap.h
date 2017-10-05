@@ -16,7 +16,7 @@
 #define MM_F_SPLICE_FOR  0x100 // match GT-AG
 #define MM_F_SPLICE_REV  0x200 // match CT-AC, the reverse complement of GT-AG
 #define MM_F_NO_LJOIN    0x400
-#define MM_F_CS_NO_EQUAL 0x800
+#define MM_F_OUT_CS_LONG 0x800
 #define MM_F_SR          0x1000
 #define MM_F_MULTI_SEG   0x2000
 #define MM_F_NO_PRINT_2ND  0x4000
