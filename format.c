@@ -240,12 +240,37 @@ static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 	} else str_copy(s, seq, seq + l);
 }
 
+static inline const mm_reg1_t *get_sam_pri(int n_regs, const mm_reg1_t *regs)
+{
+	int i;
+	for (i = 0; i < n_regs; ++i)
+		if (regs[i].sam_pri)
+			return &regs[i];
+	assert(n_regs == 0);
+	return NULL;
+}
+
 void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int opt_flag)
 {
 	int flag, n_regs = n_regss[seg_idx];
-	int next_sid = n_seg > 1? (seg_idx + 1) % n_seg : -1;
-	const mm_reg1_t *regs = regss[seg_idx];
+	int this_rid = -1, this_pos = -1, this_rev = 0;
+	const mm_reg1_t *regs = regss[seg_idx], *r_prev, *r_next;
 	const mm_reg1_t *r = n_regs > 0 && reg_idx < n_regs && reg_idx >= 0? &regs[reg_idx] : NULL;
+
+	// find the primary of the previous and the next segments, if they are mapped
+	if (n_seg > 1) {
+		int i, next_sid = (seg_idx + 1) % n_seg;
+		r_next = get_sam_pri(n_regss[next_sid], regss[next_sid]);
+		if (n_seg > 2) {
+			for (i = 1; i <= n_seg - 1; ++i) {
+				int prev_sid = (seg_idx + n_seg - i) % n_seg;
+				if (n_regss[prev_sid] > 0) {
+					r_prev = get_sam_pri(n_regss[prev_sid], regss[prev_sid]);
+					break;
+				}
+			}
+		} else r_prev = r_next;
+	} else r_prev = r_next = NULL;
 
 	// write QNAME
 	s->l = 0;
@@ -254,12 +279,6 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 
 	// write flag
 	flag = n_seg > 1? 0x1 : 0x0;
-	if (n_seg > 1) {
-		if (r && r->proper_frag) flag |= 0x2; // FIXME: this doesn't work when there are more than 2 segments
-		if (seg_idx == 0) flag |= 0x40;
-		else if (seg_idx == n_seg - 1) flag |= 0x80;
-		if (n_regss[next_sid] == 0) flag |= 0x8;
-	}
 	if (r == 0) {
 		flag |= 0x4;
 	} else {
@@ -267,12 +286,23 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 		if (r->parent != r->id) flag |= 0x100;
 		else if (!r->sam_pri) flag |= 0x800;
 	}
+	if (n_seg > 1) {
+		if (r && r->proper_frag) flag |= 0x2; // TODO: this doesn't work when there are more than 2 segments
+		if (seg_idx == 0) flag |= 0x40;
+		else if (seg_idx == n_seg - 1) flag |= 0x80;
+		if (r_next == NULL) flag |= 0x8;
+		else if (r_next->rev) flag |= 0x20;
+	}
 	mm_sprintf_lite(s, "\t%d", flag);
 
-	// write up to CIGAR
+	// write coordinate, MAPQ and CIGAR
 	if (r == 0) {
-		mm_sprintf_lite(s, "\t*\t0\t0\t*\t");
+		if (r_prev) {
+			this_rid = r_prev->rid, this_pos = r_prev->rs;
+			mm_sprintf_lite(s, "\t%s\t%d", mi->seq[this_rid].name, this_pos);
+		} else mm_sprintf_lite(s, "\t0\t*");
 	} else {
+		this_rid = r->rid, this_pos = r->rs, this_rev = r->rev;
 		mm_sprintf_lite(s, "\t%s\t%d\t%d\t", mi->seq[r->rid].name, r->rs+1, r->mapq);
 		if (r->p) { // actually this should always be true for SAM output
 			uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
@@ -287,7 +317,25 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 
 	// write mate positions
 	if (n_seg > 1) {
-		mm_sprintf_lite(s, "\t*\t0\t0\t");
+		int tlen = 0;
+		if (this_rid >= 0 && r_next) {
+			if (this_rid == r_next->rid) {
+				int this_pos5 = r && r->rev? r->re - 1 : this_pos;
+				int next_pos5 = r_next->rev? r_next->re - 1 : r_next->rs;
+				tlen = next_pos5 - this_pos5;
+				mm_sprintf_lite(s, "\t=\t");
+			} else mm_sprintf_lite(s, "\t%s\t", mi->seq[r_next->rid].name);
+			mm_sprintf_lite(s, "%d\t", r_next->rs + 1);
+		} else if (r_next) { // && this_rid < 0
+			mm_sprintf_lite(s, "\t%s\t%d\t", mi->seq[r_next->rid].name, r_next->rs + 1);
+		} else if (this_rid >= 0) { // && r_next == NULL
+			int this_pos5 = this_rev? r->re - 1 : this_pos; // this_rev is only true when r != NULL
+			tlen = this_pos - this_pos5; // next_pos5 will be this_pos
+			mm_sprintf_lite(s, "\t=\t%d\t", this_pos + 1); // next segment will take r's coordinate
+		} else mm_sprintf_lite(s, "\t*\t0\t"); // neither has coordinates
+		if (tlen > 0) ++tlen;
+		else if (tlen < 0) --tlen;
+		mm_sprintf_lite(s, "%d\t", tlen);
 	} else mm_sprintf_lite(s, "\t*\t0\t0\t");
 
 	// write SEQ and QUAL
