@@ -10,6 +10,7 @@ cdef extern from "minimap.h":
 		uint64_t batch_size
 
 	ctypedef struct mm_mapopt_t:
+		int seed
 		int sdust_thres
 		int flag
 		int bw
@@ -27,8 +28,10 @@ cdef extern from "minimap.h":
 		int zdrop
 		int min_dp_max
 		int min_ksw_len
+		int pe_ori, pe_bonus
 		float mid_occ_frac
 		int32_t mid_occ
+		int32_t max_occ
 		int mini_batch_size
 
 	int mm_set_opt(char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
