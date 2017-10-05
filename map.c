@@ -80,7 +80,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->is_hpc = 0, io->k = 21, io->w = 11;
-		mo->flag |= MM_F_SR | MM_F_MULTI_SEG | MM_F_NO_PRINT_2ND;
+		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND;
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->max_gap = 200;
@@ -261,7 +261,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	return regs;
 }
 
-void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0, rechain = 0;
 	uint32_t hash;
@@ -350,7 +350,7 @@ void mm_map_multi(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	mm_reg1_t *regs;
-	mm_map_multi(mi, 1, &qlen, &seq, n_regs, &regs, b, opt, qname);
+	mm_map_frag(mi, 1, &qlen, &seq, n_regs, &regs, b, opt, qname);
 	return regs;
 }
 
@@ -391,7 +391,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		qlens[j] = s->seq[off + j].l_seq;
 		qseqs[j] = s->seq[off + j].seq;
 	}
-	mm_map_multi(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+	mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
 			int k, t;
@@ -414,11 +414,11 @@ static void *worker_pipeline(void *shared, int step, void *in)
     pipeline_t *p = (pipeline_t*)shared;
     if (step == 0) { // step 0: read sequences
 		int with_qual = (!!(p->opt->flag & MM_F_OUT_SAM) && !(p->opt->flag & MM_F_NO_QUAL));
-		int multi_seg = (p->n_fp > 1 || !!(p->opt->flag & MM_F_MULTI_SEG));
+		int frag_mode = (p->n_fp > 1 || !!(p->opt->flag & MM_F_FRAG_MODE));
         step_t *s;
         s = (step_t*)calloc(1, sizeof(step_t));
-		if (p->n_fp > 1) s->seq = mm_bseq_read_multi(p->n_fp, p->fp, p->mini_batch_size, with_qual, &s->n_seq);
-		else s->seq = mm_bseq_read2(p->fp[0], p->mini_batch_size, with_qual, multi_seg, &s->n_seq);
+		if (p->n_fp > 1) s->seq = mm_bseq_read_frag(p->n_fp, p->fp, p->mini_batch_size, with_qual, &s->n_seq);
+		else s->seq = mm_bseq_read2(p->fp[0], p->mini_batch_size, with_qual, frag_mode, &s->n_seq);
 		if (s->seq) {
 			s->p = p;
 			for (i = 0; i < s->n_seq; ++i)
@@ -431,7 +431,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->n_seg = s->seg_off + s->n_seq;
 			s->reg = (mm_reg1_t**)calloc(s->n_seq, sizeof(mm_reg1_t*));
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
-				if (i == s->n_seq || !multi_seg || !mm_qname_same(s->seq[i-1].name, s->seq[i].name)) {
+				if (i == s->n_seq || !frag_mode || !mm_qname_same(s->seq[i-1].name, s->seq[i].name)) {
 					s->n_seg[s->n_frag] = i - j;
 					s->seg_off[s->n_frag++] = j;
 					j = i;
@@ -484,7 +484,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-int mm_map_file_multi_seg(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads)
+int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads)
 {
 	int i, j;
 	pipeline_t pl;
@@ -516,5 +516,5 @@ int mm_map_file_multi_seg(const mm_idx_t *idx, int n_segs, const char **fn, cons
 
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads)
 {
-	return mm_map_file_multi_seg(idx, 1, &fn, opt, n_threads);
+	return mm_map_file_frag(idx, 1, &fn, opt, n_threads);
 }

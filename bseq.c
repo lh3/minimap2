@@ -61,7 +61,7 @@ static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual)
 	s->l_seq = ks->seq.l;
 }
 
-mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int check_name, int *n_)
+mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int frag_mode, int *n_)
 {
 	int64_t size = 0;
 	kvec_t(mm_bseq1_t) a = {0,0,0};
@@ -81,7 +81,7 @@ mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int
 		kseq2bseq(ks, s, with_qual);
 		size += s->l_seq;
 		if (size >= chunk_size) {
-			if (check_name && a.a[a.n-1].l_seq < CHECK_PAIR_THRES) {
+			if (frag_mode && a.a[a.n-1].l_seq < CHECK_PAIR_THRES) {
 				while (kseq_read(ks) >= 0) {
 					kseq2bseq(ks, &fp->s, with_qual);
 					if (mm_qname_same(fp->s.name, a.a[a.n-1].name)) {
@@ -102,7 +102,7 @@ mm_bseq1_t *mm_bseq_read(mm_bseq_file_t *fp, int chunk_size, int with_qual, int 
 	return mm_bseq_read2(fp, chunk_size, with_qual, 0, n_);
 }
 
-mm_bseq1_t *mm_bseq_read_multi(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int *n_)
+mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int *n_)
 {
 	int i;
 	int64_t size = 0;

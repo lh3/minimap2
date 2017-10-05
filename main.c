@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r476-dirty"
+#define MM_VERSION "2.2-r477-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -131,8 +131,8 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
 		else if (c == 0 && long_idx == 14) { // --frag
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
-				opt.flag |= MM_F_MULTI_SEG;
-			else opt.flag &= ~MM_F_MULTI_SEG;
+				opt.flag |= MM_F_FRAG_MODE;
+			else opt.flag &= ~MM_F_FRAG_MODE;
 		} else if (c == 0 && long_idx == 15) { // --print-2nd
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag &= ~MM_F_NO_PRINT_2ND;
@@ -180,7 +180,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	if (max_gap_ref > 0) {
-		if (opt.flag & MM_F_MULTI_SEG)
+		if (opt.flag & MM_F_FRAG_MODE)
 			opt.max_gap_ref = max_gap_ref;
 		if (opt.flag & MM_F_SPLICE)
 			opt.max_gap_ref = opt.bw = max_gap_ref;
@@ -267,11 +267,12 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
-		if (opt.flag & MM_F_MULTI_SEG)
-			mm_map_file_multi_seg(mi, argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_threads);
-		else
+		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = optind + 1; i < argc; ++i)
 				mm_map_file(mi, argv[i], &opt, n_threads);
+		} else {
+			mm_map_file_frag(mi, argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_threads);
+		}
 		mm_idx_destroy(mi);
 	}
 	mm_idx_reader_close(idx_rdr);

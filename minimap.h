@@ -18,7 +18,7 @@
 #define MM_F_NO_LJOIN    0x400
 #define MM_F_OUT_CS_LONG 0x800
 #define MM_F_SR          0x1000
-#define MM_F_MULTI_SEG   0x2000
+#define MM_F_FRAG_MODE   0x2000
 #define MM_F_NO_PRINT_2ND  0x4000
 
 #define MM_IDX_MAGIC   "MMI\2"
@@ -258,7 +258,7 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, m
  */
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads);
 
-int mm_map_file_multi_seg(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads);
+int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads);
 
 // deprecated APIs for backward compatibility
 void mm_mapopt_init(mm_mapopt_t *opt);
