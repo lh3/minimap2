@@ -260,7 +260,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 
 void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0, rechain = 0;
+	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0;
 	uint32_t hash;
 	int64_t n_a;
 	uint64_t *u;
@@ -291,7 +291,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	a = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &n_regs0, &u, b->km);
 
 	if ((opt->flag & MM_F_SR) && rep_len > 0) {
-		if (n_regs0 > 0) {
+		int rechain = 0;
+		if (n_regs0 > 0) { // test if the best chain has all the segments
 			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
 			for (i = 0; i < n_regs0; ++i) { // find the best chain
 				if (max < u[i]>>32) max = u[i]>>32, max_i = i, max_off = off;
@@ -322,22 +323,22 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	chain_post(opt, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
 
-	if (n_segs == 1) {
+	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], &n_regs0, regs0, a);
 		mm_set_mapq(n_regs0, regs0, opt->min_chain_score, opt->a, rep_len);
 		n_regs[0] = n_regs0, regs[0] = regs0;
-	} else {
+	} else { // multi-segment
 		mm_seg_t *seg;
-		seg = mm_seg_gen(b->km, hash, n_segs, qlens, n_regs0, regs0, n_regs, regs, a);
+		seg = mm_seg_gen(b->km, hash, n_segs, qlens, n_regs0, regs0, n_regs, regs, a); // split fragment chain to separate segment chains
 		free(regs0);
 		for (i = 0; i < n_segs; ++i) {
-			mm_set_parent(b->km, opt->mask_level, n_regs[i], regs[i], opt->a * 2 + opt->b);
+			mm_set_parent(b->km, opt->mask_level, n_regs[i], regs[i], opt->a * 2 + opt->b); // update mm_reg1_t::parent
 			regs[i] = align_regs(opt, mi, b->km, qlens[i], seqs[i], &n_regs[i], regs[i], seg[i].a);
 			mm_set_mapq(n_regs[i], regs[i], opt->min_chain_score, opt->a, rep_len);
 		}
 		mm_seg_free(b->km, n_segs, seg);
 		if (n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
-			mm_pair(b->km, max_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs);
+			mm_pair(b->km, max_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // pairing
 	}
 
 	kfree(b->km, a);
@@ -424,7 +425,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mm_tbuf_init();
 			s->n_reg = (int*)calloc(3 * s->n_seq, sizeof(int));
-			s->seg_off = s->n_reg + s->n_seq;
+			s->seg_off = s->n_reg + s->n_seq; // seg_off and n_seg are allocated together with n_reg
 			s->n_seg = s->seg_off + s->n_seq;
 			s->reg = (mm_reg1_t**)calloc(s->n_seq, sizeof(mm_reg1_t*));
 			for (i = 1, j = 0; i <= s->n_seq; ++i)

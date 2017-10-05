@@ -254,7 +254,7 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 {
 	int flag, n_regs = n_regss[seg_idx];
 	int this_rid = -1, this_pos = -1, this_rev = 0;
-	const mm_reg1_t *regs = regss[seg_idx], *r_prev, *r_next;
+	const mm_reg1_t *regs = regss[seg_idx], *r_prev = NULL, *r_next;
 	const mm_reg1_t *r = n_regs > 0 && reg_idx < n_regs && reg_idx >= 0? &regs[reg_idx] : NULL;
 
 	// find the primary of the previous and the next segments, if they are mapped

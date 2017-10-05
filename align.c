@@ -487,9 +487,11 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 				regs[i].p->trans_strand = opt->flag&MM_F_SPLICE_FOR? 1 : 2;
 		}
 		if (r2.cnt > 0) regs = mm_insert_reg(&r2, i, &n_regs, regs);
-		if (i > 0 && mm_align1_inv(km, opt, mi, qlen, qseq0, &regs[i-1], &regs[i], &r2, &ez)) {
-			regs = mm_insert_reg(&r2, i, &n_regs, regs);
-			++i; // skip the inserted INV alignment
+		if (!(opt->flag&MM_F_SPLICE) && !(opt->flag&MM_F_SR) && i > 0) { // don't try inversion alignment for -xsplice or -xsr
+			if (mm_align1_inv(km, opt, mi, qlen, qseq0, &regs[i-1], &regs[i], &r2, &ez)) {
+				regs = mm_insert_reg(&r2, i, &n_regs, regs);
+				++i; // skip the inserted INV alignment
+			}
 		}
 	}
 	*n_regs_ = n_regs;
