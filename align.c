@@ -99,7 +99,7 @@ static void mm_update_extra(mm_extra_t *p, const uint8_t *qseq, const uint8_t *t
 			uint8_t b[4];
 			b[0] = tseq[toff], b[1] = tseq[toff+1];
 			b[2] = tseq[toff+len-2], b[3] = tseq[toff+len-1];
-			toff += len, p->blen += len;
+			toff += len;
 		}
 	}
 	p->dp_max = max;
