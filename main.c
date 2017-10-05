@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r475-dirty"
+#define MM_VERSION "2.2-r476-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -37,7 +37,7 @@ static struct option long_options[] = {
 	{ "cost-non-gt-ag", required_argument, 0, 0 },
 	{ "no-long-join",   no_argument,       0, 0 },
 	{ "sr",             no_argument,       0, 0 },
-	{ "multi",          optional_argument, 0, 0 },
+	{ "frag",           optional_argument, 0, 0 },
 	{ "print-2nd",      optional_argument, 0, 0 },
 	{ "cs",             optional_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
@@ -129,7 +129,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
-		else if (c == 0 && long_idx == 14) { // --multi
+		else if (c == 0 && long_idx == 14) { // --frag
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_MULTI_SEG;
 			else opt.flag &= ~MM_F_MULTI_SEG;
@@ -267,8 +267,11 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
-		for (i = optind + 1; i < argc; ++i)
-			mm_map_file(mi, argv[i], &opt, n_threads);
+		if (opt.flag & MM_F_MULTI_SEG)
+			mm_map_file_multi_seg(mi, argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_threads);
+		else
+			for (i = optind + 1; i < argc; ++i)
+				mm_map_file(mi, argv[i], &opt, n_threads);
 		mm_idx_destroy(mi);
 	}
 	mm_idx_reader_close(idx_rdr);

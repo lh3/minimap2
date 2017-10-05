@@ -258,6 +258,8 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, m
  */
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads);
 
+int mm_map_file_multi_seg(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads);
+
 // deprecated APIs for backward compatibility
 void mm_mapopt_init(mm_mapopt_t *opt);
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
