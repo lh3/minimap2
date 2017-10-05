@@ -109,10 +109,7 @@ typedef struct {
 	uint32_t n;
 	uint32_t qpos;
 	uint32_t seg_id;
-	union {
-		const uint64_t *cr;
-		uint64_t *r;
-	} x;
+	const uint64_t *cr;
 } mm_match_t;
 
 struct mm_tbuf_s {
@@ -187,7 +184,7 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_
 		int t;
 		mm128_t *p = &b->mini.a[i];
 		m[i].qpos = (uint32_t)p->y;
-		m[i].x.cr = mm_idx_get(mi, p->x>>8, &t);
+		m[i].cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
 		m[i].seg_id = p->y >> 32;
 	}
@@ -197,7 +194,7 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_
 	for (i = *rep_len = 0, *n_a = 0; i < b->mini.n; ++i) {
 		mm128_t *p = &b->mini.a[i];
 		mm_match_t *q = &m[i];
-		const uint64_t *r = q->x.cr;
+		const uint64_t *r = q->cr;
 		int k, q_span = p->x & 0xff, is_tandem = 0;
 		if (q->n >= max_occ) {
 			int en = (q->qpos>>1) + 1, st = en - q_span;
