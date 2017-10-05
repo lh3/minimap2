@@ -240,9 +240,10 @@ static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 	} else str_copy(s, seq, seq + l);
 }
 
-void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km)
+void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int opt_flag)
 {
-	int flag = n_seg > 1? 0x1 : 0x0, n_regs = n_regss[seg_idx];
+	int flag, n_regs = n_regss[seg_idx];
+	int next_sid = n_seg > 1? (seg_idx + 1) % n_seg : -1;
 	const mm_reg1_t *regs = regss[seg_idx];
 	const mm_reg1_t *r = n_regs > 0 && reg_idx < n_regs && reg_idx >= 0? &regs[reg_idx] : NULL;
 
@@ -251,19 +252,28 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 	mm_sprintf_lite(s, "%s", t->name);
 	if (n_seg > 1) s->l = mm_qname_len(t->name); // trim the suffix like /1 or /2
 
-	// write up to CIGAR
+	// write flag
+	flag = n_seg > 1? 0x1 : 0x0;
+	if (n_seg > 1) {
+		if (r && r->proper_frag) flag |= 0x2; // FIXME: this doesn't work when there are more than 2 segments
+		if (seg_idx == 0) flag |= 0x40;
+		else if (seg_idx == n_seg - 1) flag |= 0x80;
+		if (n_regss[next_sid] == 0) flag |= 0x8;
+	}
 	if (r == 0) {
-		mm_sprintf_lite(s, "\t4\t*\t0\t0\t*\t");
+		flag |= 0x4;
 	} else {
 		if (r->rev) flag |= 0x10;
 		if (r->parent != r->id) flag |= 0x100;
 		else if (!r->sam_pri) flag |= 0x800;
-		if (n_seg > 1) {
-			if (seg_idx == 0) flag |= 0x40;
-			else if (seg_idx == n_seg - 1) flag |= 0x80;
-			// TODO: set 0x2!!!
-		}
-		mm_sprintf_lite(s, "\t%d\t%s\t%d\t%d\t", flag, mi->seq[r->rid].name, r->rs+1, r->mapq);
+	}
+	mm_sprintf_lite(s, "\t%d", flag);
+
+	// write up to CIGAR
+	if (r == 0) {
+		mm_sprintf_lite(s, "\t*\t0\t0\t*\t");
+	} else {
+		mm_sprintf_lite(s, "\t%s\t%d\t%d\t", mi->seq[r->rid].name, r->rs+1, r->mapq);
 		if (r->p) { // actually this should always be true for SAM output
 			uint32_t k, clip_len = r->rev? t->l_seq - r->qe : r->qs;
 			int clip_char = (flag&0x800)? 'H' : 'S';
@@ -332,6 +342,8 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 				}
 			}
 		}
+		if (r->p && (opt_flag & MM_F_OUT_CS))
+			write_cs(km, s, mi, t, r, MM_F_CS_NO_EQUAL);
 	}
 
 	s->s[s->l] = 0; // we always have room for an extra byte (see str_enlarge)
@@ -342,5 +354,5 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 	int i;
 	for (i = 0; i < n_regs; ++i)
 		if (r == &regs[i]) break;
-	mm_write_sam2(s, mi, t, 0, i, 1, &n_regs, &regs, NULL);
+	mm_write_sam2(s, mi, t, 0, i, 1, &n_regs, &regs, NULL, 0);
 }

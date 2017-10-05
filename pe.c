@@ -115,6 +115,7 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 		int n_sub = 0, mapq_pe;
 		mm_reg1_t *r[2];
 		r[0] = a[max_idx[0]].r, r[1] = a[max_idx[1]].r;
+		r[0]->proper_frag = r[1]->proper_frag = 1;
 		for (s = 0; s < 2; ++s) {
 			if (r[s]->id != r[s]->parent) {
 				mm_reg1_t *p = &regs[s][r[s]->parent];
