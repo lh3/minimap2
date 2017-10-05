@@ -234,6 +234,21 @@ SAM read group line in a format like
 .B -c
 Generate CIGAR. In PAF, the CIGAR is written to the `cg' custom tag.
 .TP
+.BI --cs[= STR ]
+Output the
+.B cs
+tag.
+.I STR
+can be either
+.I short
+or
+.IR long .
+If no
+.I STR
+is given,
+.I short
+is assumed. [none]
+.TP
 .BI -t \ INT
 Number of threads [3]. Minimap2 uses at most three threads when indexing target
 sequences, and uses up to
@@ -332,7 +347,8 @@ tag ignores introns to demote hits to pseudogenes.
 .B sr
 Short single-end reads without splicing
 .RB ( -k21
-.B -w11 -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000 -n2 -m20 -s40 -g100 -K50m
+.B -w11 -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20 -s40 -g200
+.B -K50m --multi
 .BR --sr ).
 .RE
 .SS Miscellaneous options
@@ -395,6 +411,27 @@ ms	i	DP score of the max scoring segment in the alignment
 nn	i	Number of ambiguous bases in the alignment
 ts	A	Transcript strand (splice mode only)
 cg	Z	CIGAR string (only in PAF)
+cs	Z	Difference string
+.TE
+
+.PP
+The
+.B cs
+tag encodes difference sequences in the short form or the entire query
+.I AND
+reference sequences in the long form. It consists of a series of operations:
+.TS
+center box;
+cb | cb |cb
+r | l | l .
+Op	Regex	Description
+_
+ =	[ACGTN]+	Identical sequence (long form)
+ :	[0-9]+	Identical sequence length
+ *	[acgtn][acgtn]	Substitution: ref to query
+ +	[acgtn]+	Insertion to the reference
+ -	[acgtn]+	Deletion from the reference
+ ~	[acgtn]{2}[0-9]+[acgtn]{2}	Intron length and splice signal
 .TE
 
 .SH LIMITATIONS
@@ -403,9 +440,6 @@ cg	Z	CIGAR string (only in PAF)
 Minimap2 may produce suboptimal alignments through long low-complexity regions
 where seed positions may be suboptimal. This should not be a big concern
 because even the optimal alignment may be wrong in such regions.
-.TP
-*
-Minimap2 does not work well with Illumina short reads as of now.
 .TP
 *
 Minimap2 requires SSE2 instructions to compile. It is possible to add

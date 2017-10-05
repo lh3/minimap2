@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r474-dirty"
+#define MM_VERSION "2.2-r475-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -143,6 +143,8 @@ int main(int argc, char *argv[])
 				opt.flag &= ~MM_F_OUT_CS_LONG;
 			} else if (strcmp(optarg, "long") == 0) {
 				opt.flag |= MM_F_OUT_CS_LONG;
+			} else if (strcmp(optarg, "none") == 0) {
+				opt.flag &= ~MM_F_OUT_CS;
 			} else if (mm_verbose >= 2) {
 				fprintf(stderr, "[WARNING]\033[1;31m --cs only takes 'short' or 'long'. Invalid values are assumed to be 'short'.\033[0m\n");
 			}
@@ -222,7 +224,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -Q           don't output base quality in SAM\n");
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
-		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [no cs]\n");
+		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [200M]\n");
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
