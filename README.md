@@ -18,7 +18,7 @@ cd minimap2 && make
 ./minimap2 -x ava-pb your-reads.fa your-reads.fa > overlaps.paf
 # spliced alignment (no test data)
 ./minimap2 -ax splice ref.fa rna-seq-reads.fa > spliced.sam
-# man page
+# man page for detailed command line options
 man ./minimap2.1
 ```
 ## Table of Contents
@@ -59,32 +59,32 @@ Detailed evaluations are available from the [minimap2 preprint][preprint].
 ### <a name="install"></a>Installation
 
 Minimap2 only works on x86-64 CPUs. You can acquire precompiled binaries from
-the [release page][release]. For example, with:
+the [release page][release] with:
 ```sh
 wget --no-check-certificate -O- https://github.com/lh3/minimap2/releases/download/v2.2/minimap2-2.2_x64-linux.tar.bz2 \
   | tar -jxvf -
 ./minimap2-2.2_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
-and zlib development files installed. Just type `make` in the source code
+and zlib development files installed. Then type `make` in the source code
 directory to compile. If you see compilation errors, try `make sse2only=1`
-to disable SSE4 code, which will make minimap2 slightly slower at a cost.
+to disable SSE4 code, which will make minimap2 slightly slower.
 
 ### <a name="general"></a>General usage
 
-In the simplest form, minimap2 takes a reference database and a query sequence
+Without any options, minimap2 takes a reference database and a query sequence
 file as input and produce approximate mapping, without base-level alignment
 (i.e. no CIGAR), in the [PAF format][paf]:
 ```sh
-minimap2 ref.fa reads.fq > approx-mapping.paf
+minimap2 ref.fa query.fq > approx-mapping.paf
 ```
 You can ask minimap2 to generate CIGAR at the `cg` tag of PAF with:
 ```sh
-minimap2 -c ref.fa reads.fq > alignment.paf
+minimap2 -c ref.fa query.fq > alignment.paf
 ```
 or to output alignments in the [SAM format][sam]:
 ```sh
-minimap2 -a ref.fa reads.fq > alignment.sam
+minimap2 -a ref.fa query.fq > alignment.sam
 ```
 Minimap2 seamlessly works with gzip'd FASTA and FASTQ formats as input. You
 don't need to convert between FASTA and FASTQ or decompress gzip'd files first.
@@ -101,16 +101,16 @@ minimap2 -a ref.mmi reads.fq > alignment.sam   # alignment
 parameters such as **-k**, **-w**, **-H** and **-I** can't be changed during
 mapping. If you are running minimap2 for different data types, you will
 probably need to keep multiple indexes generated with different parameters.
-This makes minimap2 different BWA which always uses the same index regardless
-of query data types.
+This makes minimap2 different from BWA which always uses the same index
+regardless of query data types.
 
 ### <a name="cases"></a>Use cases
 
 Minimap2 uses the same base algorithm for all applications. However, due to the
-dramatic different data types (e.g. short vs long reads; DNA vs mRNA reads) it
-supports, minimap2 needs to be tuned for optimal performance and accuracy.
-You should usually choose a preset with option **-x**, which sets multiple
-parameters at the same time.
+different data types it supports (e.g. short vs long reads; DNA vs mRNA reads),
+minimap2 needs to be tuned for optimal performance and accuracy.  You should
+usually choose a preset with option **-x**, which sets multiple parameters at
+the same time.
 
 #### <a name="map-long-genomic"></a>Map long noisy genomic reads
 
@@ -120,7 +120,7 @@ minimap2 -ax map-ont ref.fa ont-reads.fq > aln.sam      # for Oxford Nanopore re
 ```
 The difference between `map-pb` and `map-ont` is that `map-pb` uses
 homopolymer-compressed (HPC) minimizers as seeds, while `map-ont` uses ordinary
-minimizers as seeds. Emperical evaluation shows that HPC minimizers improve
+minimizers as seeds. Emperical evaluation suggests HPC minimizers improve
 performance and sensitivity when aligning PacBio reads, but hurt when aligning
 Nanopore reads.
 
