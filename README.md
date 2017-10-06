@@ -30,8 +30,12 @@ man ./minimap2.1
   - [Use cases](#cases)
     - [Map long noisy genomic reads](#map-long-genomic)
     - [Map long mRNA/cDNA reads](#map-long-splice)
+    - [Find overlaps between long reads](#long-overlap)
+    - [Map short accurate genomic reads](#short-genomic)
+    - [Full genome/assembly alignment](#full-genome)
   - [Algorithm overview](#algo)
   - [Cite minimap2](#cite)
+- [Developers' Guide](#dguide)
 - [Limitations](#limit)
 
 ## <a name="uguide"></a>Users' Guide
@@ -74,7 +78,7 @@ file as input and produce approximate mapping, without base-level alignment
 ```sh
 minimap2 ref.fa reads.fq > approx-mapping.paf
 ```
-You ask minimap2 to generate CIGAR at the `cg` tag of PAF with:
+You can ask minimap2 to generate CIGAR at the `cg` tag of PAF with:
 ```sh
 minimap2 -c ref.fa reads.fq > alignment.paf
 ```
@@ -115,7 +119,7 @@ minimap2 -ax map-pb  ref.fa pacbio-reads.fq > aln.sam   # for PacBio subreads
 minimap2 -ax map-ont ref.fa ont-reads.fq > aln.sam      # for Oxford Nanopore reads
 ```
 The difference between `map-pb` and `map-ont` is that `map-pb` uses
-homopolymer-compressed (HPC) minimizers as seeds, while `map-ont` uses normal
+homopolymer-compressed (HPC) minimizers as seeds, while `map-ont` uses ordinary
 minimizers as seeds. Emperical evaluation shows that HPC minimizers improve
 performance and sensitivity when aligning PacBio reads, but hurt when aligning
 Nanopore reads.
@@ -132,10 +136,43 @@ typical RNA-seq mappers, minimap2 represents an intron with the `N` CIGAR
 operator. For spliced reads, minimap2 will try to infer the strand relative to
 transcript and may write the strand to the `ts` SAM/PAF tag.
 
+#### <a name="long-overlap"></a>Find overlaps between long reads
+
+```sh
+minimap2 -x ava-pb  reads.fq reads.fq > ovlp.paf    # PacBio read overlap
+minimap2 -x ava-ont reads.fq reads.fq > ovlp.paf    # Oxford Nanopore read overlap
+```
+Similarly, `ava-pb` uses HPC minimizers while `ava-ont` uses ordinary
+minimizers. It is usually not recommended to perform base-level alignment in
+the overlapping mode because it is slow and may produce false positive
+overlaps. However, if performance is not a concern, you may try to add `-a` or
+`-c` anyway.
+
+#### <a name="short-genomic"></a>Map short accurate genomic reads
+
+```sh
+minimap2 -ax sr ref.fa reads-se.fq > aln.sam           # single-end alignment
+minimap2 -ax sr ref.fa read1.fq read2.fq > aln.sam     # paired-end alignment
+minimap2 -ax sr ref.fa reads-interleaved.fq > aln.sam  # paired-end alignment
+```
+When two read files are specified, minimap2 reads from each file in turn and
+merge them into an interleaved stream internally. Two reads are considered to
+be paired if they are adjacent in the input stream and have the same name (with
+the `/[0-9]` suffix trimmed if present). Single- and paired-end reads can be
+mixed.
+
+#### <a name="full-genome"></a>Full genome/assembly alignment
+
+```sh
+minimap2 -ax asm5 ref.fa asm.fa > aln.sam       # assembly to assembly/ref alignment
+```
+For cross-species full-genome alignment, the scoring system needs to be tuned
+according to the sequence divergence.
+
 ### <a name="algo"></a>Algorithm overview
 
 In the following, minimap2 command line options have a dash ahead and are
-highlighted in bold.
+highlighted in bold. The description may help to tune minimap2 parameters.
 
 1. Read **-I** [=*4G*] reference bases, extract (**-k**,**-w**)-minimizers and
    index them in a hash table.
@@ -182,6 +219,20 @@ If you use minimap2 in your work, please consider to cite:
 
 > Li, H. (2017). Minimap2: fast pairwise alignment for long nucleotide sequences. [arXiv:1708.01492][preprint]
 
+## <a name="dguide"></a>Developers' Guide
+
+Minimap2 is not only a command line tool, but also a programming library.
+It provides C APIs to build/load index and to align sequences against the
+index. File [example.c](example.c) demonstrates typical uses of C APIs. Header
+file [minimap.h](minimap.h) gives more detailed API documentation. Minimap2
+aims to keep APIs in this header stable. File [mmpriv.h](mmpriv.h) contains
+additional private unstable APIs which may be subjected to changes frequently.
+
+This repository also provides Python bindings to a subset of C APIs. File
+[python/README.rst](python/README.rst) gives the full documentation;
+[python/minimap2.py](python/minimap2.py) shows an example. This Python
+extension, mappy, is also [available from PyPI][mappy] via `pip install`.
+
 ## <a name="limit"></a>Limitations
 
 * Minimap2 may produce suboptimal alignments through long low-complexity
@@ -206,3 +257,4 @@ warmly welcomed.
 [ksw2]: https://github.com/lh3/ksw2
 [preprint]: https://arxiv.org/abs/1708.01492
 [release]: https://github.com/lh3/minimap2/releases
+[mappy]: https://pypi.python.org/pypi/mappy
