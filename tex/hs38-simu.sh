@@ -2,3 +2,6 @@
 
 bin/mason_variator -ir hs38.fa -s 1 -ov hs38-s1.vcf --snp-rate 1e-3 --small-indel-rate 2e-4 --sv-indel-rate 0 --sv-inversion-rate 0 --sv-translocation-rate 0 --sv-duplication-rate 0 --max-small-indel-size 10
 bin/mason_simulator -ir hs38.fa -iv hs38-s1.vcf -n 1000000 --seed 1 -o s1_1.fq -or s1_2.fq -oa s1.sam --illumina-prob-mismatch-scale 2.5
+
+bin/mason_variator -ir hs38.fa -s 2 -ov hs38-s2.vcf --snp-rate 1e-3 --small-indel-rate 2e-4 --sv-indel-rate 0 --sv-inversion-rate 0 --sv-translocation-rate 0 --sv-duplication-rate 0 --max-small-indel-size 10
+bin/mason_simulator -ir hs38.fa -iv hs38-s2.vcf -n 1000000 --seed 1 -o mason-s2_1.fq -or mason-s2_2.fq -oa mason-s2.sam --illumina-prob-mismatch-scale 2.5 --illumina-read-length 150
