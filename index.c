@@ -478,7 +478,7 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 	if (r->is_idx) {
 		mi = mm_idx_load(r->fp.idx);
 		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || mi->is_hpc != r->opt.is_hpc))
-			fprintf(stderr, "[WARNING] Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\n");
+			fprintf(stderr, "[WARNING]\033[1;31m Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\033[0m\n");
 	} else
 		mi = mm_idx_gen(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.is_hpc, r->opt.mini_batch_size, n_threads, r->opt.batch_size, 1);
 	if (mi) {

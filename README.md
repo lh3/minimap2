@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat)](LICENSE.txt)
 [![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
 [![Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=flat)](https://github.com/lh3/minimap2/releases)
-## Getting Started
+## <a name="started"></a>Getting Started
 ```sh
 git clone https://github.com/lh3/minimap2
 cd minimap2 && make
@@ -21,39 +21,118 @@ cd minimap2 && make
 # man page
 man ./minimap2.1
 ```
+## Table of Contents
 
-## Introduction
+- [Getting Started](#started)
+- [Users' Guide](#uguide)
+  - [Installation](#install)
+  - [General usage](#general)
+  - [Use cases](#cases)
+    - [Map long noisy genomic reads](#map-long-genomic)
+    - [Map long mRNA/cDNA reads](#map-long-splice)
+  - [Algorithm overview](#algo)
+  - [Cite minimap2](#cite)
+- [Limitations](#limit)
 
-Minimap2 is a fast sequence mapping and alignment program that can find
-overlaps between long noisy reads, or map long reads or their assemblies to a
-reference genome optionally with detailed alignment (i.e. CIGAR). At present,
-it works efficiently with query sequences from a few kilobases to ~100
-megabases in length at an error rate ~15%. Minimap2 outputs in the [PAF][paf] or
-the [SAM format][sam]. On limited test data sets, minimap2 is over 20 times
-faster than most other long-read aligners. It will replace BWA-MEM for long
-reads and contig alignment.
+## <a name="uguide"></a>Users' Guide
 
-Minimap2 is the successor of [minimap][minimap]. It uses a similar
-minimizer-based indexing and seeding algorithm, and improves the original
-minimap with homopolyer-compressed k-mers (see also [SMARTdenovo][smartdenovo]
-and [longISLND][longislnd]), better chaining and the ability to produce CIGAR
-with fast extension alignment (see also [libgaba][gaba] and [ksw2][ksw2]) and
-piece-wise affine gap cost.
+Minimap2 is a versatile sequence alignment program that aligns DNA or mRNA
+sequences against a large reference database. Typical use cases include: (1)
+mapping PacBio or Oxford Nanopore genomic reads to the human genome; (2)
+finding overlaps between long reads with error rate up to ~15%; (3)
+splice-aware alignment of PacBio Iso-Seq or Nanopore cDNA or Direct RNA reads
+against a reference genome; (4) aligning Illumina single- or paired-end reads;
+(5) assembly-to-assembly alignment; (6) full-genome alignment between two
+closely related species with divergence below ~15%.
 
-If you use minimap2 in your work, please consider to cite:
+For ~10kb noisy reads sequences, minimap2 is tens of times faster than
+mainstream long-read mappers such as BLASR, BWA-MEM, NGMLR and GMAP. It is more
+accurate on simulated long reads and produces biologically meaningful alignment
+ready for downstream analyses. For >100bp Illumina short reads, minimap2 is
+three times as fast as BWA-MEM and Bowtie2, and as accurate on simulated data.
+Detailed evaluations are available from the [minimap2 preprint][preprint].
 
-> Li, H. (2017). Minimap2: fast pairwise alignment for long DNA sequences. [arXiv:1708.01492](https://arxiv.org/abs/1708.01492).
+### <a name="install"></a>Installation
 
-## Installation
+Minimap2 only works on x86-64 CPUs. You can acquire precompiled binaries from
+the [release page][release]. For example, with:
+```sh
+wget --no-check-certificate -O- https://github.com/lh3/minimap2/releases/download/v2.2/minimap2-2.2_x64-linux.tar.bz2 \
+  | tar -jxvf -
+./minimap2-2.2_x64-linux/minimap2
+```
+If you want to compile from the source, you need to have a C compiler, GNU make
+and zlib development files installed. Just type `make` in the source code
+directory to compile. If you see compilation errors, try `make sse2only=1`
+to disable SSE4 code, which will make minimap2 slightly slower at a cost.
 
-For modern x86-64 CPUs, just type `make` in the source code directory. This
-will compile a binary `minimap2` which you can copy to your desired location.
-If you see compilation errors, try `make sse2only=1` to disable SSE4. Minimap2
-will run a little slower. At present, minimap2 does not work with non-x86 CPUs
-or ancient CPUs that do not support SSE2. SSE2 is critical to the performance
-of minimap2.
+### <a name="general"></a>General usage
 
-## Algorithm Overview
+In the simplest form, minimap2 takes a reference database and a query sequence
+file as input and produce approximate mapping, without base-level alignment
+(i.e. no CIGAR), in the [PAF format][paf]:
+```sh
+minimap2 ref.fa reads.fq > approx-mapping.paf
+```
+You ask minimap2 to generate CIGAR at the `cg` tag of PAF with:
+```sh
+minimap2 -c ref.fa reads.fq > alignment.paf
+```
+or to output alignments in the [SAM format][sam]:
+```sh
+minimap2 -a ref.fa reads.fq > alignment.sam
+```
+Minimap2 seamlessly works with gzip'd FASTA and FASTQ formats as input. You
+don't need to convert between FASTA and FASTQ or decompress gzip'd files first.
+
+For the human reference genome, minimap2 takes a few minutes to generate a
+minimizer index for the reference before mapping. To reduce indexing time, you
+can optionally save the index with option **-d** and replace the reference
+sequence file with the index file on the minimap2 command line:
+```sh
+minimap2 -d ref.mmi ref.fa                     # indexing
+minimap2 -a ref.mmi reads.fq > alignment.sam   # alignment
+```
+***Importantly***, it should be noted that once you build the index, indexing
+parameters such as **-k**, **-w**, **-H** and **-I** can't be changed during
+mapping. If you are running minimap2 for different data types, you will
+probably need to keep multiple indexes generated with different parameters.
+This makes minimap2 different BWA which always uses the same index regardless
+of query data types.
+
+### <a name="cases"></a>Use cases
+
+Minimap2 uses the same base algorithm for all applications. However, due to the
+dramatic different data types (e.g. short vs long reads; DNA vs mRNA reads) it
+supports, minimap2 needs to be tuned for optimal performance and accuracy.
+You should usually choose a preset with option **-x**, which sets multiple
+parameters at the same time.
+
+#### <a name="map-long-genomic"></a>Map long noisy genomic reads
+
+```sh
+minimap2 -ax map-pb  ref.fa pacbio-reads.fq > aln.sam   # for PacBio subreads
+minimap2 -ax map-ont ref.fa ont-reads.fq > aln.sam      # for Oxford Nanopore reads
+```
+The difference between `map-pb` and `map-ont` is that `map-pb` uses
+homopolymer-compressed (HPC) minimizers as seeds, while `map-ont` uses normal
+minimizers as seeds. Emperical evaluation shows that HPC minimizers improve
+performance and sensitivity when aligning PacBio reads, but hurt when aligning
+Nanopore reads.
+
+#### <a name="map-long-splice"></a>Map long mRNA/cDNA reads
+
+```sh
+minimap2 -ax splice ref.fa spliced.fq > aln.sam      # strand unknown
+minimap2 -ax splice -uf ref.fa spliced.fq > aln.sam  # assuming transcript strand
+```
+This command line has been tested on PacBio Iso-Seq reads and Nanopore 2D cDNA
+reads, and been shown to work with Nanopore 1D Direct RNA reads by others. Like
+typical RNA-seq mappers, minimap2 represents an intron with the `N` CIGAR
+operator. For spliced reads, minimap2 will try to infer the strand relative to
+transcript and may write the strand to the `ts` SAM/PAF tag.
+
+### <a name="algo"></a>Algorithm overview
 
 In the following, minimap2 command line options have a dash ahead and are
 highlighted in bold.
@@ -97,13 +176,17 @@ highlighted in bold.
 9. If there are more reference sequences, reopen the query file from the start
    and go to step 1; otherwise stop.
 
-## Limitations
+### <a name="cite"></a>Cite minimap2
+
+If you use minimap2 in your work, please consider to cite:
+
+> Li, H. (2017). Minimap2: fast pairwise alignment for long nucleotide sequences. [arXiv:1708.01492][preprint]
+
+## <a name="limit"></a>Limitations
 
 * Minimap2 may produce suboptimal alignments through long low-complexity
   regions where seed positions may be suboptimal. This should not be a big
   concern because even the optimal alignment may be wrong in such regions.
-
-* Minimap2 does not work well with Illumina short reads as of now.
 
 * Minimap2 requires SSE2 instructions to compile. It is possible to add
   non-SSE2 support, but it would make minimap2 slower by several times.
@@ -121,3 +204,5 @@ warmly welcomed.
 [longislnd]: https://www.ncbi.nlm.nih.gov/pubmed/27667791
 [gaba]: https://github.com/ocxtal/libgaba
 [ksw2]: https://github.com/lh3/ksw2
+[preprint]: https://arxiv.org/abs/1708.01492
+[release]: https://github.com/lh3/minimap2/releases
