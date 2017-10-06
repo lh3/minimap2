@@ -90,7 +90,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_chain_score = 25;
 		mo->min_dp_max = 40;
 		mo->best_n = 20;
-		mo->bw = 50;
+		mo->bw = 100;
 		mo->mid_occ = 1000;
 		mo->max_occ = 5000;
 		mo->mini_batch_size = 50000000;
