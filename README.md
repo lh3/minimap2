@@ -231,7 +231,8 @@ additional private unstable APIs which may be subjected to changes frequently.
 This repository also provides Python bindings to a subset of C APIs. File
 [python/README.rst](python/README.rst) gives the full documentation;
 [python/minimap2.py](python/minimap2.py) shows an example. This Python
-extension, mappy, is also [available from PyPI][mappy] via `pip install`.
+extension, mappy, is also [available from PyPI][mappypypi] via `pip install mappy`,
+and [available from bioconda][mappyconda] via `conda install -c bioconda mappy`.
 
 ## <a name="limit"></a>Limitations
 
@@ -257,4 +258,5 @@ warmly welcomed.
 [ksw2]: https://github.com/lh3/ksw2
 [preprint]: https://arxiv.org/abs/1708.01492
 [release]: https://github.com/lh3/minimap2/releases
-[mappy]: https://pypi.python.org/pypi/mappy
+[mappypypi]: https://pypi.python.org/pypi/mappy
+[mappyconda]: https://anaconda.org/bioconda/mappy
