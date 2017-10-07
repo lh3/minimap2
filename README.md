@@ -10,10 +10,10 @@
 git clone https://github.com/lh3/minimap2
 cd minimap2 && make
 # long reads against a reference genome
-./minimap2 -ax map10k test/MT-human.fa test/MT-orang.fa > test.sam
+./minimap2 -a test/MT-human.fa test/MT-orang.fa > test.sam
 # create an index first and then map
-./minimap2 -x map10k -d MT-human.mmi test/MT-human.fa
-./minimap2 -ax map10k MT-human.mmi test/MT-orang.fa > test.sam
+./minimap2 -d MT-human.mmi test/MT-human.fa
+./minimap2 -a MT-human.mmi test/MT-orang.fa > test.sam
 # long-read overlap (no test data)
 ./minimap2 -x ava-pb your-reads.fa your-reads.fa > overlaps.paf
 # spliced alignment (no test data)
@@ -108,9 +108,9 @@ regardless of query data types.
 
 Minimap2 uses the same base algorithm for all applications. However, due to the
 different data types it supports (e.g. short vs long reads; DNA vs mRNA reads),
-minimap2 needs to be tuned for optimal performance and accuracy.  You should
-usually choose a preset with option **-x**, which sets multiple parameters at
-the same time.
+minimap2 needs to be tuned for optimal performance and accuracy. It is usually
+recommended to choose a preset with option **-x**, which sets multiple
+parameters at the same time. The default setting is the same as `map-ont`.
 
 #### <a name="map-long-genomic"></a>Map long noisy genomic reads
 
@@ -160,6 +160,9 @@ merge them into an interleaved stream internally. Two reads are considered to
 be paired if they are adjacent in the input stream and have the same name (with
 the `/[0-9]` suffix trimmed if present). Single- and paired-end reads can be
 mixed.
+
+Minimap2 does not work well with short spliced reads. There are many capable
+RNA-seq mappers for short reads.
 
 #### <a name="full-genome"></a>Full genome/assembly alignment
 
@@ -226,12 +229,13 @@ It provides C APIs to build/load index and to align sequences against the
 index. File [example.c](example.c) demonstrates typical uses of C APIs. Header
 file [minimap.h](minimap.h) gives more detailed API documentation. Minimap2
 aims to keep APIs in this header stable. File [mmpriv.h](mmpriv.h) contains
-additional private unstable APIs which may be subjected to changes frequently.
+additional private APIs which may be subjected to changes frequently.
 
 This repository also provides Python bindings to a subset of C APIs. File
 [python/README.rst](python/README.rst) gives the full documentation;
 [python/minimap2.py](python/minimap2.py) shows an example. This Python
-extension, mappy, is also [available from PyPI][mappy] via `pip install`.
+extension, mappy, is also [available from PyPI][mappypypi] via `pip install
+mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 
 ## <a name="limit"></a>Limitations
 
@@ -257,4 +261,5 @@ warmly welcomed.
 [ksw2]: https://github.com/lh3/ksw2
 [preprint]: https://arxiv.org/abs/1708.01492
 [release]: https://github.com/lh3/minimap2/releases
-[mappy]: https://pypi.python.org/pypi/mappy
+[mappypypi]: https://pypi.python.org/pypi/mappy
+[mappyconda]: https://anaconda.org/bioconda/mappy
