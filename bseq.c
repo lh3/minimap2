@@ -55,8 +55,12 @@ void mm_bseq_close(mm_bseq_file_t *fp)
 
 static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual)
 {
+	int i;
 	s->name = strdup(ks->name.s);
 	s->seq = strdup(ks->seq.s);
+	for (i = 0; i < ks->seq.l; ++i) // convert U to T
+		if (s->seq[i] == 'u' || s->seq[i] == 'U')
+			--s->seq[i];
 	s->qual = with_qual && ks->qual.l? strdup(ks->qual.s) : 0;
 	s->l_seq = ks->seq.l;
 }
