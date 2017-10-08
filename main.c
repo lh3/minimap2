@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r487-dirty"
+#define MM_VERSION "2.2-r488-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -64,7 +64,7 @@ static inline int64_t mm_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:h";
+	const char *opt_str = "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx, max_gap_ref = 0;
@@ -98,6 +98,7 @@ int main(int argc, char *argv[])
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(optarg);
 		else if (c == 'G') max_gap_ref = (int)mm_parse_num(optarg);
+		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(optarg);
 		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
@@ -180,10 +181,8 @@ int main(int argc, char *argv[])
 		}
 	}
 	if (max_gap_ref > 0) {
-		if (opt.flag & MM_F_FRAG_MODE)
-			opt.max_gap_ref = max_gap_ref;
-		if (opt.flag & MM_F_SPLICE)
-			opt.max_gap_ref = opt.bw = max_gap_ref;
+		opt.max_gap_ref = max_gap_ref;
+		if (opt.flag & MM_F_SPLICE) opt.bw = max_gap_ref; // in the splice mode, this also changes the bandwidth
 	}
 	if ((opt.flag & MM_F_OUT_SAM) && (opt.flag & MM_F_OUT_CS_LONG)) {
 		opt.flag &= ~MM_F_OUT_CS_LONG;
@@ -203,7 +202,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
-		fprintf(fp_help, "    -G NUM       max intron length (-x splice) [200k]; or insert size (-x sr) [1000] []\n");
+		fprintf(fp_help, "    -G NUM       max reference skip length [-xsplice:200k]\n");
+		fprintf(fp_help, "    -F NUM       max fragment length in the fragment mode [-xsr:800]\n");
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
 		fprintf(fp_help, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
 		fprintf(fp_help, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);

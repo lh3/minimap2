@@ -83,14 +83,14 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND;
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
+		mo->max_frag_len = 800;
 		mo->max_gap = 200;
-		mo->max_gap_ref = 1000;
+		mo->bw = 100;
 		mo->pri_ratio = 0.5f;
 		mo->min_cnt = 2;
 		mo->min_chain_score = 25;
 		mo->min_dp_max = 40;
 		mo->best_n = 20;
-		mo->bw = 100;
 		mo->mid_occ = 1000;
 		mo->max_occ = 5000;
 		mo->mini_batch_size = 50000000;
@@ -235,12 +235,12 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_
 	return a;
 }
 
-static void chain_post(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, int n_segs, const int *qlens, int *n_regs, mm_reg1_t *regs, mm128_t *a)
+static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_idx_t *mi, void *km, int qlen, int n_segs, const int *qlens, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, opt->max_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
+		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, max_chain_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
 		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR) && !(opt->flag & MM_F_NO_LJOIN))
 			mm_join_long(km, opt, qlen, n_regs, regs, a);
 	}
@@ -260,7 +260,8 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 
 void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, j, max_gap_ref, rep_len, qlen_sum, n_regs0;
+	int i, j, rep_len, qlen_sum, n_regs0;
+	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE);
 	uint32_t hash;
 	int64_t n_a;
 	uint64_t *u;
@@ -287,8 +288,18 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 	}
 
-	max_gap_ref = opt->max_gap_ref >= 0? opt->max_gap_ref : opt->max_gap;
-	a = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &n_regs0, &u, b->km);
+	// set max chaining gap on the query and the reference sequence
+	if (opt->flag & MM_F_SR)
+		max_chain_gap_qry = qlen_sum > opt->max_gap? qlen_sum : opt->max_gap;
+	else max_chain_gap_qry = opt->max_gap;
+	if (opt->max_gap_ref > 0) {
+		max_chain_gap_ref = opt->max_gap_ref; // always honor mm_mapopt_t::max_gap_ref if set
+	} else if (opt->max_frag_len > 0) {
+		max_chain_gap_ref = opt->max_frag_len - qlen_sum;
+		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
+	} else max_chain_gap_ref = opt->max_gap;
+
+	a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 
 	if ((opt->flag & MM_F_SR) && rep_len > 0) {
 		int rechain = 0;
@@ -309,7 +320,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			kfree(b->km, u);
 			a = collect_seed_hits(opt, opt->max_occ, mi, qname, qlen_sum, &n_a, &rep_len, b);
 			radix_sort_128x(a, a + n_a);
-			a = mm_chain_dp(max_gap_ref, opt->max_gap, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, !!(opt->flag&MM_F_SPLICE), n_segs, n_a, a, &n_regs0, &u, b->km);
+			a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
 	}
 
@@ -321,7 +332,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
-	chain_post(opt, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
+	chain_post(opt, max_chain_gap_ref, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
 
 	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], &n_regs0, regs0, a);
@@ -338,7 +349,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		}
 		mm_seg_free(b->km, n_segs, seg);
 		if (n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
-			mm_pair(b->km, max_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // pairing
+			mm_pair(b->km, max_chain_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // pairing
 	}
 
 	kfree(b->km, a);
