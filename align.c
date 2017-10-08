@@ -141,11 +141,6 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr);
 		fputc('\n', stderr);
 	}
-	if (opt->flag & MM_F_SR) {
-		zdrop = (qlen < tlen? qlen : tlen) * opt->a; // zdrop disabled
-		flag |= KSW_EZ_APPROX_MAX;
-		if (flag & KSW_EZ_EXTZ_ONLY) flag |= KSW_EZ_APPROX_DROP;
-	}
 	if (opt->flag & MM_F_SPLICE)
 		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, flag, ez);
 	else if (opt->q == opt->q2 && opt->e == opt->e2)
@@ -270,9 +265,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	bw = (int)(opt->bw * 1.5 + 1.);
 
 	r2->cnt = 0;
+	as1 = r->as, cnt1 = r->cnt;
 	if (!(opt->flag & MM_F_SPLICE))
 		mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
-	else as1 = r->as, cnt1 = r->cnt;
 	mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 	mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 	mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
@@ -290,7 +285,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			l = qs < opt->max_gap? qs : opt->max_gap;
 			qs0 = qs - l;
 			l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
-			l = l < opt->max_gap? l : opt->max_gap;
+			if (!(opt->flag & MM_F_SR))
+				l = l < opt->max_gap? l : opt->max_gap;
 			l = l < rs? l : rs;
 			rs0 = rs - l;
 		} else rs0 = rs, qs0 = qs;
@@ -301,7 +297,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		l = qlen - qe < opt->max_gap? qlen - qe : opt->max_gap;
 		qe0 = qe + l;
 		l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
-		l = l < opt->max_gap? l : opt->max_gap;
+		if (!(opt->flag & MM_F_SR))
+			l = l < opt->max_gap? l : opt->max_gap;
 		l = l < mi->seq[rid].len - re? l : mi->seq[rid].len - re;
 		re0 = re + l;
 	} else re0 = re, qe0 = qe;
