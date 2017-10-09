@@ -83,8 +83,9 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND;
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
+		mo->zdrop = 100;
 		mo->max_frag_len = 800;
-		mo->max_gap = 200;
+		mo->max_gap = 100;
 		mo->bw = 100;
 		mo->pri_ratio = 0.5f;
 		mo->min_cnt = 2;
