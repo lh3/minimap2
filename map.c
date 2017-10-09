@@ -74,12 +74,12 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->is_hpc = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 200;
 		mo->min_dp_max = 200;
-		mo->n_best = 50;
+		mo->best_n = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
 		io->is_hpc = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 200;
 		mo->min_dp_max = 200;
-		mo->n_best = 50;
+		mo->best_n = 50;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->is_hpc = 0, io->k = 21, io->w = 11;
 		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND;
