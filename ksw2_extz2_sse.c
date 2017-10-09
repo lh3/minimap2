@@ -50,7 +50,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
-	__m128i q_, qe2_, zero_, flag1_, flag2_, flag8_, flag16_, sc_mch_, sc_mis_, m1_, max_sc_;
+	__m128i q_, qe2_, zero_, flag1_, flag2_, flag8_, flag16_, sc_mch_, sc_mis_, sc_N_, m1_, max_sc_;
 	__m128i *u, *v, *x, *y, *s, *p = 0;
 
 	ksw_reset_extz(ez);
@@ -65,6 +65,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	flag16_ = _mm_set1_epi8(0x10);
 	sc_mch_ = _mm_set1_epi8(mat[0]);
 	sc_mis_ = _mm_set1_epi8(mat[1]);
+	sc_N_   = _mm_set1_epi8(-e);
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
 	max_sc_ = _mm_set1_epi8(mat[0] + (q + e) * 2);
 
@@ -130,10 +131,11 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				tmp = _mm_cmpeq_epi8(sq, st);
 #ifdef __SSE4_1__
 				tmp = _mm_blendv_epi8(sc_mis_, sc_mch_, tmp);
+				tmp = _mm_blendv_epi8(tmp,     sc_N_,   mask);
 #else
-				tmp = _mm_or_si128(_mm_andnot_si128(tmp, sc_mis_), _mm_and_si128(tmp, sc_mch_));
+				tmp = _mm_or_si128(_mm_andnot_si128(tmp,  sc_mis_), _mm_and_si128(tmp,  sc_mch_));
+				tmp = _mm_or_si128(_mm_andnot_si128(mask, tmp),     _mm_and_si128(mask, sc_N_));
 #endif
-				tmp = _mm_andnot_si128(mask, tmp);
 				_mm_storeu_si128((__m128i*)((uint8_t*)s + t), tmp);
 			}
 		} else {
