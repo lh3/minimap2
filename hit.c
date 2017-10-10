@@ -124,7 +124,7 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 				ri->parent = rp->parent;
 				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
 				if (ri->cnt >= rp->cnt) cnt_sub = 1;
-				if (rp->p && ri->p) {
+				if (rp->p && ri->p && (rp->rs != ri->rs || rp->re != ri->re || ol != min)) { // the last condition excludes identical hits after DP
 					rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
 					if (rp->p->dp_max - ri->p->dp_max <= sub_diff) cnt_sub = 1;
 				}
@@ -204,11 +204,15 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 {
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
-		for (i = k = 0; i < n; ++i)
-			if (r[i].parent == i) r[k++] = r[i];
-			else if ((r[i].score >= r[r[i].parent].score * pri_ratio || r[i].score + min_diff >= r[r[i].parent].score) && n_2nd++ < best_n)
+		for (i = k = 0; i < n; ++i) {
+			int p = r[i].parent;
+			if (p == i || r[i].inv) { // primary or inversion
 				r[k++] = r[i];
-			else if (r[i].p) free(r[i].p);
+			} else if ((r[i].score >= r[p].score * pri_ratio || r[i].score + min_diff >= r[p].score) && n_2nd < best_n) {
+				if (!(r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].rs == r[p].rs && r[i].re == r[p].re)) // not identical hits
+					r[k++] = r[i], ++n_2nd;
+			} else if (r[i].p) free(r[i].p);
+		}
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
 		*n_ = k;
 	}
