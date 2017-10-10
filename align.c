@@ -373,12 +373,12 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	}
 
 	// compute rs0 and qs0
-	rs1 = rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
-	qs1 = qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
+	rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
+	qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
 	if (r->as > 0 && a[r->as - 1].x>>32 == a[r->as].x>>32) {
 		rs1 = (int32_t)a[r->as - 1].x + 1;
 		qs1 = (int32_t)a[r->as - 1].y + 1;
-	}
+	} else rs1 = qs1 = 0; // no adjacent previous chain on the same chr
 	if (qs > 0 && rs > 0) { // actually this is always true
 		l = qs < max_end_ext? qs : max_end_ext;
 		qs1 = qs1 > qs - l? qs1 : qs - l; // choose between the max_end_ext bound and the previous seed bound
@@ -396,7 +396,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (r->as + r->cnt < n_a && a[r->as + r->cnt].x>>32 == a[r->as + r->cnt - 1].x>>32) {
 		re1 = (int32_t)a[r->as + r->cnt].x + 1 - (int32_t)(a[r->as + r->cnt].y>>32&0xff);
 		qe1 = (int32_t)a[r->as + r->cnt].y + 1 - (int32_t)(a[r->as + r->cnt].y>>32&0xff);
-	}
+	} else re1 = mi->seq[rid].len, qe1 = qlen; // no adjacent next chain on the same chr
 	if (qe < qlen && re < mi->seq[rid].len) {
 		l = qlen - qe < max_end_ext? qlen - qe : max_end_ext;
 		qe1 = qe1 < qe + l? qe1 : qe + l; // choose between the max_end_ext bound and the next seed bound
