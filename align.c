@@ -286,6 +286,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	int32_t rs1, qs1, re1, qe1;
 	int8_t mat[25];
 
+	if (is_sr) assert(!mi->is_hpc); // HPC won't work with SR because with HPC we can't easily tell if there is a gap
+
 	r2->cnt = 0;
 	if (r->cnt == 0) return;
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
@@ -358,74 +360,47 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	re1 = rs, qe1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
 
-	if (is_sr) { // in the SR mode, just write M; no gap filling
-		uint32_t l;
-		int32_t score, max_score, max_i;
-		re = (int32_t)a[as1+cnt1-1].x + 1;
-		qe = (int32_t)a[as1+cnt1-1].y + 1;
-		assert(re > re1 && re - re1 == qe - qe1);
-		qseq = &qseq0[rev][qs];
-		mm_idx_getseq(mi, rid, rs, re, tseq);
-		l = re - re1;
-		score = max_score = 0, max_i = -1;
-		for (i = 0; i < l; ++i) {
-			if (qseq[i] >= 4 || tseq[i] >= 4) score += -opt->e2;
-			else score += qseq[i] == tseq[i]? opt->a : -opt->b;
-			if (max_score < score) max_score = score, max_i = i;
-			else if (score < max_score - opt->zdrop)
-				break;
-		}
-		assert(max_i >= 0);
-		if (i == l) { // not droppped
-			uint32_t cigar1 = l << 4 | 0;
-			mm_append_cigar(r, 1, &cigar1);
-			r->p->dp_score += score;
-			re1 = re, qe1 = qe;
-		} else { // Z-dropped
-			uint32_t cigar1 = (max_i + 1) << 4 | 0;
-			int j;
-			mm_append_cigar(r, 1, &cigar1);
-			r->p->dp_score += max_score;
-			qe1 += max_i + 1, re1 += max_i + 1;
-			for (j = cnt1 - 1; j >= 0; --j)
-				if ((int32_t)a[as1 + j].x < rs + max_i)
-					break;
-			if (cnt1 - (j + 1) >= opt->min_cnt)
-				mm_split_reg(r, r2, j + 1, qlen, a);
-			qe = qe1, re = re1;
-			dropped = 1;
-		}
-	} else {
-		for (i = 1; i < cnt1; ++i) { // gap filling
-			if ((a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) && i != cnt1 - 1) continue;
-			mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
-			re1 = re, qe1 = qe;
-			if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || (qe - qs >= opt->min_ksw_len && re - rs >= opt->min_ksw_len)) {
-				int bw1 = bw;
-				if (a[as1+i].y & MM_SEED_LONG_JOIN)
-					bw1 = qe - qs > re - rs? qe - qs : re - rs;
-				qseq = &qseq0[rev][qs];
-				mm_idx_getseq(mi, rid, rs, re, tseq);
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag|KSW_EZ_APPROX_MAX, ez);
-				if (mm_check_zdrop(qseq, tseq, ez->n_cigar, ez->cigar, mat, opt->q, opt->e, opt->zdrop))
-					mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag, ez);
-				if (ez->n_cigar > 0)
-					mm_append_cigar(r, ez->n_cigar, ez->cigar);
-				if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.
-					int j;
-					for (j = i - 1; j >= 0; --j)
-						if ((int32_t)a[as1 + j].x < rs + ez->max_t)
-							break;
-					dropped = 1;
-					r->p->dp_score += ez->max;
-					re1 = rs + (ez->max_t + 1);
-					qe1 = qs + (ez->max_q + 1);
-					if (cnt1 - (j + 1) >= opt->min_cnt)
-						mm_split_reg(r, r2, j + 1, qlen, a);
-					break;
-				} else r->p->dp_score += ez->score;
-				rs = re, qs = qe;
+	for (i = is_sr? cnt1 - 1 : 1; i < cnt1; ++i) { // gap filling
+		if ((a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) && i != cnt1 - 1) continue;
+		if (is_sr && !mi->is_hpc) {
+			re = (int32_t)a[as1 + i].x + 1;
+			qe = (int32_t)a[as1 + i].y + 1;
+		} else mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
+		re1 = re, qe1 = qe;
+		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || (qe - qs >= opt->min_ksw_len && re - rs >= opt->min_ksw_len)) {
+			int j, bw1 = bw;
+			if (a[as1+i].y & MM_SEED_LONG_JOIN)
+				bw1 = qe - qs > re - rs? qe - qs : re - rs;
+			qseq = &qseq0[rev][qs];
+			mm_idx_getseq(mi, rid, rs, re, tseq);
+			if (is_sr) { // perform ungapped alignment
+				assert(qe - qs == re - rs);
+				ksw_reset_extz(ez);
+				for (j = 0, ez->score = 0; j < qe - qs; ++j) {
+					if (qseq[j] >= 4 || tseq[j] >= 4) ez->score += opt->e2;
+					else ez->score += qseq[j] == tseq[j]? opt->a : -opt->b;
+				}
+				ez->cigar = ksw_push_cigar(km, &ez->n_cigar, &ez->m_cigar, ez->cigar, 0, qe - qs);
+			} else { // perform normal gapped alignment
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
 			}
+			if (mm_check_zdrop(qseq, tseq, ez->n_cigar, ez->cigar, mat, opt->q, opt->e, opt->zdrop))
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag, ez); // second pass: lift approximate
+			if (ez->n_cigar > 0)
+				mm_append_cigar(r, ez->n_cigar, ez->cigar);
+			if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.
+				for (j = i - 1; j >= 0; --j)
+					if ((int32_t)a[as1 + j].x < rs + ez->max_t)
+						break;
+				dropped = 1;
+				r->p->dp_score += ez->max;
+				re1 = rs + (ez->max_t + 1);
+				qe1 = qs + (ez->max_q + 1);
+				if (cnt1 - (j + 1) >= opt->min_cnt)
+					mm_split_reg(r, r2, j + 1, qlen, a);
+				break;
+			} else r->p->dp_score += ez->score;
+			rs = re, qs = qe;
 		}
 	}
 
