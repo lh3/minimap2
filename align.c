@@ -250,11 +250,10 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int32_
 
 static void mm_max_stretch(const mm_mapopt_t *opt, const mm_reg1_t *r, const mm128_t *a, int32_t *as, int32_t *cnt)
 {
-	int32_t i, score, max_score, len, max_i, max_len, max_dist;
+	int32_t i, score, max_score, len, max_i, max_len;
 
 	*as = r->as, *cnt = r->cnt;
 	if (r->cnt < 2) return;
-	max_dist = opt->b > opt->e * 2? 2 * opt->q / (opt->b - opt->e * 2) : 5;
 
 	max_score = -1, max_i = -1, max_len = 0;
 	score = a[r->as].y >> 32 & 0xff, len = 1;
@@ -263,8 +262,8 @@ static void mm_max_stretch(const mm_mapopt_t *opt, const mm_reg1_t *r, const mm1
 		q_span = a[i].y >> 32 & 0xff;
 		lr = (int32_t)a[i].x - (int32_t)a[i-1].x;
 		lq = (int32_t)a[i].y - (int32_t)a[i-1].y;
-		if (lq == lr && lq - q_span <= max_dist) {
-			score += lq < q_span? lq : q_span - (lq - q_span);
+		if (lq == lr) {
+			score += lq < q_span? lq : q_span;
 			++len;
 		} else {
 			if (score > max_score)
@@ -293,18 +292,21 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	bw = (int)(opt->bw * 1.5 + 1.);
 	max_end_ext = is_sr? INT32_MAX : opt->max_gap;
 
-	as1 = r->as, cnt1 = r->cnt;
-	if (is_sr) {
+	if (is_sr && !mi->is_hpc) {
 		mm_max_stretch(opt, r, a, &as1, &cnt1);
+		rs = (int32_t)a[as1].x + 1 - (int32_t)(a[as1].y>>32&0xff);
+		qs = (int32_t)a[as1].y + 1 - (int32_t)(a[as1].y>>32&0xff);
+		re = (int32_t)a[as1+cnt1-1].x + 1;
+		qe = (int32_t)a[as1+cnt1-1].y + 1;
 	} else {
 		if (!is_splice)
 			mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
+		else as1 = r->as, cnt1 = r->cnt;
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
+		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
+		mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
 	}
 	assert(cnt1 > 0);
-
-	mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
-	mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
 
 	if (is_splice) {
 		if (splice_flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
@@ -313,7 +315,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	// compute rs0 and qs0
 	if (r->split && as1 > 0) {
-		mm_adjust_minier(mi, qseq0, &a[as1-1], &rs0, &qs0);
+		if (is_sr && !mi->is_hpc) qs0 = qs, rs0 = rs;
+		else mm_adjust_minier(mi, qseq0, &a[as1-1], &rs0, &qs0);
 	} else {
 		if (qs > 0 && rs > 0) { // actually this is always true
 			l = qs < max_end_ext? qs : max_end_ext;
@@ -355,19 +358,44 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	re1 = rs, qe1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
 
-	if (is_sr && cnt1 > 1) { // in the SR mode, just write M; no gap filling
-		uint32_t cigar1, l;
-		mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
+	if (is_sr) { // in the SR mode, just write M; no gap filling
+		uint32_t l;
+		int32_t score, max_score, max_i;
+		re = (int32_t)a[as1+cnt1-1].x + 1;
+		qe = (int32_t)a[as1+cnt1-1].y + 1;
 		assert(re > re1 && re - re1 == qe - qe1);
-		l = re - re1;
 		qseq = &qseq0[rev][qs];
 		mm_idx_getseq(mi, rid, rs, re, tseq);
-		for (i = 0; i < l; ++i)
-			r->p->dp_score += qseq[i] == tseq[i]? opt->a : -opt->b;
-		cigar1 = l << 4 | 0;
-		mm_append_cigar(r, 1, &cigar1);
-		re1 = re, qe1 = qe;
-	} else if (cnt1 > 1) {
+		l = re - re1;
+		score = max_score = 0, max_i = -1;
+		for (i = 0; i < l; ++i) {
+			if (qseq[i] >= 4 || tseq[i] >= 4) score += -opt->e2;
+			else score += qseq[i] == tseq[i]? opt->a : -opt->b;
+			if (max_score < score) max_score = score, max_i = i;
+			else if (score < max_score - opt->zdrop)
+				break;
+		}
+		assert(max_i >= 0);
+		if (i == l) { // not droppped
+			uint32_t cigar1 = l << 4 | 0;
+			mm_append_cigar(r, 1, &cigar1);
+			r->p->dp_score += score;
+			re1 = re, qe1 = qe;
+		} else { // Z-dropped
+			uint32_t cigar1 = (max_i + 1) << 4 | 0;
+			int j;
+			mm_append_cigar(r, 1, &cigar1);
+			r->p->dp_score += max_score;
+			qe1 += max_i + 1, re1 += max_i + 1;
+			for (j = cnt1 - 1; j >= 0; --j)
+				if ((int32_t)a[as1 + j].x < rs + max_i)
+					break;
+			if (cnt1 - (j + 1) >= opt->min_cnt)
+				mm_split_reg(r, r2, j + 1, qlen, a);
+			qe = qe1, re = re1;
+			dropped = 1;
+		}
+	} else {
 		for (i = 1; i < cnt1; ++i) { // gap filling
 			if ((a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) && i != cnt1 - 1) continue;
 			mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
@@ -386,7 +414,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.
 					int j;
 					for (j = i - 1; j >= 0; --j)
-						if ((int32_t)a[as1 + j].x < re + ez->max_t)
+						if ((int32_t)a[as1 + j].x < rs + ez->max_t)
 							break;
 					dropped = 1;
 					r->p->dp_score += ez->max;
