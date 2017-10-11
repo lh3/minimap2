@@ -377,7 +377,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	// compute rs0 and qs0
 	rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
 	qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
-	if (r->as > 0 && a[r->as - 1].x>>32 == a[r->as].x>>32) {
+	if (0 && r->as > 0 && a[r->as - 1].x>>32 == a[r->as].x>>32) {
 		rs1 = (int32_t)a[r->as - 1].x + 1 - (int32_t)(a[r->as - 1].y>>32&0xff);
 	} else rs1 = 0; // no adjacent previous chain on the same chr
 	if (qs > 0 && rs > 0) { // actually this is always true
@@ -394,7 +394,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	// compute re0 and qe0
 	re0 = (int32_t)a[r->as + r->cnt - 1].x + 1;
 	qe0 = (int32_t)a[r->as + r->cnt - 1].y + 1;
-	if (r->as + r->cnt < n_a && a[r->as + r->cnt].x>>32 == a[r->as + r->cnt - 1].x>>32) {
+	if (0 && r->as + r->cnt < n_a && a[r->as + r->cnt].x>>32 == a[r->as + r->cnt - 1].x>>32) {
 		re1 = (int32_t)a[r->as + r->cnt].x + 1;
 	} else re1 = mi->seq[rid].len; // no adjacent next chain on the same chr
 	if (qe < qlen && re < mi->seq[rid].len) {
