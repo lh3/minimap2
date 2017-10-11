@@ -50,16 +50,16 @@ int x86_simd(void)
 	return flag;
 }
 
-void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez)
+void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
 {
-	extern void ksw_extz2_sse2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez);
-	extern void ksw_extz2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez);
+	extern void ksw_extz2_sse2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
+	extern void ksw_extz2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 	unsigned simd;
 	simd = x86_simd();
 	if (simd & SIMD_SSE4_1)
-		ksw_extz2_sse41(km, qlen, query, tlen, target, m, mat, q, e, w, zdrop, flag, ez);
+		ksw_extz2_sse41(km, qlen, query, tlen, target, m, mat, q, e, w, zdrop, end_bonus, flag, ez);
 	else if (simd & SIMD_SSE2)
-		ksw_extz2_sse2(km, qlen, query, tlen, target, m, mat, q, e, w, zdrop, flag, ez);
+		ksw_extz2_sse2(km, qlen, query, tlen, target, m, mat, q, e, w, zdrop, end_bonus, flag, ez);
 	else abort();
 }
 

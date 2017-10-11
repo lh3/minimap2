@@ -51,7 +51,7 @@ void ksw_extz(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t 
 			  int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez);
 
 void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
-				   int8_t q, int8_t e, int w, int zdrop, int flag, ksw_extz_t *ez);
+				   int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 
 void ksw_extd(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
 			  int8_t gapo, int8_t gape, int8_t gapo2, int8_t gape2, int w, int zdrop, int flag, ksw_extz_t *ez);

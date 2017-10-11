@@ -21,8 +21,8 @@ static inline int ilog2_32(uint32_t v)
 
 mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
-	int32_t st = 0, k, *f, *p, *t, *v, n_u, n_v;
-	int64_t i, j;
+	int32_t k, *f, *p, *t, *v, n_u, n_v;
+	int64_t i, j, st = 0;
 	uint64_t *u, *u2, sum_qspan = 0;
 	float avg_qspan;
 	mm128_t *b, *w;
