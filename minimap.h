@@ -104,6 +104,7 @@ typedef struct {
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
 	int noncan;      // cost of non-canonical splicing sites
 	int zdrop;       // break alignment if alignment score drops too fast along the diagonal
+	int end_bonus;
 	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
 	int min_ksw_len;
 

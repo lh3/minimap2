@@ -33,6 +33,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
 	opt->zdrop = 400;
+	opt->end_bonus = -1;
 	opt->min_dp_max = opt->min_chain_score * opt->a;
 	opt->min_ksw_len = 200;
 	opt->mini_batch_size = 200000000;
@@ -86,6 +87,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->zdrop = 100;
+		mo->end_bonus = 11;
 		mo->max_frag_len = 800;
 		mo->max_gap = 100;
 		mo->bw = 100;

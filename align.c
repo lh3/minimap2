@@ -186,7 +186,7 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 	}
 }
 
-static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *mat, int w, int flag, ksw_extz_t *ez)
+static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *mat, int w, int end_bonus, int flag, ksw_extz_t *ez)
 {
 	int zdrop = opt->zdrop;
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
@@ -202,7 +202,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 	else if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, flag, ez);
 	else
-		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, flag, ez);
+		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
 }
 
 static inline int mm_get_hplen_back(const mm_idx_t *mi, uint32_t rid, uint32_t x)
@@ -378,12 +378,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
 	qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
 	if (r->as > 0 && a[r->as - 1].x>>32 == a[r->as].x>>32) {
-		rs1 = (int32_t)a[r->as - 1].x + 1;
-		qs1 = (int32_t)a[r->as - 1].y + 1;
-	} else rs1 = qs1 = 0; // no adjacent previous chain on the same chr
+		rs1 = (int32_t)a[r->as - 1].x + 1 - (int32_t)(a[r->as - 1].y>>32&0xff);
+	} else rs1 = 0; // no adjacent previous chain on the same chr
 	if (qs > 0 && rs > 0) { // actually this is always true
 		l = qs < max_end_ext? qs : max_end_ext;
-		qs1 = qs1 > qs - l? qs1 : qs - l; // choose between the max_end_ext bound and the previous seed bound
+		qs1 = qs - l;
 		qs0 = qs0 < qs1? qs0 : qs1; // at least include qs0
 		l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
 		l = l < max_end_ext? l : max_end_ext;
@@ -396,12 +395,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	re0 = (int32_t)a[r->as + r->cnt - 1].x + 1;
 	qe0 = (int32_t)a[r->as + r->cnt - 1].y + 1;
 	if (r->as + r->cnt < n_a && a[r->as + r->cnt].x>>32 == a[r->as + r->cnt - 1].x>>32) {
-		re1 = (int32_t)a[r->as + r->cnt].x + 1 - (int32_t)(a[r->as + r->cnt].y>>32&0xff);
-		qe1 = (int32_t)a[r->as + r->cnt].y + 1 - (int32_t)(a[r->as + r->cnt].y>>32&0xff);
-	} else re1 = mi->seq[rid].len, qe1 = qlen; // no adjacent next chain on the same chr
+		re1 = (int32_t)a[r->as + r->cnt].x + 1;
+	} else re1 = mi->seq[rid].len; // no adjacent next chain on the same chr
 	if (qe < qlen && re < mi->seq[rid].len) {
 		l = qlen - qe < max_end_ext? qlen - qe : max_end_ext;
-		qe1 = qe1 < qe + l? qe1 : qe + l; // choose between the max_end_ext bound and the next seed bound
+		qe1 = qe + l;
 		qe0 = qe0 > qe1? qe0 : qe1; // at least include qe0
 		l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
 		l = l < max_end_ext? l : max_end_ext;
@@ -418,13 +416,13 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		mm_idx_getseq(mi, rid, rs0, rs, tseq);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
-		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, mat, bw, extra_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
+		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, mat, bw, opt->end_bonus, extra_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;
 		}
-		rs1 = rs - (ez->max_t + 1);
-		qs1 = qs - (ez->max_q + 1);
+		rs1 = rs - (ez->reach_end? ez->mqe_t + 1 : ez->max_t + 1);
+		qs1 = qs - (ez->reach_end? qs - qs0 : ez->max_q + 1);
 		mm_seq_rev(qs - qs0, qseq);
 	} else rs1 = rs, qs1 = qs;
 	re1 = rs, qe1 = qs;
@@ -452,10 +450,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				}
 				ez->cigar = ksw_push_cigar(km, &ez->n_cigar, &ez->m_cigar, ez->cigar, 0, qe - qs);
 			} else { // perform normal gapped alignment
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, -1, extra_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
 			}
 			if (mm_check_zdrop(qseq, tseq, ez->n_cigar, ez->cigar, mat, opt->q, opt->e, opt->zdrop))
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, extra_flag, ez); // second pass: lift approximate
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, -1, extra_flag, ez); // second pass: lift approximate
 			if (ez->n_cigar > 0)
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.
@@ -477,13 +475,13 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (!dropped && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
 		mm_idx_getseq(mi, rid, re, re0, tseq);
-		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, mat, bw, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
+		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, mat, bw, opt->end_bonus, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;
 		}
-		re1 = re + (ez->max_t + 1);
-		qe1 = qe + (ez->max_q + 1);
+		re1 = re + (ez->reach_end? ez->mqe_t + 1 : ez->max_t + 1);
+		qe1 = qe + (ez->reach_end? qe0 - qe : ez->max_q + 1);
 	}
 	assert(qe1 <= qlen);
 
@@ -533,7 +531,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	mm_seq_rev(tl, tseq);
 	if (score < opt->min_dp_max) goto end_align1_inv;
 	q_off = ql - (q_off + 1), t_off = tl - (t_off + 1);
-	mm_align_pair(km, opt, ql - q_off, qseq + q_off, tl - t_off, tseq + t_off, mat, (int)(opt->bw * 1.5), KSW_EZ_EXTZ_ONLY, ez);
+	mm_align_pair(km, opt, ql - q_off, qseq + q_off, tl - t_off, tseq + t_off, mat, (int)(opt->bw * 1.5), -1, KSW_EZ_EXTZ_ONLY, ez);
 	if (ez->n_cigar == 0) goto end_align1_inv; // should never be here
 	mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
 	r_inv->p->dp_score = ez->max;
