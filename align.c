@@ -105,6 +105,7 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 		for (k = l = 0; k < p->n_cigar; ++k) // merge two adjacent operations if they are the same
 			if (k == p->n_cigar - 1 || (p->cigar[k]&0xf) != (p->cigar[k+1]&0xf))
 				p->cigar[l++] = p->cigar[k];
+			else p->cigar[k+1] += p->cigar[k]>>4<<4; // add length to the next CIGAR operator
 		p->n_cigar = l;
 	}
 	if ((p->cigar[0]&0xf) == 1 || (p->cigar[0]&0xf) == 2) { // get rid of leading I or D
@@ -157,6 +158,7 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 		}
 	}
 	p->dp_max = max;
+	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
 }
 
 static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // TODO: this calls the libc realloc()

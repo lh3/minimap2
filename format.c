@@ -177,12 +177,13 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 				tmp[j] = "acgtn"[qseq[q_off + j]];
 			mm_sprintf_lite(s, "+%s", tmp);
 			q_off += len;
-		} else if (op == 2 || (op == 3 && len < 4)) {
+		} else if (op == 2) {
 			for (j = 0, tmp[len] = 0; j < len; ++j)
 				tmp[j] = "acgtn"[tseq[t_off + j]];
 			mm_sprintf_lite(s, "-%s", tmp);
 			t_off += len;
-		} else { // op == 3 && len >= 4
+		} else {
+			assert(len >= 2);
 			mm_sprintf_lite(s, "~%c%c%d%c%c", "acgtn"[tseq[t_off]], "acgtn"[tseq[t_off+1]],
 				len, "acgtn"[tseq[t_off+len-2]], "acgtn"[tseq[t_off+len-1]]);
 			t_off += len;
