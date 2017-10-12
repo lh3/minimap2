@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r506-dirty"
+#define MM_VERSION "2.2-r507-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
 		else if (c == 'I') ipt.batch_size = mm_parse_num(optarg);
-		else if (c == 'K') ipt.mini_batch_size = (int)mm_parse_num(optarg);
+		else if (c == 'K') opt.mini_batch_size = (int)mm_parse_num(optarg);
 		else if (c == 'R') rg = optarg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == 0 && long_idx == 0) ipt.bucket_bits = atoi(optarg); // --bucket-bits
