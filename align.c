@@ -338,7 +338,7 @@ static void mm_max_stretch(const mm_mapopt_t *opt, const mm_reg1_t *r, const mm1
 static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, int n_a, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
 	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE);
-	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1, max_end_ext;
+	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
 	uint8_t *tseq, *qseq;
 	int32_t i, l, bw, dropped = 0, extra_flag = 0, rs0, re0, qs0, qe0;
 	int32_t rs, re, qs, qe;
@@ -351,7 +351,6 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (r->cnt == 0) return;
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	bw = (int)(opt->bw * 1.5 + 1.);
-	max_end_ext = is_sr? INT32_MAX : opt->max_gap;
 
 	if (is_sr && !mi->is_hpc) {
 		mm_max_stretch(opt, r, a, &as1, &cnt1);
@@ -374,39 +373,79 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (splice_flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
 	}
 
-	// compute rs0 and qs0
-	rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
-	qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
-	if (0 && r->as > 0 && a[r->as - 1].x>>32 == a[r->as].x>>32) {
-		rs1 = (int32_t)a[r->as - 1].x + 1 - (int32_t)(a[r->as - 1].y>>32&0xff);
-	} else rs1 = 0; // no adjacent previous chain on the same chr
-	if (qs > 0 && rs > 0) { // actually this is always true
-		l = qs < max_end_ext? qs : max_end_ext;
-		qs1 = qs - l;
-		qs0 = qs0 < qs1? qs0 : qs1; // at least include qs0
+	/* Look for the start and end of regions to perform DP. This sounds easy
+	 * but is in fact tricky. Excessively small regions lead to unnecessary
+	 * clippings and lose alignable sequences. Excessively large regions
+	 * occasionally lead to large overlaps between two chains and may cause
+	 * loss of alignments in corner cases. */
+	if (is_sr) {
+		qs0 = 0, qe0 = qlen;
+		l = qs;
 		l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
-		l = l < max_end_ext? l : max_end_ext;
-		l = l < rs? l : rs;
-		rs1 = rs1 > rs - l? rs1 : rs - l;
-		rs0 = rs0 < rs1? rs0 : rs1;
-	} else rs0 = rs, qs0 = qs;
-
-	// compute re0 and qe0
-	re0 = (int32_t)a[r->as + r->cnt - 1].x + 1;
-	qe0 = (int32_t)a[r->as + r->cnt - 1].y + 1;
-	if (0 && r->as + r->cnt < n_a && a[r->as + r->cnt].x>>32 == a[r->as + r->cnt - 1].x>>32) {
-		re1 = (int32_t)a[r->as + r->cnt].x + 1;
-	} else re1 = mi->seq[rid].len; // no adjacent next chain on the same chr
-	if (qe < qlen && re < mi->seq[rid].len) {
-		l = qlen - qe < max_end_ext? qlen - qe : max_end_ext;
-		qe1 = qe + l;
-		qe0 = qe0 > qe1? qe0 : qe1; // at least include qe0
+		rs0 = rs - l > 0? rs - l : 0;
+		l = qlen - qe;
 		l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
-		l = l < max_end_ext? l : max_end_ext;
-		l = l < mi->seq[rid].len - re? l : mi->seq[rid].len - re;
-		re1 = re1 < re + l? re1 : re + l;
-		re0 = re0 > re1? re0 : re1;
-	} else re0 = re, qe0 = qe;
+		re0 = re + l < mi->seq[rid].len? re + l : mi->seq[rid].len;
+	} else {
+		// compute rs0 and qs0
+		rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
+		qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
+		rs1 = qs1 = 0;
+		if (r->as > 0 && a[r->as - 1].x>>32 == a[r->as].x>>32) {
+			for (i = r->as - 1, l = 0; i >= 0; --i) {
+				int32_t x, y;
+				if (a[i].x>>32 != a[r->as].x>>32) break;
+				x = (int32_t)a[i].x + 1 - (int32_t)(a[i].y>>32&0xff);
+				y = (int32_t)a[i].y + 1 - (int32_t)(a[i].y>>32&0xff);
+				if (x < rs0 && y < qs0) {
+					if (++l > opt->min_cnt) {
+						l = rs0 - x > qs0 - y? rs0 - x : qs0 - y;
+						rs1 = rs0 - l, qs1 = qs0 - l;
+						break;
+					}
+				}
+			}
+		}
+		if (qs > 0 && rs > 0) { // actually this is always true
+			l = qs < opt->max_gap? qs : opt->max_gap;
+			qs1 = qs1 > qs - l? qs1 : qs - l;
+			qs0 = qs0 < qs1? qs0 : qs1; // at least include qs0
+			l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
+			l = l < opt->max_gap? l : opt->max_gap;
+			l = l < rs? l : rs;
+			rs1 = rs1 > rs - l? rs1 : rs - l;
+			rs0 = rs0 < rs1? rs0 : rs1;
+		} else rs0 = rs, qs0 = qs;
+		// compute re0 and qe0
+		re0 = (int32_t)a[r->as + r->cnt - 1].x + 1;
+		qe0 = (int32_t)a[r->as + r->cnt - 1].y + 1;
+		re1 = mi->seq[rid].len, qe1 = qlen;
+		if (r->as + r->cnt < n_a && a[r->as + r->cnt].x>>32 == a[r->as].x>>32) {
+			for (i = r->as + r->cnt, l = 0; i < n_a; ++i) {
+				int32_t x, y;
+				if (a[i].x>>32 != a[r->as].x>>32) break;
+				x = (int32_t)a[i].x + 1;
+				y = (int32_t)a[i].y + 1;
+				if (x > re0 && y > qe0) {
+					if (++l > opt->min_cnt) {
+						l = x - re0 > y - qe0? x - re0 : y - qe0;
+						re1 = re0 + l, qe1 = qe0 + l;
+						break;
+					}
+				}
+			}
+		}
+		if (qe < qlen && re < mi->seq[rid].len) {
+			l = qlen - qe < opt->max_gap? qlen - qe : opt->max_gap;
+			qe1 = qe1 < qe + l? qe1 : qe + l;
+			qe0 = qe0 > qe1? qe0 : qe1; // at least include qe0
+			l += l * opt->a > opt->q? (l * opt->a - opt->q) / opt->e : 0;
+			l = l < opt->max_gap? l : opt->max_gap;
+			l = l < mi->seq[rid].len - re? l : mi->seq[rid].len - re;
+			re1 = re1 < re + l? re1 : re + l;
+			re0 = re0 > re1? re0 : re1;
+		} else re0 = re, qe0 = qe;
+	}
 
 	assert(re0 > rs0);
 	tseq = (uint8_t*)kmalloc(km, re0 - rs0);
@@ -535,7 +574,6 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (ez->n_cigar == 0) goto end_align1_inv; // should never be here
 	mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
 	r_inv->p->dp_score = ez->max;
-	mm_update_extra(r_inv, qseq + q_off, tseq + t_off, mat, opt->q, opt->e);
 	r_inv->id = -1;
 	r_inv->parent = MM_PARENT_UNSET;
 	r_inv->inv = 1;
@@ -543,6 +581,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	r_inv->rid = r1->rid;
 	r_inv->qs = r1->qe + q_off, r_inv->qe = r_inv->qs + ez->max_q + 1;
 	r_inv->rs = r1->re + t_off, r_inv->re = r_inv->rs + ez->max_t + 1;
+	mm_update_extra(r_inv, qseq + q_off, tseq + t_off, mat, opt->q, opt->e);
 	ret = 1;
 end_align1_inv:
 	kfree(km, tseq);
@@ -574,9 +613,8 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 		qseq0[1][qlen - 1 - i] = qseq0[0][i] < 4? 3 - qseq0[0][i] : 4;
 	}
 
-	n_a = mm_squeeze_a(km, n_regs, regs, a);
-
 	// align through seed hits
+	n_a = mm_squeeze_a(km, n_regs, regs, a);
 	memset(&ez, 0, sizeof(ksw_extz_t));
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t r2;
