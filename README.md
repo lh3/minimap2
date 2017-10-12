@@ -33,8 +33,11 @@ man ./minimap2.1
     - [Find overlaps between long reads](#long-overlap)
     - [Map short accurate genomic reads](#short-genomic)
     - [Full genome/assembly alignment](#full-genome)
+  - [Advanced features](#advanced)
+    - [The cs optional tag](#cs)
   - [Algorithm overview](#algo)
-  - [Cite minimap2](#cite)
+  - [Getting help](#help)
+  - [Citing minimap2](#cite)
 - [Developers' Guide](#dguide)
 - [Limitations](#limit)
 
@@ -172,6 +175,32 @@ minimap2 -ax asm5 ref.fa asm.fa > aln.sam       # assembly to assembly/ref align
 For cross-species full-genome alignment, the scoring system needs to be tuned
 according to the sequence divergence.
 
+### <a name="advanced"></a>Advanced features
+
+#### <a name="cs"></a>The cs optional tag
+
+The `cs` SAM/PAF tag encodes bases at mismatches and INDELs. It matches regular
+expression `/(:[0-9]+|\*[a-z][a-z]|[=\+\-][A-Za-z]+)+/`. Like CIGAR, `cs`
+consists of series of operations.  Each leading character specifies the
+operation; the following sequence is the one involved in the operation.
+
+The `cs` tag is enabled by command line option `--cs`. The following alignment,
+for example:
+```txt
+CGATCGATAAATAGAGTAG---GAATAGCA
+||||||   ||||||||||   |||| |||
+CGATCG---AATAGAGTAGGTCGAATtGCA
+```
+is represented as `:6-ata:10+gtc:4*at:3`, where `:[0-9]+` represents an
+identical block, `-ata` represents a deltion, `+gtc` an insertion and `*at`
+indicates reference base `a` is substituted with a query base `t`. It is
+similar to the `MD` SAM tag but is standalone and easier to parse.
+
+If `--cs=long` is used, the `cs` string also contains identical sequences in
+the alignment. The above example will become
+`=CGATCG-ata=AATAGAGTAG+gtc=GAAT*at=GCA`. The long form of `cs` encodes both
+reference and query sequences in one string.
+
 ### <a name="algo"></a>Algorithm overview
 
 In the following, minimap2 command line options have a dash ahead and are
@@ -216,7 +245,14 @@ highlighted in bold. The description may help to tune minimap2 parameters.
 9. If there are more reference sequences, reopen the query file from the start
    and go to step 1; otherwise stop.
 
-### <a name="cite"></a>Cite minimap2
+### <a name="help"></a>Getting help
+
+Manpage [minimap2.1](minimap2.1) provides detailed description of minimap2
+command line options and optional tags. If you encounter bugs or have further
+questions or requests, you can raise an issue at the [issue page][issue].
+There is not a specific mailing list for the time being.
+
+### <a name="cite"></a>Citing minimap2
 
 If you use minimap2 in your work, please consider to cite:
 
@@ -263,3 +299,4 @@ warmly welcomed.
 [release]: https://github.com/lh3/minimap2/releases
 [mappypypi]: https://pypi.python.org/pypi/mappy
 [mappyconda]: https://anaconda.org/bioconda/mappy
+[issue]: https://github.com/lh3/minimap2/issues
