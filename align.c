@@ -391,22 +391,18 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
 		qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
 		rs1 = qs1 = 0;
-		if (r->as > 0 && a[r->as - 1].x>>32 == a[r->as].x>>32) {
-			for (i = r->as - 1, l = 0; i >= 0; --i) {
-				int32_t x, y;
-				if (a[i].x>>32 != a[r->as].x>>32) break;
-				x = (int32_t)a[i].x + 1 - (int32_t)(a[i].y>>32&0xff);
-				y = (int32_t)a[i].y + 1 - (int32_t)(a[i].y>>32&0xff);
-				if (x < rs0 && y < qs0) {
-					if (++l > opt->min_cnt) {
-						l = rs0 - x > qs0 - y? rs0 - x : qs0 - y;
-						rs1 = rs0 - l, qs1 = qs0 - l;
-						break;
-					}
+		for (i = r->as - 1, l = 0; i >= 0 && a[i].x>>32 == a[r->as].x>>32; --i) { // inspect nearby seeds
+			int32_t x = (int32_t)a[i].x + 1 - (int32_t)(a[i].y>>32&0xff);
+			int32_t y = (int32_t)a[i].y + 1 - (int32_t)(a[i].y>>32&0xff);
+			if (x < rs0 && y < qs0) {
+				if (++l > opt->min_cnt) {
+					l = rs0 - x > qs0 - y? rs0 - x : qs0 - y;
+					rs1 = rs0 - l, qs1 = qs0 - l;
+					break;
 				}
 			}
 		}
-		if (qs > 0 && rs > 0) { // actually this is always true
+		if (qs > 0 && rs > 0) {
 			l = qs < opt->max_gap? qs : opt->max_gap;
 			qs1 = qs1 > qs - l? qs1 : qs - l;
 			qs0 = qs0 < qs1? qs0 : qs1; // at least include qs0
@@ -420,18 +416,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		re0 = (int32_t)a[r->as + r->cnt - 1].x + 1;
 		qe0 = (int32_t)a[r->as + r->cnt - 1].y + 1;
 		re1 = mi->seq[rid].len, qe1 = qlen;
-		if (r->as + r->cnt < n_a && a[r->as + r->cnt].x>>32 == a[r->as].x>>32) {
-			for (i = r->as + r->cnt, l = 0; i < n_a; ++i) {
-				int32_t x, y;
-				if (a[i].x>>32 != a[r->as].x>>32) break;
-				x = (int32_t)a[i].x + 1;
-				y = (int32_t)a[i].y + 1;
-				if (x > re0 && y > qe0) {
-					if (++l > opt->min_cnt) {
-						l = x - re0 > y - qe0? x - re0 : y - qe0;
-						re1 = re0 + l, qe1 = qe0 + l;
-						break;
-					}
+		for (i = r->as + r->cnt, l = 0; i < n_a && a[i].x>>32 == a[r->as].x>>32; ++i) { // inspect nearby seeds
+			int32_t x = (int32_t)a[i].x + 1;
+			int32_t y = (int32_t)a[i].y + 1;
+			if (x > re0 && y > qe0) {
+				if (++l > opt->min_cnt) {
+					l = x - re0 > y - qe0? x - re0 : y - qe0;
+					re1 = re0 + l, qe1 = qe0 + l;
+					break;
 				}
 			}
 		}
