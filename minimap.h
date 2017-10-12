@@ -20,6 +20,7 @@
 #define MM_F_SR          0x1000
 #define MM_F_FRAG_MODE   0x2000
 #define MM_F_NO_PRINT_2ND  0x4000
+#define MM_F_2_IO_THREADS  0x8000
 
 #define MM_IDX_MAGIC   "MMI\2"
 

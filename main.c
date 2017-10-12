@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r507-dirty"
+#define MM_VERSION "2.2-r508-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -65,7 +65,7 @@ static inline int64_t mm_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:";
+	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx, max_gap_ref = 0;
@@ -118,6 +118,7 @@ int main(int argc, char *argv[])
 		else if (c == 'K') opt.mini_batch_size = (int)mm_parse_num(optarg);
 		else if (c == 'R') rg = optarg;
 		else if (c == 'h') fp_help = stdout;
+		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
 		else if (c == 0 && long_idx == 0) ipt.bucket_bits = atoi(optarg); // --bucket-bits
 		else if (c == 0 && long_idx == 2) opt.seed = atoi(optarg); // --seed
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc

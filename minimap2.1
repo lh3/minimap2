@@ -256,6 +256,12 @@ sequences, and uses up to
 threads when mapping (the extra thread is for I/O, which is frequently idle and
 takes little CPU time).
 .TP
+.B -2
+Use two I/O threads during mapping. By default, minimap2 uses one I/O thread.
+When I/O is slow (e.g. piping to gzip, or reading from a slow pipe), the I/O
+thread may become the bottleneck. Apply this option to use one thread for input
+and another thread for output, at the cost of increased peak RAM.
+.TP
 .BI -K \ NUM
 Number of bases loaded into memory to process in a mini-batch [200M].
 Similar to option
@@ -343,7 +349,7 @@ tag ignores introns to demote hits to pseudogenes.
 Short single-end reads without splicing
 .RB ( -k21
 .B -w11 -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20 -s40 -g200
-.B -K50m --frag
+.B -2K50m --frag
 .BR --sr ).
 .RE
 .SS Miscellaneous options

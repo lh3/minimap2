@@ -83,7 +83,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->best_n = 50;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->is_hpc = 0, io->k = 21, io->w = 11;
-		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND;
+		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS;
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 32, mo->e2 = 1;
 		mo->zdrop = 100;
@@ -500,7 +500,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 
 int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads)
 {
-	int i, j;
+	int i, j, pl_threads;
 	pipeline_t pl;
 	if (n_segs < 1) return -1;
 	memset(&pl, 0, sizeof(pipeline_t));
@@ -520,7 +520,8 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;
-	kt_pipeline(n_threads == 1? 1 : 2, worker_pipeline, &pl, 3);
+	pl_threads = n_threads == 1? 1 : (opt->flag&MM_F_2_IO_THREADS)? 3 : 2;
+	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
 	free(pl.str.s);
 	for (i = 0; i < n_segs; ++i)
 		mm_bseq_close(pl.fp[i]);
