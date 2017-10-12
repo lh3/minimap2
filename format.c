@@ -300,7 +300,7 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 	if (r == 0) {
 		if (r_prev) {
 			this_rid = r_prev->rid, this_pos = r_prev->rs;
-			mm_sprintf_lite(s, "\t%s\t%d\t0\t*", mi->seq[this_rid].name, this_pos);
+			mm_sprintf_lite(s, "\t%s\t%d\t0\t*", mi->seq[this_rid].name, this_pos+1);
 		} else mm_sprintf_lite(s, "\t*\t0\t0\t*");
 	} else {
 		this_rid = r->rid, this_pos = r->rs, this_rev = r->rev;
