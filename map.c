@@ -306,7 +306,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 
-	if ((opt->flag & MM_F_SR) && rep_len > 0) {
+	if (opt->max_occ > opt->mid_occ && rep_len > 0) {
 		int rechain = 0;
 		if (n_regs0 > 0) { // test if the best chain has all the segments
 			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;

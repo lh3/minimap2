@@ -117,12 +117,17 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 		r[0] = a[max_idx[0]].r, r[1] = a[max_idx[1]].r;
 		r[0]->proper_frag = r[1]->proper_frag = 1;
 		for (s = 0; s < 2; ++s) {
-			if (r[s]->id != r[s]->parent) {
+			if (r[s]->id != r[s]->parent) { // then lift to primary and update parent
 				mm_reg1_t *p = &regs[s][r[s]->parent];
 				for (i = 0; i < n_regs[s]; ++i)
 					if (regs[s][i].parent == p->id)
 						regs[s][i].parent = r[s]->id;
 				p->mapq = 0;
+			}
+			if (!r[s]->sam_pri) { // then sync sam_pri
+				for (i = 0; i < n_regs[s]; ++i)
+					regs[s][i].sam_pri = 0;
+				r[s]->sam_pri = 1;
 			}
 		}
 		mapq_pe = r[0]->mapq > r[1]->mapq? r[0]->mapq : r[1]->mapq;
@@ -144,8 +149,6 @@ void mm_pair(void *km, int max_gap_ref, int pe_bonus, int sub_diff, int match_sc
 			if (r[1]->mapq < 1) r[1]->mapq = 1;
 		}
 	}
-	mm_set_sam_pri(n_regs[0], regs[0]);
-	mm_set_sam_pri(n_regs[1], regs[1]);
 
 	kfree(km, a);
 	kfree(km, sc.a);
