@@ -8,15 +8,15 @@
 static inline void mm_cal_fuzzy_len(mm_reg1_t *r, const mm128_t *a)
 {
 	int i;
-	r->fuzzy_mlen = r->fuzzy_blen = 0;
+	r->mlen = r->blen = 0;
 	if (r->cnt <= 0) return;
-	r->fuzzy_mlen = r->fuzzy_blen = a[r->as].y>>32&0xff;
+	r->mlen = r->blen = a[r->as].y>>32&0xff;
 	for (i = r->as + 1; i < r->as + r->cnt; ++i) {
 		int span = a[i].y>>32&0xff;
 		int tl = (int32_t)a[i].x - (int32_t)a[i-1].x;
 		int ql = (int32_t)a[i].y - (int32_t)a[i-1].y;
-		r->fuzzy_blen += tl > ql? tl : ql;
-		r->fuzzy_mlen += tl > span && ql > span? span : tl < ql? tl : ql;
+		r->blen += tl > ql? tl : ql;
+		r->mlen += tl > span && ql > span? span : tl < ql? tl : ql;
 	}
 }
 
@@ -227,7 +227,7 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 		int flt = 0;
 		if (!r->inv && !r->seg_split && r->cnt < opt->min_cnt) flt = 1;
 		if (r->p) {
-			if (r->p->blen - r->p->n_ambi - r->p->n_diff < opt->min_chain_score) flt = 1;
+			if (r->mlen < opt->min_chain_score) flt = 1;
 			else if (r->p->dp_max < opt->min_dp_max) flt = 1;
 			if (flt) free(r->p);
 		}
@@ -432,7 +432,7 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
-				float identity = (float)(r->p->blen - r->p->n_diff - r->p->n_ambi) / (r->p->blen - r->p->n_ambi);
+				float identity = (float)r->mlen / r->blen;
 				int mapq_alt = (int)(6.02f * identity * identity * (r->p->dp_max - r->p->dp_max2) / match_sc + .499f); // BWA-MEM like mapQ, mostly for short reads
 				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score) * logf(r->score)); // more for long reads
 				mapq = mapq < mapq_alt? mapq : mapq_alt; // in case the long-read heuristic fails

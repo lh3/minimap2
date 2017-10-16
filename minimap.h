@@ -54,8 +54,6 @@ typedef struct {
 typedef struct {
 	uint32_t capacity;                  // the capacity of cigar[]
 	int32_t dp_score, dp_max, dp_max2;  // DP score; score of the max-scoring segment; score of the best alternate mappings
-	uint32_t blen;                      // block length
-	uint32_t n_diff;                    // number of differences, including ambiguous bases
 	uint32_t n_ambi:30, trans_strand:2; // number of ambiguous bases; transcript strand: 0 for unknown, 1 for +, 2 for -
 	uint32_t n_cigar;                   // number of cigar operations in cigar[]
 	float n_diff2;
@@ -71,7 +69,7 @@ typedef struct {
 	int32_t qs, qe, rs, re;         // query start and end; reference start and end
 	int32_t parent, subsc;          // parent==id if primary; best alternate mapping score
 	int32_t as;                     // offset in the a[] array (for internal uses only)
-	int32_t fuzzy_mlen, fuzzy_blen; // seeded exact match length; seeded alignment block length (approximate)
+	int32_t mlen, blen;             // seeded exact match length; seeded alignment block length
 	uint32_t mapq:8, split:2, n_sub:22; // mapQ; split pattern; number of suboptimal mappings
 	uint32_t sam_pri:1, proper_frag:1, iden_flt:1, pe_thru:1, dummy:29;
 	uint32_t hash;
