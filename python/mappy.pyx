@@ -7,15 +7,15 @@ cmappy.mm_reset_timer()
 cdef class Alignment:
 	cdef int _ctg_len, _r_st, _r_en
 	cdef int _q_st, _q_en
-	cdef int _NM, _blen
+	cdef int _NM, _mlen, _blen
 	cdef int8_t _strand, _trans_strand
 	cdef uint8_t _mapq, _is_primary
 	cdef _ctg, _cigar # these are python objects
 
-	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, blen, NM, trans_strand):
+	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, mlen, blen, NM, trans_strand):
 		self._ctg, self._ctg_len, self._r_st, self._r_en = str(ctg), cl, cs, ce
 		self._strand, self._q_st, self._q_en = strand, qs, qe
-		self._NM, self._blen = NM, blen
+		self._NM, self._mlen, self._blen = NM, mlen, blen
 		self._mapq = mapq
 		self._cigar = cigar
 		self._is_primary = is_primary
@@ -38,6 +38,12 @@ cdef class Alignment:
 
 	@property
 	def trans_strand(self): return self._trans_strand
+
+	@property
+	def blen(self): return self._blen
+
+	@property
+	def mlen(self): return self._mlen
 
 	@property
 	def NM(self): return self._NM
@@ -71,7 +77,7 @@ cdef class Alignment:
 		elif self._trans_strand < 0: ts = 'ts:A:-'
 		else: ts = 'ts:A:.'
 		return "\t".join([str(self._q_st), str(self._q_en), strand, self._ctg, str(self._ctg_len), str(self._r_st), str(self._r_en),
-				str(self._blen - self._NM), str(self._blen), str(self._mapq), tp, ts, "cg:Z:" + self.cigar_str])
+				str(self._mlen), str(self._blen), str(self._mapq), tp, ts, "cg:Z:" + self.cigar_str])
 
 cdef class ThreadBuffer:
 	cdef cmappy.mm_tbuf_t *_b
@@ -135,7 +141,7 @@ cdef class Aligner:
 			for k in range(h.n_cigar32):
 				c = h.cigar32[k]
 				cigar.append([c>>4, c&0xf])
-			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.blen, h.NM, h.trans_strand)
+			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand)
 			cmappy.mm_free_reg1(&regs[i])
 		free(regs)
 

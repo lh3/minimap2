@@ -15,17 +15,20 @@ cdef extern from "minimap.h":
 		int flag
 		int bw
 		int max_gap, max_gap_ref
+		int max_frag_len
 		int max_chain_skip
 		int min_cnt
 		int min_chain_score
 		float mask_level
 		float pri_ratio
 		int best_n
+		float min_iden
 		int max_join_long, max_join_short
 		int min_join_flank_sc
 		int a, b, q, e, q2, e2
 		int noncan
 		int zdrop
+		int end_bonus
 		int min_dp_max
 		int min_ksw_len
 		int pe_ori, pe_bonus
@@ -86,7 +89,7 @@ cdef extern from "cmappy.h":
 		const char *ctg
 		int32_t ctg_start, ctg_end
 		int32_t qry_start, qry_end
-		int32_t blen, NM, ctg_len
+		int32_t blen, mlen, NM, ctg_len
 		uint8_t mapq, is_primary
 		int8_t strand, trans_strand
 		int32_t n_cigar32

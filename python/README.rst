@@ -104,9 +104,13 @@ properties:
 
 * **mapq**: mapping quality
 
-* **NM**: number of mismatches and gaps in the alignment
-
 * **blen**: length of the alignment, including both alignment matches and gaps
+  but excluding ambiguous bases.
+
+* **mlen**: length of the matching bases in the alignment, excluding ambiguous
+  base matches.
+
+* **NM**: number of mismatches, gaps and ambiguous poistions in the alignment
 
 * **trans_strand**: transcript strand. +1 if on the forward strand; -1 if on the
   reverse strand; 0 if unknown
@@ -124,7 +128,7 @@ the following format:
 
 ::
 
-	q_st  q_en  strand  ctg  ctg_len  r_st  r_en  blen-NM  blen  mapq  cg:Z:cigar_str
+	q_st  q_en  strand  ctg  ctg_len  r_st  r_en  mlen  blen  mapq  cg:Z:cigar_str
 
 It is effectively the PAF format without the QueryName and QueryLength columns
 (the first two columns in PAF).
