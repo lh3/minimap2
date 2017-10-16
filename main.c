@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r515-dirty"
+#define MM_VERSION "2.2-r516-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -257,6 +257,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 		return 1;
 	}
+	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
+		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --print-2nd=no to suppress secondary alignments.\033[0m\n");
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
 			if (mm_idx_reader_eof(idx_rdr)) {
