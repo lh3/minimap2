@@ -107,19 +107,42 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
+	uint64_t *cov;
 	if (n <= 0) return;
 	for (i = 0; i < n; ++i) r[i].id = i;
+	cov = (uint64_t*)kmalloc(km, n * sizeof(uint64_t));
 	w = (int*)kmalloc(km, n * sizeof(int));
 	w[0] = 0, r[0].parent = 0;
 	for (i = 1, k = 1; i < n; ++i) {
 		mm_reg1_t *ri = &r[i];
-		int si = ri->qs, ei = ri->qe;
-		for (j = 0; j < k; ++j) {
+		int si = ri->qs, ei = ri->qe, n_cov = 0, uncov_len = 0;
+		for (j = 0; j < k; ++j) { // traverse existing primary hits to find overlapping hits
 			mm_reg1_t *rp = &r[w[j]];
 			int sj = rp->qs, ej = rp->qe;
-			int min = ej - sj < ei - si? ej - sj : ei - si;
-			int ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si);
-			if (ol > mask_level * min) {
+			if (ej <= si || sj >= ei) continue;
+			if (sj < si) sj = si;
+			if (ej > ei) ej = ei;
+			cov[n_cov++] = (uint64_t)sj<<32 | ej;
+		}
+		if (n_cov == 0) {
+			goto set_parent_test; // no overlapping primary hits; then i is a new primary hit
+		} else if (n_cov > 0) { // there are overlapping primary hits; find the length not covered by existing primary hits
+			int j, x = si;
+			radix_sort_64(cov, cov + n_cov);
+			for (j = 0; j < n_cov; ++j) {
+				if (cov[j]>>32 > x) uncov_len += (cov[j]>>32) - x;
+				x = (int32_t)cov[j] > x? (int32_t)cov[j] : x;
+			}
+			if (ei > x) uncov_len += ei - x;
+		}
+		for (j = 0; j < k; ++j) { // traverse existing primary hits again
+			mm_reg1_t *rp = &r[w[j]];
+			int sj = rp->qs, ej = rp->qe, min, max, ol;
+			if (ej <= si || sj >= ei) continue; // no overlap
+			min = ej - sj < ei - si? ej - sj : ei - si;
+			max = ej - sj > ei - si? ej - sj : ei - si;
+			ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si); // overlap length
+			if ((float)ol / min - (float)uncov_len / max > mask_level) {
 				int cnt_sub = 0;
 				ri->parent = rp->parent;
 				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
@@ -132,8 +155,10 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 				break;
 			}
 		}
+set_parent_test:
 		if (j == k) w[k++] = i, ri->parent = i, ri->n_sub = 0;
 	}
+	kfree(km, cov);
 	kfree(km, w);
 }
 
