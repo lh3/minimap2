@@ -58,6 +58,8 @@ typedef struct {
 	uint32_t n_diff;                    // number of differences, including ambiguous bases
 	uint32_t n_ambi:30, trans_strand:2; // number of ambiguous bases; transcript strand: 0 for unknown, 1 for +, 2 for -
 	uint32_t n_cigar;                   // number of cigar operations in cigar[]
+	float n_diff2;
+	uint32_t blen2;
 	uint32_t cigar[];
 } mm_extra_t;
 
@@ -71,7 +73,7 @@ typedef struct {
 	int32_t as;                     // offset in the a[] array (for internal uses only)
 	int32_t fuzzy_mlen, fuzzy_blen; // seeded exact match length; seeded alignment block length (approximate)
 	uint32_t mapq:8, split:2, n_sub:22; // mapQ; split pattern; number of suboptimal mappings
-	uint32_t sam_pri:1, proper_frag:1, dummy:30;
+	uint32_t sam_pri:1, proper_frag:1, iden_flt:1, pe_thru:1, dummy:29;
 	uint32_t hash;
 	mm_extra_t *p;
 } mm_reg1_t;
@@ -98,6 +100,7 @@ typedef struct {
 	float mask_level;
 	float pri_ratio;
 	int best_n;      // top best_n chains are subjected to DP alignment
+	float min_iden;
 
 	int max_join_long, max_join_short;
 	int min_join_flank_sc;

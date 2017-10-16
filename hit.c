@@ -239,6 +239,45 @@ void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *re
 	*n_regs = k;
 }
 
+void mm_filter_by_identity(void *km, int n_regs, mm_reg1_t *regs, float min_iden, int qlen, const char *qual) // TODO: make sure it is not beyond the ends of contigs
+{
+	int i, j, n_aux = 0, en, blen = 0;
+	uint64_t *aux;
+	float n_diff = 0.0f;
+	if (n_regs <= 0) return;
+	for (i = 0; i < n_regs; ++i)
+		if (regs[i].id == regs[i].parent && regs[i].pe_thru) // sequenced through the fragment; don't filter
+			return;
+	for (i = 0; i < n_regs; ++i)
+		if (regs[i].id == regs[i].parent)
+			++n_aux;
+	assert(n_aux >= 1);
+	aux = (uint64_t*)kmalloc(km, n_aux * 8);
+	for (i = 0, n_aux = 0; i < n_regs; ++i)
+		if (regs[i].id == regs[i].parent)
+			aux[n_aux++] = (uint64_t)regs[i].qs<<32 | i;
+	radix_sort_64(aux, aux + n_aux);
+	for (i = 0, en = 0; i < n_aux; ++i) {
+		mm_reg1_t *r = &regs[(int32_t)aux[i]];
+		if (r->qs > en) {
+			for (j = en; j < r->qs; ++j)
+				n_diff += qual == 0 || qual[j] >= 53? 0.5f : 0.025f * (qual[j] - 33);
+			blen += r->qs - en;
+		}
+		assert(r->p);
+		blen += r->p->blen2;
+		n_diff += r->p->n_diff2;
+		en = en > r->qe? en : r->qe;
+	}
+	for (j = en; j < qlen; ++j)
+		n_diff += qual == 0 || qual[j] >= 53? 0.5f : 0.025f * (qual[j] - 33);
+	blen += qlen - en;
+	kfree(km, aux);
+	if (1.0f - n_diff / blen < min_iden)
+		for (i = 0; i < n_regs; ++i)
+			regs[i].iden_flt = 1;
+}
+
 int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
 { // squeeze out regions in a[] that are not referenced by regs[]
 	int i, as = 0;
