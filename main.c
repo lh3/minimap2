@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r516-dirty"
+#define MM_VERSION "2.2-r517-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -38,7 +38,7 @@ static struct option long_options[] = {
 	{ "no-long-join",   no_argument,       0, 0 },
 	{ "sr",             no_argument,       0, 0 },
 	{ "frag",           optional_argument, 0, 0 },
-	{ "print-2nd",      optional_argument, 0, 0 },
+	{ "secondary",      optional_argument, 0, 0 },
 	{ "cs",             optional_argument, 0, 0 },
 	{ "end-bonus",      required_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_FRAG_MODE;
 			else opt.flag &= ~MM_F_FRAG_MODE;
-		} else if (c == 0 && long_idx == 15) { // --print-2nd
+		} else if (c == 0 && long_idx == 15) { // --secondary
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag &= ~MM_F_NO_PRINT_2ND;
 			else opt.flag |= MM_F_NO_PRINT_2ND;
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
-		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --print-2nd=no to suppress secondary alignments.\033[0m\n");
+		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
 			if (mm_idx_reader_eof(idx_rdr)) {
