@@ -36,7 +36,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->end_bonus = -1;
 	opt->min_dp_max = opt->min_chain_score * opt->a;
 	opt->min_ksw_len = 200;
-	opt->mini_batch_size = 200000000;
+	opt->mini_batch_size = 500000000;
 
 	opt->pe_ori = 0; // FF
 	opt->pe_bonus = 33;
@@ -61,12 +61,10 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->is_hpc = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
-		mo->mini_batch_size = 500000000;
 	} else if (strcmp(preset, "ava-pb") == 0) {
 		io->is_hpc = 1, io->k = 19, io->w = 5;
 		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
-		mo->mini_batch_size = 500000000;
 	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
 		io->is_hpc = 1, io->k = 19;
 	} else if (strcmp(preset, "map-ont") == 0) {

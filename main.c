@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r517-dirty"
+#define MM_VERSION "2.2-r518-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -231,7 +231,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
-		fprintf(fp_help, "    -K NUM       minibatch size for mapping [200M]\n");
+		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
@@ -240,8 +240,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "                 map-ont: -k15 (Oxford Nanopore vs reference mapping)\n");
 		fprintf(fp_help, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
 		fprintf(fp_help, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
-		fprintf(fp_help, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (PacBio read overlap)\n");
-		fprintf(fp_help, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 -K500m --max-chain-skip 25 (ONT read overlap)\n");
+		fprintf(fp_help, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 --max-chain-skip 25 (PacBio read overlap)\n");
+		fprintf(fp_help, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(fp_help, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
 		fprintf(fp_help, "                 sr: short single-end reads without splicing (see minimap2.1 for details)\n");
 		fprintf(fp_help, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");

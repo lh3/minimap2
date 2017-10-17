@@ -1,4 +1,4 @@
-.TH minimap2 1 "20 September 2017" "minimap2-2.2 (r420)" "Bioinformatics tools"
+.TH minimap2 1 "17 October 2017" "minimap2-2.2-dirty (r518)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -263,18 +263,13 @@ thread may become the bottleneck. Apply this option to use one thread for input
 and another thread for output, at the cost of increased peak RAM.
 .TP
 .BI -K \ NUM
-Number of bases loaded into memory to process in a mini-batch [200M].
+Number of bases loaded into memory to process in a mini-batch [500M].
 Similar to option
 .BR -I ,
 K/M/G/k/m/g suffix is accepted. A large
 .I NUM
 helps load balancing in the multi-threading mode, at the cost of increased
-memory. Preset
-.B ava-pb
-and
-.B ava-ont
-use
-.BR -K500m .
+memory.
 .TP
 .B --version
 Print version number to stdout
@@ -320,13 +315,13 @@ Up to 10% sequence divergence.
 .B ava-pb
 PacBio all-vs-all overlap mapping
 .RB ( -Hk19
-.B -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip
+.B -w5 -Xp0 -m100 -g10000 --max-chain-skip
 .BR 25 ).
 .TP
 .B ava-ont
 Oxford Nanopore all-vs-all overlap mapping
 .RB ( -k15
-.B -w5 -Xp0 -m100 -K500m -g10000 --max-chain-skip
+.B -w5 -Xp0 -m100 -g10000 --max-chain-skip
 .BR 25 ).
 Similarly, the major difference from
 .B ava-pb
