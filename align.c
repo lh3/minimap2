@@ -499,14 +499,15 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			if (ez->zdropped) { // truncated by Z-drop; TODO: sometimes Z-drop kicks in because the next seed placement is wrong. This can be fixed in principle.
 				for (j = i - 1; j >= 0; --j)
-					if ((int32_t)a[as1 + j].x < rs + ez->max_t)
+					if ((int32_t)a[as1 + j].x <= rs + ez->max_t)
 						break;
 				dropped = 1;
+				if (j < 0) j = 0;
 				r->p->dp_score += ez->max;
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
 				if (cnt1 - (j + 1) >= opt->min_cnt)
-					mm_split_reg(r, r2, j + 1, qlen, a);
+					mm_split_reg(r, r2, as1 + j + 1 - r->as, qlen, a);
 				break;
 			} else r->p->dp_score += ez->score;
 			rs = re, qs = qe;
