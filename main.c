@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r519-dirty"
+#define MM_VERSION "2.2-r520-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -65,7 +65,7 @@ static inline int64_t mm_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:i:";
+	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:i:L";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx, max_gap_ref = 0;
@@ -108,6 +108,7 @@ int main(int argc, char *argv[])
 		else if (c == 'X') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
+		else if (c == 'L') opt.flag |= MM_F_LONG_CIGAR;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
 		else if (c == 'm') opt.min_chain_score = atoi(optarg);
@@ -206,7 +207,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
-		fprintf(fp_help, "    -G NUM       max reference skip length [-xsplice:200k]\n");
+		fprintf(fp_help, "    -G NUM       max reference skip/intron length [-xsplice:200k]\n");
 		fprintf(fp_help, "    -F NUM       max fragment length in the fragment mode [-xsr:800]\n");
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
 		fprintf(fp_help, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
@@ -227,6 +228,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Input/Output:\n");
 		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(fp_help, "    -Q           don't output base quality in SAM\n");
+		fprintf(fp_help, "    -L           write CIGAR with >65535 ops in the CG tag (compatible with future tools)\n");
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
