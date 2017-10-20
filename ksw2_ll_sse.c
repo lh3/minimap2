@@ -122,7 +122,7 @@ int ksw_ll_i16(void *q_, int tlen, const uint8_t *target, int _gapo, int _gape, 
 			f = _mm_max_epi16(f, h);
 			h = _mm_load_si128(H0 + j);
 		}
-		for (k = 0; LIKELY(k < 16); ++k) {
+		for (k = 0; LIKELY(k < 8); ++k) {
 			f = _mm_slli_si128(f, 2);
 			for (j = 0; LIKELY(j < slen); ++j) {
 				h = _mm_load_si128(H1 + j);
