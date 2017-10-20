@@ -85,7 +85,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 24, mo->e2 = 1;
 		mo->zdrop = 100;
-		mo->end_bonus = 15;
+		mo->end_bonus = 10;
 		mo->max_frag_len = 800;
 		mo->max_gap = 100;
 		mo->bw = 100;

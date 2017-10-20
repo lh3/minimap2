@@ -286,7 +286,7 @@ void mm_filter_by_identity(void *km, int n_regs, mm_reg1_t *regs, float min_iden
 		mm_reg1_t *r = &regs[(int32_t)aux[i]];
 		if (r->qs > en) {
 			for (j = en; j < r->qs; ++j)
-				n_diff += qual == 0 || qual[j] >= 53? 0.5f : 0.025f * (qual[j] - 33);
+				n_diff += qual == 0 || qual[j] >= 53? .25f : .05f * .25f * (qual[j] - 33);
 			blen += r->qs - en;
 		}
 		assert(r->p);
@@ -295,7 +295,7 @@ void mm_filter_by_identity(void *km, int n_regs, mm_reg1_t *regs, float min_iden
 		en = en > r->qe? en : r->qe;
 	}
 	for (j = en; j < qlen; ++j)
-		n_diff += qual == 0 || qual[j] >= 53? 0.5f : 0.025f * (qual[j] - 33);
+		n_diff += qual == 0 || qual[j] >= 53? .25f : .05f * .25f * (qual[j] - 33);
 	blen += qlen - en;
 	kfree(km, aux);
 	if (1.0f - n_diff / blen < min_iden)
