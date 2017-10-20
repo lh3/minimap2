@@ -20,22 +20,30 @@
 \begin{document}
 \firstpage{1}
 
-\title[Aligning long nucleotide sequences with minimap2]{Minimap2: fast pairwise alignment for long nucleotide sequences}
+\title[Aligning nucleotide sequences with minimap2]{Minimap2: versatile pairwise alignment for nucleotide sequences}
 \author[Li]{Heng Li}
 \address{Broad Institute, 415 Main Street, Cambridge, MA 02142, USA}
 
 \maketitle
 
 \begin{abstract}
-\section{Summary:} Minimap2 is a general-purpose mapper to align long noisy DNA
-or mRNA sequences against a large reference database. It targets query
-sequences of 1kb--100Mb in length with per-base divergence typically below
-25\%. For DNA sequence reads, minimap2 is $\sim$30 times faster than many
-mainstream long-read aligners and achieves higher accuracy on simulated data.
-It also employs concave gap cost and rescues inversions for improved alignment
-around potential structural variations. For real long RNA-seq reads, minimap2
-is $\sim$40 times faster than peers and produces alignment more consistent with
-existing gene annotations.
+
+\section{Motivation:} Recent advances in sequencing technologies promise
+ultra-long reads of $\sim$100 kilo bases (kb) in average, full-length mRNA or
+cDNA reads in high throughput and genomic contigs over 100 mega bases (Mb) in
+length. Existing alignment tools are unable or inefficient to process such data
+at scale, which presses for the development of new alignment algorithms.
+
+\section{Results:} Minimap2 is a general-purpose aligner to map DNA or long
+mRNA sequences against a large reference database. It works with accurate short
+reads of $\ge$100bp in length, $\ge$1kb genomic reads at error rate $\sim$15\%,
+full-length noisy Direct RNA or cDNA reads, and assembly contigs or closely
+related full chromosomes of hundreds of megabases in length. Minimap2 does
+split-read alignment, employs concave gap cost for long insertions and
+deletions (INDELs) and introduces new heuristics to reduce spurious alignments.
+It is 3--4 times faster than mainstream short-read mappers at comparable
+accuracy and $\ge$30 times faster at higher accuracy for both genomic and mRNA
+reads, surpassing most aligners specialized in one type of alignment.
 
 \section{Availability and implementation:}
 \href{https://github.com/lh3/minimap2}{https://github.com/lh3/minimap2}
@@ -126,7 +134,7 @@ find its predecessor and mark each visited $i$ as `used', until $P(i)=0$ or we
 reach an already `used' $i$. This way we find all chains with no anchors used
 in more than one chains.
 
-\subsubsection{Identifying primary chains}
+\subsubsection{Identifying primary chains}\label{sec:primary}
 In the absence of copy number changes, each query segment should not be mapped
 to two places in the reference. However, chains found at the previous step may
 have significant or complete overlaps due to repeats in the reference.
@@ -139,7 +147,7 @@ add the chain to $Q$. In the end, $Q$ contains all the primary chains. We did
 not choose a more sophisticated data structure (e.g. range tree or k-d tree)
 because this step is not the performance bottleneck.
 
-\subsection{Aligning genomic DNA}
+\subsection{Aligning genomic DNA}\label{sec:genomic}
 
 \subsubsection{Alignment with 2-piece affine gap cost}
 
@@ -352,28 +360,41 @@ minimizers and disables banded alignment. Together with the two-round DP-based
 alignment, spliced alignment is several times slower than DNA sequence
 alignment.
 
+\subsection{Aligning short paired-end reads}
+
+During chainging, minimap2 takes a pair of reads as one read with a gap of
+unknown length in the middle. It does not break a chain if there is a long
+reference gap between seeds on different reads. After identifying primary
+chains (Section~\ref{sec:primary}), we split each fragment chain into two read
+chains and perform alignment for each read as in Section~\ref{sec:genomic}.
+Finally, we pair hits of each read end to find consistent paired-end
+alignments.
+
 \end{methods}
 
 \section{Results}
 
-\subsection{Aligning genomic reads}
+\subsection{Aligning long genomic reads}
 
 \begin{figure}[!tb]
 \centering
 \includegraphics[width=.5\textwidth]{roc-color.pdf}
-\caption{Evaluation on simulated SMRT reads aligned against human genome
-GRCh38.  33,088 $\ge$1000bp reads were simulated using pbsim~\citep{Ono:2013aa}
-with error profile sampled from file `m131017\_060208\_42213\_*.1.*' downloaded
-at \href{http://bit.ly/chm1p5c3}{http://bit.ly/chm1p5c3}. The N50 read length
-is 11,628. A read is considered correctly mapped if the true position overlaps
-with the best mapping position by 10\% of the read length. All aligners were
-run under the default setting for SMRT reads.  (a) ROC-like curve. Alignments
-are sorted by mapping quality in the descending order. For each mapping quality
-threshold, the fraction of alignments with mapping quality above the threshold
-and their error rate are plotted.  Kart outputted all alignments at mapping
-quality 60, so is not shown in the figure. It mapped nearly all reads with
-4.1\% of alignments being wrong, less accurate than others.  (b) Accumulative
-mapping error rate as a function of mapping quality.}\label{fig:eval}
+\caption{Evaluation on aligning simulated reads. Simulated reads were mapped 
+to the primary assembly of human genome GRCh38. A read is considered correctly
+mapped if the true position overlaps with the best mapping position by 10\% of
+the read length. Read alignments are sorted by mapping quality in the
+descending order. For each mapping quality threshold, the fraction of
+alignments with mapping quality above the threshold and their error rate are
+plotted along the curve. (a) long-read alignment evaluation. 33,088 $\ge$1000bp
+reads were simulated using pbsim~\citep{Ono:2013aa} with error profile sampled
+from file `m131017\_060208\_42213\_*.1.*' downloaded at
+\href{http://bit.ly/chm1p5c3}{http://bit.ly/chm1p5c3}. The N50 read length is
+11,628. Aligners were run under the default setting for SMRT reads.
+(b) short-read alignment evaluation. 10 million pairs of 150bp reads were
+simulated using mason2~\citep{Holtgrewe:2010aa} with option
+`\mbox{--illumina-prob-mismatch-scale 2.5}'. Short-read aligners were run under the
+default setting except for changing the maximum fragment length to
+800bp.}\label{fig:eval}
 \end{figure}
 
 As a sanity check, we evaluated minimap2 on simulated human reads along with
@@ -390,7 +411,7 @@ higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
 even if we skip DP-based alignment (data not shown), confirming chaining alone
 is sufficient to achieve high accuracy for approximate mapping. Minimap2 and
 NGMLR provide better mapping quality estimate: they rarely give repetitive hits
-high mapping quality (Fig.~\ref{fig:eval}b).  Apparently, other aligners may
+high mapping quality.  Apparently, other aligners may
 occasionally miss close suboptimal hits and be overconfident in wrong mappings.
 On run time, minialign is slightly faster than minimap2 and Kart. They are over
 30 times faster than the rest.  Minimap2 consumed 6.1GB memory at the peak,
@@ -406,7 +427,7 @@ confirm the observation by~\citet{Sedlazeck169557} that BWA-MEM often breaks
 them into shorter gaps. The issue is much alleviated with minimap2, thanks
 to the 2-piece affine gap cost.
 
-\subsection{Aligning spliced reads}
+\subsection{Aligning long spliced reads}
 
 We evaluated minimap2 on SIRV control data~(AC:SRR5286959;
 \citealp{Byrne:2017aa}) where the truth is known. Minimap2 predicted 59\,916
@@ -427,15 +448,15 @@ sophisticated models. We have not tried this approach.
 \toprule
 & GMAP & minimap2 & SpAln & STAR\\
 \midrule
-Run time (CPU min) & 631 & 15.5 & 2\,076 & 33.9 \\
-Peak RAM (GByte) & 8.9 & 14.5 & 3.2 & 29.2\vspace{1em}\\
-\# aligned reads & 103\,669 & 103\,917 & 103\,711 & 26\,479\\
-\# chimeric alignments & 1\,904 & 1\,671 & 0 & 0\\
-\# non-spliced alignments & 15\,854 & 14\,483 & 17\,033 & 10\,545\vspace{1em}\\
-\# aligned introns & 692\,275 & 694\,237 & 692\,945 & 78\,603 \\
-\# novel introns & 11\,239 & 3\,217 & 8\,550 & 1\,214 \\
-\% exact introns & 83.8\% & 91.8\% & 87.9\% & 55.2\% \\
-\% approx. introns & 91.8\% & 96.5\% & 92.5\% & 82.4\% \\
+Run time (CPU min)        & 631      & 15.9     & 2\,076   & 33.9 \\
+Peak RAM (GByte)          & 8.9      & 14.5     & 3.2      & 29.2\vspace{1em}\\
+\# aligned reads          & 103\,669 & 104\,200 & 103\,711 & 26\,479 \\
+\# chimeric alignments    & 1\,904   & 1\,488   & 0        & 0 \\
+\# non-spliced alignments & 15\,854  & 14\,639  & 17\,033  & 10\,545\vspace{1em}\\
+\# aligned introns        & 692\,275 & 694\,103 & 692\,945 & 78\,603 \\
+\# novel introns          & 11\,239  & 3\,207   & 8\,550   & 1\,214 \\
+\% exact introns          & 83.8\%   & 91.7\%   & 87.9\%   & 55.2\% \\
+\% approx. introns        & 91.8\%   & 96.5\%   & 92.5\%   & 82.4\% \\
 \botrule
 \end{tabular}
 }{Mouse reads (AC:SRR5286960) were mapped to the primary assembly of mouse
@@ -485,6 +506,13 @@ able to improve their accuracy further.
 %}{}
 %\end{table}
 
+\subsection{Aligning short genomic reads}
+
+We evaluated minimap2 along with Bowtie2~\citep{Langmead:2012fk}, BWA-MEM and
+SNAP~\citep{Zaharia:2011aa}. Minimap2 is 3--4 times as fast as Bowtie2 and
+BWA-MEM, but is 1.3 times slower than SNAP. Minimap2 is more accurate on this
+simulated data set than Bowtie2 and SNAP but less accurate than BWA-MEM
+(Fig.~\ref{fig:eval}b).
 
 \section{Conclusion}
 
