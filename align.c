@@ -400,6 +400,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		// compute rs0 and qs0
 		rs0 = (int32_t)a[r->as].x + 1 - (int32_t)(a[r->as].y>>32&0xff);
 		qs0 = (int32_t)a[r->as].y + 1 - (int32_t)(a[r->as].y>>32&0xff);
+		if (rs0 < 0) rs0 = 0; // this may happen when HPC is in use
+		assert(qs0 >= 0); // this should never happen, or it is logic error
 		rs1 = qs1 = 0;
 		for (i = r->as - 1, l = 0; i >= 0 && a[i].x>>32 == a[r->as].x>>32; --i) { // inspect nearby seeds
 			int32_t x = (int32_t)a[i].x + 1 - (int32_t)(a[i].y>>32&0xff);
