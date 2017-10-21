@@ -40,19 +40,20 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	// fill the score and backtrack arrays
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
+		int64_t max_j = -1;
 		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
-		int32_t max_f = q_span, max_j = -1, n_skip = 0, min_d, max_f_past = -INT32_MAX;
+		int32_t max_f = q_span, n_skip = 0, min_d;
 		int32_t sidi = (a[i].y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
 		while (st < i && ri - a[st].x > max_dist_x) ++st;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
 			int32_t dq = qi - (int32_t)a[j].y, dd, sc, log_dd;
 			int32_t sidj = (a[j].y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
-			if (dr == 0 || dq <= 0 || dq > max_dist_y) continue;
+			if (dr == 0 || dq <= 0) continue;
+			if ((sidi == sidj && dq > max_dist_y) || dq > max_dist_x) continue;
 			dd = dr > dq? dr - dq : dq - dr;
 			if (sidi == sidj && dd > bw) continue;
 			if (n_segs > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) continue;
-			max_f_past = max_f_past > f[j]? max_f_past : f[j];
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
 			log_dd = dd? ilog2_32(dd) : 0;
@@ -60,7 +61,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 				int c_log, c_lin;
 				c_lin = (int)(dd * .01 * avg_qspan);
 				c_log = log_dd;
-				if (dr > dq) sc -= c_lin < c_log? c_lin : c_log;
+				if (dr > dq || sidi != sidj) sc -= c_lin < c_log? c_lin : c_log;
 				else sc -= c_lin + (c_log>>1);
 			} else sc -= (int)(dd * .01 * avg_qspan) + (log_dd>>1);
 			sc += f[j];
@@ -74,7 +75,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 			if (p[j] >= 0) t[p[j]] = i;
 		}
 		f[i] = max_f, p[i] = max_j;
-		v[i] = max_f_past > max_f? max_f_past : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
+		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 	}
 
 	// find the ending positions of chains
