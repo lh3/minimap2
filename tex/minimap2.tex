@@ -68,7 +68,7 @@ approximate mapping 50 times faster than BWA-MEM~\citep{Li:2016aa}.
 generating base-level alignment, which in turn inspired us to develop minimap2
 towards higher accuracy and more practical functionality.
 
-Both SMRT and ONT have been applied to sequence spliced mRNAs (RNA-seq). While
+Both SMRT and ONT have been applied to the sequencing of spliced mRNAs (RNA-seq). While
 traditional mRNA aligners work~\citep{Wu:2005vn,Iwata:2012aa}, they are not
 optimized for long noisy sequence reads and are tens of times slower than
 dedicated long-read aligners. When developing minimap2 initially for aligning
@@ -111,8 +111,11 @@ distance between two anchors is too large); otherwise
 \begin{equation}\label{eq:chain-gap}
 \beta(j,i)=\gamma_c\big((y_i-y_j)-(x_i-x_j)\big)
 \end{equation}
-In implementation, a gap of length $l$ costs $\gamma_c(l)=0.01\cdot \bar{w}\cdot
-|l|+0.5\log_2|l|$, where $\bar{w}$ is the average seed length. For $m$ anchors, directly computing all $f(\cdot)$ with
+In implementation, a gap of length $l$ costs
+\[
+\gamma_c(l)=0.01\cdot \bar{w}\cdot|l|+0.5\log_2|l|
+\]
+where $\bar{w}$ is the average seed length. For $m$ anchors, directly computing all $f(\cdot)$ with
 Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. Although theoretically faster
 chaining algorithms exist~\citep{Abouelhoda:2005aa}, they
 are inapplicable to generic gap cost, complex to implement and usually
@@ -363,12 +366,19 @@ alignment.
 \subsection{Aligning short paired-end reads}
 
 During chainging, minimap2 takes a pair of reads as one read with a gap of
-unknown length in the middle. It does not break a chain if there is a long
-reference gap between seeds on different reads. After identifying primary
-chains (Section~\ref{sec:primary}), we split each fragment chain into two read
-chains and perform alignment for each read as in Section~\ref{sec:genomic}.
-Finally, we pair hits of each read end to find consistent paired-end
-alignments.
+unknown length in the middle. It applies a normal gap cost between seeds on the
+same read but is a more permissive gap cost between seeds on different reads.
+More precisely, the gap cost during chaining is:
+\[
+\gamma_c(l)=\left\{\begin{array}{ll}
+0.01\cdot\bar{w}\cdot l+0.5\log_2 l & \mbox{if two seeds on the same read} \\
+\min\{0.01\cdot\bar{w}\cdot|l|,\log_2|l|\} & \mbox{otherwise}
+\end{array}\right.
+\]
+After identifying primary chains (Section~\ref{sec:primary}), we split each
+fragment chain into two read chains and perform alignment for each read as in
+Section~\ref{sec:genomic}.  Finally, we pair hits of each read end to find
+consistent paired-end alignments.
 
 \end{methods}
 
