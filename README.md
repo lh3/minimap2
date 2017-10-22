@@ -34,7 +34,7 @@ man ./minimap2.1
     - [Map short accurate genomic reads](#short-genomic)
     - [Full genome/assembly alignment](#full-genome)
   - [Advanced features](#advanced)
-    - [Working CIGARs with >65535 operations in BAM](#long-cigar)
+    - [Working CIGARs with >65535 operations](#long-cigar)
     - [The cs optional tag](#cs)
     - [Evaluation scripts](#eval)
   - [Algorithm overview](#algo)
@@ -179,13 +179,14 @@ according to the sequence divergence.
 
 ### <a name="advanced"></a>Advanced features
 
-#### <a name="long-cigar"></a>Working CIGARs with >65535 operations in BAM
+#### <a name="long-cigar"></a>Working CIGARs with >65535 operations
 
-At present, BAM does not work with CIGAR strings with >65535 operations.
-However, aligning ultra-long nanopore reads with minimap2 may align ~1% of read
-bases with long CIGARs beyond the capability of BAM. If you convert such SAM to
-BAM, recent samtools will throw an error and abort. Older samtools and other
-tools may even silently create corrupted and unreadable BAMs.
+Due to a design flaw, BAM does not work with CIGAR strings with >65535
+operations (SAM and CRAM work). However, for ultra-long nanopore reads minimap2
+may align ~1% of read bases with long CIGARs beyond the capability of BAM. If
+you convert such SAM/CRAM to BAM, recent samtools will throw an error and
+abort.  Older samtools and other tools may even silently create corrupted and
+unreadable BAMs.
 
 To avoid this issue, you can add option `-L` at the minimap2 command line.
 This option moves a long CIGAR to the `CG` tag and leaves a fully clipped CIGAR
