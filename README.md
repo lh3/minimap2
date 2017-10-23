@@ -66,9 +66,9 @@ Detailed evaluations are available from the [minimap2 preprint][preprint].
 Minimap2 only works on x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-wget --no-check-certificate -O- https://github.com/lh3/minimap2/releases/download/v2.2/minimap2-2.2_x64-linux.tar.bz2 \
+wget --no-check-certificate -O- https://github.com/lh3/minimap2/releases/download/v2.3/minimap2-2.3_x64-linux.tar.bz2 \
   | tar -jxvf -
-./minimap2-2.2_x64-linux/minimap2
+./minimap2-2.3_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
