@@ -1,3 +1,37 @@
+Release 2.3-r531 (22 October 2017)
+----------------------------------
+
+This release come with many improvements and bug fixes:
+
+ * The **sr** preset now supports paired-end short-read alignment. Minimap2 is
+   3-4 times as fast as BWA-MEM, but is slightly less accurate on simulated
+   reads.
+
+ * Meticulous improvements to assembly-to-assembly alignment (special thanks to
+   Alexey Gurevich from the QUAST team): a) apply a small penalty to matches
+   between ambiguous bases; b) reduce missing alignments due to spurious
+   overlaps; c) introduce the short form of the `cs` tag, an improvement to the
+   SAM MD tag.
+
+ * Make sure gaps are always left-aligned.
+
+ * Recognize `U` bases from Oxford Nanopore Direct RNA-seq (#33).
+
+ * Fixed slightly wrong chaining score. Fixed slightly inaccurate coordinates
+   for split alignment.
+
+ * Fixed multiple reported bugs: 1) wrong reference name for inversion
+   alignment (#30); 2) redundant SQ lines when multiple query files are
+   specified (#39); 3) non-functioning option `-K` (#36).
+
+This release has implemented all the major features I planned five months ago,
+with the addition of spliced long-read alignment. The next couple of releases
+will focus on fine tuning of base algorithms.
+
+(2.3: 22 October 2017, r531)
+
+
+
 Release 2.2-r409 (17 September 2017)
 ------------------------------------
 

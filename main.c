@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.2-r526-dirty"
+#define MM_VERSION "2.3-r531"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
 	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:i:L";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, long_idx, max_gap_ref = 0;
+	int i, c, n_threads = 3, long_idx;
 	char *fnw = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(optarg);
 		else if (c == 'v') mm_verbose = atoi(optarg);
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(optarg);
-		else if (c == 'G') max_gap_ref = (int)mm_parse_num(optarg);
+		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(optarg));
 		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(optarg);
 		else if (c == 'i') opt.min_iden = atof(optarg);
 		else if (c == 'N') opt.best_n = atoi(optarg);
@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
 			else if (*optarg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR; // match CT-AC (reverse complement of GT-AG)
 			else if (*optarg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV); // don't try to match the GT-AG signal
 			else {
-				fprintf(stderr, "[E::%s] unrecognized cDNA direction\n", __func__);
+				fprintf(stderr, "[ERROR]\033[1;31m unrecognized cDNA direction\033[0m\n");
 				return 1;
 			}
 		} else if (c == 'O') {
@@ -185,14 +185,9 @@ int main(int argc, char *argv[])
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		}
 	}
-	if (max_gap_ref > 0) {
-		opt.max_gap_ref = max_gap_ref;
-		if (opt.flag & MM_F_SPLICE) opt.bw = max_gap_ref; // in the splice mode, this also changes the bandwidth
-	}
-	if ((opt.flag & MM_F_OUT_SAM) && (opt.flag & MM_F_OUT_CS_LONG)) {
-		opt.flag &= ~MM_F_OUT_CS_LONG;
-		if (mm_verbose >= 2)
-			fprintf(stderr, "[WARNING]\033[1;31m in SAM, only the short form of the cs tag is outputted.\033[0m\n");
+	if ((opt.flag & MM_F_SPLICE) && (opt.flag & MM_F_FRAG_MODE)) {
+		fprintf(stderr, "[ERROR]\033[1;31m --splice and --frag should not be specified at the same time.\033[0m\n");
+		return 1;
 	}
 
 	if (argc == optind || fp_help == stdout) {
@@ -207,8 +202,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
 		fprintf(fp_help, "    -g NUM       stop chain enlongation if there are no minimizers in INT-bp [%d]\n", opt.max_gap);
-		fprintf(fp_help, "    -G NUM       max reference skip/intron length [-xsplice:200k]\n");
-		fprintf(fp_help, "    -F NUM       max fragment length in the fragment mode [-xsr:800]\n");
+		fprintf(fp_help, "    -G NUM       max intron length (effective with -xsplice; changing -r) [200k]\n");
+		fprintf(fp_help, "    -F NUM       max fragment length (effective with -xsr or in the fragment mode) [800]\n");
 		fprintf(fp_help, "    -r NUM       bandwidth used in chaining and DP-based alignment [%d]\n", opt.bw);
 		fprintf(fp_help, "    -n INT       minimal number of minimizers on a chain [%d]\n", opt.min_cnt);
 		fprintf(fp_help, "    -m INT       minimal chaining score (matching bases minus log gap penalty) [%d]\n", opt.min_chain_score);
@@ -228,7 +223,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "  Input/Output:\n");
 		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(fp_help, "    -Q           don't output base quality in SAM\n");
-		fprintf(fp_help, "    -L           write CIGAR with >65535 ops in the CG tag (compatible with future tools)\n");
+		fprintf(fp_help, "    -L           write CIGAR with >65535 ops at the CG tag\n");
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");

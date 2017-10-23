@@ -1,4 +1,4 @@
-.TH minimap2 1 "17 October 2017" "minimap2-2.2-dirty (r518)" "Bioinformatics tools"
+.TH minimap2 1 "22 October 2017" "minimap2-2.2-dirty (r531)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -126,7 +126,7 @@ Stop chain enlongation if there are no minimizers in
 [10000].
 .TP
 .BI -r \ INT
-Bandwidth used in chaining and DP-based alignment [1000]. This option
+Bandwidth used in chaining and DP-based alignment [500]. This option
 approximately controls the maximum gap size.
 .TP
 .BI -n \ INT
@@ -148,7 +148,7 @@ diagonal minimizer hits will also be suppressed.
 .TP
 .BI -p \ FLOAT
 Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
-Between two chains overlaping over half of the shorter chain (controled by
+Between two chains overlaping over half of the shorter chain (controlled by
 .BR --mask-level ),
 the chain with a lower score is secondary to the chain with a higher score.
 If the ratio of the scores is below
@@ -163,10 +163,16 @@ secondary alignments [5]. This option has no effect when
 is applied.
 .TP
 .BI -G \ NUM
-Maximal intron length in the splice mode [200k]. This option also changes the
-bandwidth to
+Maximum gap on the reference (effective with
+.BR -xsplice / --splice ).
+This option also changes the chaining and alignment band width to
 .IR NUM .
-Increasing this option slows down spliced alignment.
+Increasing this option slows down spliced alignment. [200k]
+.TP
+.BI -F \ NUM
+Maximum fragment length (aka insert size; effective with
+.BR -xsr / --frag)
+[800]
 .TP
 .BI --max-chain-skip \ INT
 A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
@@ -175,6 +181,23 @@ option makes minimap2 exits the inner loop if it repeatedly sees seeds already
 on chains. Set
 .I INT
 to a large number to switch off this heurstics.
+.TP
+.B --no-long-join
+Disable the long gap patching heuristic. When this option is applied, the
+maximum alignment gap is mostly controlled by
+.BR -r .
+.TP
+.B --splice
+Enable the splice alignment mode.
+.TP
+.B --sr
+Enable short-read alignment heuristics. In the short-read mode, minimap2
+applies a second round of chaining with a higher minimizer occurrence threshold
+if no good chain is found. In addition, minimap2 attempts to patch gaps between
+seeds with ungapped alignment.
+.TP
+.BR --frag [= no | yes ]
+Whether to enable the fragment mode [no]
 .SS Alignment options
 .TP 10
 .BI -A \ INT
@@ -194,6 +217,7 @@ Gap extension penalty [2,1]. A gap of length
 .I k
 costs
 .RI min{ O1 + k * E1 , O2 + k * E2 }.
+In the splice mode, the second gap penalties are not used.
 .TP
 .BI -z \ INT
 Break an alignment if the running score drops too quickly along the diagonal of
@@ -217,6 +241,9 @@ no attempt to match GT-AG [n]
 .TP
 .BI --cost-non-gt-ag \ INT
 Cost of non-canonical splicing sites [0].
+.TP
+.BI --end-bonus \ INT
+Score bonus when alignment extends to the end of the query sequence [10].
 .SS Input/output options
 .TP 10
 .B -a
@@ -226,9 +253,15 @@ by default.
 .B -Q
 Ignore base quality in the input file.
 .TP
+.B -L
+Write CIGAR with >65535 operators at the CG tag. Older tools are unable to
+convert alignments with >65535 CIGAR ops to BAM. This option makes minimap2 SAM
+compatible with older tools. Newer tools recognizes this tag and reconstruct
+the real CIGAR in memory.
+.TP
 .BI -R \ STR
 SAM read group line in a format like
-.B @RG\\\\tID:foo\\\\tSM:bar
+.RB @RG\\\\tID:foo\\\\tSM:bar
 [].
 .TP
 .B -c
@@ -248,6 +281,11 @@ If no
 is given,
 .I short
 is assumed. [none]
+.TP
+.BI --seed \ INT
+Integer seed for randomizing equally best hits. Minimap2 hashes
+.I INT
+and read name when choosing between equally best hits. [11]
 .TP
 .BI -t \ INT
 Number of threads [3]. Minimap2 uses at most three threads when indexing target
@@ -270,6 +308,9 @@ K/M/G/k/m/g suffix is accepted. A large
 .I NUM
 helps load balancing in the multi-threading mode, at the cost of increased
 memory.
+.TP
+.BR --secondary [= yes | no ]
+Whether to output secondary alignments [yes]
 .TP
 .B --version
 Print version number to stdout
@@ -343,9 +384,9 @@ tag ignores introns to demote hits to pseudogenes.
 .B sr
 Short single-end reads without splicing
 .RB ( -k21
-.B -w11 -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20 -s40 -g200
-.B -2K50m --frag
-.BR --sr ).
+.B -w11 --sr --frag -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20
+.B -s40 -g200 -2K50m
+.BR --secondary=no ).
 .RE
 .SS Miscellaneous options
 .TP 10
@@ -358,7 +399,7 @@ multi-threading mode.
 .B --print-qname
 Print query names to stderr, mostly to see which query is crashing minimap2.
 .TP
-.B --print-seed
+.B --print-seeds
 Print seed positions to stderr, for debugging only.
 .SH OUTPUT FORMAT
 .PP

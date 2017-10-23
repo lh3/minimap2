@@ -161,6 +161,8 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo);
  */
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi);
 
+void mm_mapopt_max_intron_len(mm_mapopt_t *opt, int max_intron_len);
+
 /**
  * Initialize an index reader
  *

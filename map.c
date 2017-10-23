@@ -52,6 +52,12 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
 }
 
+void mm_mapopt_max_intron_len(mm_mapopt_t *opt, int max_intron_len)
+{
+	if ((opt->flag & MM_F_SPLICE) && max_intron_len > 0)
+		opt->max_gap_ref = opt->bw = max_intron_len;
+}
+
 int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 {
 	if (preset == 0) {

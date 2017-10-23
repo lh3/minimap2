@@ -1,4 +1,4 @@
-[![Release](https://img.shields.io/badge/Release-v2.2-blue.svg?style=flat)](https://github.com/lh3/minimap2/releases)
+[![Release](https://img.shields.io/badge/Release-v2.3-blue.svg?style=flat)](https://github.com/lh3/minimap2/releases)
 [![BioConda](https://img.shields.io/conda/vn/bioconda/minimap2.svg?style=flat)](https://anaconda.org/bioconda/minimap2)
 [![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
 [![Python Version](https://img.shields.io/pypi/pyversions/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
