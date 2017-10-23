@@ -22,6 +22,7 @@
 #define MM_F_NO_PRINT_2ND  0x4000
 #define MM_F_2_IO_THREADS  0x8000
 #define MM_F_LONG_CIGAR    0x10000
+#define MM_F_INDEPEND_SEG  0x20000
 
 #define MM_IDX_MAGIC   "MMI\2"
 

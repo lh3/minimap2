@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.3-r531"
+#define MM_VERSION "2.3-r533-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -41,6 +41,7 @@ static struct option long_options[] = {
 	{ "secondary",      optional_argument, 0, 0 },
 	{ "cs",             optional_argument, 0, 0 },
 	{ "end-bonus",      required_argument, 0, 0 },
+	{ "no-pairing",     no_argument,       0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -135,6 +136,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
 		else if (c == 0 && long_idx ==17) opt.end_bonus = atoi(optarg); // --end-bonus
+		else if (c == 0 && long_idx ==18) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
 		else if (c == 0 && long_idx == 14) { // --frag
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_FRAG_MODE;

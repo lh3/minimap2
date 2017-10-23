@@ -414,7 +414,12 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		qseqs[j] = s->seq[off + j].seq;
 		quals[j] = is_sr? s->seq[off + j].qual : 0;
 	}
-	mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, quals, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+	if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
+		for (j = 0; j < s->n_seg[i]; ++j)
+			mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &quals[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
+	} else {
+		mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, quals, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+	}
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
 			int k, t;
