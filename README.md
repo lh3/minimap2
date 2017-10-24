@@ -34,7 +34,7 @@ man ./minimap2.1
     - [Map short accurate genomic reads](#short-genomic)
     - [Full genome/assembly alignment](#full-genome)
   - [Advanced features](#advanced)
-    - [Working CIGARs with >65535 operations](#long-cigar)
+    - [Working with >65535 CIGAR operations](#long-cigar)
     - [The cs optional tag](#cs)
     - [Evaluation scripts](#eval)
   - [Algorithm overview](#algo)
@@ -179,7 +179,7 @@ according to the sequence divergence.
 
 ### <a name="advanced"></a>Advanced features
 
-#### <a name="long-cigar"></a>Working CIGARs with >65535 operations
+#### <a name="long-cigar"></a>Working with >65535 CIGAR operations
 
 Due to a design flaw, BAM does not work with CIGAR strings with >65535
 operations (SAM and CRAM work). However, for ultra-long nanopore reads minimap2
