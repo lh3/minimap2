@@ -267,7 +267,6 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				mm_idx_seq_t *seq = &p->mi->seq[p->mi->n_seq];
 				uint32_t j;
 				if (p->keep_name) {
-					assert(strlen(s->seq[i].name) <= 254); // a long query name breaks BAM
 					seq->name = (char*)kmalloc(p->mi->km, strlen(s->seq[i].name) + 1);
 					strcpy(seq->name, s->seq[i].name);
 				} else seq->name = 0;
