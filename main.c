@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.3-r536-dirty"
+#define MM_VERSION "2.3-r537-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -34,7 +34,7 @@ static struct option long_options[] = {
 	{ "min-dp-len",     required_argument, 0, 0 },
 	{ "print-aln-seq",  no_argument,       0, 0 },
 	{ "splice",         no_argument,       0, 0 },
-	{ "cost-non-gt-ag", required_argument, 0, 0 },
+	{ "cost-non-gt-ag", required_argument, 0, 'C' },
 	{ "no-long-join",   no_argument,       0, 0 },
 	{ "sr",             no_argument,       0, 0 },
 	{ "frag",           optional_argument, 0, 0 },
@@ -42,6 +42,7 @@ static struct option long_options[] = {
 	{ "cs",             optional_argument, 0, 0 },
 	{ "end-bonus",      required_argument, 0, 0 },
 	{ "no-pairing",     no_argument,       0, 0 },
+	{ "splice-flank",   optional_argument, 0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -66,7 +67,7 @@ static inline int64_t mm_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:i:L";
+	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:i:LC:";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx;
@@ -117,6 +118,7 @@ int main(int argc, char *argv[])
 		else if (c == 'B') opt.b = atoi(optarg);
 		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
+		else if (c == 'C') opt.noncan = atoi(optarg);
 		else if (c == 'I') ipt.batch_size = mm_parse_num(optarg);
 		else if (c == 'K') opt.mini_batch_size = (int)mm_parse_num(optarg);
 		else if (c == 'R') rg = optarg;
@@ -132,7 +134,6 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(optarg); // --min-dp-len
 		else if (c == 0 && long_idx == 9) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ; // --print-aln-seq
 		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
-		else if (c == 0 && long_idx ==11) opt.noncan = atoi(optarg); // --cost-non-gt-ag
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
 		else if (c == 0 && long_idx ==17) opt.end_bonus = atoi(optarg); // --end-bonus
@@ -156,6 +157,10 @@ int main(int argc, char *argv[])
 			} else if (mm_verbose >= 2) {
 				fprintf(stderr, "[WARNING]\033[1;31m --cs only takes 'short' or 'long'. Invalid values are assumed to be 'short'.\033[0m\n");
 			}
+		} else if (c == 0 && long_idx == 19) { // --splice-flank
+			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
+				opt.flag |= MM_F_SPLICE_FLANK;
+			else opt.flag &= ~MM_F_SPLICE_FLANK;
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)

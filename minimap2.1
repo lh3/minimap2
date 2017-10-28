@@ -1,4 +1,4 @@
-.TH minimap2 1 "22 October 2017" "minimap2-2.2-dirty (r531)" "Bioinformatics tools"
+.TH minimap2 1 "27 October 2017" "minimap2-2.3-dirty (r537)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -219,6 +219,9 @@ costs
 .RI min{ O1 + k * E1 , O2 + k * E2 }.
 In the splice mode, the second gap penalties are not used.
 .TP
+.BI -C \ INT
+Cost for a non-canonical GT-AG splicing [0]
+.TP
 .BI -z \ INT
 Break an alignment if the running score drops too quickly along the diagonal of
 the DP matrix (diagonal X-drop, or Z-drop) [400]. Increasing the value improves
@@ -238,9 +241,6 @@ transcript strand;
 both strands;
 .BR n :
 no attempt to match GT-AG [n]
-.TP
-.BI --cost-non-gt-ag \ INT
-Cost of non-canonical splicing sites [0].
 .TP
 .BI --end-bonus \ INT
 Score bonus when alignment extends to the end of the query sequence [10].
@@ -371,8 +371,8 @@ is that this preset is not using HPC minimizers.
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -z200 -ub --cost-non-gt-ag
-.BR 5 ).
+.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200
+.BR -ub ).
 In the splice mode, 1) long deletions are taken as introns and represented as
 the
 .RB ` N '

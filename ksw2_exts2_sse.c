@@ -111,19 +111,23 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 
 	// set the donor and acceptor arrays. TODO: this assumes 0/1/2/3 encoding!
 	if (flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) {
+		int semi_cost = flag&KSW_EZ_SPLICE_FLANK? -noncan/2 : 0; // GTr or yAG is worth 0.5 bit; see PMID:18688272
 		memset(donor, -noncan, tlen_ * 16);
-		for (t = 0; t < tlen - 2; ++t) {
-			int is_can = 0; // is a canonical site
-			if ((flag & KSW_EZ_SPLICE_FOR) && target[t+1] == 2 && target[t+2] == 3) is_can = 1;
-			if ((flag & KSW_EZ_SPLICE_REV) && target[t+1] == 1 && target[t+2] == 3) is_can = 1;
-			if (is_can) ((int8_t*)donor)[t] = 0;
+		for (t = 0; t < tlen - 4; ++t) {
+			int can_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG
+			if ((flag & KSW_EZ_SPLICE_FOR) && target[t+1] == 2 && target[t+2] == 3) can_type = 1; // GTr...
+			if ((flag & KSW_EZ_SPLICE_REV) && target[t+1] == 1 && target[t+2] == 3) can_type = 1; // CTr...
+			if (can_type && (target[t+3] == 0 || target[t+3] == 2)) can_type = 2;
+			if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
+			if (can_type) ((int8_t*)donor)[t] = 0;
 		}
 		memset(acceptor, -noncan, tlen_ * 16);
 		for (t = 2; t < tlen; ++t) {
-			int is_can = 0;
-			if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 0 && target[t] == 2) is_can = 1;
-			if ((flag & KSW_EZ_SPLICE_REV) && target[t-1] == 0 && target[t] == 1) is_can = 1;
-			if (is_can) ((int8_t*)acceptor)[t] = 0;
+			int can_type = 0;
+			if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 0 && target[t] == 2) can_type = 1; // ...yAG
+			if ((flag & KSW_EZ_SPLICE_REV) && target[t-1] == 0 && target[t] == 1) can_type = 1; // ...yAC
+			if (can_type && (target[t-2] == 1 || target[t-2] == 3)) can_type = 2;
+			if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
 		}
 	}
 

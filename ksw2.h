@@ -14,6 +14,7 @@
 #define KSW_EZ_REV_CIGAR   0x80 // reverse CIGAR in the output
 #define KSW_EZ_SPLICE_FOR  0x100
 #define KSW_EZ_SPLICE_REV  0x200
+#define KSW_EZ_SPLICE_FLANK 0x400
 
 #ifdef __cplusplus
 extern "C" {

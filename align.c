@@ -381,6 +381,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (is_splice) {
 		if (splice_flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
 		if (splice_flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
+		if (opt->flag & MM_F_SPLICE_FLANK) extra_flag |= KSW_EZ_SPLICE_FLANK;
 	}
 
 	/* Look for the start and end of regions to perform DP. This sounds easy
