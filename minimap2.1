@@ -220,7 +220,9 @@ costs
 In the splice mode, the second gap penalties are not used.
 .TP
 .BI -C \ INT
-Cost for a non-canonical GT-AG splicing [0]
+Cost for a non-canonical GT-AG splicing (effective with
+.BR --splice )
+[0]
 .TP
 .BI -z \ INT
 Break an alignment if the running score drops too quickly along the diagonal of
@@ -243,7 +245,25 @@ both strands;
 no attempt to match GT-AG [n]
 .TP
 .BI --end-bonus \ INT
-Score bonus when alignment extends to the end of the query sequence [10].
+Score bonus when alignment extends to the end of the query sequence [0].
+.TP
+.BR --splice-flank [= yes | no ]
+Assume the next base to a
+.B GT
+donor site tends to be A/G (91% in human and 92% in mouse) and the preceding
+base to a
+.B AG
+acceptor tends to be C/T [yes with
+.BR --splice ].
+This trend is evolutionarily conservative, all the way to S. cerevisiae
+(PMID:18688272). Specifying this option generally leads to higher junction
+accuracy by several percents, so it is applied by default with
+.BR --splice .
+However, the SIRV control does not honor this trend
+(only ~60%). This option reduces accuracy. If you are benchmarking minimap2
+on SIRV data, please add
+.B --splice-flank=no
+to the command line.
 .SS Input/output options
 .TP 10
 .B -a
@@ -261,7 +281,7 @@ the real CIGAR in memory.
 .TP
 .BI -R \ STR
 SAM read group line in a format like
-.RB @RG\\\\tID:foo\\\\tSM:bar
+.B @RG\\\\tID:foo\\\\tSM:bar
 [].
 .TP
 .B -c
@@ -371,8 +391,8 @@ is that this preset is not using HPC minimizers.
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200
-.BR -ub ).
+.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub
+.BR --splice-flank=yes ).
 In the splice mode, 1) long deletions are taken as introns and represented as
 the
 .RB ` N '
