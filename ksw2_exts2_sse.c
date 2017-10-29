@@ -119,7 +119,6 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			if ((flag & KSW_EZ_SPLICE_REV) && target[t+1] == 1 && target[t+2] == 3) can_type = 1; // CTr...
 			if (can_type && (target[t+3] == 0 || target[t+3] == 2)) can_type = 2;
 			if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
-			if (can_type) ((int8_t*)donor)[t] = 0;
 		}
 		memset(acceptor, -noncan, tlen_ * 16);
 		for (t = 2; t < tlen; ++t) {
