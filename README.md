@@ -9,15 +9,20 @@
 ```sh
 git clone https://github.com/lh3/minimap2
 cd minimap2 && make
-# long reads against a reference genome
+# long sequences against a reference genome
 ./minimap2 -a test/MT-human.fa test/MT-orang.fa > test.sam
 # create an index first and then map
 ./minimap2 -d MT-human.mmi test/MT-human.fa
 ./minimap2 -a MT-human.mmi test/MT-orang.fa > test.sam
-# long-read overlap (no test data)
-./minimap2 -x ava-pb your-reads.fa your-reads.fa > overlaps.paf
-# spliced alignment (no test data)
-./minimap2 -ax splice ref.fa rna-seq-reads.fa > spliced.sam
+# use presets (no test data)
+./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio genomic reads
+./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam         # Oxford Nanopore genomic reads
+./minimap2 -ax sr ref.fa read1.fa read2.fa > aln.sam      # short genomic paired-end reads
+./minimap2 -ax splice ref.fa rna-reads.fa > aln.sam       # spliced long reads
+./minimap2 -ax splice -k14 -uf ref.fa reads.fa > aln.sam  # Nanopore Direct RNA-seq
+./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
+./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
+./minimap2 -x ava-one reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
 # man page for detailed command line options
 man ./minimap2.1
 ```
@@ -132,14 +137,30 @@ Nanopore reads.
 #### <a name="map-long-splice"></a>Map long mRNA/cDNA reads
 
 ```sh
-minimap2 -ax splice ref.fa spliced.fq > aln.sam      # strand unknown
-minimap2 -ax splice -uf ref.fa spliced.fq > aln.sam  # assuming transcript strand
+minimap2 -ax splice -uf ref.fa iso-seq.fq > aln.sam          # PacBio Iso-seq/traditional cDNA
+minimap2 -ax splice ref.fa nanopore-cdna.fa > aln.sam        # Nanopore 2D cDNA-seq
+minimap2 -ax splice -uf -k14 ref.fa direct-rna.fq > aln.sam  # Nanopore Direct RNA-seq
+minimap2 -ax splice --splice-flank=no SIRV.fa SIRV-seq.fa    # mapping against SIRV control
 ```
-This command line has been tested on PacBio Iso-Seq reads and Nanopore 2D cDNA
-reads, and been shown to work with Nanopore 1D Direct RNA reads by others. Like
-typical RNA-seq mappers, minimap2 represents an intron with the `N` CIGAR
-operator. For spliced reads, minimap2 will try to infer the strand relative to
-transcript and may write the strand to the `ts` SAM/PAF tag.
+There are different long-read RNA-seq technologies, including tranditional
+full-length cDNA, EST, PacBio Iso-seq, Nanopore 2D cDNA-seq and Direct RNA-seq.
+They produce data of varying quality and properties. By default, `-x splice`
+assumes the read orientation relative to the transcript strand is unknown. It
+tries two rounds of alignment to infer the orientation and write the strand to
+the `ts` SAM/PAF tag if possible. For Iso-seq, Direct RNA-seq and tranditional
+full-length cDNAs, it would be desired to apply `-u f` to force minimap2 to
+consider the forward transcript strand only. This speeds up alignment with
+slight improvement to accuracy. For noisy Nanopore Direct RNA-seq reads, it is
+recommended to use a smaller k-mer size for increased sensitivity to the first
+or the last exons.
+
+It is worth noting that by default `-x splice` prefers GT[A/G]..[C/T]AG
+over GT[C/T]..[A/G]AG, and then over other splicing signals. Considering
+one additional base improves the junction accuracy for noisy reads, but
+reduces the accuracy when aligning against the widely used SIRV control data.
+This is because SIRV does not honor the evolutionarily conservative splicing
+signal. If you are studying SIRV, you may apply `--splice-flank=no` to let
+minimap2 only model GT..AG, ignoring the additional base.
 
 #### <a name="long-overlap"></a>Find overlaps between long reads
 
