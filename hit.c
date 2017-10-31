@@ -459,16 +459,14 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
 				float identity = (float)r->mlen / r->blen;
 				float x = (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score;
-				if (is_sr) {
-					mapq = (int)(identity * pen_cm * q_coef * (1.0f - x * x) * logf((float)r->p->dp_max / match_sc));
-				} else {
+				mapq = (int)(identity * pen_cm * q_coef * (1.0f - x * x) * logf((float)r->p->dp_max / match_sc));
+				if (!is_sr) {
 					int mapq_alt = (int)(6.02f * identity * identity * (r->p->dp_max - r->p->dp_max2) / match_sc + .499f); // BWA-MEM like mapQ, mostly for short reads
-					mapq = (int)(identity * pen_cm * q_coef * (1.0f - x) * logf(r->score)); // more for long reads
 					mapq = mapq < mapq_alt? mapq : mapq_alt; // in case the long-read heuristic fails
 				}
 			} else {
 				float x = (float)subsc / r->score;
-				if (is_sr && r->p) {
+				if (r->p) {
 					float identity = (float)r->mlen / r->blen;
 					mapq = (int)(identity * pen_cm * q_coef * (1.0f - x) * logf((float)r->p->dp_max / match_sc));
 				} else {
