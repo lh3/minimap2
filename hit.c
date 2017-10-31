@@ -442,7 +442,7 @@ void mm_seg_free(void *km, int n_segs, mm_seg_t *segs)
 	kfree(km, segs);
 }
 
-void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len)
+void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr)
 {
 	static const float q_coef = 40.0f;
 	int i;
@@ -458,10 +458,23 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
 				float identity = (float)r->mlen / r->blen;
-				int mapq_alt = (int)(6.02f * identity * identity * (r->p->dp_max - r->p->dp_max2) / match_sc + .499f); // BWA-MEM like mapQ, mostly for short reads
-				mapq = (int)(identity * pen_cm * q_coef * (1. - (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score) * logf(r->score)); // more for long reads
-				mapq = mapq < mapq_alt? mapq : mapq_alt; // in case the long-read heuristic fails
-			} else mapq = (int)(pen_cm * q_coef * (1. - (float)subsc / r->score) * logf(r->score));
+				float x = (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score;
+				if (is_sr) {
+					mapq = (int)(identity * pen_cm * q_coef * (1.0f - x * x) * logf((float)r->p->dp_max / match_sc));
+				} else {
+					int mapq_alt = (int)(6.02f * identity * identity * (r->p->dp_max - r->p->dp_max2) / match_sc + .499f); // BWA-MEM like mapQ, mostly for short reads
+					mapq = (int)(identity * pen_cm * q_coef * (1.0f - x) * logf(r->score)); // more for long reads
+					mapq = mapq < mapq_alt? mapq : mapq_alt; // in case the long-read heuristic fails
+				}
+			} else {
+				float x = (float)subsc / r->score;
+				if (is_sr && r->p) {
+					float identity = (float)r->mlen / r->blen;
+					mapq = (int)(identity * pen_cm * q_coef * (1.0f - x) * logf((float)r->p->dp_max / match_sc));
+				} else {
+					mapq = (int)(pen_cm * q_coef * (1.0f - x) * logf(r->score));
+				}
+			}
 			mapq -= (int)(4.343f * logf(r->n_sub + 1) + .499f);
 			mapq = mapq > 0? mapq : 0;
 			r->mapq = mapq < 60? mapq : 60;
