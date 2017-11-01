@@ -130,27 +130,21 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *qu
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
 		if (op == 0) { // match/mismatch
 			int n_ambi = 0, n_diff = 0;
-			float n_diff2 = 0.0f;
 			for (l = 0; l < len; ++l) {
 				int cq = qseq[qoff + l], ct = tseq[toff + l];
 				if (ct > 3 || cq > 3) ++n_ambi;
-				else if (ct != cq) {
-					++n_diff;
-					n_diff2 += qual == 0 || qual[qoff + l] >= 20? 1.0f : .05f * qual[qoff + l];
-				}
+				else if (ct != cq) ++n_diff;
 				s += mat[ct * 5 + cq];
 				if (s < 0) s = 0;
 				else max = max > s? max : s;
 			}
 			r->blen += len - n_ambi, r->mlen += len - (n_ambi + n_diff), p->n_ambi += n_ambi;
-			p->n_diff2 += n_diff2, p->blen2 += len - n_ambi;
 			toff += len, qoff += len;
 		} else if (op == 1) { // insertion
 			int n_ambi = 0;
 			for (l = 0; l < len; ++l)
 				if (qseq[qoff + l] > 3) ++n_ambi;
 			r->blen += len - n_ambi, p->n_ambi += n_ambi;
-			p->n_diff2 += 1.0f, ++p->blen2;
 			s -= q + e * len;
 			if (s < 0) s = 0;
 			qoff += len;
@@ -159,7 +153,6 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *qu
 			for (l = 0; l < len; ++l)
 				if (tseq[toff + l] > 3) ++n_ambi;
 			r->blen += len - n_ambi, p->n_ambi += n_ambi;
-			p->n_diff2 += 1.0f, ++p->blen2;
 			s -= q + e * len;
 			if (s < 0) s = 0;
 			toff += len;

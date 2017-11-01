@@ -360,9 +360,6 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		if (n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
 			mm_pair(b->km, max_chain_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // pairing
 	}
-	if (opt->min_iden > 0.0f)
-		for (i = 0; i < n_segs; ++i)
-			mm_filter_by_identity(b->km, n_regs[i], regs[i], opt->min_iden, qlens[i], quals[i]);
 
 	kfree(b->km, a);
 	kfree(b->km, u);

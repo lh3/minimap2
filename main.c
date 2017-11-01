@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.3-r544-dirty"
+#define MM_VERSION "2.3-r545-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -67,7 +67,7 @@ static inline int64_t mm_parse_num(const char *str)
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:i:LC:";
+	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx;
@@ -102,7 +102,6 @@ int main(int argc, char *argv[])
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(optarg);
 		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(optarg));
 		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(optarg);
-		else if (c == 'i') opt.min_iden = atof(optarg);
 		else if (c == 'N') opt.best_n = atoi(optarg);
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
@@ -226,7 +225,6 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -z INT       Z-drop score [%d]\n", opt.zdrop);
 		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
-		fprintf(fp_help, "    -i FLOAT     min identity (mapQ reduced to 0 if below) [0]\n");
 		fprintf(fp_help, "  Input/Output:\n");
 		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(fp_help, "    -Q           don't output base quality in SAM\n");

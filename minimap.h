@@ -59,8 +59,6 @@ typedef struct {
 	int32_t dp_score, dp_max, dp_max2;  // DP score; score of the max-scoring segment; score of the best alternate mappings
 	uint32_t n_ambi:30, trans_strand:2; // number of ambiguous bases; transcript strand: 0 for unknown, 1 for +, 2 for -
 	uint32_t n_cigar;                   // number of cigar operations in cigar[]
-	float n_diff2;
-	uint32_t blen2;
 	uint32_t cigar[];
 } mm_extra_t;
 
@@ -101,7 +99,6 @@ typedef struct {
 	float mask_level;
 	float pri_ratio;
 	int best_n;      // top best_n chains are subjected to DP alignment
-	float min_iden;
 
 	int max_join_long, max_join_short;
 	int min_join_flank_sc;
