@@ -31,10 +31,10 @@
 \section{Motivation:} Recent advances in sequencing technologies promise
 ultra-long reads of $\sim$100 kilo bases (kb) in average, full-length mRNA or
 cDNA reads in high throughput and genomic contigs over 100 mega bases (Mb) in
-length. Existing alignment tools are unable or inefficient to process such data
+length. Existing alignment programs are unable or inefficient to process such data
 at scale, which presses for the development of new alignment algorithms.
 
-\section{Results:} Minimap2 is a general-purpose aligner to map DNA or long
+\section{Results:} Minimap2 is a general-purpose mapper to align DNA or long
 mRNA sequences against a large reference database. It works with accurate short
 reads of $\ge$100bp in length, $\ge$1kb genomic reads at error rate $\sim$15\%,
 full-length noisy Direct RNA or cDNA reads, and assembly contigs or closely
@@ -64,7 +64,7 @@ the thought that 10kb long sequences should be easier to map than 100bp reads
 because we can more effectively skip repetitive regions, which are often the
 bottleneck of short-read alignment. We confirmed our speculation by achieving
 approximate mapping 50 times faster than BWA-MEM~\citep{Li:2016aa}.
-\citet{Suzuki:2016} extended our work with a fast and novel algorithm on
+\citet{Suzuki130633} extended our work with a fast and novel algorithm on
 generating base-level alignment, which in turn inspired us to develop minimap2
 towards higher accuracy and more practical functionality.
 
@@ -179,7 +179,7 @@ where $s(i,j)$ is the score between the $i$-th reference base and $j$-th query
 base. Eq.~(\ref{eq:ae86}) is a natural extension to the equation under affine
 gap cost~\citep{Gotoh:1982aa,Altschul:1986aa}.
 
-\subsubsection{Suzuki's formulation}
+\subsubsection{The Suzuki-Kasahara formulation}
 
 When we allow gaps longer than several hundred base pairs, nucleotide-level
 alignment is much slower than chaining. SSE acceleration is critical to the
@@ -187,7 +187,7 @@ performance of minimap2. Traditional SSE implementations~\citep{Farrar:2007hs}
 based on Eq.~(\ref{eq:ae86}) can achieve 16-way parallelization for short
 sequences, but only 4-way parallelization when the peak alignment score reaches
 32767. Long sequence alignment may exceed this threshold. Inspired by
-\citet{Wu:1996aa} and the following work, \citet{Suzuki:2016} proposed a
+\citet{Wu:1996aa} and the following work, \citet{Suzuki130633} proposed a
 difference-based formulation that lifted this limitation.
 In case of 2-piece gap cost, define
 \[
@@ -337,18 +337,24 @@ F_{i,j+1}= \max\{H_{ij}-q,F_{ij}\}-e\\
 \tilde{E}_{i+1,j}= \max\{H_{ij}-d(i)-\tilde{q},\tilde{E}_{ij}\}\\
 \end{array}\right.
 \end{equation}
-Let $T$ be the reference sequence. $d(i)$ is the cost of a non-canonical donor
-site, which takes 0 if $T[i+1,i+2]={\tt GT}$, or a positive number $p$
-otherwise. Similarly, $a(i)$ is the cost of a non-canonical acceptor site, which
-takes 0 if $T[i-1,i]={\tt AG}$, or $p$ otherwise. Eq.~(\ref{eq:splice}) is
-almost equivalent to the equation used by EXALIN~\citep{Zhang:2006aa} except
-that we allow insertions immediately followed by deletions and vice versa; in
-addition, we use Suzuki's diagonal formulation in actual implementation.
-
-%Given that $d_i$ and $a_i$
-%are a function of the reference sequence, it is possible to incorporate
-%splicing signals with more sophisticated models, such as positional weight
-%matrices. We have not tried this approach.
+Let $T$ be the reference sequence. $d(i)$ is computed as
+\[d(i)=\left\{\begin{array}{ll}
+0 & \mbox{if $T[i+1,i+3]$ is ${\tt GTA}$ or ${\tt GTG}$} \\
+p/2 & \mbox{if $T[i+1,i+3]$ is ${\tt GTC}$ or ${\tt GTT}$} \\
+p & \mbox{otherwise}
+\end{array}\right.\]
+where $T[i,j]$ extracts a substring of $T$ between $i$ and $j$ inclusively.
+$d(i)$ penalizes non-canonical donor sites with $p$ and less frequent Eukayotic
+splicing signal ${\tt GT[C/T]}$ with $p/2$~\citep{Irimia:2008aa}. Similarly,
+\[a(i)=\left\{\begin{array}{ll}
+0 & \mbox{if $T[i-2,i]$ is ${\tt CAG}$ or ${\tt TAG}$} \\
+p/2 & \mbox{if $T[i-2,i]$ is ${\tt AAG}$ or ${\tt GAG}$} \\
+p & \mbox{otherwise}
+\end{array}\right.\]
+models the acceptor signal. Eq.~(\ref{eq:splice}) is close to an equation in
+\citet{Zhang:2006aa} except that we allow insertions immediately followed by
+deletions and vice versa; in addition, we use the Suzuki-Kasahara diagonal
+formulation in actual implementation.
 
 If RNA-seq reads are not sequenced from stranded libraries, the read strand
 relative to the underlying transcript is unknown. By default, minimap2 aligns
@@ -440,16 +446,16 @@ to the 2-piece affine gap cost.
 \subsection{Aligning long spliced reads}
 
 We evaluated minimap2 on SIRV control data~(AC:SRR5286959;
-\citealp{Byrne:2017aa}) where the truth is known. Minimap2 predicted 59\,916
-introns from 11\,017 reads. 93.0\% of splice juctions are precise. We examined
+\citealp{Byrne:2017aa}) where the truth is known. Minimap2 predicted 59\,918
+introns from 11\,018 reads. 93.8\% of splice juctions are precise. We examined
 wrongly predicted junctions and found the majority were caused by clustered
 splicing signals (e.g. two adjacent ${\tt GT}$ sites). When INDEL sequencing
 errors are frequent, it is difficult to find precise splicing sites in this
 case. If we allow up to 10bp distance from true splicing sites, 98.4\% of
-aligned introns are approximately correct.  Given this observation, we might be
-able to improve boundary detection by initializing $d(\cdot)$ and $a(\cdot)$ in
-Eq.~(\ref{eq:splice}) with position-specific scoring matrices or more
-sophisticated models. We have not tried this approach.
+aligned introns are approximately correct. It is worth noting that for SIRV, we
+asked minimap2 to model the ${\tt GT..AG}$ splicing signal only without extra
+bases. This is because SIRV does not honor the evolutionarily prevalent signal
+${\tt GT[A/G]..[C/T]AG}$~\citep{Irimia:2008aa}.
 
 \begin{table}[!tb]
 \processtable{Evaluation of junction accuracy on 2D ONT reads}
@@ -460,13 +466,13 @@ sophisticated models. We have not tried this approach.
 \midrule
 Run time (CPU min)        & 631      & 15.9     & 2\,076   & 33.9 \\
 Peak RAM (GByte)          & 8.9      & 14.5     & 3.2      & 29.2\vspace{1em}\\
-\# aligned reads          & 103\,669 & 104\,200 & 103\,711 & 26\,479 \\
+\# aligned reads          & 103\,669 & 104\,199 & 103\,711 & 26\,479 \\
 \# chimeric alignments    & 1\,904   & 1\,488   & 0        & 0 \\
-\# non-spliced alignments & 15\,854  & 14\,639  & 17\,033  & 10\,545\vspace{1em}\\
-\# aligned introns        & 692\,275 & 694\,103 & 692\,945 & 78\,603 \\
-\# novel introns          & 11\,239  & 3\,207   & 8\,550   & 1\,214 \\
-\% exact introns          & 83.8\%   & 91.7\%   & 87.9\%   & 55.2\% \\
-\% approx. introns        & 91.8\%   & 96.5\%   & 92.5\%   & 82.4\% \\
+\# non-spliced alignments & 15\,854  & 14\,798  & 17\,033  & 10\,545\vspace{1em}\\
+\# aligned introns        & 692\,275 & 693\,553 & 692\,945 & 78\,603 \\
+\# novel introns          & 11\,239  & 3\,113   & 8\,550   & 1\,214 \\
+\% exact introns          & 83.8\%   & 94.0\%   & 87.9\%   & 55.2\% \\
+\% approx. introns        & 91.8\%   & 96.9\%   & 92.5\%   & 82.4\% \\
 \botrule
 \end{tabular}
 }{Mouse reads (AC:SRR5286960) were mapped to the primary assembly of mouse
@@ -487,10 +493,16 @@ STAR~(v2.5.3a; \citealp{Dobin:2013kx}). In general, minimap2 is more
 consistent with existing annotations (Table~\ref{tab:intron}): it finds
 more junctions with a higher percentage being exactly or approximately correct.
 Minimap2 is over 40 times faster than GMAP and SpAln. While STAR is close to
-minimap2 in speed, it does not work well with noisy reads.  We have also
-evaluated spliced aligners on public Iso-Seq data (human Alzheimer brain
-from \href{http://bit.ly/isoseqpub}{http://bit.ly/isoseqpub}). The observation
-is similar: minimap2 is faster at higher junction accuracy.
+minimap2 in speed, it does not work well with noisy reads.
+
+We have also evaluated spliced aligners on public Iso-Seq data (human Alzheimer
+brain from \href{http://bit.ly/isoseqpub}{http://bit.ly/isoseqpub}). The
+observation is similar: minimap2 is faster at higher junction accuracy.
+On a private Nanopore Direct RNA data set with $>$20\% sequencing error rate
+(M\"{u}ller et al, personal communication), minimap2 aligned 940,346 introns
+from 239,976 mapped reads with 88.5\% of them consistent with human gene
+annotations. In comparison, only 40.3\% of GMAP introns found in known gene
+annotations.
 
 We noted that GMAP and SpAln have not been optimized for noisy reads. We are
 showing the best setting we have experimented, but their developers should be
@@ -528,6 +540,20 @@ region close to its mate. If we disable this feature, BWA-MEM becomes slightly
 less accurate than minimap2. We might consider to implement a similar heuristic
 in minimap2 in future.
 
+To evaluate the accuracy of minimap2 on real data, we aligned human reads
+(AC:ERR1341796) with BWA-MEM and minimap2, and called SNPs and small INDELs
+with GATK HaplotypeCaller v3.5~\citep{Depristo:2011vn}. This run was sequenced
+from experimentally mixed CHM1 and CHM13 cell lines. Both them are homozygous
+across the whole genome and have been \emph{de novo} assembled with SMRT reads
+to high quality.  This allowed us to construct an independent truth variant
+data set
+(\href{https://github.com/lh3/CHM-eval}{https://github.com/lh3/CHM-eval}) for
+ERR1341796. In this evaluation, minimap2 has higher SNP false negative rate
+(FNR; 2.5\% of minimap2 vs 2.2\% of BWA-MEM), but fewer false positive SNPs per
+million bases (FPPM; 3.0 vs 3.9), lower INDEL FNR (7.3\% vs 7.5\%) and similar
+INDEL FPPM (both 1.0). The difference between the two mappers is much smaller
+than between BWA-MEM and Bowtie2.
+
 \section{Conclusion}
 
 Minimap2 is a fast, accurate and versatile aligner for long nucleotide
@@ -540,11 +566,11 @@ alignment is an intricate research topic. More thorough evaluations would be
 necessary to justify the use of minimap2 for such applications.
 
 \section*{Acknowledgements}
-We owe a debt of gratitude to Hajime Suzuki for releasing his masterpiece and
-insightful notes before formal publication. We thank M. Schatz, P. Rescheneder
-and F.  Sedlazeck for pointing out the limitation of BWA-MEM. We are also
-grateful to early minimap2 testers who have greatly helped to suggest features
-and to fix various issues.
+We owe a debt of gratitude to H. Suzuki and M. Kasahara for releasing their
+masterpiece and insightful notes before formal publication. We thank M.
+Schatz, P. Rescheneder and F. Sedlazeck for pointing out the limitation of
+BWA-MEM. We are also grateful to early minimap2 testers who have greatly helped
+to suggest features and to fix various issues.
 
 \bibliography{minimap2}
 
