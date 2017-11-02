@@ -543,16 +543,17 @@ in minimap2 in future.
 To evaluate the accuracy of minimap2 on real data, we aligned human reads
 (AC:ERR1341796) with BWA-MEM and minimap2, and called SNPs and small INDELs
 with GATK HaplotypeCaller v3.5~\citep{Depristo:2011vn}. This run was sequenced
-from experimentally mixed CHM1 and CHM13 cell lines. Both them are homozygous
+from experimentally mixed CHM1 and CHM13 cell lines. Both of them are homozygous
 across the whole genome and have been \emph{de novo} assembled with SMRT reads
-to high quality.  This allowed us to construct an independent truth variant
+to high quality. This allowed us to construct an independent truth variant
 data set
 (\href{https://github.com/lh3/CHM-eval}{https://github.com/lh3/CHM-eval}) for
 ERR1341796. In this evaluation, minimap2 has higher SNP false negative rate
 (FNR; 2.5\% of minimap2 vs 2.2\% of BWA-MEM), but fewer false positive SNPs per
-million bases (FPPM; 3.0 vs 3.9), lower INDEL FNR (7.3\% vs 7.5\%) and similar
-INDEL FPPM (both 1.0). The difference between the two mappers is much smaller
-than between BWA-MEM and Bowtie2.
+million bases (FPPM; 3.0 vs 3.9), lower 2--50bp INDEL FNR (7.3\% vs 7.5\%) and
+similar INDEL FPPM (both 1.0). In comparison, Bowtie2 has a SNP FNR of 4.7\%
+and INDEL FNR of 10.4\%. Minimap2 is broadly similar to BWA-MEM in the context
+of small variant calling.
 
 \section{Conclusion}
 
