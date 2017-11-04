@@ -346,8 +346,11 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 			if (n_cigar > max_bam_cigar_op)
 				cigar_in_tag = 1;
 		}
-		if (cigar_in_tag) mm_sprintf_lite(s, "%dS", t->l_seq);
-		else write_sam_cigar(s, flag, 0, t->l_seq, r);
+		if (cigar_in_tag) {
+			if (flag & 0x100) mm_sprintf_lite(s, "0S"); // secondary alignment
+			else if (flag & 0x800) mm_sprintf_lite(s, "%dS", r->re - r->rs); // supplementary alignment
+			else mm_sprintf_lite(s, "%dS", t->l_seq);
+		} else write_sam_cigar(s, flag, 0, t->l_seq, r);
 	}
 
 	// write mate positions
