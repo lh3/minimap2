@@ -558,16 +558,33 @@ of small variant calling.
 \subsection{Other applications}
 
 Minimap2 retains minimap's functionality to find overlaps between long reads
-and to search against huge multi-species databases such as \emph{nt} from NCBI.
-Minimap2 can also align similar genomes or different assemblies of the same
-species. It took 7 wall-clock minutes over 8 CPU cores to align a human SMRT
-assembly (AC:GCA\_001297185.1) to GRCh38, over 20 times as fast as
+and to search against large multi-species databases such as \emph{nt} from
+NCBI. Minimap2 can also align similar genomes or different assemblies of the
+same species. It took 7 wall-clock minutes over 8 CPU cores to align a human
+SMRT assembly (AC:GCA\_001297185.1) to GRCh38, over 20 times as fast as
 MUMmer4~\citep{Kurtz:2004zr}.
 
-\section{Conclusion}
+\section{Discussions}
 
-Minimap2 is a fast, accurate and versatile aligner for long nucleotide
-sequences.
+Minimap2 is a versatile mapper and pairwise aligner for nucleotide sequences.
+It works with short reads, assembly contigs and long noisy genomic and RNA-seq
+reads. It can be used as a read mapper, long-read overlapper or a full-genome
+aligner. Minimap2 is also accurate and efficient, often outperforming other
+domain-specific alignment tools in terms of both speed and accuracy.
+
+The capability of minimap2 comes from a fast base-level alignment algorithm and
+an accurate chaining algorithm. When aligning long query sequences, base-level
+alignment is often the performance bottleneck. The Suzuki-Kasahara algorithm
+greatly alleviates the bottleneck and enables DP-based splice alignment
+involving $>$100kb introns, which was impractically slow ten years ago.  The
+minimap2 chaining algorithm is fast and highly accurate by itself.  In fact,
+chaining alone is more accurate than all the other long-read mappers in
+Fig.~\ref{fig:eval}a (data not shown). This accuracy helps to reduce downstream
+base-level alignment of candidate chains, which is still times slower than
+chaining even with the Suzuki-Kasahara improvement. In addition, taking a
+general form, minimap2 chaining can be adapted to non-typical data types such
+spliced reads and multiple reads per fragment. This gives us the opportunity to
+extend the same base algorithm to a variety of use cases.
 
 \section*{Acknowledgements}
 We owe a debt of gratitude to H. Suzuki and M. Kasahara for releasing their
