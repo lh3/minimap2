@@ -72,7 +72,7 @@ typedef struct {
 	int32_t as;                     // offset in the a[] array (for internal uses only)
 	int32_t mlen, blen;             // seeded exact match length; seeded alignment block length
 	uint32_t mapq:8, split:2, n_sub:22; // mapQ; split pattern; number of suboptimal mappings
-	uint32_t sam_pri:1, proper_frag:1, iden_flt:1, pe_thru:1, dummy:29;
+	uint32_t sam_pri:1, proper_frag:1, iden_flt:1, pe_thru:1, dummy:28;
 	uint32_t hash;
 	mm_extra_t *p;
 } mm_reg1_t;
