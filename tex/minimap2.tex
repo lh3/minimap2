@@ -555,16 +555,19 @@ similar INDEL FPPM (both 1.0). In comparison, Bowtie2 has a SNP FNR of 4.7\%
 and INDEL FNR of 10.4\%. Minimap2 is broadly similar to BWA-MEM in the context
 of small variant calling.
 
+\subsection{Other applications}
+
+Minimap2 retains minimap's functionality to find overlaps between long reads
+and to search against huge multi-species databases such as \emph{nt} from NCBI.
+Minimap2 can also align similar genomes or different assemblies of the same
+species. It took 7 wall-clock minutes over 8 CPU cores to align a human SMRT
+assembly (AC:GCA\_001297185.1) to GRCh38, over 20 times as fast as
+MUMmer4~\citep{Kurtz:2004zr}.
+
 \section{Conclusion}
 
 Minimap2 is a fast, accurate and versatile aligner for long nucleotide
-sequences.  In addition to reference-based read mapping, minimap2 inherits
-minimap's functionality to search against huge multi-species databases and to
-find read overlaps. On a few test data sets, minimap2 appears to yield slightly
-better miniasm assembly~\citep{Li:2016aa}. Minimap2 can also align similar
-genomes or different assemblies of the same species. However, full-genome
-alignment is an intricate research topic. More thorough evaluations would be
-necessary to justify the use of minimap2 for such applications.
+sequences.
 
 \section*{Acknowledgements}
 We owe a debt of gratitude to H. Suzuki and M. Kasahara for releasing their
