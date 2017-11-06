@@ -22,7 +22,6 @@ cdef extern from "minimap.h":
 		float mask_level
 		float pri_ratio
 		int best_n
-		float min_iden
 		int max_join_long, max_join_short
 		int min_join_flank_sc
 		int a, b, q, e, q2, e2

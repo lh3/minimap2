@@ -1,3 +1,41 @@
+Release 2.4-r555 (6 November 2017)
+----------------------------------
+
+As is planned, this release focuses on fine tuning the base algorithm. Notable
+changes include
+
+ * Changed the mapping quality scale to match the scale of BWA-MEM. This makes
+   minimap2 and BWA-MEM achieve similar sensitivity-specificity balance on real
+   short-read data.
+
+ * Improved the accuracy of splice alignment by modeling one additional base
+   close to the GT-AG signal. This model is used by default with `-x splice`.
+   For SIRV control data, however, it is recommended to add `--splice-flank=no`
+   to disable this feature as the SIRV splice signals are slightly different.
+
+ * Tuned the parameters for Nanopore Direct RNA reads. The recommended command
+   line is `-axsplice -k14 -uf` (#46).
+
+ * Fixed a segmentation fault when aligning PacBio reads (#47 and #48). This
+   bug is very rare but it affects all versions of minimap2. It is also
+   recommended to re-index reference genomes created with `map-pb`. For human,
+   two minimizers in an old index are wrong.
+
+ * Changed option `-L` in sync with the final decision of hts-specs: a fake
+   CIGAR takes the form of `<readLen>S<refLen>N`. Note that `-L` only enables
+   future tools to recognize long CIGARs. It is not possible for older tools to
+   work with such alignments in BAM (#43 and #51).
+
+ * Fixed a tiny issue whereby minimap2 may waste 8 bytes per candidate
+   alignment.
+
+The minimap2 technical note hosted at arXiv has also been updated to reflect
+recent changes.
+
+(2.4: 6 November 2017, r555)
+
+
+
 Release 2.3-r531 (22 October 2017)
 ----------------------------------
 
@@ -26,7 +64,7 @@ This release come with many improvements and bug fixes:
 
 This release has implemented all the major features I planned five months ago,
 with the addition of spliced long-read alignment. The next couple of releases
-will focus on fine tuning of base algorithms.
+will focus on fine tuning of the base algorithms.
 
 (2.3: 22 October 2017, r531)
 
