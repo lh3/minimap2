@@ -34,7 +34,7 @@ cDNA reads in high throughput and genomic contigs over 100 mega bases (Mb) in
 length. Existing alignment programs are unable or inefficient to process such data
 at scale, which presses for the development of new alignment algorithms.
 
-\section{Results:} Minimap2 is a general-purpose mapper to align DNA or long
+\section{Results:} Minimap2 is a general-purpose alignment program to map DNA or long
 mRNA sequences against a large reference database. It works with accurate short
 reads of $\ge$100bp in length, $\ge$1kb genomic reads at error rate $\sim$15\%,
 full-length noisy Direct RNA or cDNA reads, and assembly contigs or closely
@@ -66,15 +66,22 @@ bottleneck of short-read alignment. We confirmed our speculation by achieving
 approximate mapping 50 times faster than BWA-MEM~\citep{Li:2016aa}.
 \citet{Suzuki130633} extended our work with a fast and novel algorithm on
 generating base-level alignment, which in turn inspired us to develop minimap2
-towards higher accuracy and more practical functionality.
+with added functionality.
 
 Both SMRT and ONT have been applied to the sequencing of spliced mRNAs (RNA-seq). While
 traditional mRNA aligners work~\citep{Wu:2005vn,Iwata:2012aa}, they are not
 optimized for long noisy sequence reads and are tens of times slower than
 dedicated long-read aligners. When developing minimap2 initially for aligning
-genomic DNA only, we realized minor modifications could make it competitive for
-aligning mRNAs as well. Minimap2 is a first RNA-seq aligner specifically
-designed for long noisy reads.
+genomic DNA only, we realized minor modifications could enable the base
+algorithm to map mRNAs as well. Minimap2 becomes a first RNA-seq aligner
+specifically designed for long noisy reads. We have also extended the original
+algorithm to map short reads at a speed faster than several mainstream
+short-read mappers.
+
+In this article, we will describe the minimap2 algorithm and its applications
+to different types of input sequences. We will evaluate the performance and
+accuracy of minimap2 on several simulated and real data sets and demonstrate
+the versatility of minimap2.
 
 \begin{methods}
 \section{Methods}
@@ -366,12 +373,12 @@ reads that span canonical splicing sites.
 
 In the spliced alignment mode, minimap2 further increases the density of
 minimizers and disables banded alignment. Together with the two-round DP-based
-alignment, spliced alignment is several times slower than DNA sequence
+alignment, spliced alignment is several times slower than genomic DNA
 alignment.
 
 \subsection{Aligning short paired-end reads}
 
-During chainging, minimap2 takes a pair of reads as one read with a gap of
+During chainging, minimap2 takes a pair of reads as one fragment with a gap of
 unknown length in the middle. It applies a normal gap cost between seeds on the
 same read but is a more permissive gap cost between seeds on different reads.
 More precisely, the gap cost during chaining is:
@@ -423,9 +430,7 @@ NGMLR~(v0.2.5; \citealp{Sedlazeck169557}). We excluded rHAT~\citep{Liu:2016ab}
 and LAMSA~\citep{Liu:2017aa} because they either
 crashed or produced malformatted output. In this evaluation, minimap2 has
 higher power to distinguish unique and repetitive hits, and achieves overall
-higher mapping accuracy (Fig.~\ref{fig:eval}a). It is still the most accurate
-even if we skip DP-based alignment (data not shown), confirming chaining alone
-is sufficient to achieve high accuracy for approximate mapping. Minimap2 and
+higher mapping accuracy (Fig.~\ref{fig:eval}a). Minimap2 and
 NGMLR provide better mapping quality estimate: they rarely give repetitive hits
 high mapping quality.  Apparently, other aligners may
 occasionally miss close suboptimal hits and be overconfident in wrong mappings.
@@ -498,10 +503,10 @@ minimap2 in speed, it does not work well with noisy reads.
 We have also evaluated spliced aligners on public Iso-Seq data (human Alzheimer
 brain from \href{http://bit.ly/isoseqpub}{http://bit.ly/isoseqpub}). The
 observation is similar: minimap2 is faster at higher junction accuracy.
-On a private Nanopore Direct RNA data set with $>$20\% sequencing error rate
-(M\"{u}ller et al, personal communication), minimap2 aligned 940,346 introns
-from 239,976 mapped reads with 88.5\% of them consistent with human gene
-annotations. In comparison, only 40.3\% of GMAP introns found in known gene
+On a private Nanopore Direct RNA data set with $\sim$17\% sequencing error rate
+(N. Loman, personal communication), minimap2 aligned 96\,467 introns
+from 37\,068 mapped reads with 95.4\% of them consistent with human gene
+annotations. In comparison, only 74.8\% of GMAP introns found in known gene
 annotations.
 
 We noted that GMAP and SpAln have not been optimized for noisy reads. We are
@@ -551,9 +556,8 @@ data set
 ERR1341796. In this evaluation, minimap2 has higher SNP false negative rate
 (FNR; 2.5\% of minimap2 vs 2.2\% of BWA-MEM), but fewer false positive SNPs per
 million bases (FPPM; 3.0 vs 3.9), lower 2--50bp INDEL FNR (7.3\% vs 7.5\%) and
-similar INDEL FPPM (both 1.0). In comparison, Bowtie2 has a SNP FNR of 4.7\%
-and INDEL FNR of 10.4\%. Minimap2 is broadly similar to BWA-MEM in the context
-of small variant calling.
+similar INDEL FPPM (both 1.0). Minimap2 is broadly similar to BWA-MEM in the
+context of small variant calling.
 
 \subsection{Other applications}
 
@@ -561,14 +565,14 @@ Minimap2 retains minimap's functionality to find overlaps between long reads
 and to search against large multi-species databases such as \emph{nt} from
 NCBI. Minimap2 can also align similar genomes or different assemblies of the
 same species. It took 7 wall-clock minutes over 8 CPU cores to align a human
-SMRT assembly (AC:GCA\_001297185.1) to GRCh38, over 20 times as fast as
+SMRT assembly (AC:GCA\_001297185.1) to GRCh38, over 20 times faster
 MUMmer4~\citep{Kurtz:2004zr}.
 
 \section{Discussions}
 
 Minimap2 is a versatile mapper and pairwise aligner for nucleotide sequences.
 It works with short reads, assembly contigs and long noisy genomic and RNA-seq
-reads. It can be used as a read mapper, long-read overlapper or a full-genome
+reads, and can be used as a read mapper, long-read overlapper or a full-genome
 aligner. Minimap2 is also accurate and efficient, often outperforming other
 domain-specific alignment tools in terms of both speed and accuracy.
 
@@ -585,6 +589,17 @@ chaining even with the Suzuki-Kasahara improvement. In addition, taking a
 general form, minimap2 chaining can be adapted to non-typical data types such
 spliced reads and multiple reads per fragment. This gives us the opportunity to
 extend the same base algorithm to a variety of use cases.
+
+Modern mainstream aligners often use a full-text index, such as suffix array or
+FM-index, to index reference sequences. An advantage of this approach is that
+we can use exact seeds of arbitrary lengths, which helps to increase seed
+uniqueness and reduce unsuccessful extensions. Minimap2 indexes reference
+k-mers with a hash table instead. Such fixed-length seeds are inferior to
+variable-length seeds in theory, but can be computed much more efficiently in
+practice. When a query sequence has multiple seed hits, we can afford to skip
+some highly repetitive seeds without affecting the final accuracy. This further
+alleviates the concern with the uniqueness of seeds. Hash table is the ideal
+data structure for mapping long query sequences.
 
 \section*{Acknowledgements}
 We owe a debt of gratitude to H. Suzuki and M. Kasahara for releasing their
