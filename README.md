@@ -22,7 +22,7 @@ cd minimap2 && make
 ./minimap2 -ax splice -k14 -uf ref.fa reads.fa > aln.sam  # Nanopore Direct RNA-seq
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
-./minimap2 -x ava-one reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
+./minimap2 -x ava-ont reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
 # man page for detailed command line options
 man ./minimap2.1
 ```
