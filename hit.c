@@ -406,14 +406,20 @@ void mm_seg_free(void *km, int n_segs, mm_seg_t *segs)
 void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr)
 {
 	static const float q_coef = 40.0f;
+	int64_t sum_sc = 0;
+	float uniq_ratio;
 	int i;
+	for (i = 0; i < n_regs; ++i)
+		if (regs[i].parent == regs[i].id)
+			sum_sc += regs[i].score;
+	uniq_ratio = (float)sum_sc / (sum_sc + rep_len);
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		if (r->inv) {
 			r->mapq = 0;
 		} else if (r->parent == r->id) {
 			int mapq, subsc;
-			float pen_s1 = (r->score > 100? 1.0f : 0.01f * r->score) * ((float)r->score / (r->score + rep_len));
+			float pen_s1 = (r->score > 100? 1.0f : 0.01f * r->score) * uniq_ratio;
 			float pen_cm = r->cnt > 10? 1.0f : 0.1f * r->cnt;
 			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
