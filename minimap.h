@@ -64,7 +64,7 @@ typedef struct {
 
 typedef struct {
 	int32_t id;                     // ID for internal uses (see also parent below)
-	uint32_t cnt:30, rev:1, seg_split:1; // number of minimizers; if on the reverse strand
+	uint32_t cnt:28, rev:1, seg_split:1, sam_pri:1, proper_frag:1; // number of minimizers; if on the reverse strand
 	uint32_t rid:31, inv:1;         // reference index; if this is an alignment from inversion rescue
 	int32_t score;                  // DP alignment score
 	int32_t qs, qe, rs, re;         // query start and end; reference start and end
@@ -72,7 +72,7 @@ typedef struct {
 	int32_t as;                     // offset in the a[] array (for internal uses only)
 	int32_t mlen, blen;             // seeded exact match length; seeded alignment block length
 	uint32_t mapq:8, split:2, n_sub:22; // mapQ; split pattern; number of suboptimal mappings
-	uint32_t sam_pri:1, proper_frag:1, iden_flt:1, pe_thru:1, dummy:28;
+	uint32_t pe_thru:1, score0:31;
 	uint32_t hash;
 	mm_extra_t *p;
 } mm_reg1_t;

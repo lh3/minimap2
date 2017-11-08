@@ -203,7 +203,6 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 {
 	int type = r->inv? 'I' : r->id == r->parent? 'P' : 'S';
-	if (r->iden_flt) mm_sprintf_lite(s, "\tom:i:%d", r->mapq);
 	if (r->p) {
 		mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->blen - r->mlen + r->p->n_ambi, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
 		if (r->p->trans_strand == 1 || r->p->trans_strand == 2)
@@ -336,9 +335,8 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 			mm_sprintf_lite(s, "\t%s\t%d\t0\t*", mi->seq[this_rid].name, this_pos+1);
 		} else mm_sprintf_lite(s, "\t*\t0\t0\t*");
 	} else {
-		int mapq = !r->iden_flt? r->mapq : r->mapq < 3? r->mapq : 3;
 		this_rid = r->rid, this_pos = r->rs, this_rev = r->rev;
-		mm_sprintf_lite(s, "\t%s\t%d\t%d\t", mi->seq[r->rid].name, r->rs+1, mapq);
+		mm_sprintf_lite(s, "\t%s\t%d\t%d\t", mi->seq[r->rid].name, r->rs+1, r->mapq);
 		if ((opt_flag & MM_F_LONG_CIGAR) && r->p && r->p->n_cigar > max_bam_cigar_op - 2) {
 			int n_cigar = r->p->n_cigar;
 			if (r->qs != 0) ++n_cigar;

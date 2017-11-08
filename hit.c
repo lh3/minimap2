@@ -76,7 +76,7 @@ mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, 
 		mm_reg1_t *ri = &r[i];
 		ri->id = i;
 		ri->parent = MM_PARENT_UNSET;
-		ri->score = z[i].x >> 32;
+		ri->score = ri->score0 = z[i].x >> 32;
 		ri->hash = (uint32_t)z[i].x;
 		ri->cnt = (int32_t)z[i].y;
 		ri->as = z[i].y >> 32;
@@ -425,14 +425,14 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
 				float identity = (float)r->mlen / r->blen;
-				float x = (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score;
+				float x = (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score0;
 				mapq = (int)(identity * pen_cm * q_coef * (1.0f - x * x) * logf((float)r->p->dp_max / match_sc));
 				if (!is_sr) {
 					int mapq_alt = (int)(6.02f * identity * identity * (r->p->dp_max - r->p->dp_max2) / match_sc + .499f); // BWA-MEM like mapQ, mostly for short reads
 					mapq = mapq < mapq_alt? mapq : mapq_alt; // in case the long-read heuristic fails
 				}
 			} else {
-				float x = (float)subsc / r->score;
+				float x = (float)subsc / r->score0;
 				if (r->p) {
 					float identity = (float)r->mlen / r->blen;
 					mapq = (int)(identity * pen_cm * q_coef * (1.0f - x) * logf((float)r->p->dp_max / match_sc));
