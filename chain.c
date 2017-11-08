@@ -49,7 +49,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 			int64_t dr = ri - a[j].x;
 			int32_t dq = qi - (int32_t)a[j].y, dd, sc, log_dd;
 			int32_t sidj = (a[j].y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
-			if (dr == 0 || dq <= 0) continue;
+			if ((sidi == sidj && dr == 0) || dq <= 0) continue; // don't skip if an anchor is used by multiple segments; see below
 			if ((sidi == sidj && dq > max_dist_y) || dq > max_dist_x) continue;
 			dd = dr > dq? dr - dq : dq - dr;
 			if (sidi == sidj && dd > bw) continue;
@@ -61,7 +61,8 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 				int c_log, c_lin;
 				c_lin = (int)(dd * .01 * avg_qspan);
 				c_log = log_dd;
-				if (dr > dq || sidi != sidj) sc -= c_lin < c_log? c_lin : c_log;
+				if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
+				else if (dr > dq || sidi != sidj) sc -= c_lin < c_log? c_lin : c_log;
 				else sc -= c_lin + (c_log>>1);
 			} else sc -= (int)(dd * .01 * avg_qspan) + (log_dd>>1);
 			sc += f[j];
