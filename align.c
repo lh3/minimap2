@@ -110,8 +110,11 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 	}
 	if ((p->cigar[0]&0xf) == 1 || (p->cigar[0]&0xf) == 2) { // get rid of leading I or D
 		int32_t l = p->cigar[0] >> 4;
-		if ((p->cigar[0]&0xf) == 1) r->qs += l, *qshift = l;
-		else r->rs += l, *tshift = l;
+		if ((p->cigar[0]&0xf) == 1) {
+			if (r->rev) r->qe -= l;
+			else r->qs += l;
+			*qshift = l;
+		} else r->rs += l, *tshift = l;
 		--p->n_cigar;
 		memmove(p->cigar, p->cigar + 1, p->n_cigar * 4);
 	}
