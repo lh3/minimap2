@@ -24,6 +24,7 @@
 #define MM_F_LONG_CIGAR    0x10000
 #define MM_F_INDEPEND_SEG  0x20000
 #define MM_F_SPLICE_FLANK  0x40000
+#define MM_F_SOFTCLIP      0x80000
 
 #define MM_IDX_MAGIC   "MMI\2"
 
