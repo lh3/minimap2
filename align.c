@@ -163,6 +163,7 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *qu
 			toff += len;
 		}
 	}
+	p->dp_max = max;
 	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
 }
 
