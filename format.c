@@ -266,14 +266,14 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 		clip_len[0] = r->rev? qlen - r->qe : r->qs;
 		clip_len[1] = r->rev? r->qs : qlen - r->qe;
 		if (in_tag) {
-			int clip_char = (sam_flag&0x800 && !(opt_flag&MM_F_SOFTCLIP))? 5 : 4;
+			int clip_char = (sam_flag&0x800) && !(opt_flag&MM_F_SOFTCLIP)? 5 : 4;
 			mm_sprintf_lite(s, "\tCG:B:I");
 			if (clip_len[0]) mm_sprintf_lite(s, ",%u", clip_len[0]<<4|clip_char);
 			for (k = 0; k < r->p->n_cigar; ++k)
 				mm_sprintf_lite(s, ",%u", r->p->cigar[k]);
 			if (clip_len[1]) mm_sprintf_lite(s, ",%u", clip_len[1]<<4|clip_char);
 		} else {
-			int clip_char = (sam_flag&0x800 && !(opt_flag&MM_F_SOFTCLIP))? 'H' : 'S';
+			int clip_char = (sam_flag&0x800) && !(opt_flag&MM_F_SOFTCLIP)? 'H' : 'S';
 			if (clip_len[0]) mm_sprintf_lite(s, "%d%c", clip_len[0], clip_char);
 			for (k = 0; k < r->p->n_cigar; ++k)
 				mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDN"[r->p->cigar[k]&0xf]);
@@ -381,18 +381,13 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 		if (t->qual) sam_write_sq(s, t->qual, t->l_seq, 0, 0);
 		else mm_sprintf_lite(s, "*");
 	} else {
-		if ((flag & 0x900) == 0) {
+		if ((flag & 0x900) == 0 || (opt_flag & MM_F_SOFTCLIP)) {
 			sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
 			mm_sprintf_lite(s, "\t");
 			if (t->qual) sam_write_sq(s, t->qual, t->l_seq, r->rev, 0);
 			else mm_sprintf_lite(s, "*");
 		} else if (flag & 0x100) {
 			mm_sprintf_lite(s, "*\t*");
-		} else if (opt_flag & MM_F_SOFTCLIP) {
-			sam_write_sq(s, t->seq, t->l_seq, r->rev, r->rev);
-			mm_sprintf_lite(s, "\t");
-			if (t->qual) sam_write_sq(s, t->qual, t->l_seq, r->rev, 0);
-			else mm_sprintf_lite(s, "*");
 		} else {
 			sam_write_sq(s, t->seq + r->qs, r->qe - r->qs, r->rev, r->rev);
 			mm_sprintf_lite(s, "\t");
