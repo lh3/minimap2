@@ -109,6 +109,7 @@ int main(int argc, char *argv[])
 		else if (c == 'X') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
 		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
+		else if (c == 'Y') opt.flag |= MM_F_SOFTCLIP;
 		else if (c == 'L') opt.flag |= MM_F_LONG_CIGAR;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
@@ -232,6 +233,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
+		fprintf(fp_help, "    -Y           use soft clipping for supplementary alignments\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
