@@ -1,3 +1,26 @@
+Release 2.5-r572 (11 November 2017)
+-----------------------------------
+
+This release fixes several bugs and brings a couple of minor improvements:
+
+ * Fixed a severe bug that leads to incorrect mapping coordinates in rare
+   corner cases.
+
+ * Fixed underestimated mapping quality for chimeric alignments when the whole
+   query sequence contain many repetitive minimizers, and for chimeric
+   alignments caused by Z-drop.
+
+ * Fixed two bugs in Python binding: incorrect strand field (#57) and incorrect
+   sequence names for Python3 (#55).
+
+ * Improved mapping accuracy for highly overlapping paired ends.
+
+ * Added option -Y to use soft clipping for supplementary alignments (#56).
+
+(2.5: 11 November 2017, r572)
+
+
+
 Release 2.4-r555 (6 November 2017)
 ----------------------------------
 
