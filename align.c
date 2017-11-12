@@ -222,7 +222,7 @@ static inline int mm_get_hplen_back(const mm_idx_t *mi, uint32_t rid, uint32_t x
 
 static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2], mm128_t *a, int32_t *r, int32_t *q)
 {
-	if (mi->is_hpc) {
+	if (mi->flag & MM_I_HPC) {
 		const uint8_t *qseq = qseq0[a->x>>63];
 		int i, c;
 		*q = (int32_t)a->y;
@@ -351,14 +351,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	int32_t rs1, qs1, re1, qe1;
 	int8_t mat[25];
 
-	if (is_sr) assert(!mi->is_hpc); // HPC won't work with SR because with HPC we can't easily tell if there is a gap
+	if (is_sr) assert(!(mi->flag & MM_I_HPC)); // HPC won't work with SR because with HPC we can't easily tell if there is a gap
 
 	r2->cnt = 0;
 	if (r->cnt == 0) return;
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	bw = (int)(opt->bw * 1.5 + 1.);
 
-	if (is_sr && !mi->is_hpc) {
+	if (is_sr && !(mi->flag & MM_I_HPC)) {
 		mm_max_stretch(opt, r, a, &as1, &cnt1);
 		rs = (int32_t)a[as1].x + 1 - (int32_t)(a[as1].y>>32&0xff);
 		qs = (int32_t)a[as1].y + 1 - (int32_t)(a[as1].y>>32&0xff);
@@ -470,7 +470,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	for (i = is_sr? cnt1 - 1 : 1; i < cnt1; ++i) { // gap filling
 		if ((a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) && i != cnt1 - 1) continue;
-		if (is_sr && !mi->is_hpc) {
+		if (is_sr && !(mi->flag & MM_I_HPC)) {
 			re = (int32_t)a[as1 + i].x + 1;
 			qe = (int32_t)a[as1 + i].y + 1;
 		} else mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);

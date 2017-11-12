@@ -5,7 +5,7 @@ cdef extern from "minimap.h":
 	# Options
 	#
 	ctypedef struct mm_idxopt_t:
-		short k, w, is_hpc, bucket_bits
+		short k, w, flag, bucket_bits
 		int mini_batch_size
 		uint64_t batch_size
 
@@ -51,7 +51,7 @@ cdef extern from "minimap.h":
 		pass
 
 	ctypedef struct mm_idx_t:
-		int32_t b, w, k, is_hpc
+		int32_t b, w, k, flag
 		uint32_t n_seq
 		mm_idx_seq_t *seq
 		uint32_t *S

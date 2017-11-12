@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.5-r572"
+#define MM_VERSION "2.5-r573-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 	while ((c = getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) {
 		if (c == 'w') ipt.w = atoi(optarg);
 		else if (c == 'k') ipt.k = atoi(optarg);
-		else if (c == 'H') ipt.is_hpc = 1;
+		else if (c == 'H') ipt.flag |= MM_I_HPC;
 		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
 		else if (c == 'r') opt.bw = (int)mm_parse_num(optarg);
 		else if (c == 't') n_threads = atoi(optarg);

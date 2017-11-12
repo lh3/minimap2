@@ -31,19 +31,19 @@ typedef struct mm_idx_bucket_s {
 void mm_idxopt_init(mm_idxopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_idxopt_t));
-	opt->k = 15, opt->w = 10, opt->is_hpc = 0;
+	opt->k = 15, opt->w = 10, opt->flag = 0;
 	opt->bucket_bits = 14;
 	opt->mini_batch_size = 50000000;
 	opt->batch_size = 4000000000ULL;
 }
 
-mm_idx_t *mm_idx_init(int w, int k, int b, int is_hpc)
+mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 {
 	mm_idx_t *mi;
 	if (k*2 < b) b = k * 2;
 	if (w < 1) w = 1;
 	mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
-	mi->w = w, mi->k = k, mi->b = b, mi->is_hpc = is_hpc;
+	mi->w = w, mi->k = k, mi->b = b, mi->flag = flag;
 	mi->B = (mm_idx_bucket_t*)calloc(1<<b, sizeof(mm_idx_bucket_t));
 	if (!(mm_dbg_flag & 1)) mi->km = km_init();
 	return mi;
@@ -89,7 +89,7 @@ void mm_idx_stat(const mm_idx_t *mi)
 {
 	int i, n = 0, n1 = 0;
 	uint64_t sum = 0, len = 0;
-	fprintf(stderr, "[M::%s] kmer size: %d; skip: %d; is_HPC: %d; #seq: %d\n", __func__, mi->k, mi->w, mi->is_hpc, mi->n_seq);
+	fprintf(stderr, "[M::%s] kmer size: %d; skip: %d; is_hpc: %d; #seq: %d\n", __func__, mi->k, mi->w, mi->flag&MM_I_HPC, mi->n_seq);
 	for (i = 0; i < mi->n_seq; ++i)
 		len += mi->seq[i].len;
 	for (i = 0; i < 1<<mi->b; ++i)
@@ -214,7 +214,7 @@ static void mm_idx_post(mm_idx_t *mi, int n_threads)
 #include "bseq.h"
 
 typedef struct {
-	int mini_batch_size, keep_name;
+	int mini_batch_size;
 	uint64_t batch_size, sum_len;
 	mm_bseq_file_t *fp;
 	mm_idx_t *mi;
@@ -266,7 +266,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = 0; i < s->n_seq; ++i) {
 				mm_idx_seq_t *seq = &p->mi->seq[p->mi->n_seq];
 				uint32_t j;
-				if (p->keep_name) {
+				if (!(p->mi->flag & MM_I_NO_NAME)) {
 					seq->name = (char*)kmalloc(p->mi->km, strlen(s->seq[i].name) + 1);
 					strcpy(seq->name, s->seq[i].name);
 				} else seq->name = 0;
@@ -288,7 +288,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
         step_t *s = (step_t*)in;
 		for (i = 0; i < s->n_seq; ++i) {
 			mm_bseq1_t *t = &s->seq[i];
-			mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->is_hpc, &s->a);
+			mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a);
 			free(t->seq); free(t->name);
 		}
 		free(s->seq); s->seq = 0;
@@ -301,16 +301,15 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int is_hpc, int mini_batch_size, int n_threads, uint64_t batch_size, int keep_name)
+mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini_batch_size, int n_threads, uint64_t batch_size)
 {
 	pipeline_t pl;
 	if (fp == 0 || mm_bseq_eof(fp)) return 0;
 	memset(&pl, 0, sizeof(pipeline_t));
 	pl.mini_batch_size = mini_batch_size < batch_size? mini_batch_size : batch_size;
-	pl.keep_name = keep_name;
 	pl.batch_size = batch_size;
 	pl.fp = fp;
-	pl.mi = mm_idx_init(w, k, b, is_hpc);
+	pl.mi = mm_idx_init(w, k, b, flag);
 
 	kt_pipeline(n_threads < 3? n_threads : 3, worker_pipeline, &pl, 3);
 	if (mm_verbose >= 3)
@@ -323,13 +322,13 @@ mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int is_hpc, int mi
 	return pl.mi;
 }
 
-mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads) // a simpler interface
+mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) // a simpler interface
 {
 	mm_bseq_file_t *fp;
 	mm_idx_t *mi;
 	fp = mm_bseq_open(fn);
 	if (fp == 0) return 0;
-	mi = mm_idx_gen(fp, w, k, 14, is_hpc, 1<<18, n_threads, UINT64_MAX, 1);
+	mi = mm_idx_gen(fp, w, k, 14, flag, 1<<18, n_threads, UINT64_MAX);
 	mm_bseq_close(fp);
 	return mi;
 }
@@ -344,7 +343,7 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 	uint32_t x[5];
 	int i;
 
-	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->n_seq, x[4] = mi->is_hpc;
+	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->n_seq, x[4] = mi->flag;
 	fwrite(MM_IDX_MAGIC, 1, 4, fp);
 	fwrite(x, 4, 5, fp);
 	for (i = 0; i < mi->n_seq; ++i) {
@@ -476,10 +475,10 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 	mm_idx_t *mi;
 	if (r->is_idx) {
 		mi = mm_idx_load(r->fp.idx);
-		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || mi->is_hpc != r->opt.is_hpc))
+		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || (mi->flag&MM_I_HPC) != (r->opt.flag&MM_I_HPC)))
 			fprintf(stderr, "[WARNING]\033[1;31m Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\033[0m\n");
 	} else
-		mi = mm_idx_gen(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.is_hpc, r->opt.mini_batch_size, n_threads, r->opt.batch_size, 1);
+		mi = mm_idx_gen(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.flag, r->opt.mini_batch_size, n_threads, r->opt.batch_size);
 	if (mi) {
 		if (r->fp_out) mm_idx_dump(r->fp_out, mi);
 		++r->n_parts;

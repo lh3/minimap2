@@ -26,6 +26,10 @@
 #define MM_F_SPLICE_FLANK  0x40000
 #define MM_F_SOFTCLIP      0x80000
 
+#define MM_I_HPC          0x1
+#define MM_I_NO_SEQ       0x2
+#define MM_I_NO_NAME      0x4
+
 #define MM_IDX_MAGIC   "MMI\2"
 
 #define MM_MAX_SEG       255
@@ -46,7 +50,7 @@ typedef struct {
 } mm_idx_seq_t;
 
 typedef struct {
-	int32_t b, w, k, is_hpc;
+	int32_t b, w, k, flag;
 	uint32_t n_seq;            // number of reference sequences
 	mm_idx_seq_t *seq;         // sequence name, length and offset
 	uint32_t *S;               // 4-bit packed sequence
@@ -80,7 +84,7 @@ typedef struct {
 
 // indexing and mapping options
 typedef struct {
-	short k, w, is_hpc, bucket_bits;
+	short k, w, flag, bucket_bits;
 	int mini_batch_size;
 	uint64_t batch_size;
 } mm_idxopt_t;
@@ -269,7 +273,7 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 
 // deprecated APIs for backward compatibility
 void mm_mapopt_init(mm_mapopt_t *opt);
-mm_idx_t *mm_idx_build(const char *fn, int w, int k, int is_hpc, int n_threads);
+mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads);
 
 #ifdef __cplusplus
 }
