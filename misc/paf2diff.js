@@ -96,25 +96,31 @@ while (file.readline(buf) >= 0) {
 	var ctg = t[5], x = t[7], end = t[8];
 	// compute regions covered by 1 contig
 	if (ctg != c1_ctg || x >= c1_end) {
-		if (c1_counted)
+		if (c1_counted && c1_end > c1_start) {
 			c1_len += c1_end - c1_start;
+			print('R', c1_ctg, c1_start, c1_end);
+		}
 		c1_ctg = ctg, c1_start = x, c1_end = end;
 		c1_counted = (t[10] >= min_var_len);
 	} else if (end > c1_end) { // overlap
-		if (c1_counted && x > c1_start)
+		if (c1_counted && x > c1_start) {
 			c1_len += x - c1_start;
+			print('R', c1_ctg, c1_start, x);
+		}
 		c1_start = c1_end, c1_end = end;
 		c1_counted = (t[10] >= min_var_len);
 	} else { // contained
-		if (c1_counted && x > c1_start)
+		if (c1_counted && x > c1_start) {
 			c1_len += x - c1_start;
+			print('R', c1_ctg, c1_start, x);
+		}
 		c1_start = end;
 	}
 	// output variants ahead of this alignment
 	while (out.length) {
 		if (out[0][0] != ctg || out[0][2] <= x) {
 			count_var(out[0]);
-			print(out[0].join("\t"));
+			print('V', out[0].join("\t"));
 			out.shift();
 		} else break;
 	}
@@ -156,10 +162,13 @@ while (file.readline(buf) >= 0) {
 	}
 	a.push([t[5], t[7], t[8]]);
 }
-if (c1_counted) c1_len += c1_end - c1_start;
+if (c1_counted && c1_end > c1_start) {
+	c1_len += c1_end - c1_start;
+	print('R', c1_ctg, c1_start, c1_end);
+}
 while (out.length) {
 	count_var(out[0]);
-	print(out[0].join("\t"));
+	print('V', out[0].join("\t"));
 	out.shift();
 }
 
