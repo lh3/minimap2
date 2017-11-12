@@ -246,7 +246,6 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		s->seq = mm_bseq_read(p->fp, p->mini_batch_size, 0, &s->n_seq); // read a mini-batch
 		if (s->seq) {
 			uint32_t old_m, m;
-			uint64_t sum_len, old_max_len, max_len;
 			assert((uint64_t)p->mi->n_seq + s->n_seq <= UINT32_MAX); // to prevent integer overflow
 			// make room for p->mi->seq
 			old_m = p->mi->n_seq, m = p->mi->n_seq + s->n_seq;
@@ -254,13 +253,16 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			if (old_m != m)
 				p->mi->seq = (mm_idx_seq_t*)krealloc(p->mi->km, p->mi->seq, m * sizeof(mm_idx_seq_t));
 			// make room for p->mi->S
-			for (i = 0, sum_len = 0; i < s->n_seq; ++i) sum_len += s->seq[i].l_seq;
-			old_max_len = (p->sum_len + 7) / 8;
-			max_len = (p->sum_len + sum_len + 7) / 8;
-			kroundup64(old_max_len); kroundup64(max_len);
-			if (old_max_len != max_len) {
-				p->mi->S = (uint32_t*)realloc(p->mi->S, max_len * 4);
-				memset(&p->mi->S[old_max_len], 0, 4 * (max_len - old_max_len));
+			if (!(p->mi->flag & MM_I_NO_SEQ)) {
+				uint64_t sum_len, old_max_len, max_len;
+				for (i = 0, sum_len = 0; i < s->n_seq; ++i) sum_len += s->seq[i].l_seq;
+				old_max_len = (p->sum_len + 7) / 8;
+				max_len = (p->sum_len + sum_len + 7) / 8;
+				kroundup64(old_max_len); kroundup64(max_len);
+				if (old_max_len != max_len) {
+					p->mi->S = (uint32_t*)realloc(p->mi->S, max_len * 4);
+					memset(&p->mi->S[old_max_len], 0, 4 * (max_len - old_max_len));
+				}
 			}
 			// populate p->mi->seq
 			for (i = 0; i < s->n_seq; ++i) {
@@ -273,10 +275,12 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				seq->len = s->seq[i].l_seq;
 				seq->offset = p->sum_len;
 				// copy the sequence
-				for (j = 0; j < seq->len; ++j) { // TODO: this is not the fastest way, but let's first see if speed matters here
-					uint64_t o = p->sum_len + j;
-					int c = seq_nt4_table[(uint8_t)s->seq[i].seq[j]];
-					mm_seq4_set(p->mi->S, o, c);
+				if (!(p->mi->flag & MM_I_NO_SEQ)) {
+					for (j = 0; j < seq->len; ++j) { // TODO: this is not the fastest way, but let's first see if speed matters here
+						uint64_t o = p->sum_len + j;
+						int c = seq_nt4_table[(uint8_t)s->seq[i].seq[j]];
+						mm_seq4_set(p->mi->S, o, c);
+					}
 				}
 				// update p->sum_len and p->mi->n_seq
 				p->sum_len += seq->len;
@@ -370,7 +374,8 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 			fwrite(x, 8, 2, fp);
 		}
 	}
-	fwrite(mi->S, 4, (sum_len + 7) / 8, fp);
+	if (!(mi->flag & MM_I_NO_SEQ))
+		fwrite(mi->S, 4, (sum_len + 7) / 8, fp);
 	fflush(fp);
 }
 
@@ -420,8 +425,10 @@ mm_idx_t *mm_idx_load(FILE *fp)
 			kh_val(h, k) = x[1];
 		}
 	}
-	mi->S = (uint32_t*)malloc((sum_len + 7) / 8 * 4);
-	fread(mi->S, 4, (sum_len + 7) / 8, fp);
+	if (!(mi->flag & MM_I_NO_SEQ)) {
+		mi->S = (uint32_t*)malloc((sum_len + 7) / 8 * 4);
+		fread(mi->S, 4, (sum_len + 7) / 8, fp);
+	}
 	return mi;
 }
 

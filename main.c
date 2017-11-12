@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.5-r573-dirty"
+#define MM_VERSION "2.5-r574-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -43,6 +43,7 @@ static struct option long_options[] = {
 	{ "end-bonus",      required_argument, 0, 0 },
 	{ "no-pairing",     no_argument,       0, 0 },
 	{ "splice-flank",   optional_argument, 0, 0 },
+	{ "idx-no-seq",     no_argument,       0, 0 },
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -138,6 +139,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
 		else if (c == 0 && long_idx ==17) opt.end_bonus = atoi(optarg); // --end-bonus
 		else if (c == 0 && long_idx ==18) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
+		else if (c == 0 && long_idx ==20) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
 		else if (c == 0 && long_idx == 14) { // --frag
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_FRAG_MODE;
@@ -196,6 +198,8 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR]\033[1;31m --splice and --frag should not be specified at the same time.\033[0m\n");
 		return 1;
 	}
+	if (!fnw && !(opt.flag&MM_F_CIGAR))
+		ipt.flag |= MM_I_NO_SEQ;
 
 	if (argc == optind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
@@ -259,11 +263,18 @@ int main(int argc, char *argv[])
 	}
 	if (!idx_rdr->is_idx && fnw == 0 && argc - optind < 2) {
 		fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
+		mm_idx_reader_close(idx_rdr);
 		return 1;
 	}
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
 		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
+		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
+			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
+			mm_idx_destroy(mi);
+			mm_idx_reader_close(idx_rdr);
+			return 1;
+		}
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
 			if (mm_idx_reader_eof(idx_rdr)) {
 				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
