@@ -92,7 +92,7 @@ while (file.readline(buf) >= 0) {
 	var m, t = line.split("\t", 12);
 	for (var i = 6; i <= 11; ++i)
 		t[i] = parseInt(t[i]);
-	if (t[10] < min_cov_len || t[11] == 0) continue;
+	if (t[10] < min_cov_len || t[11] < min_mapq) continue;
 	var ctg = t[5], x = t[7], end = t[8];
 	// compute regions covered by 1 contig
 	if (ctg != c1_ctg || x >= c1_end) {
