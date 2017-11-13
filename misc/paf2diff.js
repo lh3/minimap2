@@ -156,7 +156,7 @@ while (file.readline(buf) >= 0) {
 				++blen, ++n_diff;
 			} else if (m[1] == '-') {
 				out.push([t[5], x, x + m[2].length, cov, t[11], m[2], '-']);
-				++blen, ++n_diff;
+				x += m[2].length, ++blen, ++n_diff;
 			}
 		}
 	}
