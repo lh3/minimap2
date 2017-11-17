@@ -36,20 +36,21 @@ var getopt = function(args, ostr) {
 	return optopt;
 }
 
-var c, maf_out = false, line_len = 80;
-while ((c = getopt(arguments, "ml:")) != null) {
-	if (c == 'm') maf_out = true;
-	else if (c == 'l') line_len = parseInt(getopt.arg); // TODO: not implemented yet
+var c, line_len = 80, fmt = "aln";
+while ((c = getopt(arguments, "f:l:")) != null) {
+	if (c == 'f') {
+		fmt = getopt.arg;
+		if (fmt != "aln" && fmt != "lastz-cigar" && fmt != "maf")
+			throw Error("format must be one of aln, lastz-cigar and maf");
+	} else if (c == 'l') line_len = parseInt(getopt.arg);
 }
 if (line_len == 0) line_len = 0x7fffffff;
 
 if (getopt.ind == arguments.length) {
-	print("Usage: k8 paf2aln.js [options] <with-cs.paf>");
+	print("Usage: k8 paf2aln.js [options] <in.paf>");
 	print("Options:");
-	print("  -m        MAF output (BLAST-like output by default)");
+	print("  -f STR    output format: aln (BLAST-like), maf or lastz-cigar [aln]");
 	print("  -l INT    line length in BLAST-like output [80]");
-	print("");
-	print("Note: this script only works when minimap2 is run with option '-S'");
 	exit(1);
 }
 
@@ -66,7 +67,7 @@ function padding_str(x, len, right)
 function update_aln(s_ref, s_qry, s_mid, type, seq, slen)
 {
 	var l = type == '*'? 1 : seq.length;
-	if (type == '=') {
+	if (type == '=' || type == ':') {
 		s_ref.set(seq);
 		s_qry.set(seq);
 		s_mid.set(Array(l+1).join("|"));
@@ -96,49 +97,73 @@ function print_aln(rs, qs, strand, slen, elen, s_ref, s_qry, s_mid)
 	var st, en;
 	if (strand == '+') st = qs + slen[1] + 1, en = qs + elen[1];
 	else st = qs - slen[1], en = qs - elen[1] + 1;
-	print(["Qry" + strand + ":", padding_str(st,               10, false), s_qry.toString(), padding_str(en          , 10, true)].join(" "));
+	print(["Qry" + strand + ":", padding_str(st, 10, false), s_qry.toString(), padding_str(en, 10, true)].join(" "));
 }
 
-var s_ref = new Bytes(), s_qry = new Bytes(), s_mid = new Bytes();
-var re = /([=\-\+\*])([A-Za-z]+)/g;
+var s_ref = new Bytes(), s_qry = new Bytes(), s_mid = new Bytes(); // these are used to show padded alignment
+var re_cs = /([:=\-\+\*])(\d+|[A-Za-z]+)/g;
+var re_cg = /(\d+)([MIDNSH])/g;
 
 var buf = new Bytes();
-var file = new File(arguments[getopt.ind]);
-if (maf_out) print("##maf version=1\n");
+var file = arguments[getopt.ind] == "-"? new File() : new File(arguments[getopt.ind]);
+var lineno = 0;
+if (fmt == "maf") print("##maf version=1\n");
 while (file.readline(buf) >= 0) {
 	var m, line = buf.toString();
 	var t = line.split("\t", 12);
-	if ((m = /\tcs:Z:(\S+)/.exec(line)) == null) continue;
-	var cs = m[1];
+	++lineno;
 	s_ref.length = s_qry.length = s_mid.length = 0;
 	var slen = [0, 0], elen = [0, 0];
-	if (maf_out) {
-		while ((m = re.exec(cs)) != null)
-			update_aln(s_ref, s_qry, s_mid, m[1], m[2], elen);
-		if (maf_out) {
-			var score = (m = /\tAS:i:(\d+)/.exec(line)) != null? parseInt(m[1]) : 0;
-			var len = t[0].length > t[5].length? t[0].length : t[5].length;
-			print("a " + score);
-			print(["s", padding_str(t[5], len, true), padding_str(t[7], 10, false), padding_str(parseInt(t[8]) - parseInt(t[7]), 10, false),
-				   "+", padding_str(t[6], 10, false), s_ref.toString()].join(" "));
-			var qs, qe, ql = parseInt(t[1]);
-			if (t[4] == '+') {
-				qs = parseInt(t[2]);
-				qe = parseInt(t[3]);
-			} else {
-				qs = ql - parseInt(t[3]);
-				qe = ql - parseInt(t[2]);
-			}
-			print(["s", padding_str(t[0], len, true), padding_str(qs, 10, false), padding_str(qe - qs, 10, false),
-				   t[4], padding_str(ql, 10, false), s_qry.toString()].join(" "));
-			print("");
+	if (fmt == "lastz-cigar") { // LASTZ-cigar output
+		var cg = (m = /\tcg:Z:(\S+)/.exec(line)) != null? m[1] : null;
+		if (cg == null) {
+			warn("WARNING: converting to LASTZ-cigar format requires the 'cg' tag, which is absent on line " + lineno);
+			continue;
 		}
-	} else {
-		line = line.replace(/\tc[sg]:Z:\S+/g, "");
+		var score = (m = /\tAS:i:(\d+)/.exec(line)) != null? m[1] : 0;
+		var out = ['cigar:', t[0], t[2], t[3], t[4], t[5], t[7], t[8], '+', score];
+		while ((m = re_cg.exec(cg)) != null)
+			out.push(m[2], m[1]);
+		print(out.join(" "));
+	} else if (fmt == "maf") { // MAF output
+		var cs = (m = /\tcs:Z:(\S+)/.exec(line)) != null? m[1] : null;
+		if (cs == null) {
+			warn("WARNING: converting to MAF requires the 'cs' tag, which is absent on line " + lineno);
+			continue;
+		}
+		while ((m = re_cs.exec(cs)) != null) {
+			if (m[1] == ':')
+				throw Error("converting to MAF only works with 'minimap2 --cs=long'");
+			update_aln(s_ref, s_qry, s_mid, m[1], m[2], elen);
+		}
+		var score = (m = /\tAS:i:(\d+)/.exec(line)) != null? parseInt(m[1]) : 0;
+		var len = t[0].length > t[5].length? t[0].length : t[5].length;
+		print("a " + score);
+		print(["s", padding_str(t[5], len, true), padding_str(t[7], 10, false), padding_str(parseInt(t[8]) - parseInt(t[7]), 10, false),
+				"+", padding_str(t[6], 10, false), s_ref.toString()].join(" "));
+		var qs, qe, ql = parseInt(t[1]);
+		if (t[4] == '+') {
+			qs = parseInt(t[2]);
+			qe = parseInt(t[3]);
+		} else {
+			qs = ql - parseInt(t[3]);
+			qe = ql - parseInt(t[2]);
+		}
+		print(["s", padding_str(t[0], len, true), padding_str(qs, 10, false), padding_str(qe - qs, 10, false),
+				t[4], padding_str(ql, 10, false), s_qry.toString()].join(" "));
+		print("");
+	} else { // BLAST-like output
+		var cs = (m = /\tcs:Z:(\S+)/.exec(line)) != null? m[1] : null;
+		if (cs == null) {
+			warn("WARNING: converting to BLAST-like alignment requires the 'cs' tag, which is absent on line " + lineno);
+			continue;
+		}
+		line = line.replace(/\tc[sg]:Z:\S+/g, ""); // get rid of cs or cg tags
 		print('>' + line);
 		var rs = parseInt(t[7]), qs = t[4] == '+'? parseInt(t[2]) : parseInt(t[3]);
 		var n_blocks = 0;
-		while ((m = re.exec(cs)) != null) {
+		while ((m = re_cs.exec(cs)) != null) {
+			if (m[1] == ':') m[2] = Array(parseInt(m[2]) + 1).join("=");
 			var start = 0, rest = m[1] == '*'? 1 : m[2].length;
 			while (rest > 0) {
 				var l_proc;
