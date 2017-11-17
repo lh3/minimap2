@@ -23,35 +23,36 @@ void liftrlimit() {}
 #endif
 
 static struct option long_options[] = {
-	{ "bucket-bits",    required_argument, 0, 0 },
-	{ "mb-size",        required_argument, 0, 'K' },
-	{ "seed",           required_argument, 0, 0 },
-	{ "no-kalloc",      no_argument,       0, 0 },
-	{ "print-qname",    no_argument,       0, 0 },
-	{ "no-self",        no_argument,       0, 0 },
-	{ "print-seeds",    no_argument,       0, 0 },
-	{ "max-chain-skip", required_argument, 0, 0 },
-	{ "min-dp-len",     required_argument, 0, 0 },
-	{ "print-aln-seq",  no_argument,       0, 0 },
-	{ "splice",         no_argument,       0, 0 },
-	{ "cost-non-gt-ag", required_argument, 0, 'C' },
-	{ "no-long-join",   no_argument,       0, 0 },
-	{ "sr",             no_argument,       0, 0 },
-	{ "frag",           optional_argument, 0, 0 },
-	{ "secondary",      optional_argument, 0, 0 },
-	{ "cs",             optional_argument, 0, 0 },
-	{ "end-bonus",      required_argument, 0, 0 },
-	{ "no-pairing",     no_argument,       0, 0 },
-	{ "splice-flank",   optional_argument, 0, 0 },
-	{ "idx-no-seq",     no_argument,       0, 0 },
-	{ "help",           no_argument,       0, 'h' },
-	{ "max-intron-len", required_argument, 0, 'G' },
-	{ "version",        no_argument,       0, 'V' },
-	{ "min-count",      required_argument, 0, 'n' },
-	{ "min-chain-score",required_argument, 0, 'm' },
-	{ "mask-level",     required_argument, 0, 'M' },
-	{ "min-dp-score",   required_argument, 0, 's' },
-	{ "sam",            no_argument,       0, 'a' },
+	{ "bucket-bits",    required_argument, 0, 0 },  // 0
+	{ "mb-size",        required_argument, 0, 'K' },  // 1
+	{ "seed",           required_argument, 0, 0 },  // 2
+	{ "no-kalloc",      no_argument,       0, 0 }, // 3
+	{ "print-qname",    no_argument,       0, 0 }, // 4
+	{ "no-self",        no_argument,       0, 0 }, // 5
+	{ "print-seeds",    no_argument,       0, 0 }, // 6
+	{ "max-chain-skip", required_argument, 0, 0 }, // 7
+	{ "min-dp-len",     required_argument, 0, 0 }, // 8
+	{ "print-aln-seq",  no_argument,       0, 0 }, // 9
+	{ "splice",         no_argument,       0, 0 }, // 10
+	{ "cost-non-gt-ag", required_argument, 0, 'C' }, // 11
+	{ "no-long-join",   no_argument,       0, 0 }, // 12
+	{ "sr",             no_argument,       0, 0 },  // 13
+	{ "frag",           optional_argument, 0, 0 },  // 14
+	{ "secondary",      optional_argument, 0, 0 },  // 15
+	{ "cs",             optional_argument, 0, 0 }, // 16
+	{ "end-bonus",      required_argument, 0, 0 },  // 17
+	{ "no-pairing",     no_argument,       0, 0 },  // 18
+	{ "splice-flank",   optional_argument, 0, 0 },  // 19
+	{ "idx-no-seq",     no_argument,       0, 0 },  // 20
+	{ "help",           no_argument,       0, 'h' }, // 21
+	{ "max-intron-len", required_argument, 0, 'G' },  // 22 
+	{ "version",        no_argument,       0, 'V' }, // 23
+	{ "min-count",      required_argument, 0, 'n' },  // 24
+	{ "min-chain-score",required_argument, 0, 'm' },   // 25
+	{ "mask-level",     required_argument, 0, 'M' }, // 26
+	{ "min-dp-score",   required_argument, 0, 's' }, // 27
+	{ "sam",            no_argument,       0, 'a' }, // 28
+        { "lastz",    no_argument, 0, 0},  // 29 
 	{ 0, 0, 0, 0}
 };
 
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==17) opt.end_bonus = atoi(optarg); // --end-bonus
 		else if (c == 0 && long_idx ==18) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
 		else if (c == 0 && long_idx ==20) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
+                else if (c == 0 && long_idx == 29) opt.flag |= MM_F_LASTZ | MM_F_CIGAR ;
 		else if (c == 0 && long_idx == 14) { // --frag
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_FRAG_MODE;
@@ -242,6 +244,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(fp_help, "    --version    show version number\n");
+                fprintf(fp_help, "    --lastz      produce output similar to LASTZ --format=cigar output\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options) []\n");
 		fprintf(fp_help, "                 map-pb: -Hk19 (PacBio vs reference mapping)\n");
@@ -268,13 +271,16 @@ int main(int argc, char *argv[])
 	}
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
 		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
+        // Start mapping, I think
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
+                // No sequences, exit
 		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
 			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
 			mm_idx_destroy(mi);
 			mm_idx_reader_close(idx_rdr);
 			return 1;
 		}
+                // Write SAM Header
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
 			if (mm_idx_reader_eof(idx_rdr)) {
 				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
@@ -284,17 +290,21 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted.\033[0m\n");
 			}
 		}
+                // Finished creating the index
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
+                // Print out the statistics about the index
 		if (mm_verbose >= 3) mm_idx_stat(mi);
+                // Start mapping
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = optind + 1; i < argc; ++i)
 				mm_map_file(mi, argv[i], &opt, n_threads);
 		} else {
 			mm_map_file_frag(mi, argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_threads);
 		}
+                // Unload the index from memory
 		mm_idx_destroy(mi);
 	}
 	mm_idx_reader_close(idx_rdr);

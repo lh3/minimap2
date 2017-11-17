@@ -485,7 +485,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 						continue;
 					if (p->opt->flag & MM_F_OUT_SAM)
 						mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
-					else
+					else if (p->opt->flag & MM_F_LASTZ)
+                                          mm_write_lastz(&p->str, mi, t, r, km, p->opt->flag);
+                                        else
+
 						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
 					puts(p->str.s);
 				}
