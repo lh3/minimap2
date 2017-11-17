@@ -233,6 +233,32 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 		write_cs(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG));
 }
 
+static void write_lastz_cigar(kstring_t *s, int qlen, const mm_reg1_t *r, int opt_flag)
+{
+	if (r->p == 0) {
+		mm_sprintf_lite(s, "*");
+	} else {
+		uint32_t k; 
+		for (k = 0; k < r->p->n_cigar; ++k) {
+                  // Order of strings/numbers is reversed in LASTZ cigars, plus, there is a space
+                  mm_sprintf_lite(s, "%c %d ", "MIDN"[r->p->cigar[k]&0xf], r->p->cigar[k]>>4);
+                }
+                // No clipping
+		// if (clip_len[1]) mm_sprintf_lite(s, "%d %c", clip_len[1], clip_char);
+	}
+}
+
+void mm_write_lastz(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag)
+{
+  // Initialise an empty string
+  s->l = 0;
+  // cigar: query qstart qend qstrand target tstart tend tstrand score cigar
+  mm_sprintf_lite(s, "cigar: %s %d %d %c ", t->name, r->qs, r->qe, "+-"[r->rev]);
+  mm_sprintf_lite(s, "%s %d %d %s %d ", mi->seq[r->rid].name, r->rs, r->re, "+", r->score);
+  // Now the cigar
+  write_lastz_cigar(s, t->l_seq, r, opt_flag);
+}
+
 static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
 {
 	extern unsigned char seq_comp_table[256];
@@ -281,6 +307,7 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 		}
 	}
 }
+
 
 void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int opt_flag)
 {
