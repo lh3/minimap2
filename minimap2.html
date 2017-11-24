@@ -1,0 +1,643 @@
+<HTML><HEAD>
+<style type="text/css">
+a:link {
+	text-decoration: none;
+	color: #0092e8;
+}
+a:visited {
+	text-decoration: none;
+	color: #0092e8;
+}
+a:hover {
+	text-decoration: underline;
+	color: #0092e8;
+}
+body, td, th {
+	font: 12px consolas, andale mono, courier, mono;
+}
+body {
+	color: #000;
+	background: #fff;
+	margin: 0;
+	padding: 0;
+}
+table {
+	border: solid 0px #ccc;
+}
+td {
+	vertical-align: top;
+	padding: 0.2em;
+}
+th {
+	font-weight: bold;
+	text-align: left;
+	padding: 0.2em;
+}
+#tbl table {
+	border: solid 1px #ccc;
+}
+#tbl td {
+	border: solid 1px #ccc;
+	padding: 0.3em;
+}
+#wrap {
+  width: 780px;
+  text-align: left;
+  margin: 0 auto;
+}
+hr {
+	margin: 1em 0;
+	color: #C7C7C7;
+	background: #C7C7C7;
+	border-color: #C7C7C7;
+	border-style: none;
+	height: 1px;
+}
+h1, h2, h3, h4, h5, h6 {
+	font-family: "Trebuchet MS", arial, sans-serif;
+	font-weight: bold;
+}
+p {
+    text-align: justify;
+}
+</style>
+<TITLE>Manual Page - minimap2(1)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0F0F0 text=#000000 link=#0000ff vlink=#C000C0 alink=#ff0000><div id="wrap"><A NAME=top></A>
+<CENTER>
+<H1><HR><I>Manual Reference Pages &nbsp;-&nbsp;</I><NOBR>minimap2 (1)</NOBR><HR></H1>
+</CENTER>
+<A name=0></A>
+
+     <H3>NAME</H3>
+
+
+<BLOCKQUOTE>
+<P>
+minimap2 - mapping and alignment between collections of DNA sequences
+</BLOCKQUOTE>
+<A name=contents></A><H3>CONTENTS</H3></A>
+<BLOCKQUOTE>
+<A HREF=#1>Synopsis</A><BR>
+<A HREF=#2>Description</A><BR>
+<A HREF=#3>Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#4>Indexing options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#5>Mapping options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#6>Alignment options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#7>Input/output options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#8>Preset options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#9>Miscellaneous options</A><BR>
+<A HREF=#10>Output Format</A><BR>
+<A HREF=#11>Limitations</A><BR>
+<A HREF=#12>See Also</A><BR>
+</BLOCKQUOTE>
+<A name=13></A>
+
+     <H3>SYNOPSIS</H3>
+
+
+<BLOCKQUOTE>
+* Indexing the target sequences (optional):
+<BLOCKQUOTE>
+minimap2
+[<B>-x</B> <I>preset</I>] <B>-d</B> <I>target.mmi</I> <I>target.fa</I> <!-- Need break --><BR>
+minimap2
+[<B>-H</B>] [<B>-k</B> <I>kmer</I>] [<B>-w</B> <I>miniWinSize</I>] [<B>-I</B> <I>batchSize</I>] <B>-d</B> <I>target.mmi</I> <I>target.fa</I> </BLOCKQUOTE>
+<P>
+* Long-read alignment with CIGAR:
+<BLOCKQUOTE>
+minimap2
+<B>-a</B> [<B>-x</B> <I>preset</I>] <I>target.mmi</I> <I>query.fa</I> &gt;
+<I>output.sam</I> <!-- Need break --><BR>
+minimap2
+<B>-c</B> [<B>-H</B>] [<B>-k</B> <I>kmer</I>] [<B>-w</B> <I>miniWinSize</I>] [<B>...</B>] <I>target.fa</I> <I>query.fa</I> &gt;
+<I>output.paf</I> </BLOCKQUOTE>
+<P>
+* Long-read overlap without CIGAR:
+<BLOCKQUOTE>
+minimap2
+<B>-x</B> ava-ont
+[<B>-t</B> <I>nThreads</I>] <I>target.fa</I> <I>query.fa</I> &gt;
+<I>output.paf</I> </BLOCKQUOTE>
+</BLOCKQUOTE>
+<A name=2></A>
+
+     <H3>DESCRIPTION</H3>
+
+
+<BLOCKQUOTE>
+<P>
+Minimap2 is a fast sequence mapping and alignment program that can find
+overlaps between long noisy reads, or map long reads or their assemblies to a
+reference genome optionally with detailed alignment (i.e. CIGAR). At present,
+it works efficiently with query sequences from a few kilobases to ~100
+megabases in length at a error rate ~15%. Minimap2 outputs in the PAF or the
+SAM format.
+</BLOCKQUOTE>
+<A name=3></A>
+
+     <H3>OPTIONS</H3>
+
+
+<BLOCKQUOTE>
+</BLOCKQUOTE>
+<A name=4></A>
+
+    <H4>&nbsp; &nbsp; Indexing options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-k</B><I> INT</I> </TD><TD valign=bottom>
+Minimizer k-mer length [15]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-w</B><I> INT</I> </TD><TD valign=bottom>
+Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
+in a window of w consecutive k-mers.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-H</B> </TD><TD valign=bottom>
+Use homopolymer-compressed (HPC) minimizers. An HPC sequence is constructed by
+contracting homopolymer runs to a single base. An HPC minimizer is a minimizer
+on the HPC sequence.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-I</B><I> NUM</I> </TD><TD valign=bottom>
+Load at most
+<I>NUM</I> target bases into RAM for indexing [4G]. If there are more than
+<I>NUM</I> bases in
+<I>target.fa</I>, minimap2 needs to read
+<I>query.fa</I> multiple times to map it against each batch of target sequences.
+<I>NUM</I> may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
+multi-part index.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-d</B><I> FILE</I> </TD><TD valign=bottom>
+Save the minimizer index of
+<I>target.fa</I> to
+<I>FILE</I> [no dump]. Minimap2 indexing is fast. It can index the human genome in a couple
+of minutes. If even shorter startup time is desired, use this option to save
+the index. Indexing options are fixed in the index file. When an index file is
+provided as the target sequences, options
+<B>-H</B>, <B>-k</B>, <B>-w</B>, <B>-I</B> will be effectively overridden by the options stored in the index file.
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=5></A>
+
+    <H4>&nbsp; &nbsp; Mapping options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-f</B><I> FLOAT</I> </TD><TD valign=bottom>
+Ignore top
+<I>FLOAT</I> fraction of most frequent minimizers [0.0002]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-g</B><I> INT</I> </TD><TD valign=bottom>
+Stop chain enlongation if there are no minimizers in
+<I>INT</I>-bp [10000].
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-r</B><I> INT</I> </TD><TD valign=bottom>
+Bandwidth used in chaining and DP-based alignment [500]. This option
+approximately controls the maximum gap size.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-n</B><I> INT</I> </TD><TD valign=bottom>
+Discard chains consisting of
+&lt;<I>INT</I> number of minimizers [3]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-m</B><I> INT</I> </TD><TD valign=bottom>
+Discard chains with chaining score
+&lt;<I>INT</I> [40]. Chaining score equals the approximate number of matching bases minus a
+concave gap penalty. It is computed with dynamic programming.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-X</B> </TD><TD valign=bottom>
+Perform all-vs-all mapping. In this mode, if the query sequence name is
+lexicographically larger than the target sequence name, the hits between them
+will be suppressed; if the query sequence name is the same as the target name,
+diagonal minimizer hits will also be suppressed.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-p</B><I> FLOAT</I> </TD><TD valign=bottom>
+Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
+Between two chains overlaping over half of the shorter chain (controlled by
+<B>--mask-level</B>), the chain with a lower score is secondary to the chain with a higher score.
+If the ratio of the scores is below
+<I>FLOAT</I>, the secondary chain will not be outputted or extended with DP alignment later.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-N</B><I> INT</I> </TD><TD valign=bottom>
+Output at most
+<I>INT</I> secondary alignments [5]. This option has no effect when
+<B>-X</B> is applied.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-G</B><I> NUM</I> </TD><TD valign=bottom>
+Maximum gap on the reference (effective with
+<B>-xsplice</B>/<B>--splice</B>). This option also changes the chaining and alignment band width to
+<I>NUM</I>. Increasing this option slows down spliced alignment. [200k]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-F</B><I> NUM</I> </TD><TD valign=bottom>
+Maximum fragment length (aka insert size; effective with
+<B>-xsr</B>/<B>--frag)</B> [800]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--max-chain-skip</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
+for chaining. The time complexity is quadratic in the number of seeds. This
+option makes minimap2 exits the inner loop if it repeatedly sees seeds already
+on chains. Set
+<I>INT</I> to a large number to switch off this heurstics.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--no-long-join</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Disable the long gap patching heuristic. When this option is applied, the
+maximum alignment gap is mostly controlled by
+<B>-r</B>. </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--splice</B> </TD><TD valign=bottom>
+Enable the splice alignment mode.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--sr</B> </TD><TD valign=bottom>
+Enable short-read alignment heuristics. In the short-read mode, minimap2
+applies a second round of chaining with a higher minimizer occurrence threshold
+if no good chain is found. In addition, minimap2 attempts to patch gaps between
+seeds with ungapped alignment.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--frag</B>[=<B>no</B>|<B>yes</B>] </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Whether to enable the fragment mode [no]
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=6></A>
+
+    <H4>&nbsp; &nbsp; Alignment options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-A</B><I> INT</I> </TD><TD valign=bottom>
+Matching score [2]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-B</B><I> INT</I> </TD><TD valign=bottom>
+Mismatching penalty [4]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>-O</B><I> INT1[,INT2]</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Gap open penalty [4,24]. If
+<I>INT2</I> is not specified, it is set to
+<I>INT1</I>. </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>-E</B><I> INT1[,INT2]</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Gap extension penalty [2,1]. A gap of length
+<I>k</I> costs
+min{<I>O1</I>+<I>k</I>*<I>E1</I>,<I>O2</I>+<I>k</I>*<I>E2</I>}. In the splice mode, the second gap penalties are not used.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-C</B><I> INT</I> </TD><TD valign=bottom>
+Cost for a non-canonical GT-AG splicing (effective with
+<B>--splice</B>) [0]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-z</B><I> INT</I> </TD><TD valign=bottom>
+Break an alignment if the running score drops too quickly along the diagonal of
+the DP matrix (diagonal X-drop, or Z-drop) [400]. Increasing the value improves
+the contiguity of the alignment at the cost of poor alignment in the middle
+(e.g. caused by a long inversion).
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-s</B><I> INT</I> </TD><TD valign=bottom>
+Minimal peak DP alignment score to output [40]. The peak score is computed from
+the final CIGAR. It is the score of the max scoring segment in the alignment
+and may be different from the total alignment score.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-u</B><I> CHAR</I> </TD><TD valign=bottom>
+How to find canonical splicing sites GT-AG -
+<B>f</B>: transcript strand;
+<B>b</B>: both strands;
+<B>n</B>: no attempt to match GT-AG [n]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--end-bonus</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Score bonus when alignment extends to the end of the query sequence [0].
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--splice-flank</B>[=<B>yes</B>|<B>no</B>] </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Assume the next base to a
+<B>GT</B> donor site tends to be A/G (91% in human and 92% in mouse) and the preceding
+base to a
+<B>AG</B> acceptor tends to be C/T [yes with
+<B>--splice</B>]. This trend is evolutionarily conservative, all the way to S. cerevisiae
+(PMID:18688272). Specifying this option generally leads to higher junction
+accuracy by several percents, so it is applied by default with
+<B>--splice</B>. However, the SIRV control does not honor this trend
+(only ~60%). This option reduces accuracy. If you are benchmarking minimap2
+on SIRV data, please add
+<B>--splice-flank=no</B> to the command line.
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=7></A>
+
+    <H4>&nbsp; &nbsp; Input/output options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-a</B> </TD><TD valign=bottom>
+Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
+by default.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-Q</B> </TD><TD valign=bottom>
+Ignore base quality in the input file.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-L</B> </TD><TD valign=bottom>
+Write CIGAR with &gt;65535 operators at the CG tag. Older tools are unable to
+convert alignments with &gt;65535 CIGAR ops to BAM. This option makes minimap2 SAM
+compatible with older tools. Newer tools recognizes this tag and reconstruct
+the real CIGAR in memory.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-R</B><I> STR</I> </TD><TD valign=bottom>
+SAM read group line in a format like
+<B>@RG\\tID:foo\\tSM:bar</B> [].
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-c</B> </TD><TD valign=bottom>
+Generate CIGAR. In PAF, the CIGAR is written to the &#145;cg&#146; custom tag.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--cs[=</B><I>STR</I><B>]</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Output the
+<B>cs</B> tag.
+<I>STR</I> can be either
+<I>short</I> or
+<I>long</I>. If no
+<I>STR</I> is given,
+<I>short</I> is assumed. [none]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-Y</B> </TD><TD valign=bottom>
+In SAM output, use soft clipping for supplementary alignments.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--seed</B><I> INT</I> </TD><TD valign=bottom>
+Integer seed for randomizing equally best hits. Minimap2 hashes
+<I>INT</I> and read name when choosing between equally best hits. [11]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-t</B><I> INT</I> </TD><TD valign=bottom>
+Number of threads [3]. Minimap2 uses at most three threads when indexing target
+sequences, and uses up to
+<I>INT</I>+1 threads when mapping (the extra thread is for I/O, which is frequently idle and
+takes little CPU time).
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-2</B> </TD><TD valign=bottom>
+Use two I/O threads during mapping. By default, minimap2 uses one I/O thread.
+When I/O is slow (e.g. piping to gzip, or reading from a slow pipe), the I/O
+thread may become the bottleneck. Apply this option to use one thread for input
+and another thread for output, at the cost of increased peak RAM.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-K</B><I> NUM</I> </TD><TD valign=bottom>
+Number of bases loaded into memory to process in a mini-batch [500M].
+Similar to option
+<B>-I</B>, K/M/G/k/m/g suffix is accepted. A large
+<I>NUM</I> helps load balancing in the multi-threading mode, at the cost of increased
+memory.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--secondary</B>[=<B>yes</B>|<B>no</B>] </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Whether to output secondary alignments [yes]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--version</B> </TD><TD valign=bottom>
+Print version number to stdout
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=8></A>
+
+    <H4>&nbsp; &nbsp; Preset options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=10% nowrap>
+<B>-x</B><I> STR</I> </TD><TD valign=bottom>
+Preset []. This option applies multiple options at the same time. It should be
+applied before other options because options applied later will overwrite the
+values set by
+<B>-x</B>. Available
+<I>STR</I> are:
+<TABLE width=100% cellpadding=3><!-- tsb: Preset []. This option applies multiple options at the same time. It should be
+ -->
+<TR></TR><TR></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>map-pb</B> </TD><TD valign=bottom>
+PacBio/Oxford Nanopore read to reference mapping
+(<B>-Hk19</B>) </TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>map-ont</B> </TD><TD valign=bottom>
+Slightly more sensitive for Oxford Nanopore to reference mapping
+(<B>-k15</B>). For PacBio reads, HPC minimizers consistently leads to faster performance and
+more sensitive results in comparison to normal minimizers. For Oxford Nanopore
+data, normal minimizers are better, though not much. The effectiveness of HPC
+is determined by the sequencing error mode.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>asm5</B> </TD><TD valign=bottom>
+Long assembly to reference mapping
+(<B>-k19</B> <B>-w19 -A1 -B19 -O39,81 -E3,1 -s200</B> <B>-z200</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
+divergence. Only use this preset if the average divergence is far below 5%.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>asm10</B> </TD><TD valign=bottom>
+Long assembly to reference mapping
+(<B>-k19</B> <B>-w19 -A1 -B9 -O16,41 -E2,1 -s200</B> <B>-z200</B>). Up to 10% sequence divergence.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>ava-pb</B> </TD><TD valign=bottom>
+PacBio all-vs-all overlap mapping
+(<B>-Hk19</B> <B>-w5 -Xp0 -m100 -g10000 --max-chain-skip</B> <B>25</B>). </TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>ava-ont</B> </TD><TD valign=bottom>
+Oxford Nanopore all-vs-all overlap mapping
+(<B>-k15</B> <B>-w5 -Xp0 -m100 -g10000 --max-chain-skip</B> <B>25</B>). Similarly, the major difference from
+<B>ava-pb</B> is that this preset is not using HPC minimizers.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>splice</B> </TD><TD valign=bottom>
+Long-read spliced alignment
+(<B>-k15</B> <B>-w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub</B> <B>--splice-flank=yes</B>). In the splice mode, 1) long deletions are taken as introns and represented as
+the
+&#145;<B>N</B>&#146; CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
+costs are different during chaining; 4) the computation of the
+&#145;<B>ms</B>&#146; tag ignores introns to demote hits to pseudogenes.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>sr</B> </TD><TD valign=bottom>
+Short single-end reads without splicing
+(<B>-k21</B> <B>-w11 --sr --frag -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20</B> <B>-s40 -g200 -2K50m</B> <B>--secondary=no</B>). </TD></TR>
+<TR></TR></TABLE></TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=9></A>
+
+    <H4>&nbsp; &nbsp; Miscellaneous options</H4>
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD colspan=2>
+<B>--no-kalloc</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Use the libc default allocator instead of the kalloc thread-local allocator.
+This debugging option is mostly used with Valgrind to detect invalid memory
+accesses. Minimap2 runs slower with this option, especially in the
+multi-threading mode.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--print-qname</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Print query names to stderr, mostly to see which query is crashing minimap2.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--print-seeds</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Print seed positions to stderr, for debugging only.
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=10></A>
+
+     <H3>OUTPUT FORMAT</H3>
+
+
+<BLOCKQUOTE>
+<P>
+Minimap2 outputs mapping positions in the Pairwise mApping Format (PAF) by
+default. PAF is a TAB-delimited text format with each line consisting of at
+least 12 fields as are described in the following table:
+<P><BLOCKQUOTE><div id='tbl'><TABLE border=1 cellspacing=0 cellpadding=3>
+<TR valign=top>
+<TD align=center><B>Col</B></TD><TD align=center><B>Type</B></TD><TD align=center><B>Description</B></TD></TR>
+<TR></TR><TR></TR>
+<TR valign=top>
+<TD align=right>1</TD><TD align=center>string</TD><TD>Query sequence name</TD></TR>
+<TR valign=top>
+<TD align=right>2</TD><TD align=center>int</TD><TD>Query sequence length</TD></TR>
+<TR valign=top>
+<TD align=right>3</TD><TD align=center>int</TD><TD>Query start coordinate (0-based)</TD></TR>
+<TR valign=top>
+<TD align=right>4</TD><TD align=center>int</TD><TD>Query end coordinate (0-based)</TD></TR>
+<TR valign=top>
+<TD align=right>5</TD><TD align=center>char</TD><TD>&#145;+&#146; if query/target on the same strand; &#145;-&#146; if opposite</TD></TR>
+<TR valign=top>
+<TD align=right>6</TD><TD align=center>string</TD><TD>Target sequence name</TD></TR>
+<TR valign=top>
+<TD align=right>7</TD><TD align=center>int</TD><TD>Target sequence length</TD></TR>
+<TR valign=top>
+<TD align=right>8</TD><TD align=center>int</TD><TD>Target start coordinate on the original strand</TD></TR>
+<TR valign=top>
+<TD align=right>9</TD><TD align=center>int</TD><TD>Target end coordinate on the original strand</TD></TR>
+<TR valign=top>
+<TD align=right>10</TD><TD align=center>int</TD><TD>Number of matching bases in the mapping</TD></TR>
+<TR valign=top>
+<TD align=right>11</TD><TD align=center>int</TD><TD>Number bases, including gaps, in the mapping</TD></TR>
+<TR valign=top>
+<TD align=right>12</TD><TD align=center>int</TD><TD>Mapping quality (0-255 with 255 for missing)</TD></TR>
+</TABLE></div></BLOCKQUOTE>
+<P>
+<P>
+When alignment is available, column 11 gives the total number of sequence
+matches, mismatches and gaps in the alignment; column 10 divided by column 11
+gives the BLAST-like alignment identity. When alignment is unavailable,
+these two columns are approximate. PAF may optionally have additional fields in
+the SAM-like typed key-value format. Minimap2 may output the following tags:
+<P><BLOCKQUOTE><div id='tbl'><TABLE border=1 cellspacing=0 cellpadding=3>
+<TR valign=top>
+<TD align=center><B>Tag</B></TD><TD align=center><B>Type</B></TD><TD align=center><B>Description</B></TD></TR>
+<TR></TR><TR></TR>
+<TR valign=top>
+<TD align=right>tp</TD><TD align=center>A</TD><TD>Type of aln: P/primary, S/secondary and I/inversion</TD></TR>
+<TR valign=top>
+<TD align=right>cm</TD><TD align=center>i</TD><TD>Number of minimizers on the chain</TD></TR>
+<TR valign=top>
+<TD align=right>s1</TD><TD align=center>i</TD><TD>Chaining score</TD></TR>
+<TR valign=top>
+<TD align=right>s2</TD><TD align=center>i</TD><TD>Chaining score of the best secondary chain</TD></TR>
+<TR valign=top>
+<TD align=right>NM</TD><TD align=center>i</TD><TD>Total number of mismatches and gaps in the alignment</TD></TR>
+<TR valign=top>
+<TD align=right>AS</TD><TD align=center>i</TD><TD>DP alignment score</TD></TR>
+<TR valign=top>
+<TD align=right>ms</TD><TD align=center>i</TD><TD>DP score of the max scoring segment in the alignment</TD></TR>
+<TR valign=top>
+<TD align=right>nn</TD><TD align=center>i</TD><TD>Number of ambiguous bases in the alignment</TD></TR>
+<TR valign=top>
+<TD align=right>ts</TD><TD align=center>A</TD><TD>Transcript strand (splice mode only)</TD></TR>
+<TR valign=top>
+<TD align=right>cg</TD><TD align=center>Z</TD><TD>CIGAR string (only in PAF)</TD></TR>
+<TR valign=top>
+<TD align=right>cs</TD><TD align=center>Z</TD><TD>Difference string</TD></TR>
+</TABLE></div></BLOCKQUOTE>
+<P>
+<P>
+The
+<B>cs</B> tag encodes difference sequences in the short form or the entire query
+<I>AND</I> reference sequences in the long form. It consists of a series of operations:
+<P><BLOCKQUOTE><div id='tbl'><TABLE border=1 cellspacing=0 cellpadding=3>
+<TR valign=top>
+<TD align=center><B>Op</B></TD><TD align=center><B>Regex</B></TD><TD align=center><B>Description</B></TD></TR>
+<TR></TR><TR></TR>
+<TR valign=top>
+<TD align=right> =</TD><TD>[ACGTN]+</TD><TD>Identical sequence (long form)</TD></TR>
+<TR valign=top>
+<TD align=right> :</TD><TD>[0-9]+</TD><TD>Identical sequence length</TD></TR>
+<TR valign=top>
+<TD align=right> *</TD><TD>[acgtn][acgtn]</TD><TD>Substitution: ref to query</TD></TR>
+<TR valign=top>
+<TD align=right> +</TD><TD>[acgtn]+</TD><TD>Insertion to the reference</TD></TR>
+<TR valign=top>
+<TD align=right> -</TD><TD>[acgtn]+</TD><TD>Deletion from the reference</TD></TR>
+<TR valign=top>
+<TD align=right> ~</TD><TD>[acgtn]{2}[0-9]+[acgtn]{2}</TD><TD>Intron length and splice signal</TD></TR>
+</TABLE></div></BLOCKQUOTE>
+<P>
+</BLOCKQUOTE>
+<A name=11></A>
+
+     <H3>LIMITATIONS</H3>
+
+
+<BLOCKQUOTE>
+<TABLE cellpadding=3>
+<TR valign=top><TD width=2% nowrap>
+*
+</TD><TD valign=bottom>
+Minimap2 may produce suboptimal alignments through long low-complexity regions
+where seed positions may be suboptimal. This should not be a big concern
+because even the optimal alignment may be wrong in such regions.
+</TD></TR>
+<TR valign=top><TD width=2% nowrap>
+*
+</TD><TD valign=bottom>
+Minimap2 requires SSE2 instructions to compile. It is possible to add
+non-SSE2 support, but it would make minimap2 slower by several times.
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=12></A>
+
+     <H3>SEE ALSO</H3>
+
+
+<BLOCKQUOTE>
+<P>
+miniasm(1), minimap(1), bwa(1).
+</BLOCKQUOTE>
+<P><HR>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.5 (r572)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>11 November 2017</I></TD> </TR></TABLE></div></BODY></HTML>
