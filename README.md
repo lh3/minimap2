@@ -309,7 +309,7 @@ highlighted in bold. The description may help to tune minimap2 parameters.
 
 ### <a name="help"></a>Getting help
 
-Manpage [minimap2.1](minimap2.1) provides detailed description of minimap2
+Manpage [minimap2.1][manpage] provides detailed description of minimap2
 command line options and optional tags. If you encounter bugs or have further
 questions or requests, you can raise an issue at the [issue page][issue].
 There is not a specific mailing list for the time being.
@@ -363,3 +363,4 @@ warmly welcomed.
 [mappyconda]: https://anaconda.org/bioconda/mappy
 [issue]: https://github.com/lh3/minimap2/issues
 [k8]: https://github.com/attractivechaos/k8
+[manpage]: https://lh3.github.io/minimap2/minimap2.html
