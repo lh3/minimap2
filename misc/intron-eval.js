@@ -161,7 +161,8 @@ for (var tid in tr) {
 	if (anno[t[0]] == null) anno[t[0]] = [];
 	var s = t[4];
 	for (var i = 0; i < s.length - 1; ++i) {
-		if (s[i][1] >= s[i+1][0]) throw Error("ERROR: wrong annotation!");
+		if (s[i][1] >= s[i+1][0])
+			warn("WARNING: incorrect annotation for transcript "+tid+" ("+s[i][1]+" >= "+s[i+1][0]+")")
 		anno[t[0]].push([s[i][1], s[i+1][0]]);
 	}
 }
