@@ -1,13 +1,13 @@
 ## Getting help
 
-* General documentation in the [minimap2 README][doc]
-* Explanation of command-line options in the [minimap2 manpage](minimap2.html)
-* Algorithm description and evaluation in the [minimap2 manuscript][arxiv]
-* Report bugs, request features and ask questions via [GitHub Issues][issue]
+* [README][doc]: general documentation
+* [Manpage](minimap2.html): explanation of command-line options
+* [Manuscript][arxiv]: algorithms and evaluations (please cite if you use minimap2)
+* [GitHub Issues page][issue]: report bugs, request features and ask questions
 
 ## Acquiring minimap2
 
-* Versioned packages and precompiled binaries [from the GitHub Release page][release]
+* [GitHub Release page][release]: versioned packages and precompiled binaries
 * Also [available from BioConda][bioconda]
 * Python binding [via PyPI][pypi] or [via BioConda][mappy-bc]
 
