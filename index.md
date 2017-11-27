@@ -7,6 +7,7 @@
 
 ## Acquiring minimap2
 
+* `git clone https://github.com/lh3/minimap2.git`
 * [GitHub Release page][release]: versioned packages and precompiled binaries
 * Also [available from BioConda][bioconda]
 * Python binding [via PyPI][pypi] or [via BioConda][mappy-bc]
