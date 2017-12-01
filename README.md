@@ -154,6 +154,20 @@ slight improvement to accuracy. For noisy Nanopore Direct RNA-seq reads, it is
 recommended to use a smaller k-mer size for increased sensitivity to the first
 or the last exons.
 
+Minimap2 rates an alignment by the score of the max-scoring sub-segment,
+*excluding* introns, and marks the best alignment as primary in SAM. When a
+spliced gene also has unspliced pseudogenes, minimap2 does not intentionally
+prefer spliced alignment, though in practice it more often marks the spliced
+alignment as the primary. By default, minimap2 outputs up to five secondary
+alignments (i.e. likely pseudogenes in the context of RNA-seq mapping). This
+can be tuned with option **-N**.
+
+For long RNA-seq reads, minimap2 may produce chimeric alignments potentially
+caused by gene fusions/structural variations or by an intron longer than the
+max intron length **-G** (200k by default). For now, it is not recommended to
+apply an excessively large **-G** as this slows down minimap2 and sometimes
+leads to false alignments.
+
 It is worth noting that by default `-x splice` prefers GT[A/G]..[C/T]AG
 over GT[C/T]..[A/G]AG, and then over other splicing signals. Considering
 one additional base improves the junction accuracy for noisy reads, but
