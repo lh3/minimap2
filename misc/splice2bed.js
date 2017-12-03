@@ -43,16 +43,15 @@ function print_lines(a, fmt) {
 	if (fmt == "bed") {
 		var n_pri = 0;
 		for (var i = 0; i < a.length; ++i)
-			if (a[i][9] == 0) ++n_pri;
+			if (a[i][8] == 0) ++n_pri;
 		if (n_pri > 1) {
 			for (var i = 0; i < a.length; ++i)
-				if (a[i][9] == 0) a[i][9] = 1;
+				if (a[i][8] == 0) a[i][8] = 1;
 		} else if (n_pri == 0) {
-			warn("Warning: " + a[0][0] + " doesn't have a primary alignment");
+			warn("Warning: " + a[0][3] + " doesn't have a primary alignment");
 		}
 		for (var i = 0; i < a.length; ++i) {
-			a[i][9] = colors[a[i][9]];
-			a[i].shift();
+			a[i][8] = colors[a[i][8]];
 			print(a[i].join("\t"));
 		}
 	}
@@ -61,23 +60,15 @@ function print_lines(a, fmt) {
 
 function main(args) {
 	var re = /(\d+)([MIDNSH])/g;
-	var c, fmt = "bed", with_hdr = false, hdr_only = false, name = 'splice2bed', pos = null;
-	while ((c = getopt(args, "Hhn:p:")) != null) {
-		if (c == 'h') with_hdr = true;
-		else if (c == 'p') pos = getopt.arg;
-		else if (c == 'H') with_hdr = hdr_only = true;
-		else if (c == 'n') name = getopt.arg;
+	var c, fmt = "bed";
+	while ((c = getopt(args, "f:")) != null) {
+		if (c == 'f') fmt = getopt.arg;
 	}
-	if (getopt.ind == args.length && !hdr_only) {
-		warn("Usage: k8 splice2bed.js [options] <in.paf>");
+	if (getopt.ind == args.length) {
+		warn("Usage: k8 splice2bed.js <in.paf>");
 		exit(1);
 	}
-	if (with_hdr) {
-		if (pos != null)
-			print('browser position ' + pos);
-		print('track name=' + name + ' useScore=1 visibility=2 itemRgb="On"');
-	}
-	if (hdr_only) return;
+
 	var file = new File(args[getopt.ind]);
 	var buf = new Bytes();
 	var a = [];
@@ -85,12 +76,12 @@ function main(args) {
 		var line = buf.toString();
 		if (line.charAt(0) == '@') continue; // skip SAM header lines
 		var t = line.split("\t");
+		var is_pri = false, cigar = null, a1;
+		if (a.length && a[0][3] != t[0]) {
+			print_lines(a, fmt);
+			a = [];
+		}
 		if (t.length >= 12 && (t[4] == '+' || t[4] == '-')) {
-			if (a.length && a[0][0] != t[0]) {
-				print_lines(a, fmt);
-				a = [];
-			}
-			var is_pri = false, cigar = null;
 			for (var i = 12; i < t.length; ++i) {
 				if (t[i].substr(0, 5) == 'cg:Z:') {
 					cigar = t[i].substr(5);
@@ -98,24 +89,35 @@ function main(args) {
 					is_pri = true;
 				}
 			}
-			if (cigar == null) throw Error("missing CIGAR");
-			var m, x0 = 0, x = 0, bs = [], bl = [];
-			while ((m = re.exec(cigar)) != null) {
-				if (m[2] == 'M' || m[2] == 'D') {
-					x += parseInt(m[1]);
-				} else if (m[2] == 'N') {
-					bs.push(x0);
-					bl.push(x - x0);
-					x += parseInt(m[1]);
-					x0 = x;
-				}
-			}
-			bs.push(x0);
-			bl.push(x - x0);
-			a.push([t[0], t[5], t[7], t[8], t[0], Math.floor(t[9]/t[10]*1000), t[4], t[7], t[8], is_pri? 0:2, bs.length, bl.join(",")+",", bs.join(",")+","]);
+			a1 = [t[5], t[7], t[8], t[0], Math.floor(t[9]/t[10]*1000), t[4]];
+		} else if (t.length >= 10) {
+			var flag = parseInt(t[1]);
+			if ((flag&4) || a[2] == '*') continue;
+			cigar = t[5];
+			is_pri = (flag&0x100)? false : true;
+			a1 = [t[2], parseInt(t[3])-1, null, t[0], 1000, (flag&16)? '-' : '+'];
 		} else {
 			throw Error("unrecognized input format");
 		}
+		if (cigar == null) throw Error("missing CIGAR");
+		var m, x0 = 0, x = 0, bs = [], bl = [];
+		while ((m = re.exec(cigar)) != null) {
+			if (m[2] == 'M' || m[2] == 'D') {
+				x += parseInt(m[1]);
+			} else if (m[2] == 'N') {
+				bs.push(x0);
+				bl.push(x - x0);
+				x += parseInt(m[1]);
+				x0 = x;
+			}
+		}
+		bs.push(x0);
+		bl.push(x - x0);
+		// write the BED12 line
+		if (a1[2] == null) a1[2] = a1[1] + x;
+		a1.push(a1[1], a1[2]); // thick start/end is the same as start/end
+		a1.push(is_pri? 0 : 2, bs.length, bl.join(",")+",", bs.join(",")+",");
+		a.push(a1);
 	}
 	print_lines(a, fmt);
 	buf.destroy();
