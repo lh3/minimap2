@@ -1,0 +1,1 @@
+option('enable-build-sse4', type : 'boolean', value : true, description : 'Enable SSE4 codepaths')
