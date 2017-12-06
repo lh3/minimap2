@@ -210,6 +210,12 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	}
 	mm_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d", type, r->cnt, r->score);
 	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
+	if (r->div >= 0.0f && r->div <= 1.0f) {
+		char buf[8];
+		if (r->div == 0.0f) buf[0] = '0', buf[1] = 0;
+		else sprintf(buf, "%.4f", r->div);
+		mm_sprintf_lite(s, "\tdv:f:%s", buf);
+	}
 	if (r->split) mm_sprintf_lite(s, "\tzd:i:%d", r->split);
 }
 

@@ -68,17 +68,19 @@ typedef struct {
 } mm_extra_t;
 
 typedef struct {
-	int32_t id;                     // ID for internal uses (see also parent below)
-	uint32_t cnt:28, rev:1, seg_split:1, sam_pri:1, proper_frag:1; // number of minimizers; if on the reverse strand
-	uint32_t rid:31, inv:1;         // reference index; if this is an alignment from inversion rescue
-	int32_t score;                  // DP alignment score
-	int32_t qs, qe, rs, re;         // query start and end; reference start and end
-	int32_t parent, subsc;          // parent==id if primary; best alternate mapping score
-	int32_t as;                     // offset in the a[] array (for internal uses only)
-	int32_t mlen, blen;             // seeded exact match length; seeded alignment block length
-	uint32_t mapq:8, split:2, n_sub:22; // mapQ; split pattern; number of suboptimal mappings
-	uint32_t pe_thru:1, score0:31;
+	int32_t id;             // ID for internal uses (see also parent below)
+	int32_t cnt;            // number of minimizers; if on the reverse strand
+	int32_t rid;            // reference index; if this is an alignment from inversion rescue
+	int32_t score;          // DP alignment score
+	int32_t qs, qe, rs, re; // query start and end; reference start and end
+	int32_t parent, subsc;  // parent==id if primary; best alternate mapping score
+	int32_t as;             // offset in the a[] array (for internal uses only)
+	int32_t mlen, blen;     // seeded exact match length; seeded alignment block length
+	int32_t n_sub;          // number of suboptimal mappings
+	int32_t score0;         // initial chaining score (before chain merging/spliting)
+	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, dummy:16;
 	uint32_t hash;
+	float div;
 	mm_extra_t *p;
 } mm_reg1_t;
 

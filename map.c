@@ -125,6 +125,8 @@ struct mm_tbuf_s {
 	sdust_buf_t *sdb;
 	mm128_v mini;
 	void *km;
+	int32_t n_mini_pos;
+	uint64_t *mini_pos;
 };
 
 mm_tbuf_t *mm_tbuf_init(void)
@@ -139,6 +141,7 @@ mm_tbuf_t *mm_tbuf_init(void)
 void mm_tbuf_destroy(mm_tbuf_t *b)
 {
 	if (b == 0) return;
+	kfree(b->km, b->mini_pos);
 	kfree(b->km, b->mini.a);
 	sdust_buf_destroy(b->sdb);
 	km_destroy(b->km);
@@ -188,6 +191,8 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_
 	mm_match_t *m;
 	mm128_t *a;
 
+	b->n_mini_pos = 0;
+	b->mini_pos = (uint64_t*)kmalloc(b->km, b->mini.n * sizeof(uint64_t));
 	m = (mm_match_t*)kmalloc(b->km, b->mini.n * sizeof(mm_match_t));
 	for (i = 0; i < b->mini.n; ++i) {
 		int t;
@@ -213,6 +218,7 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_
 			} else rep_en = en;
 			continue;
 		}
+		b->mini_pos[b->n_mini_pos++] = (uint64_t)q_span<<32 | q->qpos>>1;
 		if (i > 0 && p->x>>8 == b->mini.a[i - 1].x>>8) is_tandem = 1;
 		if (i < b->mini.n - 1 && p->x>>8 == b->mini.a[i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
@@ -342,6 +348,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
 	chain_post(opt, max_chain_gap_ref, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
+	if (!is_sr) mm_est_err(qlen_sum, n_regs0, regs0, a, b->n_mini_pos, b->mini_pos);
 
 	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], quals? quals[0] : 0, &n_regs0, regs0, a);
