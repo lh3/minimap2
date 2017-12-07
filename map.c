@@ -166,7 +166,7 @@ static int mm_dust_minier(int n, mm128_t *a, int l_seq, const char *seq, int sdu
 				l += ee - ss;
 			}
 			if (l <= span>>1) a[k++] = a[j]; // keep the minimizer if less than half of it falls in masked region
-		}
+		} else a[k++] = a[j];
 	}
 	return k; // the new size
 }
