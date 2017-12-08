@@ -27,7 +27,7 @@ static int get_mini_idx(int qlen, const mm128_t *a, int32_t n, const uint64_t *m
 	return -1;
 }
 
-void mm_est_err(int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, uint64_t *mini_pos)
+void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, const uint64_t *mini_pos)
 {
 	int i;
 	uint64_t sum_k = 0;
@@ -40,18 +40,21 @@ void mm_est_err(int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t
 
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
-		int32_t st, en, j, k, n_mis = 0;
+		int32_t st, en, j, k, n_match, n_tot, l_ref;
 		r->div = -1.0f;
 		if (r->cnt == 0) continue;
 		st = en = get_mini_idx(qlen, r->rev? &a[r->as + r->cnt - 1] : &a[r->as], n, mini_pos);
 		assert(st >= 0);
-		for (k = 1, j = st + 1; j < n && k < r->cnt; ++j) {
+		l_ref = mi->seq[r->rid].len;
+		for (k = 1, j = st + 1, n_match = 1; j < n && k < r->cnt; ++j) {
 			int32_t x;
 			x = get_for_qpos(qlen, r->rev? &a[r->as + r->cnt - 1 - k] : &a[r->as + k]);
 			if (x == (int32_t)mini_pos[j])
-				mini_pos[j] |= 1ULL<<40, ++k, en = j;
-			else mini_pos[j] &= ~(1ULL<<40), ++n_mis;
+				++k, en = j, ++n_match;
 		}
-		r->div = -logf((float)(en - st + 1 - n_mis) / (en - st + 1)) / avg_k;
+		n_tot = en - st + 1;
+		if (r->qs > avg_k && r->rs > avg_k) ++n_tot;
+		if (qlen - r->qs > avg_k && l_ref - r->re > avg_k) ++n_tot;
+		r->div = logf((float)n_tot / n_match) / avg_k;
 	}
 }

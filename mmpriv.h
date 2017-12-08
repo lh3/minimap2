@@ -79,7 +79,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_re
 void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r);
 void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr);
 
-void mm_est_err(int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, uint64_t *mini_pos);
+void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, const uint64_t *mini_pos);
 
 mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a);
 void mm_seg_free(void *km, int n_segs, mm_seg_t *segs);

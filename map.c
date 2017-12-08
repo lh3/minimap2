@@ -348,7 +348,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
 	chain_post(opt, max_chain_gap_ref, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
-	if (!is_sr) mm_est_err(qlen_sum, n_regs0, regs0, a, b->n_mini_pos, b->mini_pos);
+	if (!is_sr) mm_est_err(mi, qlen_sum, n_regs0, regs0, a, b->n_mini_pos, b->mini_pos);
 
 	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], quals? quals[0] : 0, &n_regs0, regs0, a);

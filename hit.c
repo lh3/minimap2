@@ -80,6 +80,7 @@ mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, 
 		ri->hash = (uint32_t)z[i].x;
 		ri->cnt = (int32_t)z[i].y;
 		ri->as = z[i].y >> 32;
+		ri->div = -1.0f;
 		mm_reg_set_coor(ri, qlen, a);
 	}
 	kfree(km, z);
