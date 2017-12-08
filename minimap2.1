@@ -1,4 +1,4 @@
-.TH minimap2 1 "11 November 2017" "minimap2-2.5 (r572)" "Bioinformatics tools"
+.TH minimap2 1 "8 December 2017" "minimap2-2.5-dirty (r611)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -98,6 +98,14 @@ multiple times to map it against each batch of target sequences.
 .I NUM
 may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
 multi-part index.
+.TP
+.B --idx-no-seq
+Don't store target sequences in the index. It saves disk space and memory but
+the index generated with this option will not work with
+.B -a
+or
+.BR -c .
+When base-level alignment is not requested, this option is automatically applied.
 .TP
 .BI -d \ FILE
 Save the minimizer index of
@@ -461,7 +469,7 @@ cb | cb | cb
 r | c | l .
 Tag	Type	Description
 _
-tp	A	Type of aln: P/primary, S/secondary and I/inversion
+tp	A	Type of aln: P/primary, S/secondary and I,i/inversion
 cm	i	Number of minimizers on the chain
 s1	i	Chaining score
 s2	i	Chaining score of the best secondary chain

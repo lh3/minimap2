@@ -582,6 +582,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	r_inv->inv = 1;
 	r_inv->rev = !r1->rev;
 	r_inv->rid = r1->rid;
+	r_inv->div = -1.0f;
 	r_inv->qs = r1->qe + q_off, r_inv->qe = r_inv->qs + ez->max_q + 1;
 	r_inv->rs = r1->re + t_off, r_inv->re = r_inv->rs + ez->max_t + 1;
 	mm_update_extra(r_inv, &qseq[q_off], qual? &qual[q_off] : 0, &tseq[t_off], mat, opt->q, opt->e);
