@@ -264,7 +264,7 @@ static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_i
 static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, const char *seq, const char *qual, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	if (!(opt->flag & MM_F_CIGAR)) return regs;
-	regs = mm_align_skeleton(km, opt, mi, qlen, seq, qual, n_regs, regs, a); // this calls mm_filter_regs()
+	regs = mm_align_skeleton(km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
 	if (!(opt->flag & MM_F_AVA)) {
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
