@@ -123,11 +123,7 @@ typedef struct {
 } mm_match_t;
 
 struct mm_tbuf_s {
-	sdust_buf_t *sdb;
-	mm128_v mini;
 	void *km;
-	int32_t n_mini_pos;
-	uint64_t *mini_pos;
 };
 
 mm_tbuf_t *mm_tbuf_init(void)
@@ -135,25 +131,23 @@ mm_tbuf_t *mm_tbuf_init(void)
 	mm_tbuf_t *b;
 	b = (mm_tbuf_t*)calloc(1, sizeof(mm_tbuf_t));
 	if (!(mm_dbg_flag & 1)) b->km = km_init();
-	b->sdb = sdust_buf_init(b->km);
 	return b;
 }
 
 void mm_tbuf_destroy(mm_tbuf_t *b)
 {
 	if (b == 0) return;
-	kfree(b->km, b->mini_pos);
-	kfree(b->km, b->mini.a);
-	sdust_buf_destroy(b->sdb);
 	km_destroy(b->km);
 	free(b);
 }
 
-static int mm_dust_minier(int n, mm128_t *a, int l_seq, const char *seq, int sdust_thres, sdust_buf_t *sdb)
+static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *seq, int sdust_thres)
 {
 	int n_dreg, j, k, u = 0;
 	const uint64_t *dreg;
-	if (sdust_thres <= 0 || sdb == 0) return n;
+	sdust_buf_t *sdb;
+	if (sdust_thres <= 0) return n;
+	sdb = sdust_buf_init(km);
 	dreg = sdust_core((const uint8_t*)seq, l_seq, sdust_thres, 64, &n_dreg, sdb);
 	for (j = k = 0; j < n; ++j) { // squeeze out minimizers that significantly overlap with LCRs
 		int32_t qpos = (uint32_t)a[j].y>>1, span = a[j].x&0xff;
@@ -169,45 +163,47 @@ static int mm_dust_minier(int n, mm128_t *a, int l_seq, const char *seq, int sdu
 			if (l <= span>>1) a[k++] = a[j]; // keep the minimizer if less than half of it falls in masked region
 		} else a[k++] = a[j];
 	}
+	sdust_buf_destroy(sdb);
 	return k; // the new size
 }
 
-static void collect_minimizers(const mm_mapopt_t *opt, const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, mm_tbuf_t *b)
+static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, mm128_v *mv)
 {
 	int i, j, n, sum = 0;
-	b->mini.n = 0;
+	mv->n = 0;
 	for (i = n = 0; i < n_segs; ++i) {
-		mm_sketch(b->km, seqs[i], qlens[i], mi->w, mi->k, i, mi->flag&MM_I_HPC, &b->mini);
-		for (j = n; j < b->mini.n; ++j)
-			b->mini.a[j].y += sum << 1;
+		mm_sketch(km, seqs[i], qlens[i], mi->w, mi->k, i, mi->flag&MM_I_HPC, mv);
+		for (j = n; j < mv->n; ++j)
+			mv->a[j].y += sum << 1;
 		if (opt->sdust_thres > 0) // mask low-complexity minimizers
-			b->mini.n = n + mm_dust_minier(b->mini.n - n, b->mini.a + n, qlens[i], seqs[i], opt->sdust_thres, b->sdb);
-		sum += qlens[i], n = b->mini.n;
+			mv->n = n + mm_dust_minier(km, mv->n - n, mv->a + n, qlens[i], seqs[i], opt->sdust_thres);
+		sum += qlens[i], n = mv->n;
 	}
 }
 
-static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, int qlen, int64_t *n_a, int *rep_len, mm_tbuf_t *b)
+static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
+								  int *n_mini_pos, uint64_t **mini_pos)
 {
 	int rep_st = 0, rep_en = 0, i;
 	mm_match_t *m;
 	mm128_t *a;
 
-	b->n_mini_pos = 0;
-	b->mini_pos = (uint64_t*)kmalloc(b->km, b->mini.n * sizeof(uint64_t));
-	m = (mm_match_t*)kmalloc(b->km, b->mini.n * sizeof(mm_match_t));
-	for (i = 0; i < b->mini.n; ++i) {
+	*n_mini_pos = 0;
+	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
+	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
+	for (i = 0; i < mv->n; ++i) {
 		int t;
-		mm128_t *p = &b->mini.a[i];
+		mm128_t *p = &mv->a[i];
 		m[i].qpos = (uint32_t)p->y;
 		m[i].cr = mm_idx_get(mi, p->x>>8, &t);
 		m[i].n = t;
 		m[i].seg_id = p->y >> 32;
 	}
-	for (i = 0, *n_a = 0; i < b->mini.n; ++i) // find the length of a[]
+	for (i = 0, *n_a = 0; i < mv->n; ++i) // find the length of a[]
 		if (m[i].n < max_occ) *n_a += m[i].n;
-	a = (mm128_t*)kmalloc(b->km, *n_a * sizeof(mm128_t));
-	for (i = *rep_len = 0, *n_a = 0; i < b->mini.n; ++i) {
-		mm128_t *p = &b->mini.a[i];
+	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
+	for (i = *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
+		mm128_t *p = &mv->a[i];
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->cr;
 		int k, q_span = p->x & 0xff, is_tandem = 0;
@@ -219,9 +215,9 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_
 			} else rep_en = en;
 			continue;
 		}
-		b->mini_pos[b->n_mini_pos++] = (uint64_t)q_span<<32 | q->qpos>>1;
-		if (i > 0 && p->x>>8 == b->mini.a[i - 1].x>>8) is_tandem = 1;
-		if (i < b->mini.n - 1 && p->x>>8 == b->mini.a[i + 1].x>>8) is_tandem = 1;
+		(*mini_pos)[(*n_mini_pos)++] = (uint64_t)q_span<<32 | q->qpos>>1;
+		if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) is_tandem = 1;
+		if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
 			int32_t rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
@@ -247,7 +243,7 @@ static mm128_t *collect_seed_hits(const mm_mapopt_t *opt, int max_occ, const mm_
 		}
 	}
 	*rep_len += rep_en - rep_st;
-	kfree(b->km, m);
+	kfree(km, m);
 	return a;
 }
 
@@ -276,13 +272,15 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 
 void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, const char **quals, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, j, rep_len, qlen_sum, n_regs0;
+	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
 	uint32_t hash;
 	int64_t n_a;
-	uint64_t *u;
+	uint64_t *u, *mini_pos;
 	mm128_t *a;
+	mm128_v mv = {0,0,0};
 	mm_reg1_t *regs0;
+	km_stat_t kmst;
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
 		qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
@@ -293,8 +291,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
 	hash  = __ac_Wang_hash(hash);
 
-	collect_minimizers(opt, mi, n_segs, qlens, seqs, b);
-	a = collect_seed_hits(opt, opt->mid_occ, mi, qname, qlen_sum, &n_a, &rep_len, b);
+	collect_minimizers(b->km, opt, mi, n_segs, qlens, seqs, &mv);
+	a = collect_seed_hits(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 	radix_sort_128x(a, a + n_a);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
@@ -334,7 +332,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		if (rechain) { // redo chaining with a higher max_occ threshold
 			kfree(b->km, a);
 			kfree(b->km, u);
-			a = collect_seed_hits(opt, opt->max_occ, mi, qname, qlen_sum, &n_a, &rep_len, b);
+			kfree(b->km, mini_pos);
+			a = collect_seed_hits(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			radix_sort_128x(a, a + n_a);
 			a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
@@ -349,7 +348,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
 	chain_post(opt, max_chain_gap_ref, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
-	if (!is_sr) mm_est_err(mi, qlen_sum, n_regs0, regs0, a, b->n_mini_pos, b->mini_pos);
+	if (!is_sr) mm_est_err(mi, qlen_sum, n_regs0, regs0, a, n_mini_pos, mini_pos);
 
 	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], quals? quals[0] : 0, &n_regs0, regs0, a);
@@ -369,8 +368,20 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			mm_pair(b->km, max_chain_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // pairing
 	}
 
+	kfree(b->km, mv.a);
 	kfree(b->km, a);
 	kfree(b->km, u);
+	kfree(b->km, mini_pos);
+
+	if (b->km) {
+		km_stat(b->km, &kmst);
+//		fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
+		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
+		if (kmst.largest > 1U<<28) {
+			km_destroy(b->km);
+			b->km = km_init();
+		}
+	}
 }
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
@@ -404,14 +415,13 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *s = (step_t*)_data;
-	int *qlens, j, off = s->seg_off[i], pe_ori = s->p->opt->pe_ori, is_sr = !!(s->p->opt->flag & MM_F_SR);
-	const char **qseqs, **quals = 0;
+	int qlens[MM_MAX_SEG], j, off = s->seg_off[i], pe_ori = s->p->opt->pe_ori, is_sr = !!(s->p->opt->flag & MM_F_SR);
+	const char *qseqs[MM_MAX_SEG], *quals[MM_MAX_SEG];
 	mm_tbuf_t *b = s->buf[tid];
+	assert(s->n_seg[i] <= MM_MAX_SEG);
+	memset(quals, 0, sizeof(char*) * MM_MAX_SEG);
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
-		fprintf(stderr, "QR\t%s\t%d\n", s->seq[off].name, tid);
-	qlens = (int*)kmalloc(b->km, s->n_seg[i] * sizeof(int));
-	qseqs = (const char**)kmalloc(b->km, s->n_seg[i] * sizeof(const char**));
-	quals = (const char**)kmalloc(b->km, s->n_seg[i] * sizeof(const char**));
+		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[off].name, tid, s->seq[off].l_seq);
 	for (j = 0; j < s->n_seg[i]; ++j) {
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
 			mm_revcomp_bseq(&s->seq[off + j]);
@@ -437,9 +447,6 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 				r->rev = !r->rev;
 			}
 		}
-	kfree(b->km, qlens);
-	kfree(b->km, qseqs);
-	kfree(b->km, quals);
 }
 
 static void *worker_pipeline(void *shared, int step, void *in)
