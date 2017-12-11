@@ -44,7 +44,11 @@ void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const
 		r->div = -1.0f;
 		if (r->cnt == 0) continue;
 		st = en = get_mini_idx(qlen, r->rev? &a[r->as + r->cnt - 1] : &a[r->as], n, mini_pos);
-		assert(st >= 0);
+		if (st < 0) {
+			if (mm_verbose >= 2)
+				fprintf(stderr, "[WARNING] logic inconsistency in mm_est_err(). Please contact the developer.\n");
+			continue;
+		}
 		l_ref = mi->seq[r->rid].len;
 		for (k = 1, j = st + 1, n_match = 1; j < n && k < r->cnt; ++j) {
 			int32_t x;

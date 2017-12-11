@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "minimap.h"
 #include "mmpriv.h"
 #include "ksw2.h"
@@ -341,6 +342,48 @@ static void mm_max_stretch(const mm_mapopt_t *opt, const mm_reg1_t *r, const mm1
 	*as = max_i, *cnt = max_len;
 }
 
+static int mm_seed_ext_score(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, const int8_t mat[25], int qlen, uint8_t *qseq0[2], const mm128_t *a)
+{
+	uint8_t *qseq, *tseq;
+	int q_span = a->y>>32&0xff, qs, qe, rs, re, rid, score, q_off, t_off, ext_len = opt->anchor_ext_len;
+	void *qp;
+	rid = a->x<<1>>33;
+	re = (uint32_t)a->x + 1, rs = re - q_span;
+	qe = (uint32_t)a->y + 1, qs = qe - q_span;
+	rs = rs - ext_len > 0? rs - ext_len : 0;
+	qs = qs - ext_len > 0? qs - ext_len : 0;
+	re = re + ext_len < mi->seq[rid].len? re + ext_len : mi->seq[rid].len;
+	qe = qe + ext_len < qlen? qe + ext_len : qlen;
+	tseq = (uint8_t*)kmalloc(km, re - rs);
+	mm_idx_getseq(mi, rid, rs, re, tseq);
+	qseq = qseq0[a->x>>63] + qs;
+	qp = ksw_ll_qinit(km, 2, qe - qs, qseq, 5, mat);
+	score = ksw_ll_i16(qp, re - rs, tseq, opt->q, opt->e, &q_off, &t_off);
+	kfree(km, tseq);
+	kfree(km, qp);
+	return score;
+}
+
+static void mm_fix_bad_ends_splice(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, const mm_reg1_t *r, const int8_t mat[25], int qlen, uint8_t *qseq0[2], const mm128_t *a, int *as1, int *cnt1)
+{ // this assumes a very crude k-mer based mode; it is not necessary to use a good model just for filtering bounary exons
+	int score;
+	double log_gap;
+	*as1 = r->as, *cnt1 = r->cnt;
+	if (r->cnt < 3) return;
+	log_gap = log((int32_t)a[r->as + 1].x - (int32_t)a[r->as].x);
+	if ((a[r->as].y>>32&0xff) < log_gap + opt->anchor_ext_shift) {
+		score = mm_seed_ext_score(km, opt, mi, mat, qlen, qseq0, &a[r->as]);
+		if ((double)score / mat[0] < log_gap + opt->anchor_ext_shift) // a more exact format is "score < log_4(gap) + shift"
+			++(*as1), --(*cnt1);
+	}
+	log_gap = log((int32_t)a[r->as + r->cnt - 1].x - (int32_t)a[r->as + r->cnt - 2].x);
+	if ((a[r->as + r->cnt - 1].y>>32&0xff) < log_gap + opt->anchor_ext_shift) {
+		score = mm_seed_ext_score(km, opt, mi, mat, qlen, qseq0, &a[r->as + r->cnt - 1]);
+		if ((double)score / mat[0] < log_gap + opt->anchor_ext_shift)
+			--(*cnt1);
+	}
+}
+
 static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, int n_a, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
 	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE);
@@ -365,9 +408,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		re = (int32_t)a[as1+cnt1-1].x + 1;
 		qe = (int32_t)a[as1+cnt1-1].y + 1;
 	} else {
-		if (!is_splice)
+		if (is_splice) {
+			mm_fix_bad_ends_splice(km, opt, mi, r, mat, qlen, qseq0, a, &as1, &cnt1);
+		} else {
 			mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
-		else as1 = r->as, cnt1 = r->cnt;
+		}
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 		mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
