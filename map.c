@@ -375,7 +375,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	if (b->km) {
 		km_stat(b->km, &kmst);
-//		fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
+		if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+			fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
 		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
 		if (kmst.largest > 1U<<28) {
 			km_destroy(b->km);
