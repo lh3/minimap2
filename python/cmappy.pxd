@@ -30,6 +30,7 @@ cdef extern from "minimap.h":
 		int end_bonus
 		int min_dp_max
 		int min_ksw_len
+		int anchor_ext_len, anchor_ext_shift
 		int pe_ori, pe_bonus
 		float mid_occ_frac
 		int32_t mid_occ

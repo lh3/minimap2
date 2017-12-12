@@ -1,4 +1,4 @@
-[![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download%20v2.5)](https://github.com/lh3/minimap2/releases)
+[![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download)](https://github.com/lh3/minimap2/releases)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimap2.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minimap2)
 [![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
 [![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
@@ -68,9 +68,9 @@ Detailed evaluations are available from the [minimap2 preprint][preprint].
 Minimap2 only works on x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-curl -L https://github.com/lh3/minimap2/releases/download/v2.5/minimap2-2.5_x64-linux.tar.bz2 \
+curl -L https://github.com/lh3/minimap2/releases/download/v2.6/minimap2-2.6_x64-linux.tar.bz2 \
   | tar -jxvf -
-./minimap2-2.5_x64-linux/minimap2
+./minimap2-2.6_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
