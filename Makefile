@@ -65,6 +65,7 @@ depend:
 align.o: minimap.h mmpriv.h bseq.h ksw2.h kalloc.h
 bseq.o: bseq.h kvec.h kalloc.h kseq.h
 chain.o: minimap.h mmpriv.h bseq.h kalloc.h
+esterr.o: mmpriv.h minimap.h bseq.h
 example.o: minimap.h kseq.h
 format.o: kalloc.h mmpriv.h minimap.h bseq.h
 getopt.o: getopt.h
