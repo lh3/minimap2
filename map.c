@@ -115,6 +115,21 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	return 0;
 }
 
+int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
+{
+	if (mo->a + 2 * (mo->q + mo->e) > 127 || mo->a + 2 * (mo->q2 + mo->e2) > 127) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m scoring system violating {-A}+2*({-O}+{-E}) <= 127\033[0m\n");
+		return -1;
+	}
+	if ((mo->q != mo->q2 || mo->e != mo->e2) && !(mo->e > mo->e2 && mo->q + mo->e < mo->q2 + mo->e2)) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m dual gap penalties violating E1>E2 and O1+E1<O2+E2\033[0m\n");
+		return -2;
+	}
+	return 0;
+}
+
 typedef struct {
 	uint32_t n;
 	uint32_t qpos;

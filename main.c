@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.6-r625-dirty"
+#define MM_VERSION "2.6-r626-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -202,6 +202,8 @@ int main(int argc, char *argv[])
 	}
 	if (!fnw && !(opt.flag&MM_F_CIGAR))
 		ipt.flag |= MM_I_NO_SEQ;
+	if (mm_check_opt(&ipt, &opt) < 0)
+		return 1;
 
 	if (argc == optind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");

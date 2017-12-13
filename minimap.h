@@ -155,6 +155,7 @@ extern double mm_realtime0; // wall-clock timer
  * @return 0 if success; -1 if _present_ unknown
  */
 int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo);
+int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo);
 
 /**
  * Update mm_mapopt_t::mid_occ via mm_mapopt_t::mid_occ_frac
