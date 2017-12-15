@@ -359,7 +359,13 @@ In general, minimap2 is a young project with most code written since June, 2017.
 It may have bugs and room for improvements. Bug reports and suggestions are
 warmly welcomed.
 
+## <a name="arm"></a>Compiling for ARM with NEON
 
+* Minimap2 can be compiled for ARM processors having NEON SIMD support. Compile as
+ ```
+ make arm_neon=1
+ ```
+    
 
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
 [sam]: https://samtools.github.io/hts-specs/SAMv1.pdf
