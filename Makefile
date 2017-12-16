@@ -6,10 +6,16 @@ PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
 
+ifeq ($(arm_neon),)
 ifeq ($(sse2only),)
 	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
 else
 	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
+endif
+else
+    OBJS+=ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
+    CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
+    INCLUDES+=-I sse2neon
 endif
 
 .SUFFIXES:.c .o
@@ -53,6 +59,17 @@ ksw2_exts2_sse2.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 
 ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
+        
+
+ksw2_extz2_neon.o:ksw2_extz2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
+
+ksw2_extd2_neon.o:ksw2_extd2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
+
+ksw2_exts2_neon.o:ksw2_exts2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
+      
 
 clean:
 		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM build dist mappy.so mappy.c python/mappy.c mappy.egg*
