@@ -1,7 +1,7 @@
 project(
   'minimap2',
   'c',
-  version : '2.5.0',
+  version : '2.6.0',
   default_options : [
     'buildtype=release',
     'default_library=static',
@@ -83,6 +83,7 @@ mm2_cpp_sources = files([
   'align.c',
   'bseq.c',
   'chain.c',
+  'esterr.c',
   'format.c',
   'getopt.c',
   'hit.c',
