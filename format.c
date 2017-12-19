@@ -202,7 +202,9 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 {
-	int type = r->inv? 'I' : r->id == r->parent? 'P' : 'S';
+	int type;
+	if (r->id == r->parent) type = r->inv? 'I' : 'P';
+	else type = r->inv? 'i' : 'S';
 	if (r->p) {
 		mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->blen - r->mlen + r->p->n_ambi, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
 		if (r->p->trans_strand == 1 || r->p->trans_strand == 2)
@@ -210,6 +212,12 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	}
 	mm_sprintf_lite(s, "\ttp:A:%c\tcm:i:%d\ts1:i:%d", type, r->cnt, r->score);
 	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
+	if (r->div >= 0.0f && r->div <= 1.0f) {
+		char buf[8];
+		if (r->div == 0.0f) buf[0] = '0', buf[1] = 0;
+		else sprintf(buf, "%.4f", r->div);
+		mm_sprintf_lite(s, "\tdv:f:%s", buf);
+	}
 	if (r->split) mm_sprintf_lite(s, "\tzd:i:%d", r->split);
 }
 

@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 #include "minimap.h"
 #include "mmpriv.h"
 #include "ksw2.h"
@@ -120,7 +121,7 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 	}
 }
 
-static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *qual, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e)
+static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e)
 {
 	uint32_t k, l, toff = 0, qoff = 0;
 	int32_t s = 0, max = 0, qshift, tshift;
@@ -341,7 +342,49 @@ static void mm_max_stretch(const mm_mapopt_t *opt, const mm_reg1_t *r, const mm1
 	*as = max_i, *cnt = max_len;
 }
 
-static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], uint8_t *qual0[2], mm_reg1_t *r, mm_reg1_t *r2, int n_a, mm128_t *a, ksw_extz_t *ez, int splice_flag)
+static int mm_seed_ext_score(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, const int8_t mat[25], int qlen, uint8_t *qseq0[2], const mm128_t *a)
+{
+	uint8_t *qseq, *tseq;
+	int q_span = a->y>>32&0xff, qs, qe, rs, re, rid, score, q_off, t_off, ext_len = opt->anchor_ext_len;
+	void *qp;
+	rid = a->x<<1>>33;
+	re = (uint32_t)a->x + 1, rs = re - q_span;
+	qe = (uint32_t)a->y + 1, qs = qe - q_span;
+	rs = rs - ext_len > 0? rs - ext_len : 0;
+	qs = qs - ext_len > 0? qs - ext_len : 0;
+	re = re + ext_len < mi->seq[rid].len? re + ext_len : mi->seq[rid].len;
+	qe = qe + ext_len < qlen? qe + ext_len : qlen;
+	tseq = (uint8_t*)kmalloc(km, re - rs);
+	mm_idx_getseq(mi, rid, rs, re, tseq);
+	qseq = qseq0[a->x>>63] + qs;
+	qp = ksw_ll_qinit(km, 2, qe - qs, qseq, 5, mat);
+	score = ksw_ll_i16(qp, re - rs, tseq, opt->q, opt->e, &q_off, &t_off);
+	kfree(km, tseq);
+	kfree(km, qp);
+	return score;
+}
+
+static void mm_fix_bad_ends_splice(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, const mm_reg1_t *r, const int8_t mat[25], int qlen, uint8_t *qseq0[2], const mm128_t *a, int *as1, int *cnt1)
+{ // this assumes a very crude k-mer based mode; it is not necessary to use a good model just for filtering bounary exons
+	int score;
+	double log_gap;
+	*as1 = r->as, *cnt1 = r->cnt;
+	if (r->cnt < 3) return;
+	log_gap = log((int32_t)a[r->as + 1].x - (int32_t)a[r->as].x);
+	if ((a[r->as].y>>32&0xff) < log_gap + opt->anchor_ext_shift) {
+		score = mm_seed_ext_score(km, opt, mi, mat, qlen, qseq0, &a[r->as]);
+		if ((double)score / mat[0] < log_gap + opt->anchor_ext_shift) // a more exact format is "score < log_4(gap) + shift"
+			++(*as1), --(*cnt1);
+	}
+	log_gap = log((int32_t)a[r->as + r->cnt - 1].x - (int32_t)a[r->as + r->cnt - 2].x);
+	if ((a[r->as + r->cnt - 1].y>>32&0xff) < log_gap + opt->anchor_ext_shift) {
+		score = mm_seed_ext_score(km, opt, mi, mat, qlen, qseq0, &a[r->as + r->cnt - 1]);
+		if ((double)score / mat[0] < log_gap + opt->anchor_ext_shift)
+			--(*cnt1);
+	}
+}
+
+static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, int n_a, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
 	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE);
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
@@ -365,9 +408,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		re = (int32_t)a[as1+cnt1-1].x + 1;
 		qe = (int32_t)a[as1+cnt1-1].y + 1;
 	} else {
-		if (!is_splice)
+		if (is_splice) {
+			mm_fix_bad_ends_splice(km, opt, mi, r, mat, qlen, qseq0, a, &as1, &cnt1);
+		} else {
 			mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
-		else as1 = r->as, cnt1 = r->cnt;
+		}
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 		mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
@@ -533,7 +578,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(re1 - rs1 <= re0 - rs0);
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
-		mm_update_extra(r, &qseq0[r->rev][qs1], qual0[r->rev]? &qual0[r->rev][qs1] : 0, tseq, mat, opt->q, opt->e);
+		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
@@ -541,10 +586,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	kfree(km, tseq);
 }
 
-static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], uint8_t *qual0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
+static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
 {
 	int tl, ql, score, ret = 0, q_off, t_off;
-	uint8_t *tseq, *qseq, *qual;
+	uint8_t *tseq, *qseq;
 	int8_t mat[25];
 	void *qp;
 
@@ -562,7 +607,6 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	tseq = (uint8_t*)kmalloc(km, tl);
 	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
 	qseq = &qseq0[!r1->rev][qlen - r2->qs];
-	qual = qual0[!r1->rev]? &qseq0[!r1->rev][qlen - r2->qs] : 0;
 
 	mm_seq_rev(ql, qseq);
 	mm_seq_rev(tl, tseq);
@@ -582,9 +626,10 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	r_inv->inv = 1;
 	r_inv->rev = !r1->rev;
 	r_inv->rid = r1->rid;
+	r_inv->div = -1.0f;
 	r_inv->qs = r1->qe + q_off, r_inv->qe = r_inv->qs + ez->max_q + 1;
 	r_inv->rs = r1->re + t_off, r_inv->re = r_inv->rs + ez->max_t + 1;
-	mm_update_extra(r_inv, &qseq[q_off], qual? &qual[q_off] : 0, &tseq[t_off], mat, opt->q, opt->e);
+	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e);
 	ret = 1;
 end_align1_inv:
 	kfree(km, tseq);
@@ -601,11 +646,11 @@ static inline mm_reg1_t *mm_insert_reg(const mm_reg1_t *r, int i, int *n_regs, m
 	return regs;
 }
 
-mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, const char *qual, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
+mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
 {
 	extern unsigned char seq_nt4_table[256];
 	int32_t i, n_regs = *n_regs_, n_a;
-	uint8_t *qseq0[2], *qual0[2];
+	uint8_t *qseq0[2];
 	ksw_extz_t ez;
 
 	// encode the query sequence
@@ -615,12 +660,6 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 		qseq0[0][i] = seq_nt4_table[(uint8_t)qstr[i]];
 		qseq0[1][qlen - 1 - i] = qseq0[0][i] < 4? 3 - qseq0[0][i] : 4;
 	}
-	if (qual) {
-		qual0[0] = (uint8_t*)kmalloc(km, qlen * 2);
-		qual0[1] = qual0[0] + qlen;
-		for (i = 0; i < qlen; ++i)
-			qual0[0][i] = qual0[1][qlen - 1 - i] = qual[i] - 33;
-	} else qual0[0] = qual0[1] = 0;
 
 	// align through seed hits
 	n_a = mm_squeeze_a(km, n_regs, regs, a);
@@ -631,8 +670,8 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 			mm_reg1_t s[2], s2[2];
 			int which, trans_strand;
 			s[0] = s[1] = regs[i];
-			mm_align1(km, opt, mi, qlen, qseq0, qual0, &s[0], &s2[0], n_a, a, &ez, MM_F_SPLICE_FOR);
-			mm_align1(km, opt, mi, qlen, qseq0, qual0, &s[1], &s2[1], n_a, a, &ez, MM_F_SPLICE_REV);
+			mm_align1(km, opt, mi, qlen, qseq0, &s[0], &s2[0], n_a, a, &ez, MM_F_SPLICE_FOR);
+			mm_align1(km, opt, mi, qlen, qseq0, &s[1], &s2[1], n_a, a, &ez, MM_F_SPLICE_REV);
 			if (s[0].p->dp_score > s[1].p->dp_score) which = 0, trans_strand = 1;
 			else if (s[0].p->dp_score < s[1].p->dp_score) which = 1, trans_strand = 2;
 			else trans_strand = 3, which = (qlen + s[0].p->dp_score) & 1; // randomly choose a strand, effectively
@@ -645,13 +684,13 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 			}
 			regs[i].p->trans_strand = trans_strand;
 		} else { // one round of alignment
-			mm_align1(km, opt, mi, qlen, qseq0, qual0, &regs[i], &r2, n_a, a, &ez, opt->flag);
+			mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, n_a, a, &ez, opt->flag);
 			if (opt->flag&MM_F_SPLICE)
 				regs[i].p->trans_strand = opt->flag&MM_F_SPLICE_FOR? 1 : 2;
 		}
 		if (r2.cnt > 0) regs = mm_insert_reg(&r2, i, &n_regs, regs);
 		if (!(opt->flag&MM_F_SPLICE) && !(opt->flag&MM_F_SR) && i > 0) { // don't try inversion alignment for -xsplice or -xsr
-			if (mm_align1_inv(km, opt, mi, qlen, qseq0, qual0, &regs[i-1], &regs[i], &r2, &ez)) {
+			if (mm_align1_inv(km, opt, mi, qlen, qseq0, &regs[i-1], &regs[i], &r2, &ez)) {
 				regs = mm_insert_reg(&r2, i, &n_regs, regs);
 				++i; // skip the inserted INV alignment
 			}
@@ -659,7 +698,6 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	}
 	*n_regs_ = n_regs;
 	kfree(km, qseq0[0]);
-	if (qual0[0]) kfree(km, qual0[0]);
 	kfree(km, ez.cigar);
 	mm_filter_regs(km, opt, n_regs_, regs);
 	mm_hit_sort_by_dp(km, n_regs_, regs);

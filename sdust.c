@@ -56,6 +56,7 @@ sdust_buf_t *sdust_buf_init(void *km)
 	buf = (sdust_buf_t*)kcalloc(km, 1, sizeof(sdust_buf_t));
 	buf->km = km;
 	buf->w = kdq_init(int, buf->km);
+	kdq_resize(int, buf->w, 8);
 	return buf;
 }
 

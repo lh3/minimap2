@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.5-r601-dirty"
+#define MM_VERSION "2.6-r629-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -44,6 +44,7 @@ static struct option long_options[] = {
 	{ "no-pairing",     no_argument,       0, 0 },
 	{ "splice-flank",   optional_argument, 0, 0 },
 	{ "idx-no-seq",     no_argument,       0, 0 },
+	{ "end-seed-pen",   required_argument, 0, 0 },   // 21
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -140,6 +141,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==17) opt.end_bonus = atoi(optarg); // --end-bonus
 		else if (c == 0 && long_idx ==18) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
 		else if (c == 0 && long_idx ==20) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
+		else if (c == 0 && long_idx ==21) opt.anchor_ext_shift = atoi(optarg); // --end-seed-pen
 		else if (c == 0 && long_idx == 14) { // --frag
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_FRAG_MODE;
@@ -200,6 +202,8 @@ int main(int argc, char *argv[])
 	}
 	if (!fnw && !(opt.flag&MM_F_CIGAR))
 		ipt.flag |= MM_I_NO_SEQ;
+	if (mm_check_opt(&ipt, &opt) < 0)
+		return 1;
 
 	if (argc == optind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");

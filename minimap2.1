@@ -1,4 +1,4 @@
-.TH minimap2 1 "11 November 2017" "minimap2-2.5 (r572)" "Bioinformatics tools"
+.TH minimap2 1 "12 December 2017" "minimap2-2.6 (r623)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -98,6 +98,14 @@ multiple times to map it against each batch of target sequences.
 .I NUM
 may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
 multi-part index.
+.TP
+.B --idx-no-seq
+Don't store target sequences in the index. It saves disk space and memory but
+the index generated with this option will not work with
+.B -a
+or
+.BR -c .
+When base-level alignment is not requested, this option is automatically applied.
 .TP
 .BI -d \ FILE
 Save the minimizer index of
@@ -264,6 +272,18 @@ However, the SIRV control does not honor this trend
 on SIRV data, please add
 .B --splice-flank=no
 to the command line.
+.TP
+.BI --end-seed-pen \ INT
+Drop a terminal anchor if
+.IR s <log( g )+ INT ,
+where
+.I s
+is the local alignment score around the anchor and
+.I g
+the length of the terminal gap in the chain. This option is only effective
+with
+.BR --splice .
+It helps to avoid tiny terminal exons. [6]
 .SS Input/output options
 .TP 10
 .B -a
@@ -461,7 +481,7 @@ cb | cb | cb
 r | c | l .
 Tag	Type	Description
 _
-tp	A	Type of aln: P/primary, S/secondary and I/inversion
+tp	A	Type of aln: P/primary, S/secondary and I,i/inversion
 cm	i	Number of minimizers on the chain
 s1	i	Chaining score
 s2	i	Chaining score of the best secondary chain

@@ -68,17 +68,19 @@ typedef struct {
 } mm_extra_t;
 
 typedef struct {
-	int32_t id;                     // ID for internal uses (see also parent below)
-	uint32_t cnt:28, rev:1, seg_split:1, sam_pri:1, proper_frag:1; // number of minimizers; if on the reverse strand
-	uint32_t rid:31, inv:1;         // reference index; if this is an alignment from inversion rescue
-	int32_t score;                  // DP alignment score
-	int32_t qs, qe, rs, re;         // query start and end; reference start and end
-	int32_t parent, subsc;          // parent==id if primary; best alternate mapping score
-	int32_t as;                     // offset in the a[] array (for internal uses only)
-	int32_t mlen, blen;             // seeded exact match length; seeded alignment block length
-	uint32_t mapq:8, split:2, n_sub:22; // mapQ; split pattern; number of suboptimal mappings
-	uint32_t pe_thru:1, score0:31;
+	int32_t id;             // ID for internal uses (see also parent below)
+	int32_t cnt;            // number of minimizers; if on the reverse strand
+	int32_t rid;            // reference index; if this is an alignment from inversion rescue
+	int32_t score;          // DP alignment score
+	int32_t qs, qe, rs, re; // query start and end; reference start and end
+	int32_t parent, subsc;  // parent==id if primary; best alternate mapping score
+	int32_t as;             // offset in the a[] array (for internal uses only)
+	int32_t mlen, blen;     // seeded exact match length; seeded alignment block length
+	int32_t n_sub;          // number of suboptimal mappings
+	int32_t score0;         // initial chaining score (before chain merging/spliting)
+	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, dummy:16;
 	uint32_t hash;
+	float div;
 	mm_extra_t *p;
 } mm_reg1_t;
 
@@ -114,6 +116,7 @@ typedef struct {
 	int end_bonus;
 	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
 	int min_ksw_len;
+	int anchor_ext_len, anchor_ext_shift;
 
 	int pe_ori, pe_bonus;
 
@@ -152,6 +155,7 @@ extern double mm_realtime0; // wall-clock timer
  * @return 0 if success; -1 if _present_ unknown
  */
 int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo);
+int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo);
 
 /**
  * Update mm_mapopt_t::mid_occ via mm_mapopt_t::mid_occ_frac
@@ -203,6 +207,21 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads);
 void mm_idx_reader_close(mm_idx_reader_t *r);
 
 int mm_idx_reader_eof(const mm_idx_reader_t *r);
+
+/**
+ * Create an index from strings in memory
+ *
+ * @param w            minimizer window size
+ * @param k            minimizer k-mer size
+ * @param is_hpc       use HPC k-mer if true
+ * @param bucket_bits  number of bits for the first level of the hash table
+ * @param n            number of sequences
+ * @param seq          sequences in A/C/G/T
+ * @param name         sequence names; could be NULL
+ *
+ * @return minimap2 index
+ */
+mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name);
 
 /**
  * Print index statistics to stderr

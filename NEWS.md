@@ -1,3 +1,35 @@
+Release 2.6-r623 (12 December 2017)
+-----------------------------------
+
+This release adds several features and fixes two minor bugs:
+
+ * Optionally build an index without sequences. This helps to reduce the
+   peak memory for read overlapping and is automatically applied when
+   base-level alignment is not requested.
+
+ * Approximately estimate per-base sequence divergence (i.e. 1-identity)
+   without performing base-level alignment, using a MashMap-like method. The
+   estimate is written to a new dv:f tag.
+
+ * Reduced the number of tiny terminal exons in RNA-seq alignment. The current
+   setting is conservative. Increase --end-seed-pen to drop more such exons.
+
+ * Reduced the peak memory when aligning long query sequences.
+
+ * Fixed a bug that is caused by HPC minimizers longer than 256bp. This should
+   have no effect in practice, but it is recommended to rebuild HPC indices if
+   possible.
+
+ * Fixed a bug when identifying identical hits (#71). This should only affect
+   artifactual reference consisting of near identical sequences.
+
+For genomic sequences, minimap2 should give nearly identical alignments to
+v2.5, except the new dv:f tag.
+
+(2.6: 12 December 2017, r623)
+
+
+
 Release 2.5-r572 (11 November 2017)
 -----------------------------------
 
