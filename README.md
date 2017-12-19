@@ -65,7 +65,7 @@ Detailed evaluations are available from the [minimap2 preprint][preprint].
 
 ### <a name="install"></a>Installation
 
-Minimap2 only works on x86-64 CPUs. You can acquire precompiled binaries from
+Minimap2 is optimized for x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
 curl -L https://github.com/lh3/minimap2/releases/download/v2.6/minimap2-2.6_x64-linux.tar.bz2 \
@@ -76,6 +76,9 @@ If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
 directory to compile. If you see compilation errors, try `make sse2only=1`
 to disable SSE4 code, which will make minimap2 slightly slower.
+
+Minimap2 also works with ARM CPUs supporting the NEON instruction sets. To
+compile, use `make arm_neon=1`.
 
 ### <a name="general"></a>General usage
 
@@ -352,20 +355,15 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
   regions where seed positions may be suboptimal. This should not be a big
   concern because even the optimal alignment may be wrong in such regions.
 
-* Minimap2 requires SSE2 instructions to compile. It is possible to add
-  non-SSE2 support, but it would make minimap2 slower by several times.
+* Minimap2 requires SSE2 instructions on x86 CPUs or NEON on ARM CPUs. It is
+  possible to add non-SIMD support, but it would make minimap2 slower by
+  several times.
 
 In general, minimap2 is a young project with most code written since June, 2017.
 It may have bugs and room for improvements. Bug reports and suggestions are
 warmly welcomed.
 
-## <a name="arm"></a>Compiling for ARM with NEON
 
-* Minimap2 can be compiled for ARM processors having NEON SIMD support. Compile as
- ```
- make arm_neon=1
- ```
-    
 
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
 [sam]: https://samtools.github.io/hts-specs/SAMv1.pdf
