@@ -209,6 +209,21 @@ void mm_idx_reader_close(mm_idx_reader_t *r);
 int mm_idx_reader_eof(const mm_idx_reader_t *r);
 
 /**
+ * Create an index from strings in memory
+ *
+ * @param w            minimizer window size
+ * @param k            minimizer k-mer size
+ * @param is_hpc       use HPC k-mer if true
+ * @param bucket_bits  number of bits for the first level of the hash table
+ * @param n            number of sequences
+ * @param seq          sequences in A/C/G/T
+ * @param name         sequence names; could be NULL
+ *
+ * @return minimap2 index
+ */
+mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name);
+
+/**
  * Print index statistics to stderr
  *
  * @param mi         minimap2 index

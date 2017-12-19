@@ -329,7 +329,7 @@ mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini
 	return pl.mi;
 }
 
-mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) // a simpler interface
+mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) // a simpler interface; deprecated
 {
 	mm_bseq_file_t *fp;
 	mm_idx_t *mi;
@@ -337,6 +337,49 @@ mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) //
 	if (fp == 0) return 0;
 	mi = mm_idx_gen(fp, w, k, 14, flag, 1<<18, n_threads, UINT64_MAX);
 	mm_bseq_close(fp);
+	return mi;
+}
+
+mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name)
+{
+	uint64_t sum_len = 0;
+	mm128_v a = {0,0,0};
+	mm_idx_t *mi;
+	int i, flag = 0;
+	if (n <= 0) return 0;
+	for (i = 0; i < n; ++i) // get the total length
+		sum_len += strlen(seq[i]);
+	if (is_hpc) flag |= MM_I_HPC;
+	if (name == 0) flag |= MM_I_NO_NAME;
+	if (bucket_bits < 0) bucket_bits = 14;
+	mi = mm_idx_init(w, k, bucket_bits, flag);
+	mi->n_seq = n;
+	mi->seq = (mm_idx_seq_t*)kcalloc(mi->km, n, sizeof(mm_idx_seq_t)); // ->seq is allocated from km
+	mi->S = (uint32_t*)calloc((sum_len + 7) / 8, 4);
+	for (i = 0, sum_len = 0; i < n; ++i) {
+		const char *s = seq[i];
+		mm_idx_seq_t *p = &mi->seq[i];
+		uint32_t j;
+		if (name && name[i]) {
+			p->name = (char*)kmalloc(mi->km, strlen(name[i]) + 1);
+			strcpy(p->name, name[i]);
+		}
+		p->offset = sum_len;
+		p->len = strlen(s);
+		for (j = 0; j < p->len; ++j) {
+			int c = seq_nt4_table[(uint8_t)s[j]];
+			uint64_t o = sum_len + j;
+			mm_seq4_set(mi->S, o, c);
+		}
+		sum_len += p->len;
+		if (p->len > 0) {
+			a.n = 0;
+			mm_sketch(0, s, p->len, w, k, i, is_hpc, &a);
+			mm_idx_add(mi, a.n, a.a);
+		}
+	}
+	free(a.a);
+	mm_idx_post(mi, 1);
 	return mi;
 }
 
