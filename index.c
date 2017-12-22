@@ -340,7 +340,7 @@ mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) //
 	return mi;
 }
 
-mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name)
+mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, int n_threads, const char **seq, const char **name)
 {
 	uint64_t sum_len = 0;
 	mm128_v a = {0,0,0};
@@ -379,7 +379,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 		}
 	}
 	free(a.a);
-	mm_idx_post(mi, 1);
+	mm_idx_post(mi, n_threads);
 	return mi;
 }
 
