@@ -138,7 +138,7 @@ $h=50$; even if the heuristic fails, the optimal chain is often close.
 
 \subsubsection{Backtracking}
 Let $P(i)$ be the index of the best predecessor of anchor $i$. It equals 0 if
-$f(i)=w_i$ or $\argmax_j\{f(j)+\eta(j,i)-\gamma(j,i)\}$ otherwise. For each
+$f(i)=w_i$ or $\argmax_j\{f(j)+\alpha(j,i)-\beta(j,i)\}$ otherwise. For each
 anchor $i$ in the descending order of $f(i)$, we apply $P(\cdot)$ repeatedly to
 find its predecessor and mark each visited $i$ as `used', until $P(i)=0$ or we
 reach an already `used' $i$. This way we find all chains with no anchors used
@@ -500,14 +500,18 @@ more junctions with a higher percentage being exactly or approximately correct.
 Minimap2 is over 40 times faster than GMAP and SpAln. While STAR is close to
 minimap2 in speed, it does not work well with noisy reads.
 
-We have also evaluated spliced aligners on public Iso-Seq data (human Alzheimer
-brain from \href{http://bit.ly/isoseqpub}{http://bit.ly/isoseqpub}). The
-observation is similar: minimap2 is faster at higher junction accuracy.
-On a private Nanopore Direct RNA data set with $\sim$17\% sequencing error rate
-(N. Loman, personal communication), minimap2 aligned 96\,467 introns
-from 37\,068 mapped reads with 95.4\% of them consistent with human gene
-annotations. In comparison, only 74.8\% of GMAP introns found in known gene
-annotations.
+We have also evaluated spliced aligners on a human Nanopore Direct RNA-seq
+dataset (\href{http://bit.ly/na12878ont}{http://bit.ly/na12878ont}). Minimap2
+aligned 10 million reads in $<$1 wall-clock hour using 16 CPU cores. 94.2\% of
+aligned splice junctions consistent with gene annotations. In comparison,
+GMAP under option `-k 14 -n 0 --min-intronlength 30 --cross-species' is 160
+times slower; 68.7\% of GMAP junctions are found in known gene annotations. The
+percentage increases to 84.1\% if an aligned junction within 10bp from an
+annotated junction is considered to be correct. On a public Iso-Seq dataset
+(human Alzheimer brain from
+\href{http://bit.ly/isoseqpub}{http://bit.ly/isoseqpub}), minimap2 is also
+faster at higher junction accuracy in comparison to other aligners in
+Table~\ref{tab:intron}.
 
 We noted that GMAP and SpAln have not been optimized for noisy reads. We are
 showing the best setting we have experimented, but their developers should be
@@ -551,8 +555,7 @@ with GATK HaplotypeCaller v3.5~\citep{Depristo:2011vn}. This run was sequenced
 from experimentally mixed CHM1 and CHM13 cell lines. Both of them are homozygous
 across the whole genome and have been \emph{de novo} assembled with SMRT reads
 to high quality. This allowed us to construct an independent truth variant
-data set
-(\href{https://github.com/lh3/CHM-eval}{https://github.com/lh3/CHM-eval}) for
+dataset~\citep{Li223297} for
 ERR1341796. In this evaluation, minimap2 has higher SNP false negative rate
 (FNR; 2.5\% of minimap2 vs 2.2\% of BWA-MEM), but fewer false positive SNPs per
 million bases (FPPM; 3.0 vs 3.9), lower 2--50bp INDEL FNR (7.3\% vs 7.5\%) and
@@ -597,7 +600,7 @@ uniqueness and reduce unsuccessful extensions. Minimap2 indexes reference
 k-mers with a hash table instead. Such fixed-length seeds are inferior to
 variable-length seeds in theory, but can be computed much more efficiently in
 practice. When a query sequence has multiple seed hits, we can afford to skip
-some highly repetitive seeds without affecting the final accuracy. This further
+highly repetitive seeds without affecting the final accuracy. This further
 alleviates the concern with the uniqueness of seeds. Hash table is the ideal
 data structure for mapping long query sequences.
 
@@ -605,8 +608,8 @@ data structure for mapping long query sequences.
 We owe a debt of gratitude to H. Suzuki and M. Kasahara for releasing their
 masterpiece and insightful notes before formal publication. We thank M.
 Schatz, P. Rescheneder and F. Sedlazeck for pointing out the limitation of
-BWA-MEM. We are also grateful to early minimap2 testers who have greatly helped
-to suggest features and to fix various issues.
+BWA-MEM. We are also grateful to minimap2 users who have greatly helped to
+suggest features and to fix various issues.
 
 \bibliography{minimap2}
 
