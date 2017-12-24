@@ -43,7 +43,7 @@ while ((c = getopt(arguments, "q:l:f:")) != null) {
 	else if (c == 'f') min_frac = parseFloat(getopt.arg);
 }
 if (arguments.length - getopt.ind < 2) {
-	print("Usage: sort -k6,6 -k8,8n to-ref.paf | k8 paf2ovlp.js [options] - <ovlp.paf>");
+	print("Usage: sort -k6,6 -k8,8n to-ref.paf | k8 ov-eval.js [options] - <ovlp.paf>");
 	print("Options:");
 	print("  -l INT     min overlap length [2000]");
 	print("  -q INT     min mapping quality [10]");
