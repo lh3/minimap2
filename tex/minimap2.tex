@@ -157,6 +157,33 @@ add the chain to $Q$. In the end, $Q$ contains all the primary chains. We did
 not choose a more sophisticated data structure (e.g. range tree or k-d tree)
 because this step is not the performance bottleneck.
 
+\subsubsection{Estimating per-base sequence divergence}
+Suppose a query sequence harbors $n$ seeds of length $k$, $m$ of which are
+present in a chain. We want to estimate the sequence divergence $\epsilon$
+between the query and the reference sequences in the chain. This is useful
+when base-level alignment is too expensive to perform.
+
+If we model substitutions with a homogeneous Poisson process along the query
+sequence, the probablity of seeing $k$ consecutive bases without substitutions
+is $e^{-k\epsilon}$. On the assumption that all $k$-mers are independent of
+each other, the likelihood function of $\epsilon$ is
+\[
+\mathcal{L}(\epsilon|n,m,k)=e^{-m\cdot k\epsilon}(1-e^{-k\epsilon})^{n-m}
+\]
+The maximum likelihood estimate of $\epsilon$ is
+\[
+\hat{\epsilon}=\frac{1}{k}\log\frac{n}{m}
+\]
+In reality, sequencing errors are sometimes clustered and $k$-mers are not
+independent of each other, especially when we take minimizers as seeds. These
+violate the assumptions in the derivation above. As a result, $\hat{\epsilon}$
+is only approximate and can be biased. It also ignores long deletions from the
+reference sequence. In practice, fortunately, $\hat{\epsilon}$ is often close
+to and strongly correlated with the sequence divergence estimated from
+base-level alignments. On the several datasets used in
+Section~\ref{sec:long-genomic}, the Spearman correlation coefficient is around
+$0.9$.
+
 \subsection{Aligning genomic DNA}\label{sec:genomic}
 
 \subsubsection{Alignment with 2-piece affine gap cost}
@@ -397,7 +424,7 @@ consistent paired-end alignments.
 
 \section{Results}
 
-\subsection{Aligning long genomic reads}
+\subsection{Aligning long genomic reads}\label{sec:long-genomic}
 
 \begin{figure}[!tb]
 \centering
