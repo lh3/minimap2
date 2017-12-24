@@ -42,8 +42,8 @@ while ((c = getopt(arguments, "q:l:f:")) != null) {
 	else if (c == 'l') min_ovlp = parseInt(getopt.arg);
 	else if (c == 'f') min_frac = parseFloat(getopt.arg);
 }
-if (getopt.ind == arguments.length) {
-	print("Usage: sort -k6,6 -k8,8n to-ref.paf | k8 paf2ovlp.js [options] - > out.ovlp");
+if (arguments.length - getopt.ind < 2) {
+	print("Usage: sort -k6,6 -k8,8n to-ref.paf | k8 paf2ovlp.js [options] - <ovlp.paf>");
 	print("Options:");
 	print("  -l INT     min overlap length [2000]");
 	print("  -q INT     min mapping quality [10]");
@@ -53,7 +53,7 @@ if (getopt.ind == arguments.length) {
 
 var buf = new Bytes();
 var file = arguments[getopt.ind] == '-'? new File() : new File(arguments[getopt.ind]);
-var a = [];
+var a = [], h = {};
 while (file.readline(buf) >= 0) {
 	var t = buf.toString().split("\t");
 	var is_pri = false;
@@ -76,13 +76,30 @@ while (file.readline(buf) >= 0) {
 	}
 	for (var j = 0; j < a.length; ++j) {
 		if (a[j][3] == t[0]) continue;
-		var len = en > a[j][2]? a[j][2] - st : en - st;
+		var len = (en > a[j][2]? a[j][2] : en) - st;
 		if (len >= min_ovlp) {
-			if (a[j][3] < t[0]) print(a[j][3], t[0], len);
-			else print(t[0], a[j][3], len);
+			var key = a[j][3] < t[0]? a[j][3] + "\t" + t[0] : t[0] + "\t" + a[j][3];
+			h[key] = len;
 		}
 	}
 	a.push([ctg, st, en, t[0]]);
 }
 file.close();
+
+file = new File(arguments[getopt.ind + 1]);
+while (file.readline(buf) >= 0) {
+	var t = buf.toString().split("\t");
+	var key = t[0] < t[5]? t[0] + "\t" + t[5] : t[5] + "\t" + t[0];
+	if (h[key] > 0) h[key] = -h[key];
+}
+file.close();
 buf.destroy();
+
+var n_ovlp = 0, n_missing = 0;
+for (var key in h) {
+	++n_ovlp;
+	if (h[key] > 0) ++n_missing;
+}
+print(n_ovlp + " overlaps inferred from the reference mapping");
+print(n_missing + " missed by the read overlapper");
+print((100 * (1 - n_missing / n_ovlp)).toFixed(2) + "% sensitivity");
