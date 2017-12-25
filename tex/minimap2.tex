@@ -184,6 +184,26 @@ base-level alignments. On the several datasets used in
 Section~\ref{sec:long-genomic}, the Spearman correlation coefficient is around
 $0.9$.
 
+\subsubsection{Indexing with homopolymer compressed $k$-mers}
+SmartDenovo
+(\href{https://github.com/ruanjue/smartdenovo}{https://github.com/ruanjue/smartdenovo};
+J Ruan, personal communication) indexes reads with homopolymer-compressed (HPC)
+$k$-mers and finds the strategy improves overlap sensitivity for SMRT reads.
+Minimap2 adopts the same heuristic.
+
+The HPC string of a string $s$, denoted by ${\rm HPC}(s)$, is constructed by
+contracting homopolymers in $s$ to a single base.  An HPC $k$-mer of $s$ is a
+$k$-long substring of ${\rm HPC}(s)$. For example, suppose $s={\tt GGATTTTCCA}$,
+${\rm HPC}(s)={\tt GATCA}$ and the first HPC 4-mer is ${\tt GATC}$.
+
+To demonstrate the effectiveness of HPC $k$-mers, we performed read overlapping
+for the example {\it E. coli} SMRT reads from PBcR~\citep{Berlin:2015xy}, using
+different types of $k$-mers. With normal 15bp minimizers per 5bp window,
+minimap2 finds 90.9\% of $\ge$2kb overlaps inferred from the read-to-reference
+alignment. With HPC 19-mers, minimap2 finds 97.4\% of overlaps. It achieves this
+higher sensitivity by indexing 1/3 fewer minimizers, which further helps
+performance. HPC-based indexing reduces the sensitivity for ONT reads, though.
+
 \subsection{Aligning genomic DNA}\label{sec:genomic}
 
 \subsubsection{Alignment with 2-piece affine gap cost}
