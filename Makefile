@@ -18,6 +18,7 @@ else
     INCLUDES+=-I sse2neon
 endif
 
+.PHONY:all extra clean depend
 .SUFFIXES:.c .o
 
 .c.o:
@@ -39,6 +40,8 @@ libminimap2.a:$(OBJS)
 sdust:sdust.c getopt.o kalloc.o kalloc.h kdq.h kvec.h kseq.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< getopt.o kalloc.o -o $@ -lz
 
+# SSE-specific targets on x86/x86_64
+
 ksw2_extz2_sse41.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 		$(CC) -c -msse4 $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
@@ -59,7 +62,8 @@ ksw2_exts2_sse2.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 
 ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
-        
+
+# NEON-specific targets on ARM
 
 ksw2_extz2_neon.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
@@ -69,7 +73,8 @@ ksw2_extd2_neon.o:ksw2_extd2_sse.c ksw2.h kalloc.h
 
 ksw2_exts2_neon.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
-      
+
+# other non-file targets
 
 clean:
 		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM build dist mappy.so mappy.c python/mappy.c mappy.egg*
