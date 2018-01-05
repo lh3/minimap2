@@ -36,13 +36,34 @@ var getopt = function(args, ostr) {
 	return optopt;
 }
 
-var c;
-while ((c = getopt(arguments, "")) != null) {
+var c, fn_ucsc_fai = null;
+while ((c = getopt(arguments, "u:")) != null) {
+	if (c == 'u') fn_ucsc_fai = getopt.arg;
 }
 
 if (getopt.ind == arguments.length) {
-	print("Usage: k8 gff2bed.js <in.gff>");
+	print("Usage: k8 gff2bed.js [-u ucsc-genome.fa.fai] <in.gff>");
 	exit(1);
+}
+
+var ens2ucsc = {};
+if (fn_ucsc_fai != null) {
+	var buf = new Bytes();
+	var file = new File(fn_ucsc_fai);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		var s = t[0];
+		if (/_(random|alt)$/.test(s)) {
+			s = s.replace(/_(random|alt)$/, '');
+			s = s.replace(/^chr\S+_/, '');
+		} else {
+			s = s.replace(/^chrUn_/, '');
+		}
+		s = s.replace(/v(\d+)/, ".$1");
+		if (s != t[0]) ens2ucsc[s] = t[0];
+	}
+	file.close();
+	buf.destroy();
 }
 
 function print_bed12(exons, cds_st, cds_en)
@@ -100,6 +121,8 @@ while (file.readline(buf) >= 0) {
 		cds_st = cds_st < t[3]? cds_st : t[3];
 		cds_en = cds_en > t[4]? cds_en : t[4];
 	} else if (t[2] == "exon") {
+		if (fn_ucsc_fai != null && ens2ucsc[t[0]] != null)
+			t[0] = ens2ucsc[t[0]];
 		exons.push([t[0], t[3], t[4], t[6], id, type, name]);
 	}
 }
