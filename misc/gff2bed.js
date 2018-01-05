@@ -53,8 +53,8 @@ if (fn_ucsc_fai != null) {
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
 		var s = t[0];
-		if (/_(random|alt)$/.test(s)) {
-			s = s.replace(/_(random|alt)$/, '');
+		if (/_(random|alt|decoy)$/.test(s)) {
+			s = s.replace(/_(random|alt|decoy)$/, '');
 			s = s.replace(/^chr\S+_/, '');
 		} else {
 			s = s.replace(/^chrUn_/, '');
@@ -121,8 +121,12 @@ while (file.readline(buf) >= 0) {
 		cds_st = cds_st < t[3]? cds_st : t[3];
 		cds_en = cds_en > t[4]? cds_en : t[4];
 	} else if (t[2] == "exon") {
-		if (fn_ucsc_fai != null && ens2ucsc[t[0]] != null)
-			t[0] = ens2ucsc[t[0]];
+		if (fn_ucsc_fai != null) {
+			if (ens2ucsc[t[0]] != null)
+				t[0] = ens2ucsc[t[0]];
+			else if (/^[A-Z]+\d+\.\d+$/.test(t[0]))
+				t[0] = t[0].replace(/([A-Z]+\d+)\.(\d+)/, "chrUn_$1v$2");
+		}
 		exons.push([t[0], t[3], t[4], t[6], id, type, name]);
 	}
 }
