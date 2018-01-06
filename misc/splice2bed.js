@@ -60,13 +60,27 @@ function print_lines(a, fmt) {
 
 function main(args) {
 	var re = /(\d+)([MIDNSH])/g;
-	var c, fmt = "bed";
-	while ((c = getopt(args, "f:")) != null) {
+	var c, fmt = "bed", fn_name_conv = null;
+	while ((c = getopt(args, "f:n:")) != null) {
 		if (c == 'f') fmt = getopt.arg;
+		else if (c == 'n') fn_name_conv = getopt.arg;
 	}
 	if (getopt.ind == args.length) {
 		warn("Usage: k8 splice2bed.js <in.paf>");
 		exit(1);
+	}
+
+	var conv = null;
+	if (fn_name_conv != null) {
+		conv = new Map();
+		var file = new File(fn_name_conv);
+		var buf = new Bytes();
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			conv.put(t[0], t[1]);
+		}
+		buf.destroy();
+		file.close();
 	}
 
 	var file = new File(args[getopt.ind]);
@@ -77,6 +91,8 @@ function main(args) {
 		if (line.charAt(0) == '@') continue; // skip SAM header lines
 		var t = line.split("\t");
 		var is_pri = false, cigar = null, a1;
+		var qname = conv != null? conv.get(t[0]) : null;
+		if (qname != null) t[0] = qname;
 		if (a.length && a[0][3] != t[0]) {
 			print_lines(a, fmt);
 			a = [];
@@ -122,6 +138,7 @@ function main(args) {
 	print_lines(a, fmt);
 	buf.destroy();
 	file.close();
+	if (conv != null) conv.destroy();
 }
 
 main(arguments);
