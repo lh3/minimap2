@@ -11,10 +11,6 @@ matrix:
       before_install: pip install cython
       script: python setup.py build_ext
     - language: python
-      python: "3.3"
-      before_install: pip install cython
-      script: python setup.py build_ext
-    - language: python
       python: "3.5"
       before_install: pip install cython
       script: python setup.py build_ext
