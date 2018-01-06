@@ -36,9 +36,10 @@ var getopt = function(args, ostr) {
 	return optopt;
 }
 
-var c, fn_ucsc_fai = null;
-while ((c = getopt(arguments, "u:")) != null) {
+var c, fn_ucsc_fai = null, is_short = false;
+while ((c = getopt(arguments, "u:s")) != null) {
 	if (c == 'u') fn_ucsc_fai = getopt.arg;
+	else if (c == 's') is_short = true;
 }
 
 if (getopt.ind == arguments.length) {
@@ -66,10 +67,18 @@ if (fn_ucsc_fai != null) {
 	buf.destroy();
 }
 
-function print_bed12(exons, cds_st, cds_en)
+var colors = {
+		'protein_coding':'0,128,255',
+		'lincRNA':'0,192,0',
+		'snRNA':'0,192,0',
+		'miRNA':'0,192,0',
+		'misc_RNA':'0,192,0'
+	};
+
+function print_bed12(exons, cds_st, cds_en, is_short)
 {
 	if (exons.length == 0) return;
-	var name = exons[0].slice(4, 7).join("|");
+	var name = is_short? exons[0][7] + "|" + exons[0][5] : exons[0].slice(4, 7).join("|");
 	var a = exons.sort(function(a,b) {return a[1]-b[1]});
 	var sizes = [], starts = [], st, en;
 	st = a[0][1];
@@ -80,13 +89,15 @@ function print_bed12(exons, cds_st, cds_en)
 		throw Error("inconsistent thick start or end for transcript " + a[0][4]);
 	for (var i = 0; i < a.length; ++i) {
 		sizes.push(a[i][2] - a[i][1]);
-		starts.push(a[i][1]);
+		starts.push(a[i][1] - st);
 	}
-	print(a[0][0], st, en, name, 0, a[0][3], cds_st, cds_en, ".", a.length, sizes.join(",") + ",", starts.join(",") + ",");
+	var color = colors[a[0][5]];
+	if (color == null) color = '196,196,196';
+	print(a[0][0], st, en, name, 1000, a[0][3], cds_st, cds_en, color, a.length, sizes.join(",") + ",", starts.join(",") + ",");
 }
 
-var re_gtf = /(transcript_id|transcript_type|transcript_biotype|gene_name) "([^"]+)";/g;
-var re_gff3 = /(transcript_id|transcript_type|transcript_biotype|gene_name)=([^;]+)/g;
+var re_gtf = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name) "([^"]+)";/g;
+var re_gff3 = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name)=([^;]+)/g;
 var buf = new Bytes();
 var file = new File(arguments[getopt.ind]);
 
@@ -97,23 +108,25 @@ while (file.readline(buf) >= 0) {
 	if (t[2] != "CDS" && t[2] != "exon") continue;
 	t[3] = parseInt(t[3]) - 1;
 	t[4] = parseInt(t[4]);
-	var id = null, type = "", gname = "N/A", biotype = "", m;
+	var id = null, type = "", gname = "N/A", biotype = "", m, tname = "N/A";
 	while ((m = re_gtf.exec(t[8])) != null) {
 		if (m[1] == "transcript_id") id = m[2];
 		else if (m[1] == "transcript_type") type = m[2];
 		else if (m[1] == "transcript_biotype") biotype = m[2];
 		else if (m[1] == "gene_name") name = m[2];
+		else if (m[1] == "transcript_name") tname = m[2];
 	}
 	while ((m = re_gff3.exec(t[8])) != null) {
 		if (m[1] == "transcript_id") id = m[2];
 		else if (m[1] == "transcript_type") type = m[2];
 		else if (m[1] == "transcript_biotype") biotype = m[2];
 		else if (m[1] == "gene_name") name = m[2];
+		else if (m[1] == "transcript_name") tname = m[2];
 	}
 	if (type == "" && biotype != "") type = biotype;
 	if (id == null) throw Error("No transcript_id");
 	if (id != last_id) {
-		print_bed12(exons, cds_st, cds_en);
+		print_bed12(exons, cds_st, cds_en, is_short);
 		exons = [], cds_st = 1<<30, cds_en = 0;
 		last_id = id;
 	}
@@ -127,11 +140,11 @@ while (file.readline(buf) >= 0) {
 			else if (/^[A-Z]+\d+\.\d+$/.test(t[0]))
 				t[0] = t[0].replace(/([A-Z]+\d+)\.(\d+)/, "chrUn_$1v$2");
 		}
-		exons.push([t[0], t[3], t[4], t[6], id, type, name]);
+		exons.push([t[0], t[3], t[4], t[6], id, type, name, tname]);
 	}
 }
 if (last_id != null)
-	print_bed12(exons, cds_st, cds_en);
+	print_bed12(exons, cds_st, cds_en, is_short);
 
 file.close();
 buf.destroy();
