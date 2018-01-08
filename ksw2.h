@@ -142,7 +142,7 @@ static inline void ksw_backtrack(void *km, int is_rot, int is_rev, int min_intro
 		else if (state == 3 && min_intron_len > 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 3, 1), --i; // intron
 		else cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 1, 1), --j; // insertion
 	}
-	if (i >= 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, i >= min_intron_len? 3 : 2, i + 1); // first deletion
+	if (i >= 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, min_intron_len > 0 && i >= min_intron_len? 3 : 2, i + 1); // first deletion
 	if (j >= 0) cigar = ksw_push_cigar(km, &n_cigar, &m_cigar, cigar, 1, j + 1); // first insertion
 	if (!is_rev)
 		for (i = 0; i < n_cigar>>1; ++i) // reverse CIGAR
