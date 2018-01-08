@@ -134,27 +134,15 @@ Interval.find_ovlp = function(a, st, en)
  * Main function *
  *****************/
 
-function main(args)
+function read_bed(fn, to_merge, to_dedup)
 {
-	var c, print_len = false, to_merge = true, to_dedup = false;
-	while ((c = getopt(args, "pd")) != null) {
-		if (c == 'p') print_len = true;
-		else if (c == 'd') to_dedup = true, to_merge = false;
-	}
-
-	if (args.length - getopt.ind < 2) {
-		print("Usage: k8 cnt-feat.js [options] <target.bed> <feature.bed>");
-		exit(1);
-	}
-
-	var file, buf = new Bytes();
-
-	var target = {};
-	file = new File(args[getopt.ind]);
+	var file = new File(fn);
+	var buf = new Bytes();
+	var h = {};
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
-		if (target[t[0]] == null)
-			target[t[0]] = [];
+		if (h[t[0]] == null)
+			h[t[0]] = [];
 		var bst = parseInt(t[1]);
 		var ben = parseInt(t[2]);
 		if (t.length >= 12 && /^\d+$/.test(t[9])) {
@@ -164,26 +152,46 @@ function main(args)
 			for (var i = 0; i < t[9]; ++i) {
 				st[i] = parseInt(st[i]);
 				sz[i] = parseInt(sz[i]);
-				target[t[0]].push([bst + st[i], bst + st[i] + sz[i], 0, 0, 0]);
+				h[t[0]].push([bst + st[i], bst + st[i] + sz[i], 0, 0, 0]);
 			}
 		} else {
-			target[t[0]].push([bst, ben, 0, 0, 0]);
+			h[t[0]].push([bst, ben, 0, 0, 0]);
 		}
 	}
+	buf.destroy();
 	file.close();
-
-	var n_target_intv = 0;
-	for (var chr in target) {
-		if (to_merge) Interval.merge(target[chr], false);
-		else if (to_dedup) Interval.dedup(target[chr], false);
-		else Interval.sort(target[chr]);
-		n_target_intv += target[chr].length;
-		Interval.index_end(target[chr]);
+	for (var chr in h) {
+		if (to_merge) Interval.merge(h[chr], false);
+		else if (to_dedup) Interval.dedup(h[chr], false);
+		else Interval.sort(h[chr]);
+		Interval.index_end(h[chr]);
 	}
-	warn("# target intervals: " + n_target_intv);
+	return h;
+}
 
+function main(args)
+{
+	var c, print_len = false, to_merge = true, to_dedup = false, fn_excl = null;
+	while ((c = getopt(args, "pde:")) != null) {
+		if (c == 'p') print_len = true;
+		else if (c == 'd') to_dedup = true, to_merge = false;
+		else if (c == 'e') fn_excl = getopt.arg;
+	}
+
+	if (args.length - getopt.ind < 2) {
+		print("Usage: k8 cnt-feat.js [options] <target.bed> <feature.bed>");
+		print("Options:");
+		print("  -e FILE    exclude features overlapping regions in BED FILE []");
+		print("  -p         print number of covered bases for each feature");
+		exit(1);
+	}
+
+	var excl = fn_excl != null? read_bed(fn_excl, true, false) : null;
+	var target = read_bed(args[getopt.ind], to_merge, to_dedup);
+
+	var file, buf = new Bytes();
 	var tot_len = 0, hit_len = 0;
-	file = new File(args[getopt.ind+1]);
+	file = args[getopt.ind+1] != '-'? new File(args[getopt.ind+1]) : new File();
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
 		var a = [];
@@ -196,16 +204,24 @@ function main(args)
 			for (var i = 0; i < t[9]; ++i) {
 				st[i] = parseInt(st[i]);
 				sz[i] = parseInt(sz[i]);
-				a.push([bst + st[i], bst + st[i] + sz[i]]);
+				a.push([bst + st[i], bst + st[i] + sz[i], false]);
 			}
-		} else a.push([bst, ben]); // 3-column BED
+		} else a.push([bst, ben, false]); // 3-column BED
 		var feat_len = 0;
-		for (var i = 0; i < a.length; ++i)
+		for (var i = 0; i < a.length; ++i) {
+			if (excl != null && excl[t[0]] != null) {
+				var oe = Interval.find_ovlp(excl[t[0]], a[i][0], a[i][1]);
+				if (oe.length > 0)
+					continue;
+			}
+			a[i][2] = true;
 			feat_len += a[i][1] - a[i][0];
+		}
 		tot_len += feat_len;
 		if (target[t[0]] == null) continue;
 		var b = [];
 		for (var i = 0; i < a.length; ++i) {
+			if (!a[i][2]) continue;
 			var o = Interval.find_ovlp(target[t[0]], a[i][0], a[i][1]);
 			for (var j = 0; j < o.length; ++j) {
 				var max_st = o[j][0] > a[i][0]? o[j][0] : a[i][0];
