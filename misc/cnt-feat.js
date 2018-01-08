@@ -66,6 +66,17 @@ Interval.merge = function(a, sorted)
 	a.length = k + 1;
 }
 
+Interval.dedup = function(a, sorted)
+{
+	if (typeof sorted == 'undefined') sorted = true;
+	if (!sorted) Interval.sort(a);
+	var k = 0;
+	for (var i = 1; i < a.length; ++i)
+		if (a[k][0] != a[i][0] || a[k][1] != a[i][1])
+			a[++k] = a[i].slice(0);
+	a.length = k + 1;
+}
+
 Interval.index_end = function(a, sorted)
 {
 	if (a.length == 0) return;
@@ -125,13 +136,14 @@ Interval.find_ovlp = function(a, st, en)
 
 function main(args)
 {
-	var c, print_len = false;
-	while ((c = getopt(args, "l")) != null) {
-		if (c == 'l') print_len = true;
+	var c, print_len = false, to_merge = true, to_dedup = false;
+	while ((c = getopt(args, "pd")) != null) {
+		if (c == 'p') print_len = true;
+		else if (c == 'd') to_dedup = true, to_merge = false;
 	}
 
 	if (args.length - getopt.ind < 2) {
-		print("Usage: k8 cnt-feat.js <target.bed> <feature.bed>");
+		print("Usage: k8 cnt-feat.js [options] <target.bed> <feature.bed>");
 		exit(1);
 	}
 
@@ -143,13 +155,32 @@ function main(args)
 		var t = buf.toString().split("\t");
 		if (target[t[0]] == null)
 			target[t[0]] = [];
-		target[t[0]].push([parseInt(t[1]), parseInt(t[2]), 0, 0, 0]);
+		var bst = parseInt(t[1]);
+		var ben = parseInt(t[2]);
+		if (t.length >= 12 && /^\d+$/.test(t[9])) {
+			t[9] = parseInt(t[9]);
+			var sz = t[10].split(",");
+			var st = t[11].split(",");
+			for (var i = 0; i < t[9]; ++i) {
+				st[i] = parseInt(st[i]);
+				sz[i] = parseInt(sz[i]);
+				target[t[0]].push([bst + st[i], bst + st[i] + sz[i], 0, 0, 0]);
+			}
+		} else {
+			target[t[0]].push([bst, ben, 0, 0, 0]);
+		}
 	}
 	file.close();
-	//warn('Read the target BED');
-	for (var chr in target)
-		Interval.index_end(target[chr], false);
-	//warn('Indexed the target BED');
+
+	var n_target_intv = 0;
+	for (var chr in target) {
+		if (to_merge) Interval.merge(target[chr], false);
+		else if (to_dedup) Interval.dedup(target[chr], false);
+		else Interval.sort(target[chr]);
+		n_target_intv += target[chr].length;
+		Interval.index_end(target[chr]);
+	}
+	warn("# target intervals: " + n_target_intv);
 
 	var tot_len = 0, hit_len = 0;
 	file = new File(args[getopt.ind+1]);
@@ -198,7 +229,7 @@ function main(args)
 			feat_hit_len += en - st;
 		}
 		hit_len += feat_hit_len;
-		if (print_len) print(feat_len, feat_hit_len, buf);
+		if (print_len) print('F', t.slice(0, 4).join("\t"), feat_len, feat_hit_len);
 	}
 	file.close();
 
