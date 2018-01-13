@@ -60,13 +60,27 @@ function print_lines(a, fmt) {
 
 function main(args) {
 	var re = /(\d+)([MIDNSH])/g;
-	var c, fmt = "bed";
-	while ((c = getopt(args, "f:")) != null) {
+	var c, fmt = "bed", fn_name_conv = null;
+	while ((c = getopt(args, "f:n:")) != null) {
 		if (c == 'f') fmt = getopt.arg;
+		else if (c == 'n') fn_name_conv = getopt.arg;
 	}
 	if (getopt.ind == args.length) {
 		warn("Usage: k8 splice2bed.js <in.paf>");
 		exit(1);
+	}
+
+	var conv = null;
+	if (fn_name_conv != null) {
+		conv = new Map();
+		var file = new File(fn_name_conv);
+		var buf = new Bytes();
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			conv.put(t[0], t[1]);
+		}
+		buf.destroy();
+		file.close();
 	}
 
 	var file = new File(args[getopt.ind]);
@@ -77,11 +91,17 @@ function main(args) {
 		if (line.charAt(0) == '@') continue; // skip SAM header lines
 		var t = line.split("\t");
 		var is_pri = false, cigar = null, a1;
+		var qname = conv != null? conv.get(t[0]) : null;
+		if (qname != null) t[0] = qname;
+		if (t.length >= 10 && t[4] != '+' && t[4] != '-' && /^\d+/.test(t[1])) { // SAM
+			var flag = parseInt(t[1]);
+			if (flag&1) t[0] += '/' + (flag>>6&3);
+		}
 		if (a.length && a[0][3] != t[0]) {
 			print_lines(a, fmt);
 			a = [];
 		}
-		if (t.length >= 12 && (t[4] == '+' || t[4] == '-')) {
+		if (t.length >= 12 && (t[4] == '+' || t[4] == '-')) { // PAF
 			for (var i = 12; i < t.length; ++i) {
 				if (t[i].substr(0, 5) == 'cg:Z:') {
 					cigar = t[i].substr(5);
@@ -90,7 +110,7 @@ function main(args) {
 				}
 			}
 			a1 = [t[5], t[7], t[8], t[0], Math.floor(t[9]/t[10]*1000), t[4]];
-		} else if (t.length >= 10) {
+		} else if (t.length >= 10) { // SAM
 			var flag = parseInt(t[1]);
 			if ((flag&4) || a[2] == '*') continue;
 			cigar = t[5];
@@ -122,6 +142,7 @@ function main(args) {
 	print_lines(a, fmt);
 	buf.destroy();
 	file.close();
+	if (conv != null) conv.destroy();
 }
 
 main(arguments);

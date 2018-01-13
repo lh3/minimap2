@@ -210,6 +210,13 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, end_bonus, flag, ez);
 	else
 		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
+	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
+		int i;
+		fprintf(stderr, "score=%d, cigar=", ez->score);
+		for (i = 0; i < ez->n_cigar; ++i)
+			fprintf(stderr, "%d%c", ez->cigar[i]>>4, "MIDN"[ez->cigar[i]&0xf]);
+		fprintf(stderr, "\n");
+	}
 }
 
 static inline int mm_get_hplen_back(const mm_idx_t *mi, uint32_t rid, uint32_t x)

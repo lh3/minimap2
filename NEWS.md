@@ -1,3 +1,28 @@
+Release 2.7-r654 (9 January 2018)
+---------------------------------
+
+This release fixed a bug in the splice mode and added a few minor features:
+
+ * Fixed a bug that occasionally takes an intron as a long deletion in the
+   splice mode. This was caused by wrong backtracking at the last CIGAR
+   operator. The current fix eliminates the error, but it is not optimal in
+   that it often produces a wrong junction when the last operator is an intron.
+   A future version of minimap2 may improve upon this.
+
+ * Support high-end ARM CPUs that implement the NEON instruction set (#81).
+   This enables minimap2 to work on Raspberry Pi 3 and Odroid XU4.
+
+ * Added a C API to construct a minimizer index from a set of C strings (#80).
+
+ * Check scoring specified on the command line (#79). Due to the 8-bit limit,
+   excessively large score penalties fail minimap2.
+
+For genomic sequences, minimap2 should give identical alignments to v2.6.
+
+(2.7: 9 January 2018, r654)
+
+
+
 Release 2.6-r623 (12 December 2017)
 -----------------------------------
 
