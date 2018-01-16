@@ -1,4 +1,4 @@
-.TH minimap2 1 "9 January 2018" "minimap2-2.7 (r654)" "Bioinformatics tools"
+.TH minimap2 1 "16 January 2018" "minimap2-2.7-dirty (r655)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -206,6 +206,14 @@ seeds with ungapped alignment.
 .TP
 .BR --frag [= no | yes ]
 Whether to enable the fragment mode [no]
+.TP
+.B --for-only
+Only map to the forward strand of the reference sequences. For paired-end
+reads in the forward-reverse orientation, the first read is mapped to forward
+strand of the reference and the second read to the reverse stand.
+.TP
+.B --rev-only
+Only map to the reverse complement strand of the reference sequences.
 .SS Alignment options
 .TP 10
 .BI -A \ INT
