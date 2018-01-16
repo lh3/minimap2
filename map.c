@@ -117,6 +117,11 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 
 int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 {
+	if ((mo->flag & MM_F_FOR_ONLY) && (mo->flag & MM_F_REV_ONLY)) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m --for-only and --rev-only can't be applied at the same time\033[0m\n");
+		return -3;
+	}
 	if ((mo->q != mo->q2 || mo->e != mo->e2) && !(mo->e > mo->e2 && mo->q + mo->e < mo->q2 + mo->e2)) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m dual gap penalties violating E1>E2 and O1+E1<O2+E2\033[0m\n");
@@ -244,6 +249,13 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 					continue;
 				if ((opt->flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
 					continue;
+			}
+			if (opt->flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
+				if ((r[k]&1) == (q->qpos&1)) { // forward strand
+					if (opt->flag & MM_F_REV_ONLY) continue;
+				} else {
+					if (opt->flag & MM_F_FOR_ONLY) continue;
+				}
 			}
 			p = &a[(*n_a)++];
 			if ((r[k]&1) == (q->qpos&1)) { // forward strand
