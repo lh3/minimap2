@@ -182,6 +182,11 @@ Maximum fragment length (aka insert size; effective with
 .BR -xsr / --frag)
 [800]
 .TP
+.BI -M \ FLOAT
+Mark as secondary a chain that overlaps with a better chain by
+.I FLOAT
+or more of the shorter chain [0.5]
+.TP
 .BI --max-chain-skip \ INT
 A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
