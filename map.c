@@ -117,6 +117,13 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 
 int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 {
+	if (mo->best_n < 0) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m -N must be no less than 0\033[0m\n");
+		return -4;
+	}
+	if (mo->best_n == 0 && mm_verbose >= 2)
+		fprintf(stderr, "[WARNING]\033[1;31m '-N 0' reduces mapping accuracy. Please use '--secondary=no' instead.\033[0m\n");
 	if (mo->pri_ratio < 0.0f || mo->pri_ratio > 1.0f) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m -p must be within 0 and 1 (including 0 and 1)\033[0m\n");
