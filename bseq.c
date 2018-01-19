@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#define __STDC_LIMIT_MACROS
 #include "bseq.h"
 #include "kvec.h"
 #include "kseq.h"
