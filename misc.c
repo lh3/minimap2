@@ -1,4 +1,4 @@
-#include "minimap.h"
+#include "mmpriv.h"
 
 int mm_verbose = 1;
 int mm_dbg_flag = 0;

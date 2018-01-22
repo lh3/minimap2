@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <stdint.h>
+#include "kthread.h"
 
 #if (defined(WIN32) || defined(_WIN32)) && defined(_MSC_VER)
 #define __sync_fetch_and_add(ptr, addend)     _InterlockedExchangeAdd((void*)ptr, addend)
