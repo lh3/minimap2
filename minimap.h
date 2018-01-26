@@ -27,6 +27,7 @@
 #define MM_F_SOFTCLIP      0x80000
 #define MM_F_FOR_ONLY      0x100000
 #define MM_F_REV_ONLY      0x200000
+#define MM_F_HEAP_SORT     0x400000
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2

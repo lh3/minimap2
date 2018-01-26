@@ -47,6 +47,7 @@ static struct option long_options[] = {
 	{ "end-seed-pen",   required_argument, 0, 0 },   // 21
 	{ "for-only",       no_argument,       0, 0 },   // 22
 	{ "rev-only",       no_argument,       0, 0 },   // 23
+	{ "heap-sort",      optional_argument, 0, 0 },   // 24
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -169,6 +170,10 @@ int main(int argc, char *argv[])
 			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
 				opt.flag |= MM_F_SPLICE_FLANK;
 			else opt.flag &= ~MM_F_SPLICE_FLANK;
+		} else if (c == 0 && long_idx == 24) { // --heap-sort
+			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
+				opt.flag |= MM_F_HEAP_SORT;
+			else opt.flag &= ~MM_F_HEAP_SORT;
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)
