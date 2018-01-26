@@ -147,13 +147,6 @@ int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 	return 0;
 }
 
-typedef struct {
-	uint32_t n;
-	uint32_t qpos;
-	uint32_t seg_id;
-	const uint64_t *cr;
-} mm_match_t;
-
 struct mm_tbuf_s {
 	void *km;
 };
@@ -211,6 +204,117 @@ static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t 
 			mv->n = n + mm_dust_minier(km, mv->n - n, mv->a + n, qlens[i], seqs[i], opt->sdust_thres);
 		sum += qlens[i], n = mv->n;
 	}
+}
+
+#include "ksort.h"
+#define heap_lt(a, b) ((a).x > (b).x)
+KSORT_INIT(heap, mm128_t, heap_lt)
+
+typedef struct {
+	uint32_t n;
+	uint32_t qpos, q_span;
+	uint32_t seg_id:31, is_tandem:1;
+	const uint64_t *cr;
+} mm_match_t;
+
+static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
+								  int *n_mini_pos, uint64_t **mini_pos)
+{
+	int rep_st = 0, rep_en = 0, i, n_m, heap_size = 0;
+	int64_t j, n_for = 0, n_rev = 0;
+	mm_match_t *m;
+	mm128_t *a, *heap;
+
+	*n_mini_pos = 0;
+	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
+	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
+	for (i = n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
+		const uint64_t *cr;
+		mm128_t *p = &mv->a[i];
+		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
+		int t;
+		cr = mm_idx_get(mi, p->x>>8, &t);
+		if (t >= max_occ) {
+			int en = (q_pos >> 1) + 1, st = en - q_span;
+			if (st > rep_en) {
+				*rep_len += rep_en - rep_st;
+				rep_st = st, rep_en = en;
+			} else rep_en = en;
+		} else {
+			mm_match_t *q = &m[n_m++];
+			q->qpos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
+			q->is_tandem = 0;
+			if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) q->is_tandem = 1;
+			if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) q->is_tandem = 1;
+			*n_a += q->n;
+			(*mini_pos)[(*n_mini_pos)++] = (uint64_t)q_span<<32 | q_pos>>1;
+		}
+	}
+	*rep_len += rep_en - rep_st;
+
+	heap = (mm128_t*)kmalloc(km, n_m * sizeof(mm128_t));
+	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
+	for (i = 0; i < n_m; ++i) {
+		heap[i].x = m[i].cr[0];
+		heap[i].y = (uint64_t)i<<32;
+	}
+	heap_size = n_m;
+	while (heap_size > 0) {
+		mm_match_t *q = &m[heap->y>>32];
+		mm128_t *p;
+		uint64_t r = heap->x;
+		int32_t rpos = (uint32_t)r >> 1;
+		if (qname && (opt->flag&(MM_F_NO_SELF|MM_F_AVA))) {
+			const char *tname = mi->seq[r>>32].name;
+			int cmp;
+			cmp = strcmp(qname, tname);
+			if ((opt->flag&MM_F_NO_SELF) && cmp == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
+				continue;
+			if ((opt->flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
+				continue;
+		}
+		if (opt->flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
+			if ((r&1) == (q->qpos&1)) { // forward strand
+				if (opt->flag & MM_F_REV_ONLY) continue;
+			} else {
+				if (opt->flag & MM_F_FOR_ONLY) continue;
+			}
+		}
+		if ((r&1) == (q->qpos&1)) { // forward strand
+			p = &a[n_for++];
+			p->x = (r&0xffffffff00000000ULL) | rpos;
+			p->y = (uint64_t)q->q_span << 32 | q->qpos >> 1;
+		} else { // reverse strand
+			p = &a[(*n_a) - (++n_rev)];
+			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
+			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q->q_span) - 1);
+		}
+		p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
+		if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+		// update the heap
+		if ((uint32_t)heap->y < q->n - 1) {
+			++heap[0].y;
+			heap[0].x = m[heap[0].y>>32].cr[(uint32_t)heap[0].y];
+		} else {
+			heap[0] = heap[heap_size - 1];
+			--heap_size;
+		}
+		ks_heapdown_heap(0, heap_size, heap);
+	}
+	kfree(km, m);
+	kfree(km, heap);
+
+	// reverse anchors on the reverse strand, as they are in the descending order
+	for (j = 0; j < n_rev>>1; ++j) {
+		mm128_t t = a[(*n_a) - 1 - j];
+		a[(*n_a) - 1 - j] = a[(*n_a) - (n_rev - j)];
+		a[(*n_a) - (n_rev - j)] = t;
+	}
+	if (*n_a > n_for + n_rev) {
+		memmove(a + n_for, a + (*n_a) - n_rev, n_rev * sizeof(mm128_t));
+		*n_a = n_for + n_rev;
+	}
+	return a;
 }
 
 static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
@@ -283,6 +387,7 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 	}
 	*rep_len += rep_en - rep_st;
 	kfree(km, m);
+	radix_sort_128x(a, a + (*n_a));
 	return a;
 }
 
@@ -332,7 +437,6 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	collect_minimizers(b->km, opt, mi, n_segs, qlens, seqs, &mv);
 	a = collect_seed_hits(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-	radix_sort_128x(a, a + n_a);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
 		fprintf(stderr, "RS\t%d\n", rep_len);
@@ -373,7 +477,6 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			kfree(b->km, u);
 			kfree(b->km, mini_pos);
 			a = collect_seed_hits(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-			radix_sort_128x(a, a + n_a);
 			a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
 	}
