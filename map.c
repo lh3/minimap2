@@ -74,7 +74,7 @@ KSORT_INIT(heap, mm128_t, heap_lt)
 
 typedef struct {
 	uint32_t n;
-	uint32_t qpos, q_span;
+	uint32_t q_pos, q_span;
 	uint32_t seg_id:31, is_tandem:1;
 	const uint64_t *cr;
 } mm_match_t;
@@ -100,7 +100,7 @@ static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_id
 			} else rep_en = en;
 		} else {
 			mm_match_t *q = &m[n_m++];
-			q->qpos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
+			q->q_pos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
 			q->is_tandem = 0;
 			if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) q->is_tandem = 1;
 			if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) q->is_tandem = 1;
@@ -119,13 +119,13 @@ static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const cha
 		const char *tname = mi->seq[r>>32].name;
 		int cmp;
 		cmp = strcmp(qname, tname);
-		if ((flag&MM_F_NO_SELF) && cmp == 0 && (uint32_t)r>>1 == (q->qpos>>1)) // avoid the diagonal
+		if ((flag&MM_F_NO_SELF) && cmp == 0 && (uint32_t)r>>1 == (q->q_pos>>1)) // avoid the diagonal
 			return 1;
 		if ((flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
 			return 1;
 	}
 	if (flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
-		if ((r&1) == (q->qpos&1)) { // forward strand
+		if ((r&1) == (q->q_pos&1)) { // forward strand
 			if (flag & MM_F_REV_ONLY) return 1;
 		} else {
 			if (flag & MM_F_FOR_ONLY) return 1;
@@ -143,6 +143,7 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 	mm128_t *a, *heap;
 
 	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
+
 	heap = (mm128_t*)kmalloc(km, n_m * sizeof(mm128_t));
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
 
@@ -159,14 +160,14 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 		mm128_t *p;
 		uint64_t r = heap->x;
 		if (skip_seed(opt->flag, r, q, qname, mi)) continue;
-		if ((r&1) == (q->qpos&1)) { // forward strand
+		if ((r&1) == (q->q_pos&1)) { // forward strand
 			p = &a[n_for++];
 			p->x = (r&0xffffffff00000000ULL) | (uint32_t)r >> 1;
-			p->y = (uint64_t)q->q_span << 32 | q->qpos >> 1;
+			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 		} else { // reverse strand
 			p = &a[(*n_a) - (++n_rev)];
 			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | (uint32_t)r >> 1;
-			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q->q_span) - 1);
+			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
 		}
 		p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
 		if (q->is_tandem) p->y |= MM_SEED_TANDEM;
@@ -199,72 +200,30 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, uint64_t **mini_pos)
 {
-	int rep_st = 0, rep_en = 0, i;
+	int i, k, n_m;
 	mm_match_t *m;
 	mm128_t *a;
-
-	*n_mini_pos = 0;
-	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
-	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
-	for (i = 0; i < mv->n; ++i) {
-		int t;
-		mm128_t *p = &mv->a[i];
-		m[i].qpos = (uint32_t)p->y;
-		m[i].cr = mm_idx_get(mi, p->x>>8, &t);
-		m[i].n = t;
-		m[i].seg_id = p->y >> 32;
-	}
-	for (i = 0, *n_a = 0; i < mv->n; ++i) // find the length of a[]
-		if (m[i].n < max_occ) *n_a += m[i].n;
+	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
-	for (i = *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
-		mm128_t *p = &mv->a[i];
+	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->cr;
-		int k, q_span = p->x & 0xff, is_tandem = 0;
-		if (q->n >= max_occ) {
-			int en = (q->qpos>>1) + 1, st = en - q_span;
-			if (st > rep_en) {
-				*rep_len += rep_en - rep_st;
-				rep_st = st, rep_en = en;
-			} else rep_en = en;
-			continue;
-		}
-		(*mini_pos)[(*n_mini_pos)++] = (uint64_t)q_span<<32 | q->qpos>>1;
-		if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) is_tandem = 1;
-		if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) is_tandem = 1;
 		for (k = 0; k < q->n; ++k) {
 			int32_t rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
-			if (qname && (opt->flag&(MM_F_NO_SELF|MM_F_AVA))) {
-				const char *tname = mi->seq[r[k]>>32].name;
-				int cmp;
-				cmp = strcmp(qname, tname);
-				if ((opt->flag&MM_F_NO_SELF) && cmp == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
-					continue;
-				if ((opt->flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
-					continue;
-			}
-			if (opt->flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
-				if ((r[k]&1) == (q->qpos&1)) { // forward strand
-					if (opt->flag & MM_F_REV_ONLY) continue;
-				} else {
-					if (opt->flag & MM_F_FOR_ONLY) continue;
-				}
-			}
+			if (skip_seed(opt->flag, r[k], q, qname, mi)) continue;
 			p = &a[(*n_a)++];
-			if ((r[k]&1) == (q->qpos&1)) { // forward strand
+			if ((r[k]&1) == (q->q_pos&1)) { // forward strand
 				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
-				p->y = (uint64_t)q_span << 32 | q->qpos >> 1;
+				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 			} else { // reverse strand
 				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
-				p->y = (uint64_t)q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
+				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
 			}
 			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
-			if (is_tandem) p->y |= MM_SEED_TANDEM;
+			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
 		}
 	}
-	*rep_len += rep_en - rep_st;
 	kfree(km, m);
 	radix_sort_128x(a, a + (*n_a));
 	return a;
