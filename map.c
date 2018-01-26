@@ -79,14 +79,10 @@ typedef struct {
 	const uint64_t *cr;
 } mm_match_t;
 
-static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
-								  int *n_mini_pos, uint64_t **mini_pos)
+static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos)
 {
-	int rep_st = 0, rep_en = 0, i, n_m, heap_size = 0;
-	int64_t j, n_for = 0, n_rev = 0;
+	int i, rep_st = 0, rep_en = 0, n_m;
 	mm_match_t *m;
-	mm128_t *a, *heap;
-
 	*n_mini_pos = 0;
 	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
 	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
@@ -113,42 +109,63 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 		}
 	}
 	*rep_len += rep_en - rep_st;
+	*_n_m = n_m;
+	return m;
+}
 
+static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const char *qname, const mm_idx_t *mi)
+{
+	if (qname && (flag&(MM_F_NO_SELF|MM_F_AVA))) {
+		const char *tname = mi->seq[r>>32].name;
+		int cmp;
+		cmp = strcmp(qname, tname);
+		if ((flag&MM_F_NO_SELF) && cmp == 0 && (uint32_t)r>>1 == (q->qpos>>1)) // avoid the diagonal
+			return 1;
+		if ((flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
+			return 1;
+	}
+	if (flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
+		if ((r&1) == (q->qpos&1)) { // forward strand
+			if (flag & MM_F_REV_ONLY) return 1;
+		} else {
+			if (flag & MM_F_FOR_ONLY) return 1;
+		}
+	}
+	return 0;
+}
+
+static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
+								  int *n_mini_pos, uint64_t **mini_pos)
+{
+	int i, n_m, heap_size = 0;
+	int64_t j, n_for = 0, n_rev = 0;
+	mm_match_t *m;
+	mm128_t *a, *heap;
+
+	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
 	heap = (mm128_t*)kmalloc(km, n_m * sizeof(mm128_t));
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
-	for (i = 0; i < n_m; ++i) {
-		heap[i].x = m[i].cr[0];
-		heap[i].y = (uint64_t)i<<32;
+
+	for (i = 0, heap_size = 0; i < n_m; ++i) {
+		if (m[i].n > 0) {
+			heap[heap_size].x = m[i].cr[0];
+			heap[heap_size].y = (uint64_t)i<<32;
+			++heap_size;
+		}
 	}
-	heap_size = n_m;
+	ks_heapmake_heap(heap_size, heap);
 	while (heap_size > 0) {
 		mm_match_t *q = &m[heap->y>>32];
 		mm128_t *p;
 		uint64_t r = heap->x;
-		int32_t rpos = (uint32_t)r >> 1;
-		if (qname && (opt->flag&(MM_F_NO_SELF|MM_F_AVA))) {
-			const char *tname = mi->seq[r>>32].name;
-			int cmp;
-			cmp = strcmp(qname, tname);
-			if ((opt->flag&MM_F_NO_SELF) && cmp == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
-				continue;
-			if ((opt->flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
-				continue;
-		}
-		if (opt->flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
-			if ((r&1) == (q->qpos&1)) { // forward strand
-				if (opt->flag & MM_F_REV_ONLY) continue;
-			} else {
-				if (opt->flag & MM_F_FOR_ONLY) continue;
-			}
-		}
+		if (skip_seed(opt->flag, r, q, qname, mi)) continue;
 		if ((r&1) == (q->qpos&1)) { // forward strand
 			p = &a[n_for++];
-			p->x = (r&0xffffffff00000000ULL) | rpos;
+			p->x = (r&0xffffffff00000000ULL) | (uint32_t)r >> 1;
 			p->y = (uint64_t)q->q_span << 32 | q->qpos >> 1;
 		} else { // reverse strand
 			p = &a[(*n_a) - (++n_rev)];
-			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
+			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | (uint32_t)r >> 1;
 			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q->q_span) - 1);
 		}
 		p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
