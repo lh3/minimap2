@@ -1,4 +1,4 @@
-.TH minimap2 1 "16 January 2018" "minimap2-2.7-dirty (r655)" "Bioinformatics tools"
+.TH minimap2 1 "26 January 2018" "minimap2-2.7-dirty (r664)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -219,6 +219,10 @@ strand of the reference and the second read to the reverse stand.
 .TP
 .B --rev-only
 Only map to the reverse complement strand of the reference sequences.
+.TP
+.BR --heap-sort [= no | yes ]
+If yes, sort anchors with heap merge, instead of radix sort. Heap merge is
+faster for short reads, but slower for long reads. [no]
 .SS Alignment options
 .TP 10
 .BI -A \ INT
@@ -441,7 +445,7 @@ tag ignores introns to demote hits to pseudogenes.
 Short single-end reads without splicing
 .RB ( -k21
 .B -w11 --sr --frag -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20
-.B -s40 -g200 -2K50m
+.B -s40 -g200 -2K50m --heap-sort
 .BR --secondary=no ).
 .RE
 .SS Miscellaneous options
