@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.7-r664-dirty"
+#define MM_VERSION "2.7-r666-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -269,6 +269,10 @@ int main(int argc, char *argv[])
 		return fp_help == stdout? 0 : 1;
 	}
 
+	if ((opt.flag & MM_F_SR) && argc - optind > 3) {
+		fprintf(stderr, "[ERROR] incorrect input: in the sr mode, please specify no more than two query files.\n");
+		return 1;
+	}
 	idx_rdr = mm_idx_reader_open(argv[optind], &ipt, fnw);
 	if (idx_rdr == 0) {
 		fprintf(stderr, "[ERROR] failed to open file '%s'\n", argv[optind]);
