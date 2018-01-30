@@ -40,9 +40,9 @@ var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g;
 var c, min_cov_len = 10000, min_var_len = 50000, gap_thres = 50, min_mapq = 5;
 while ((c = getopt(arguments, "l:L:g:q:")) != null) {
 	if (c == 'l') min_cov_len = parseInt(getopt.arg);
-	else if (c == 'L') min_var_len = parseInt(optarg.arg);
-	else if (c == 'g') gap_thres = parseInt(optarg.arg);
-	else if (c == 'q') min_mapq = parseInt(optarg.arg);
+	else if (c == 'L') min_var_len = parseInt(getopt.arg);
+	else if (c == 'g') gap_thres = parseInt(getopt.arg);
+	else if (c == 'q') min_mapq = parseInt(getopt.arg);
 }
 
 if (arguments.length == getopt.ind) {
@@ -55,7 +55,7 @@ if (arguments.length == getopt.ind) {
 	exit(1);
 }
 
-var file = new File(arguments[getopt.ind]);
+var file = arguments[getopt.ind] == '-'? new File() : new File(arguments[getopt.ind]);
 var buf = new Bytes();
 var tot_len = 0, n_sub = [0, 0, 0], n_ins = [0, 0, 0, 0], n_del = [0, 0, 0, 0];
 
