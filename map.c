@@ -113,14 +113,17 @@ static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_id
 	return m;
 }
 
-static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const char *qname, const mm_idx_t *mi)
+static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const char *qname, int qlen, const mm_idx_t *mi, int *is_self)
 {
-	if (qname && (flag&(MM_F_NO_SELF|MM_F_AVA))) {
-		const char *tname = mi->seq[r>>32].name;
+	*is_self = 0;
+	if (qname && (flag & (MM_F_NO_SELF|MM_F_AVA))) {
+		const mm_idx_seq_t *s = &mi->seq[r>>32];
 		int cmp;
-		cmp = strcmp(qname, tname);
-		if ((flag&MM_F_NO_SELF) && cmp == 0 && (uint32_t)r>>1 == (q->q_pos>>1)) // avoid the diagonal
-			return 1;
+		cmp = strcmp(qname, s->name);
+		if ((flag&MM_F_NO_SELF) && cmp == 0 && s->len == qlen) {
+			if ((uint32_t)r>>1 == (q->q_pos>>1)) return 1; // avoid the diagnonal anchors
+			if ((r&1) == (q->q_pos&1)) *is_self = 1; // this flag is used to avoid spurious extension on self chain
+		}
 		if ((flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
 			return 1;
 	}
@@ -159,18 +162,20 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 		mm_match_t *q = &m[heap->y>>32];
 		mm128_t *p;
 		uint64_t r = heap->x;
-		if (skip_seed(opt->flag, r, q, qname, mi)) continue;
+		int32_t is_self, rpos = (uint32_t)r >> 1;
+		if (skip_seed(opt->flag, r, q, qname, qlen, mi, &is_self)) continue;
 		if ((r&1) == (q->q_pos&1)) { // forward strand
 			p = &a[n_for++];
-			p->x = (r&0xffffffff00000000ULL) | (uint32_t)r >> 1;
+			p->x = (r&0xffffffff00000000ULL) | rpos;
 			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 		} else { // reverse strand
 			p = &a[(*n_a) - (++n_rev)];
-			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | (uint32_t)r >> 1;
+			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
 			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
 		}
 		p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
 		if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+		if (is_self) p->y |= MM_SEED_SELF;
 		// update the heap
 		if ((uint32_t)heap->y < q->n - 1) {
 			++heap[0].y;
@@ -209,9 +214,9 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->cr;
 		for (k = 0; k < q->n; ++k) {
-			int32_t rpos = (uint32_t)r[k] >> 1;
+			int32_t is_self, rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
-			if (skip_seed(opt->flag, r[k], q, qname, mi)) continue;
+			if (skip_seed(opt->flag, r[k], q, qname, qlen, mi, &is_self)) continue;
 			p = &a[(*n_a)++];
 			if ((r[k]&1) == (q->q_pos&1)) { // forward strand
 				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
@@ -222,6 +227,7 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 			}
 			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
 			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+			if (is_self) p->y |= MM_SEED_SELF;
 		}
 	}
 	kfree(km, m);

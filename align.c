@@ -499,6 +499,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			re0 = re0 > re1? re0 : re1;
 		} else re0 = re, qe0 = qe;
 	}
+	if (a[r->as].y & MM_SEED_SELF) {
+		int max_ext = r->qs > r->rs? r->qs - r->rs : r->rs - r->qs;
+		if (r->rs - rs0 > max_ext) rs0 = r->rs - max_ext;
+		if (r->qs - qs0 > max_ext) qs0 = r->qs - max_ext;
+		max_ext = r->qe > r->re? r->qe - r->re : r->re - r->qe;
+		if (re0 - r->re > max_ext) re0 = r->re + max_ext;
+		if (qe0 - r->qe > max_ext) qe0 = r->qe + max_ext;
+	}
 
 	assert(re0 > rs0);
 	tseq = (uint8_t*)kmalloc(km, re0 - rs0);

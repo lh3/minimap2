@@ -16,6 +16,7 @@
 #define MM_SEED_LONG_JOIN  (1ULL<<40)
 #define MM_SEED_IGNORE     (1ULL<<41)
 #define MM_SEED_TANDEM     (1ULL<<42)
+#define MM_SEED_SELF       (1ULL<<43)
 
 #define MM_SEED_SEG_SHIFT  48
 #define MM_SEED_SEG_MASK   (0xffULL<<(MM_SEED_SEG_SHIFT))
