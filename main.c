@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.7-r670-dirty"
+#define MM_VERSION "2.7-r671-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -28,7 +28,7 @@ static struct option long_options[] = {
 	{ "seed",           required_argument, 0, 0 },
 	{ "no-kalloc",      no_argument,       0, 0 },
 	{ "print-qname",    no_argument,       0, 0 },
-	{ "no-self",        no_argument,       0, 0 },
+	{ "no-self",        no_argument,       0, 'D' },
 	{ "print-seeds",    no_argument,       0, 0 },
 	{ "max-chain-skip", required_argument, 0, 0 },
 	{ "min-dp-len",     required_argument, 0, 0 },
@@ -37,17 +37,19 @@ static struct option long_options[] = {
 	{ "cost-non-gt-ag", required_argument, 0, 'C' },
 	{ "no-long-join",   no_argument,       0, 0 },
 	{ "sr",             no_argument,       0, 0 },
-	{ "frag",           optional_argument, 0, 0 },
-	{ "secondary",      optional_argument, 0, 0 },
+	{ "frag",           required_argument, 0, 0 },
+	{ "secondary",      required_argument, 0, 0 },
 	{ "cs",             optional_argument, 0, 0 },
 	{ "end-bonus",      required_argument, 0, 0 },
 	{ "no-pairing",     no_argument,       0, 0 },
-	{ "splice-flank",   optional_argument, 0, 0 },
+	{ "splice-flank",   required_argument, 0, 0 },
 	{ "idx-no-seq",     no_argument,       0, 0 },
 	{ "end-seed-pen",   required_argument, 0, 0 },   // 21
 	{ "for-only",       no_argument,       0, 0 },   // 22
 	{ "rev-only",       no_argument,       0, 0 },   // 23
-	{ "heap-sort",      optional_argument, 0, 0 },   // 24
+	{ "heap-sort",      required_argument, 0, 0 },   // 24
+	{ "all-chain",      no_argument,       0, 'P' },
+	{ "dual",           required_argument, 0, 0 },   // 26
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -70,9 +72,22 @@ static inline int64_t mm_parse_num(const char *str)
 	return (int64_t)(x + .499);
 }
 
+static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const char *arg, int yes_to_set)
+{
+	if (yes_to_set) {
+		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag |= flag;
+		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) opt->flag &= ~flag;
+		else fprintf(stderr, "[WARNING]\033[1;31m option '--%s' only accepts 'yes' or 'no'.\033[0m\n", long_options[long_idx].name);
+	} else {
+		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag &= ~flag;
+		else if (strcmp(arg, "no") == 0 || strcmp(arg, "n") == 0) opt->flag |= flag;
+		else fprintf(stderr, "[WARNING]\033[1;31m option '--%s' only accepts 'yes' or 'no'.\033[0m\n", long_options[long_idx].name);
+	}
+}
+
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx;
@@ -111,7 +126,9 @@ int main(int argc, char *argv[])
 		else if (c == 'p') opt.pri_ratio = atof(optarg);
 		else if (c == 'M') opt.mask_level = atof(optarg);
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
-		else if (c == 'X') opt.flag |= MM_F_AVA | MM_F_NO_SELF;
+		else if (c == 'D') opt.flag |= MM_F_NO_DIAG;
+		else if (c == 'P') opt.flag |= MM_F_ALL_CHAINS;
+		else if (c == 'X') opt.flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN; // -D -P --no-long-join --dual=no
 		else if (c == 'a') opt.flag |= MM_F_OUT_SAM | MM_F_CIGAR;
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
 		else if (c == 'Y') opt.flag |= MM_F_SOFTCLIP;
@@ -133,7 +150,6 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx == 2) opt.seed = atoi(optarg); // --seed
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
 		else if (c == 0 && long_idx == 4) mm_dbg_flag |= MM_DBG_PRINT_QNAME; // --print-qname
-		else if (c == 0 && long_idx == 5) opt.flag |= MM_F_NO_SELF; // --no-self
 		else if (c == 0 && long_idx == 6) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_SEED, n_threads = 1; // --print-seed
 		else if (c == 0 && long_idx == 7) opt.max_chain_skip = atoi(optarg); // --max-chain-skip
 		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(optarg); // --min-dp-len
@@ -148,13 +164,9 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==22) opt.flag |= MM_F_FOR_ONLY; // --for-only
 		else if (c == 0 && long_idx ==23) opt.flag |= MM_F_REV_ONLY; // --rev-only
 		else if (c == 0 && long_idx == 14) { // --frag
-			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
-				opt.flag |= MM_F_FRAG_MODE;
-			else opt.flag &= ~MM_F_FRAG_MODE;
+			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary
-			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
-				opt.flag &= ~MM_F_NO_PRINT_2ND;
-			else opt.flag |= MM_F_NO_PRINT_2ND;
+			yes_or_no(&opt, MM_F_NO_PRINT_2ND, long_idx, optarg, 0);
 		} else if (c == 0 && long_idx == 16) { // --cs
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR;
 			if (optarg == 0 || strcmp(optarg, "short") == 0) {
@@ -167,13 +179,11 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "[WARNING]\033[1;31m --cs only takes 'short' or 'long'. Invalid values are assumed to be 'short'.\033[0m\n");
 			}
 		} else if (c == 0 && long_idx == 19) { // --splice-flank
-			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
-				opt.flag |= MM_F_SPLICE_FLANK;
-			else opt.flag &= ~MM_F_SPLICE_FLANK;
+			yes_or_no(&opt, MM_F_SPLICE_FLANK, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 24) { // --heap-sort
-			if (optarg == 0 || strcmp(optarg, "yes") == 0 || strcmp(optarg, "y") == 0)
-				opt.flag |= MM_F_HEAP_SORT;
-			else opt.flag &= ~MM_F_HEAP_SORT;
+			yes_or_no(&opt, MM_F_HEAP_SORT, long_idx, optarg, 1);
+		} else if (c == 0 && long_idx == 26) { // --dual
+			yes_or_no(&opt, MM_F_NO_DUAL, long_idx, optarg, 0);
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)
@@ -261,8 +271,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "                 map-ont: -k15 (Oxford Nanopore vs reference mapping)\n");
 		fprintf(fp_help, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
 		fprintf(fp_help, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
-		fprintf(fp_help, "                 ava-pb: -Hk19 -w5 -Xp0 -m100 -g10000 --max-chain-skip 25 (PacBio read overlap)\n");
-		fprintf(fp_help, "                 ava-ont: -k15 -w5 -Xp0 -m100 -g10000 --max-chain-skip 25 (ONT read overlap)\n");
+		fprintf(fp_help, "                 ava-pb: -Hk19 -Xw5 -m100 -g10000 --max-chain-skip 25 (PacBio read overlap)\n");
+		fprintf(fp_help, "                 ava-ont: -k15 -Xw5 -m100 -g10000 --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(fp_help, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
 		fprintf(fp_help, "                 sr: short single-end reads without splicing (see minimap2.1 for details)\n");
 		fprintf(fp_help, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");

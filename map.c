@@ -116,15 +116,15 @@ static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_id
 static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const char *qname, int qlen, const mm_idx_t *mi, int *is_self)
 {
 	*is_self = 0;
-	if (qname && (flag & (MM_F_NO_SELF|MM_F_AVA))) {
+	if (qname && (flag & (MM_F_NO_DIAG|MM_F_NO_DUAL))) {
 		const mm_idx_seq_t *s = &mi->seq[r>>32];
 		int cmp;
 		cmp = strcmp(qname, s->name);
-		if ((flag&MM_F_NO_SELF) && cmp == 0 && s->len == qlen) {
+		if ((flag&MM_F_NO_DIAG) && cmp == 0 && s->len == qlen) {
 			if ((uint32_t)r>>1 == (q->q_pos>>1)) return 1; // avoid the diagnonal anchors
 			if ((r&1) == (q->q_pos&1)) *is_self = 1; // this flag is used to avoid spurious extension on self chain
 		}
-		if ((flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
+		if ((flag&MM_F_NO_DUAL) && cmp > 0) // all-vs-all mode: map once
 			return 1;
 	}
 	if (flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
@@ -237,11 +237,11 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 
 static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_idx_t *mi, void *km, int qlen, int n_segs, const int *qlens, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
-	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
+	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, max_chain_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
-		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR) && !(opt->flag & MM_F_NO_LJOIN))
+		if (!(opt->flag & (MM_F_SPLICE|MM_F_SR|MM_F_NO_LJOIN))) // long join not working well without primary chains
 			mm_join_long(km, opt, qlen, n_regs, regs, a);
 	}
 }
@@ -250,7 +250,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 {
 	if (!(opt->flag & MM_F_CIGAR)) return regs;
 	regs = mm_align_skeleton(km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
-	if (!(opt->flag & MM_F_AVA)) {
+	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		mm_set_sam_pri(*n_regs, regs);

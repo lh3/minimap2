@@ -58,11 +58,11 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mm_mapopt_init(mo);
 	} else if (strcmp(preset, "ava-ont") == 0) {
 		io->flag = 0, io->k = 15, io->w = 5;
-		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
+		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
 	} else if (strcmp(preset, "ava-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19, io->w = 5;
-		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
+		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
 	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19;

@@ -5,20 +5,20 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_F_NO_SELF     0x001
-#define MM_F_AVA         0x002
-#define MM_F_CIGAR       0x004
-#define MM_F_OUT_SAM     0x008
-#define MM_F_NO_QUAL     0x010
-#define MM_F_OUT_CG      0x020
-#define MM_F_OUT_CS      0x040
-#define MM_F_SPLICE      0x080 // splice mode
-#define MM_F_SPLICE_FOR  0x100 // match GT-AG
-#define MM_F_SPLICE_REV  0x200 // match CT-AC, the reverse complement of GT-AG
-#define MM_F_NO_LJOIN    0x400
-#define MM_F_OUT_CS_LONG 0x800
-#define MM_F_SR          0x1000
-#define MM_F_FRAG_MODE   0x2000
+#define MM_F_NO_DIAG       0x001 // no exact diagonal hit
+#define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
+#define MM_F_CIGAR         0x004
+#define MM_F_OUT_SAM       0x008
+#define MM_F_NO_QUAL       0x010
+#define MM_F_OUT_CG        0x020
+#define MM_F_OUT_CS        0x040
+#define MM_F_SPLICE        0x080 // splice mode
+#define MM_F_SPLICE_FOR    0x100 // match GT-AG
+#define MM_F_SPLICE_REV    0x200 // match CT-AC, the reverse complement of GT-AG
+#define MM_F_NO_LJOIN      0x400
+#define MM_F_OUT_CS_LONG   0x800
+#define MM_F_SR            0x1000
+#define MM_F_FRAG_MODE     0x2000
 #define MM_F_NO_PRINT_2ND  0x4000
 #define MM_F_2_IO_THREADS  0x8000
 #define MM_F_LONG_CIGAR    0x10000
@@ -28,6 +28,7 @@
 #define MM_F_FOR_ONLY      0x100000
 #define MM_F_REV_ONLY      0x200000
 #define MM_F_HEAP_SORT     0x400000
+#define MM_F_ALL_CHAINS    0x800000
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2

@@ -1,4 +1,4 @@
-.TH minimap2 1 "26 January 2018" "minimap2-2.7-dirty (r664)" "Bioinformatics tools"
+.TH minimap2 1 "31 January 2018" "minimap2-2.8-dirty (r671)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -129,7 +129,7 @@ Ignore top
 fraction of most frequent minimizers [0.0002]
 .TP
 .BI -g \ INT
-Stop chain enlongation if there are no minimizers in
+Stop chain enlongation if there are no minimizers within
 .IR INT -bp
 [10000].
 .TP
@@ -148,11 +148,28 @@ Discard chains with chaining score
 [40]. Chaining score equals the approximate number of matching bases minus a
 concave gap penalty. It is computed with dynamic programming.
 .TP
+.B -D
+If query sequence name/length are identical to the target name/length, ignore
+diagonal anchors. This option also reduces DP-based extension along the
+diagonal.
+.TP
+.B -P
+Retain all chains and don't attempt to set primary chains. Options
+.B -p
+and
+.B -N
+have no effect when this option is in use.
+.TP
+.BR --dual = yes | no
+During chaining, whether to skip pairs wherein the query name is
+lexicographically greater than the target name [yes]
+.TP
 .B -X
-Perform all-vs-all mapping. In this mode, if the query sequence name is
-lexicographically larger than the target sequence name, the hits between them
-will be suppressed; if the query sequence name is the same as the target name,
-diagonal minimizer hits will also be suppressed.
+Equivalent to
+.RB ' -DP
+.BR --dual = no
+.BR --no-long-join '.
+Primarily used for all-vs-all read overlapping.
 .TP
 .BI -p \ FLOAT
 Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
@@ -162,6 +179,9 @@ the chain with a lower score is secondary to the chain with a higher score.
 If the ratio of the scores is below
 .IR FLOAT ,
 the secondary chain will not be outputted or extended with DP alignment later.
+This option has no effect when
+.B -X
+is applied.
 .TP
 .BI -N \ INT
 Output at most
@@ -179,7 +199,7 @@ Increasing this option slows down spliced alignment. [200k]
 .TP
 .BI -F \ NUM
 Maximum fragment length (aka insert size; effective with
-.BR -xsr / --frag)
+.BR -xsr / --frag = yes )
 [800]
 .TP
 .BI -M \ FLOAT
@@ -209,7 +229,7 @@ applies a second round of chaining with a higher minimizer occurrence threshold
 if no good chain is found. In addition, minimap2 attempts to patch gaps between
 seeds with ungapped alignment.
 .TP
-.BR --frag [= no | yes ]
+.BR --frag = no | yes
 Whether to enable the fragment mode [no]
 .TP
 .B --for-only
@@ -220,7 +240,7 @@ strand of the reference and the second read to the reverse stand.
 .B --rev-only
 Only map to the reverse complement strand of the reference sequences.
 .TP
-.BR --heap-sort [= no | yes ]
+.BR --heap-sort = no | yes
 If yes, sort anchors with heap merge, instead of radix sort. Heap merge is
 faster for short reads, but slower for long reads. [no]
 .SS Alignment options
@@ -272,14 +292,13 @@ no attempt to match GT-AG [n]
 .BI --end-bonus \ INT
 Score bonus when alignment extends to the end of the query sequence [0].
 .TP
-.BR --splice-flank [= yes | no ]
+.BR --splice-flank = yes | no
 Assume the next base to a
 .B GT
 donor site tends to be A/G (91% in human and 92% in mouse) and the preceding
 base to a
 .B AG
-acceptor tends to be C/T [yes with
-.BR --splice ].
+acceptor tends to be C/T [no].
 This trend is evolutionarily conservative, all the way to S. cerevisiae
 (PMID:18688272). Specifying this option generally leads to higher junction
 accuracy by several percents, so it is applied by default with
@@ -369,7 +388,7 @@ K/M/G/k/m/g suffix is accepted. A large
 helps load balancing in the multi-threading mode, at the cost of increased
 memory.
 .TP
-.BR --secondary [= yes | no ]
+.BR --secondary = yes | no
 Whether to output secondary alignments [yes]
 .TP
 .B --version
@@ -416,13 +435,13 @@ Up to 10% sequence divergence.
 .B ava-pb
 PacBio all-vs-all overlap mapping
 .RB ( -Hk19
-.B -w5 -Xp0 -m100 -g10000 --max-chain-skip
+.B -Xw5 -m100 -g10000 --max-chain-skip
 .BR 25 ).
 .TP
 .B ava-ont
 Oxford Nanopore all-vs-all overlap mapping
 .RB ( -k15
-.B -w5 -Xp0 -m100 -g10000 --max-chain-skip
+.B -Xw5 -m100 -g10000 --max-chain-skip
 .BR 25 ).
 Similarly, the major difference from
 .B ava-pb
@@ -444,8 +463,8 @@ tag ignores introns to demote hits to pseudogenes.
 .B sr
 Short single-end reads without splicing
 .RB ( -k21
-.B -w11 --sr --frag -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20
-.B -s40 -g200 -2K50m --heap-sort
+.B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20
+.B -s40 -g200 -2K50m --heap-sort=yes
 .BR --secondary=no ).
 .RE
 .SS Miscellaneous options
@@ -539,8 +558,8 @@ where seed positions may be suboptimal. This should not be a big concern
 because even the optimal alignment may be wrong in such regions.
 .TP
 *
-Minimap2 requires SSE2 instructions to compile. It is possible to add
-non-SSE2 support, but it would make minimap2 slower by several times.
+Minimap2 requires SSE2 or NEON instructions to compile. It is possible to add
+non-SSE2/NEON support, but it would make minimap2 slower by several times.
 .SH SEE ALSO
 .PP
 miniasm(1), minimap(1), bwa(1).
