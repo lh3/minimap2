@@ -79,7 +79,6 @@ cdef extern from "minimap.h":
 
 	mm_tbuf_t *mm_tbuf_init()
 	void mm_tbuf_destroy(mm_tbuf_t *b)
-	mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name)
 
 #
 # Helper header (because it is hard to expose mm_reg1_t with Cython)
@@ -92,11 +91,13 @@ cdef extern from "cmappy.h":
 		int32_t blen, mlen, NM, ctg_len
 		uint8_t mapq, is_primary
 		int8_t strand, trans_strand
+		int32_t seg_id
 		int32_t n_cigar32
 		uint32_t *cigar32
 
 	void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 	void mm_free_reg1(mm_reg1_t *r)
+	mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const char *seq2, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt)
 
 	ctypedef struct kstring_t:
 		unsigned l, m

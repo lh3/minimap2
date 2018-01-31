@@ -10,9 +10,10 @@ cdef class Alignment:
 	cdef int _NM, _mlen, _blen
 	cdef int8_t _strand, _trans_strand
 	cdef uint8_t _mapq, _is_primary
+	cdef int _seg_id
 	cdef _ctg, _cigar # these are python objects
 
-	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, mlen, blen, NM, trans_strand):
+	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, mlen, blen, NM, trans_strand, seg_id):
 		self._ctg = ctg if isinstance(ctg, str) else ctg.decode()
 		self._ctg_len, self._r_st, self._r_en = cl, cs, ce
 		self._strand, self._q_st, self._q_en = strand, qs, qe
@@ -21,6 +22,7 @@ cdef class Alignment:
 		self._cigar = cigar
 		self._is_primary = is_primary
 		self._trans_strand = trans_strand
+		self._seg_id = seg_id
 
 	@property
 	def ctg(self): return self._ctg
@@ -63,6 +65,9 @@ cdef class Alignment:
 
 	@property
 	def cigar(self): return self._cigar
+
+	@property
+	def read_num(self): return self._seg_id + 1
 
 	@property
 	def cigar_str(self):
@@ -125,7 +130,7 @@ cdef class Aligner:
 	def __bool__(self):
 		return (self._idx != NULL)
 
-	def map(self, seq, buf=None):
+	def map(self, seq, seq2=None, buf=None):
 		cdef cmappy.mm_reg1_t *regs
 		cdef cmappy.mm_hitpy_t h
 		cdef ThreadBuffer b
@@ -134,7 +139,8 @@ cdef class Aligner:
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
-		regs = cmappy.mm_map(self._idx, len(seq), str.encode(seq), &n_regs, b._b, &self.map_opt, NULL)
+		if seq2 is None: regs = cmappy.mm_map_aux(self._idx, str.encode(seq), NULL, &n_regs, b._b, &self.map_opt)
+		else: regs = cmappy.mm_map_aux(self._idx, str.encode(seq), str.encode(seq2), &n_regs, b._b, &self.map_opt)
 
 		for i in range(n_regs):
 			cmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
@@ -142,7 +148,7 @@ cdef class Aligner:
 			for k in range(h.n_cigar32):
 				c = h.cigar32[k]
 				cigar.append([c>>4, c&0xf])
-			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand)
+			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand, h.seg_id)
 			cmappy.mm_free_reg1(&regs[i])
 		free(regs)
 
