@@ -77,7 +77,7 @@ ksw2_exts2_neon.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 # other non-file targets
 
 clean:
-		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM build dist mappy.so mappy.c python/mappy.c mappy.egg*
+		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM build dist mappy*.so mappy.c python/mappy.c mappy.egg*
 
 depend:
 		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(CPPFLAGS) -- *.c)

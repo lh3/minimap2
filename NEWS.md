@@ -1,3 +1,32 @@
+Release 2.8-r672 (1 February 2018)
+----------------------------------
+
+Notable changes in this release include:
+
+ * Speed up short-read alignment by ~10%. The overall mapping accuracy stays
+   the same, but the output alignments are not always identical to v2.7 due to
+   unstable sorting employed during chaining. Long-read alignment is not
+   affected by this change as the speedup is short-read specific.
+
+ * Mappy now supports paired-end short-read alignment (#87). Please see
+   python/README.rst for details.
+
+ * Added option --for-only and --rev-only to perform alignment against the
+   forward or the reverse strand of the reference genome only (#91).
+
+ * Alleviated the issue with undesired diagonal alignment in the self mapping
+   mode (#10). Even if the output is not ideal, it should not interfere with
+   other alignments. Fully resolving the issue is intricate and may require
+   additional heuristic thresholds.
+
+ * Enhanced error checking against incorrect input (#92 and #96).
+
+For long query sequences, minimap2 should output identical alignments to v2.7.
+
+(2.8: 1 February 2018, r672)
+
+
+
 Release 2.7-r654 (9 January 2018)
 ---------------------------------
 

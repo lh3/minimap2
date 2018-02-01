@@ -68,9 +68,9 @@ Detailed evaluations are available from the [minimap2 preprint][preprint].
 Minimap2 is optimized for x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-curl -L https://github.com/lh3/minimap2/releases/download/v2.7/minimap2-2.7_x64-linux.tar.bz2 \
+curl -L https://github.com/lh3/minimap2/releases/download/v2.8/minimap2-2.8_x64-linux.tar.bz2 \
   | tar -jxvf -
-./minimap2-2.7_x64-linux/minimap2
+./minimap2-2.8_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
@@ -358,10 +358,6 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 * Minimap2 requires SSE2 instructions on x86 CPUs or NEON on ARM CPUs. It is
   possible to add non-SIMD support, but it would make minimap2 slower by
   several times.
-
-In general, minimap2 is a young project with most code written since June, 2017.
-It may have bugs and room for improvements. Bug reports and suggestions are
-warmly welcomed.
 
 
 
