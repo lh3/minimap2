@@ -203,7 +203,7 @@ Ignore top
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-g</B><I> INT</I> </TD><TD valign=bottom>
-Stop chain enlongation if there are no minimizers in
+Stop chain enlongation if there are no minimizers within
 <I>INT</I>-bp [10000].
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
@@ -223,11 +223,26 @@ Discard chains with chaining score
 concave gap penalty. It is computed with dynamic programming.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
+<B>-D</B> </TD><TD valign=bottom>
+If query sequence name/length are identical to the target name/length, ignore
+diagonal anchors. This option also reduces DP-based extension along the
+diagonal.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-P</B> </TD><TD valign=bottom>
+Retain all chains and don&#146;t attempt to set primary chains. Options
+<B>-p</B> and
+<B>-N</B> have no effect when this option is in use.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--dual</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+During chaining, whether to skip pairs wherein the query name is
+lexicographically greater than the target name [yes]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
 <B>-X</B> </TD><TD valign=bottom>
-Perform all-vs-all mapping. In this mode, if the query sequence name is
-lexicographically larger than the target sequence name, the hits between them
-will be suppressed; if the query sequence name is the same as the target name,
-diagonal minimizer hits will also be suppressed.
+Equivalent to
+&#146;<B>-DP</B> <B>--dual</B>=<B>no</B> <B>--no-long-join</B>&#146;. Primarily used for all-vs-all read overlapping.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-p</B><I> FLOAT</I> </TD><TD valign=bottom>
@@ -236,6 +251,8 @@ Between two chains overlaping over half of the shorter chain (controlled by
 <B>--mask-level</B>), the chain with a lower score is secondary to the chain with a higher score.
 If the ratio of the scores is below
 <I>FLOAT</I>, the secondary chain will not be outputted or extended with DP alignment later.
+This option has no effect when
+<B>-X</B> is applied.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-N</B><I> INT</I> </TD><TD valign=bottom>
@@ -252,7 +269,12 @@ Maximum gap on the reference (effective with
 <TR valign=top><TD width=10% nowrap>
 <B>-F</B><I> NUM</I> </TD><TD valign=bottom>
 Maximum fragment length (aka insert size; effective with
-<B>-xsr</B>/<B>--frag)</B> [800]
+<B>-xsr</B>/<B>--frag</B>=<B>yes</B>) [800]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-M</B><I> FLOAT</I> </TD><TD valign=bottom>
+Mark as secondary a chain that overlaps with a better chain by
+<I>FLOAT</I> or more of the shorter chain [0.5]
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--max-chain-skip</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
@@ -279,8 +301,23 @@ if no good chain is found. In addition, minimap2 attempts to patch gaps between
 seeds with ungapped alignment.
 </TD></TR>
 <TR valign=top><TD colspan=2>
-<B>--frag</B>[=<B>no</B>|<B>yes</B>] </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+<B>--frag</B>=<B>no</B>|<B>yes</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Whether to enable the fragment mode [no]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--for-only</B> </TD><TD valign=bottom>
+Only map to the forward strand of the reference sequences. For paired-end
+reads in the forward-reverse orientation, the first read is mapped to forward
+strand of the reference and the second read to the reverse stand.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--rev-only</B> </TD><TD valign=bottom>
+Only map to the reverse complement strand of the reference sequences.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--heap-sort</B>=<B>no</B>|<B>yes</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+If yes, sort anchors with heap merge, instead of radix sort. Heap merge is
+faster for short reads, but slower for long reads. [no]
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=6></A>
@@ -338,12 +375,12 @@ How to find canonical splicing sites GT-AG -
 Score bonus when alignment extends to the end of the query sequence [0].
 </TD></TR>
 <TR valign=top><TD colspan=2>
-<B>--splice-flank</B>[=<B>yes</B>|<B>no</B>] </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+<B>--splice-flank</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Assume the next base to a
 <B>GT</B> donor site tends to be A/G (91% in human and 92% in mouse) and the preceding
 base to a
-<B>AG</B> acceptor tends to be C/T [yes with
-<B>--splice</B>]. This trend is evolutionarily conservative, all the way to S. cerevisiae
+<B>AG</B> acceptor tends to be C/T [no].
+This trend is evolutionarily conservative, all the way to S. cerevisiae
 (PMID:18688272). Specifying this option generally leads to higher junction
 accuracy by several percents, so it is applied by default with
 <B>--splice</B>. However, the SIRV control does not honor this trend
@@ -434,7 +471,7 @@ Similar to option
 memory.
 </TD></TR>
 <TR valign=top><TD colspan=2>
-<B>--secondary</B>[=<B>yes</B>|<B>no</B>] </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+<B>--secondary</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Whether to output secondary alignments [yes]
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
@@ -484,11 +521,11 @@ Long assembly to reference mapping
 <TR valign=top><TD width=8% nowrap>
 <B>ava-pb</B> </TD><TD valign=bottom>
 PacBio all-vs-all overlap mapping
-(<B>-Hk19</B> <B>-w5 -Xp0 -m100 -g10000 --max-chain-skip</B> <B>25</B>). </TD></TR>
+(<B>-Hk19</B> <B>-Xw5 -m100 -g10000 --max-chain-skip</B> <B>25</B>). </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>ava-ont</B> </TD><TD valign=bottom>
 Oxford Nanopore all-vs-all overlap mapping
-(<B>-k15</B> <B>-w5 -Xp0 -m100 -g10000 --max-chain-skip</B> <B>25</B>). Similarly, the major difference from
+(<B>-k15</B> <B>-Xw5 -m100 -g10000 --max-chain-skip</B> <B>25</B>). Similarly, the major difference from
 <B>ava-pb</B> is that this preset is not using HPC minimizers.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
@@ -503,7 +540,7 @@ costs are different during chaining; 4) the computation of the
 <TR valign=top><TD width=8% nowrap>
 <B>sr</B> </TD><TD valign=bottom>
 Short single-end reads without splicing
-(<B>-k21</B> <B>-w11 --sr --frag -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20</B> <B>-s40 -g200 -2K50m</B> <B>--secondary=no</B>). </TD></TR>
+(<B>-k21</B> <B>-w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20</B> <B>-s40 -g200 -2K50m --heap-sort=yes</B> <B>--secondary=no</B>). </TD></TR>
 <TR></TR></TABLE></TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=9></A>
@@ -642,8 +679,8 @@ because even the optimal alignment may be wrong in such regions.
 <TR valign=top><TD width=2% nowrap>
 *
 </TD><TD valign=bottom>
-Minimap2 requires SSE2 instructions to compile. It is possible to add
-non-SSE2 support, but it would make minimap2 slower by several times.
+Minimap2 requires SSE2 or NEON instructions to compile. It is possible to add
+non-SSE2/NEON support, but it would make minimap2 slower by several times.
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=12></A>
@@ -656,4 +693,4 @@ non-SSE2 support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.6 (r623)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>12 December 2017</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.8 (r672)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>1 February 2018</I></TD> </TR></TABLE></div></BODY></HTML>
