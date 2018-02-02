@@ -17,7 +17,8 @@ minimap2 -cx splice ref.fa rna-seq.fq | splice2bed.js -   # convert splice aln t
   - [Convert SAM to PAF](#sam2paf)
   - [Convert GTF/GFF3 to BED12 format](#gff2bed)
   - [Convert spliced alignment to BED12](#splice2bed)
-  - [Convert spliced alignment to BED12](#eval)
+  - [Evaluating mapping accuracy with simulated reads](#mapeval)
+  - [Evaluating read overlap sensitivity](#oveval)
 
 ## <a name="intro"></a>Introduction
 
@@ -54,7 +55,7 @@ seamlessly works with both GTF and GFF3.
 Script [splice2bed.js](splice2bed.js) converts spliced alignment in SAM or PAF
 to 12-column BED format.
 
-### <a name="eval"></a>Evaluating mapping accuracy with simulated reads
+### <a name="mapeval"></a>Evaluating mapping accuracy with simulated reads
 
 Script [sim-pbsim.js](sim-pbsim.js) converts the MAF output of [pbsim][pbsim]
 to FASTQ and encodes the true mapping position in the read name in a format like
@@ -84,6 +85,11 @@ mapping quality equal to or greater than the threshold, number of wrong
 mappings, accumulative mapping error rate and the accumulative number of
 mapped reads. The U-line gives the number of unmapped reads if they are present
 in the SAM file.
+
+### <a name="oveval"></a>Evaluating read overlap sensitivity
+
+Script [ov-eval.js](ov-eval.js) takes read-to-reference alignment in PAF and
+read overlaps in PAF and evaluates the sensitivity.
 
 [cs]: https://github.com/lh3/minimap2#cs
 [k8]: https://github.com/attractivechaos/k8
