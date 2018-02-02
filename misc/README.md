@@ -8,7 +8,13 @@ gff2bed.js anno.gtf | less -S                      # convert GTF/GFF3 to BED12
 minimap2 -cx splice ref.fa rna-seq.fq | splice2bed.js -   # convert splice aln to BED12
 ```
 
-## Introduction
+## Table of Contents
+
+- [Getting Started](#started)
+- [Introduction](#intro)
+- [Use Cases](#usage)
+
+## <a name="intro"></a>Introduction
 
 This directory contains auxiliary scripts for format conversion, mapping
 accuracy evaluation and miscellaneous purposes. These scripts *require*
@@ -21,13 +27,27 @@ cp k8-0.2.4/k8-`uname -s` k8
 It is highly recommended to copy the executable `k8` to a directory on your
 `PATH` such as `/usr/bin/env` can find them.
 
-## Use Cases
+## <a name="usage"></a>Use Cases
 
 ### paf2aln.js: convert PAF to other formats
 
 Script [paf2aln.js](paf2aln.js) converts PAF with the [cs tag][cs] to
 [MAF][maf] or BLAST-like output. It only works with minimap2 output generated
 using the `--cs` tag.
+
+### gff2bed.js: convert GTF/GFF3 to BED12 format
+
+Script [gff2bed.js](gff2bed.js) converts GFF format to 12-column BED format. It
+seamlessly works with both GTF and GFF3.
+
+### splice2bed.js: convert spliced alignment to BED12
+
+Script [splice2bed.js](splice2bed.js) converts spliced alignment in SAM or PAF
+to 12-column BED format.
+
+### sam2paf.js: convert SAM to PAF
+
+Script [sam2paf.js](sam2paf.js) converts alignments in the SAM format to PAF.
 
 ### Evaluating mapping accuracy with simulated reads
 
@@ -37,7 +57,7 @@ to FASTQ and encodes the true mapping position in the read name in a format like
 [sim-mason2.js](sim-mason2.js) converts [mason2][mason2] simulated SAM to
 FASTQ.
 
-Script [sim-eval.js](sim-eval.js) evaluates mapped SAM/PAF. 
+Script [sim-eval.js](sim-eval.js) evaluates mapped SAM/PAF. Here is example output:
 ```
 Q       60      32478   0       0.000000000     32478
 Q       22      16      1       0.000030775     32494
