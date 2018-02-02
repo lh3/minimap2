@@ -13,6 +13,11 @@ minimap2 -cx splice ref.fa rna-seq.fq | splice2bed.js -   # convert splice aln t
 - [Getting Started](#started)
 - [Introduction](#intro)
 - [Use Cases](#usage)
+  - [Convert PAF to other formats](#paf2aln)
+  - [Convert SAM to PAF](#sam2paf)
+  - [Convert GTF/GFF3 to BED12 format](#gff2bed)
+  - [Convert spliced alignment to BED12](#splice2bed)
+  - [Convert spliced alignment to BED12](#eval)
 
 ## <a name="intro"></a>Introduction
 
@@ -25,31 +30,31 @@ curl -L https://github.com/attractivechaos/k8/releases/download/v0.2.4/k8-0.2.4.
 cp k8-0.2.4/k8-`uname -s` k8
 ```
 It is highly recommended to copy the executable `k8` to a directory on your
-`PATH` such as `/usr/bin/env` can find them.
+`PATH` such as `/usr/bin/env` can find it.
 
 ## <a name="usage"></a>Use Cases
 
-### paf2aln.js: convert PAF to other formats
+### <a name="paf2aln"></a>Convert PAF to other formats
 
 Script [paf2aln.js](paf2aln.js) converts PAF with the [cs tag][cs] to
 [MAF][maf] or BLAST-like output. It only works with minimap2 output generated
 using the `--cs` tag.
 
-### gff2bed.js: convert GTF/GFF3 to BED12 format
+### <a name="sam2paf"></a>Convert SAM to PAF
+
+Script [sam2paf.js](sam2paf.js) converts alignments in the SAM format to PAF.
+
+### <a name="gff2bed"></a>Convert GTF/GFF3 to BED12 format
 
 Script [gff2bed.js](gff2bed.js) converts GFF format to 12-column BED format. It
 seamlessly works with both GTF and GFF3.
 
-### splice2bed.js: convert spliced alignment to BED12
+### <a name="splice2bed"></a>Convert spliced alignment to BED12
 
 Script [splice2bed.js](splice2bed.js) converts spliced alignment in SAM or PAF
 to 12-column BED format.
 
-### sam2paf.js: convert SAM to PAF
-
-Script [sam2paf.js](sam2paf.js) converts alignments in the SAM format to PAF.
-
-### Evaluating mapping accuracy with simulated reads
+### <a name="eval"></a>Evaluating mapping accuracy with simulated reads
 
 Script [sim-pbsim.js](sim-pbsim.js) converts the MAF output of [pbsim][pbsim]
 to FASTQ and encodes the true mapping position in the read name in a format like
