@@ -12,11 +12,13 @@ minimap2 -cx splice ref.fa rna-seq.fq | splice2bed.js -   # convert splice aln t
 
 - [Getting Started](#started)
 - [Introduction](#intro)
-- [Use Cases](#usage)
+- [Calling Variants from Assemblies](#asmvar)
+- [Format Conversion](#conv)
   - [Convert PAF to other formats](#paf2aln)
   - [Convert SAM to PAF](#sam2paf)
   - [Convert GTF/GFF3 to BED12 format](#gff2bed)
   - [Convert spliced alignment to BED12](#splice2bed)
+- [Evaluation](#eval)
   - [Evaluating mapping accuracy with simulated reads](#mapeval)
   - [Evaluating read overlap sensitivity](#oveval)
 
@@ -33,7 +35,13 @@ cp k8-0.2.4/k8-`uname -s` k8
 It is highly recommended to copy the executable `k8` to a directory on your
 `PATH` such as `/usr/bin/env` can find it.
 
-## <a name="usage"></a>Use Cases
+## <a name="asmvar"></a>Calling Variants from Assemblies
+
+Script [paf2diff.js](paf2diff.js) calls variants from coordinate-sorted
+assembly-to-reference alignment having the [cs tag][cs] (requiring the `--cs`
+minimap2 option).
+
+## <a name="conv"></a>Format Conversion
 
 ### <a name="paf2aln"></a>Convert PAF to other formats
 
@@ -54,6 +62,8 @@ seamlessly works with both GTF and GFF3.
 
 Script [splice2bed.js](splice2bed.js) converts spliced alignment in SAM or PAF
 to 12-column BED format.
+
+## <a name="eval"></a>Evaluation
 
 ### <a name="mapeval"></a>Evaluating mapping accuracy with simulated reads
 
