@@ -1,3 +1,5 @@
+#!/usr/bin/env k8
+
 var getopt = function(args, ostr) {
 	var oli; // option letter list index
 	if (typeof(getopt.place) == 'undefined')
@@ -44,7 +46,7 @@ while ((c = getopt(arguments, "Q:r:m:c")) != null) {
 	else if (c == 'c') cap_short_mapq = true;
 }
 
-var file = arguments.length == getopt.ind? new File() : new File(arguments[getopt.ind]);
+var file = arguments.length == getopt.ind || arguments[getopt.ind] == '-'? new File() : new File(arguments[getopt.ind]);
 var buf = new Bytes();
 
 var tot = [], err = [];

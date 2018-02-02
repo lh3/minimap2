@@ -1,3 +1,5 @@
+#!/usr/bin/env k8
+
 var getopt = function(args, ostr) {
 	var oli; // option letter list index
 	if (typeof(getopt.place) == 'undefined')
@@ -66,7 +68,7 @@ function main(args) {
 		else if (c == 'n') fn_name_conv = getopt.arg;
 	}
 	if (getopt.ind == args.length) {
-		warn("Usage: k8 splice2bed.js <in.paf>");
+		warn("Usage: k8 splice2bed.js <in.paf>|<in.sam>");
 		exit(1);
 	}
 
@@ -83,7 +85,7 @@ function main(args) {
 		file.close();
 	}
 
-	var file = new File(args[getopt.ind]);
+	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 	var buf = new Bytes();
 	var a = [];
 	while (file.readline(buf) >= 0) {

@@ -1,3 +1,5 @@
+#!/usr/bin/env k8
+
 var getopt = function(args, ostr) {
 	var oli; // option letter list index
 	if (typeof(getopt.place) == 'undefined')
@@ -40,7 +42,7 @@ var c, pri_only = false;
 while ((c = getopt(arguments, "p")) != null)
 	if (c == 'p') pri_only = true;
 
-var file = arguments.length == getopt.ind? new File() : new File(arguments[getopt.ind]);
+var file = arguments.length == getopt.ind || arguments[getopt.ind] == "-"? new File() : new File(arguments[getopt.ind]);
 var buf = new Bytes();
 var re = /(\d+)([MIDSHNX=])/g;
 

@@ -1,3 +1,5 @@
+#!/usr/bin/env k8
+
 var getopt = function(args, ostr) {
 	var oli; // option letter list index
 	if (typeof(getopt.place) == 'undefined')
@@ -99,7 +101,7 @@ function print_bed12(exons, cds_st, cds_en, is_short)
 var re_gtf = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name) "([^"]+)";/g;
 var re_gff3 = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name)=([^;]+)/g;
 var buf = new Bytes();
-var file = new File(arguments[getopt.ind]);
+var file = arguments[getopt.ind] == '-'? new File() : new File(arguments[getopt.ind]);
 
 var exons = [], cds_st = 1<<30, cds_en = 0, last_id = null;
 while (file.readline(buf) >= 0) {
