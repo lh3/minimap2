@@ -46,7 +46,16 @@ while ((c = getopt(arguments, "Q:r:m:c")) != null) {
 	else if (c == 'c') cap_short_mapq = true;
 }
 
-var file = arguments.length == getopt.ind || arguments[getopt.ind] == '-'? new File() : new File(arguments[getopt.ind]);
+if (arguments.length == getopt.ind) {
+	warn("Usage: k8 sim-eval.js [options] <in.paf>|<in.sam>");
+	warn("Options:");
+	warn("  -r FLOAT   mapping correct if overlap_length/union_length>FLOAT [" + ovlp_ratio + "]");
+	warn("  -Q INT     print wrong mappings with mapQ>INT [don't print]");
+	warn("  -m INT     0: eval the longest aln only; 1: first aln only; 2: all primary aln [0]");
+	exit(1);
+}
+
+var file = arguments[getopt.ind] == '-'? new File() : new File(arguments[getopt.ind]);
 var buf = new Bytes();
 
 var tot = [], err = [];
