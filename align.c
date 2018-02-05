@@ -307,7 +307,7 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int mi
 		if (max - min > l >> 1) *as = i;
 		l += min;
 		m += min < q_span? min : q_span;
-		if (l >= bw << 1 || m >= min_match) break;
+		if (l >= bw << 1 || m >= min_match || m >= r->mlen >> 1) break;
 	}
 	*cnt = r->as + r->cnt - *as;
 	m = l = a[r->as + r->cnt - 1].y >> 32 & 0xff;
@@ -321,7 +321,7 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int mi
 		if (max - min > l >> 1) *cnt = i + 1 - *as;
 		l += min;
 		m += min < q_span? min : q_span;
-		if (l >= bw << 1 || m >= min_match) break;
+		if (l >= bw << 1 || m >= min_match || m >= r->mlen >> 1) break;
 	}
 }
 
@@ -422,7 +422,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (is_splice) {
 			mm_fix_bad_ends_splice(km, opt, mi, r, mat, qlen, qseq0, a, &as1, &cnt1);
 		} else {
-			mm_fix_bad_ends(r, a, opt->bw, opt->min_chain_score, &as1, &cnt1);
+			mm_fix_bad_ends(r, a, opt->bw, opt->min_end_match, &as1, &cnt1);
 		}
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);

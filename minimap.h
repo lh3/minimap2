@@ -120,6 +120,7 @@ typedef struct {
 	int end_bonus;
 	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
 	int min_ksw_len;
+	int min_end_match;
 	int anchor_ext_len, anchor_ext_shift;
 
 	int pe_ori, pe_bonus;
