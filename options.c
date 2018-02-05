@@ -28,7 +28,6 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->end_bonus = -1;
 	opt->min_dp_max = opt->min_chain_score * opt->a;
 	opt->min_ksw_len = 200;
-	opt->min_end_match = 200;
 	opt->anchor_ext_len = 20, opt->anchor_ext_shift = 6;
 	opt->mini_batch_size = 500000000;
 
