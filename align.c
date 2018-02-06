@@ -300,6 +300,7 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int mi
 	for (i = r->as + 1; i < r->as + r->cnt - 1; ++i) {
 		int32_t lq, lr, min, max;
 		int32_t q_span = a[i].y >> 32 & 0xff;
+		if (a[i].y & MM_SEED_LONG_JOIN) break;
 		lr = (int32_t)a[i].x - (int32_t)a[i-1].x;
 		lq = (int32_t)a[i].y - (int32_t)a[i-1].y;
 		min = lr < lq? lr : lq;
@@ -314,6 +315,7 @@ static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int mi
 	for (i = r->as + r->cnt - 2; i > *as; --i) {
 		int32_t lq, lr, min, max;
 		int32_t q_span = a[i+1].y >> 32 & 0xff;
+		if (a[i+1].y & MM_SEED_LONG_JOIN) break;
 		lr = (int32_t)a[i+1].x - (int32_t)a[i].x;
 		lq = (int32_t)a[i+1].y - (int32_t)a[i].y;
 		min = lr < lq? lr : lq;
