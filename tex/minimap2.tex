@@ -40,9 +40,10 @@ full-length noisy Direct RNA or cDNA reads, and assembly contigs or closely
 related full chromosomes of hundreds of megabases in length. Minimap2 does
 split-read alignment, employs concave gap cost for long insertions and
 deletions (INDELs) and introduces new heuristics to reduce spurious alignments.
-It is 3--4 times faster than mainstream short-read mappers at comparable
-accuracy and $\ge$30 times faster at higher accuracy for both genomic and mRNA
-reads, surpassing most aligners specialized in one type of alignment.
+It is 3--4 times as fast as mainstream short-read mappers at comparable
+accuracy, and is $\ge$30 times faster than long-read genomic or cDNA
+mappers at higher accuracy, surpassing most aligners specialized in one type of
+alignment.
 
 \section{Availability and implementation:}
 \href{https://github.com/lh3/minimap2}{https://github.com/lh3/minimap2}
@@ -117,12 +118,12 @@ distance between two anchors is too large); otherwise
 \begin{equation}\label{eq:chain-gap}
 \beta(j,i)=\gamma_c\big((y_i-y_j)-(x_i-x_j)\big)
 \end{equation}
-In implementation, a gap of length $l$ costs
+In implementation, a gap of length $l\not=0$ costs
 \[
 \gamma_c(l)=0.01\cdot \bar{w}\cdot|l|+0.5\log_2|l|
 \]
-where $\bar{w}$ is the average seed length. For $m$ anchors, directly computing all $f(\cdot)$ with
-Eq.~(\ref{eq:chain}) takes $O(m^2)$ time. Although theoretically faster
+where $\bar{w}$ is the average seed length. For $n$ anchors, directly computing all $f(\cdot)$ with
+Eq.~(\ref{eq:chain}) takes $O(n^2)$ time. Although theoretically faster
 chaining algorithms exist~\citep{Abouelhoda:2005aa}, they
 are inapplicable to generic gap cost, complex to implement and usually
 associated with a large constant. We introduced a simple heuristic to
@@ -132,7 +133,7 @@ We note that if anchor $i$ is chained to $j$, chaining $i$ to a predecessor
 of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
 we start from anchor $i-1$ and stop the process if we cannot find a better
 score after up to $h$ iterations. This approach reduces the average time to
-$O(h\cdot m)$. In practice, we can almost always find the optimal chain with
+$O(h\cdot n)$. In practice, we can almost always find the optimal chain with
 $h=50$; even if the heuristic fails, the optimal chain is often close.
 
 \subsubsection{Backtracking}
@@ -146,15 +147,27 @@ in more than one chains.
 \subsubsection{Identifying primary chains}\label{sec:primary}
 In the absence of copy number changes, each query segment should not be mapped
 to two places in the reference. However, chains found at the previous step may
-have significant or complete overlaps due to repeats in the reference.
+have significant or complete overlaps due to repeats in the reference~\citep{Li:2010fk}.
 Minimap2 used the following procedure to identify \emph{primary chains} that do
-not greatly overlap on the query. Let $Q$ be an empty set initially. For each
+not greatly overlap on the query.
+
+Let $Q$ be an empty set initially. For each
 chain from the best to the worst according to their chaining scores: if on the
 query, the chain overlaps with a chain in $Q$ by 50\% or higher percentage of
 the shorter chain, mark the chain as secondary to the chain in $Q$; otherwise,
 add the chain to $Q$. In the end, $Q$ contains all the primary chains. We did
 not choose a more sophisticated data structure (e.g. range tree or k-d tree)
 because this step is not the performance bottleneck.
+
+For each primary chain, minimap2 estimates its mapping quality with an
+empirical formula:
+\[
+{\rm mapQ}=40\cdot (1-f_2/f_1)\cdot\min\{1,m/10\}\cdot\log f_1
+\]
+where $m$ is the number of anchors on the primary chain, $f_1$ is the chaining
+score, and $f_2\le f_1$ is the score of the best chain that is secondary to the
+primary chain. Intuitively, a chain is assigned to a higher mapping quality if
+it is long and its best secondary chain is weak.
 
 \subsubsection{Estimating per-base sequence divergence}
 Suppose a query sequence harbors $n$ seeds of length $k$, $m$ of which are
@@ -186,7 +199,7 @@ $0.9$.
 \subsubsection{Indexing with homopolymer compressed $k$-mers}
 SmartDenovo
 (\href{https://github.com/ruanjue/smartdenovo}{https://github.com/ruanjue/smartdenovo};
-J Ruan, personal communication) indexes reads with homopolymer-compressed (HPC)
+J. Ruan, personal communication) indexes reads with homopolymer-compressed (HPC)
 $k$-mers and finds the strategy improves overlap sensitivity for SMRT reads.
 Minimap2 adopts the same heuristic.
 
@@ -199,9 +212,9 @@ To demonstrate the effectiveness of HPC $k$-mers, we performed read overlapping
 for the example {\it E. coli} SMRT reads from PBcR~\citep{Berlin:2015xy}, using
 different types of $k$-mers. With normal 15bp minimizers per 5bp window,
 minimap2 finds 90.9\% of $\ge$2kb overlaps inferred from the read-to-reference
-alignment. With HPC 19-mers, minimap2 finds 97.4\% of overlaps. It achieves this
+alignment. With HPC 19-mers per 5bp window, minimap2 finds 97.4\% of overlaps. It achieves this
 higher sensitivity by indexing 1/3 fewer minimizers, which further helps
-performance. HPC-based indexing reduces the sensitivity for ONT reads, though.
+performance. HPC-based indexing reduces the sensitivity for current ONT reads, though.
 
 \subsection{Aligning genomic DNA}\label{sec:genomic}
 
@@ -246,8 +259,8 @@ In case of 2-piece gap cost, define
 \[
 \left\{\begin{array}{ll}
 u_{ij}\triangleq H_{ij}-H_{i-1,j} & v_{ij}\triangleq H_{ij}-H_{i,j-1} \\
-x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-\tilde{H}_{ij} \\
-y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-\tilde{H}_{ij}
+x_{ij}\triangleq E_{i+1,j}-H_{ij} & \tilde{x}_{ij}\triangleq \tilde{E}_{i+1,j}-H_{ij} \\
+y_{ij}\triangleq F_{i,j+1}-H_{ij} & \tilde{y}_{ij}\triangleq \tilde{F}_{i,j+1}-H_{ij}
 \end{array}\right.
 \]
 We can transform Eq.~(\ref{eq:ae86}) to
@@ -311,7 +324,7 @@ the same anti-diagonal in one inner loop. It also simplifies banded alignment,
 which would be difficult with striped vectorization~\citep{Farrar:2007hs}.
 
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the initial
-values in the diagonal-antidiagonal formuation is
+values in the diagonal-antidiagonal formuation are
 \[
 \left\{\begin{array}{l}
 x_{r-1,-1}=y_{r-1,r}=-q-e\\
@@ -329,6 +342,13 @@ r\cdot(e-\tilde{e})-(\tilde{q}-q)-\tilde{e} & (r=\lceil\frac{\tilde{q}-q}{e-\til
 \end{array}\right.
 \]
 These can be derived from the initial values for Eq.~(\ref{eq:ae86}).
+
+When performing global alignment, we do not need to compute $H_{rt}$ in each cell.
+We use 16-way vectorization throughout the alignment process. When extending
+alignments from ends of chains, we need to find the cell $(r,t)$ where $H_{rt}$
+reaches the maximum. We resort to 4-way vectorization to compute
+$H_{rt}=H_{r-1,t}+u_{rt}$. Because this computation is simple,
+Eq.~(\ref{eq:suzuki}) is still the dominant performance bottleneck.
 
 In practice, our 16-way vectorized implementation of global alignment is three
 times as fast as Parasail's 4-way vectorization~\citep{Daily:2016aa}.  Without
@@ -397,7 +417,7 @@ p/2 & \mbox{if $T[i+1,i+3]$ is ${\tt GTC}$ or ${\tt GTT}$} \\
 p & \mbox{otherwise}
 \end{array}\right.\]
 where $T[i,j]$ extracts a substring of $T$ between $i$ and $j$ inclusively.
-$d(i)$ penalizes non-canonical donor sites with $p$ and less frequent Eukayotic
+$d(i)$ penalizes non-canonical donor sites with $p$ and less frequent Eukaryotic
 splicing signal ${\tt GT[C/T]}$ with $p/2$~\citep{Irimia:2008aa}. Similarly,
 \[a(i)=\left\{\begin{array}{ll}
 0 & \mbox{if $T[i-2,i]$ is ${\tt CAG}$ or ${\tt TAG}$} \\
@@ -424,13 +444,13 @@ alignment.
 
 \subsection{Aligning short paired-end reads}
 
-During chainging, minimap2 takes a pair of reads as one fragment with a gap of
+During chaining, minimap2 takes a pair of reads as one fragment with a gap of
 unknown length in the middle. It applies a normal gap cost between seeds on the
 same read but is a more permissive gap cost between seeds on different reads.
-More precisely, the gap cost during chaining is:
+More precisely, the gap cost during chaining is ($l\not=0$):
 \[
 \gamma_c(l)=\left\{\begin{array}{ll}
-0.01\cdot\bar{w}\cdot l+0.5\log_2 l & \mbox{if two seeds on the same read} \\
+0.01\cdot\bar{w}\cdot |l|+0.5\log_2 |l| & \mbox{if two seeds on the same read} \\
 \min\{0.01\cdot\bar{w}\cdot|l|,\log_2|l|\} & \mbox{otherwise}
 \end{array}\right.
 \]
@@ -443,6 +463,14 @@ consistent paired-end alignments.
 
 \section{Results}
 
+Minimap2 is implemented in the C programming language and comes with APIs in
+both C and Python. It is distributed under the MIT license, free to both
+commercial and academic uses. Minimap2 uses the same base algorithm for all
+applications, but it has to apply different sets of parameters depending on
+input data types. Similar to BWA-MEM, minimap2 introduces `presets' that
+modify multiple parameters with a simple invokation. Detailed settings
+and command-line options can be found in the minimap2 manpage.
+
 \subsection{Aligning long genomic reads}\label{sec:long-genomic}
 
 \begin{figure}[!tb]
@@ -450,19 +478,22 @@ consistent paired-end alignments.
 \includegraphics[width=.5\textwidth]{roc-color.pdf}
 \caption{Evaluation on aligning simulated reads. Simulated reads were mapped 
 to the primary assembly of human genome GRCh38. A read is considered correctly
-mapped if the true position overlaps with the best mapping position by 10\% of
-the read length. Read alignments are sorted by mapping quality in the
-descending order. For each mapping quality threshold, the fraction of
-alignments with mapping quality above the threshold and their error rate are
+mapped if its longest alignment overlaps with the true interval, and the
+overlap length is $\ge$10\% of the true interval length.  Read alignments are
+sorted by mapping quality in the descending order. For each mapping quality
+threshold, the fraction of alignments (out of the number of input reads) with
+mapping quality above the threshold and their error rate are
 plotted along the curve. (a) long-read alignment evaluation. 33,088 $\ge$1000bp
 reads were simulated using pbsim~\citep{Ono:2013aa} with error profile sampled
 from file `m131017\_060208\_42213\_*.1.*' downloaded at
 \href{http://bit.ly/chm1p5c3}{http://bit.ly/chm1p5c3}. The N50 read length is
 11,628. Aligners were run under the default setting for SMRT reads.
-(b) short-read alignment evaluation. 10 million pairs of 150bp reads were
-simulated using mason2~\citep{Holtgrewe:2010aa} with option
-`\mbox{--illumina-prob-mismatch-scale 2.5}'. Short-read aligners were run under the
-default setting except for changing the maximum fragment length to
+Kart outputted all alignments at mapping quality 60, so is not shown in the
+figure. It mapped nearly all reads with 4.1\% of alignments being wrong, less
+accurate than others.  (b) short-read alignment evaluation. 10 million pairs of
+150bp reads were simulated using mason2~\citep{Holtgrewe:2010aa} with option
+`\mbox{--illumina-prob-mismatch-scale 2.5}'. Short-read aligners were run under
+the default setting except for changing the maximum fragment length to
 800bp.}\label{fig:eval}
 \end{figure}
 
@@ -480,11 +511,11 @@ higher mapping accuracy (Fig.~\ref{fig:eval}a). Minimap2 and
 NGMLR provide better mapping quality estimate: they rarely give repetitive hits
 high mapping quality.  Apparently, other aligners may
 occasionally miss close suboptimal hits and be overconfident in wrong mappings.
-On run time, minialign is slightly faster than minimap2 and Kart. They are over
-30 times faster than the rest.  Minimap2 consumed 6.1GB memory at the peak,
-more than BWA-MEM but less than others.
+On run time, minimap2 took 200 CPU seconds, comparable to minialign and Kart, and is over
+30 times faster than the rest.  Minimap2 consumed 6.8GB memory at the peak,
+more than BWA-MEM (5.4GB), similar to NGMLR and less than others.
 
-On real human SMRT reads, the relative performance and sensitivity of
+On real human SMRT reads, the relative performance and fraction of mapped reads reported by
 these aligners are broadly similar to the metrics on simulated data. We are
 unable to provide a good estimate of mapping error rate due to the lack of the
 truth.  On ONT $\sim$100kb human reads~\citep{Jain128835}, BWA-MEM failed.
@@ -526,7 +557,7 @@ Peak RAM (GByte)          & 8.9      & 14.5     & 3.2      & 29.2\vspace{1em}\\
 \% approx. introns        & 91.8\%   & 96.9\%   & 92.5\%   & 82.4\% \\
 \botrule
 \end{tabular}
-}{Mouse reads (AC:SRR5286960) were mapped to the primary assembly of mouse
+}{Mouse reads (AC:SRR5286960; R9.4 chemistry) were mapped to the primary assembly of mouse
 genome GRCm38 with the following tools and command options: minimap2 (`-ax
 splice'); GMAP (`-n 0 --min-intronlength 30 --cross-species'); SpAln (`-Q7 -LS
 -S3'); STARlong (according to
@@ -614,8 +645,9 @@ Minimap2 retains minimap's functionality to find overlaps between long reads
 and to search against large multi-species databases such as \emph{nt} from
 NCBI. Minimap2 can also align similar genomes or different assemblies of the
 same species. It took 7 wall-clock minutes over 8 CPU cores to align a human
-SMRT assembly (AC:GCA\_001297185.1) to GRCh38, over 20 times faster
-MUMmer4~\citep{Kurtz:2004zr}.
+SMRT assembly (AC:GCA\_001297185.1) to GRCh38. QUAST~\citep{Gurevich:2013aa}
+v5.0 will use minimap2 to evaluate the quality of assemblies against a
+reference genome.
 
 \section{Discussions}
 
@@ -635,7 +667,7 @@ chaining alone is more accurate than all the other long-read mappers in
 Fig.~\ref{fig:eval}a (data not shown). This accuracy helps to reduce downstream
 base-level alignment of candidate chains, which is still times slower than
 chaining even with the Suzuki-Kasahara improvement. In addition, taking a
-general form, minimap2 chaining can be adapted to non-typical data types such
+general form, minimap2 chaining can be adapted to non-typical data types such as
 spliced reads and multiple reads per fragment. This gives us the opportunity to
 extend the same base algorithm to a variety of use cases.
 
@@ -647,8 +679,9 @@ k-mers with a hash table instead. Such fixed-length seeds are inferior to
 variable-length seeds in theory, but can be computed much more efficiently in
 practice. When a query sequence has multiple seed hits, we can afford to skip
 highly repetitive seeds without affecting the final accuracy. This further
-alleviates the concern with the uniqueness of seeds. Hash table is the ideal
-data structure for mapping long query sequences.
+alleviates the concern with the seeding uniqueness. At the same time, at low
+sequence identity, it is rare to see long seeds anyway. Hash table is the ideal
+data structure for mapping long noisy sequences.
 
 \section*{Acknowledgements}
 We owe a debt of gratitude to H. Suzuki and M. Kasahara for releasing their
