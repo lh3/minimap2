@@ -1,6 +1,6 @@
 \documentclass{bioinfo}
-\copyrightyear{2017}
-\pubyear{2017}
+\copyrightyear{2018}
+\pubyear{2018}
 
 \usepackage{graphicx}
 \usepackage{hyperref}
@@ -89,11 +89,11 @@ the versatility of minimap2.
 Minimap2 follows a typical seed-chain-align procedure as is used by most
 full-genome aligners. It collects minimizers~\citep{Roberts:2004fv} of the
 reference sequences and indexes them in a hash table. Then for each query
-sequence, minimap2 takes query minimizers as \emph{seeds}, finds matches to the
-reference, and identifies sets of colinear seeds, which are called
+sequence, minimap2 takes query minimizers as \emph{seeds}, finds exact matches
+(i.e. \emph{anchors}) to the reference, and identifies sets of colinear anchors as
 \emph{chains}. If base-level alignment is requested, minimap2 applies dynamic
-programming (DP) to extend from the ends of chains and to close unseeded
-regions between adjacent seeds in chains.
+programming (DP) to extend from the ends of chains and to close
+regions between adjacent anchors in chains.
 
 Minimap2 uses indexing and seeding algorithms similar to
 minimap~\citep{Li:2016aa}, and furthers the predecessor with more accurate
@@ -122,8 +122,8 @@ In implementation, a gap of length $l\not=0$ costs
 \[
 \gamma_c(l)=0.01\cdot \bar{w}\cdot|l|+0.5\log_2|l|
 \]
-where $\bar{w}$ is the average seed length. For $n$ anchors, directly computing all $f(\cdot)$ with
-Eq.~(\ref{eq:chain}) takes $O(n^2)$ time. Although theoretically faster
+where $\bar{w}$ is the average seed length. For $N$ anchors, directly computing all $f(\cdot)$ with
+Eq.~(\ref{eq:chain}) takes $O(N^2)$ time. Although theoretically faster
 chaining algorithms exist~\citep{Abouelhoda:2005aa}, they
 are inapplicable to generic gap cost, complex to implement and usually
 associated with a large constant. We introduced a simple heuristic to
@@ -133,7 +133,7 @@ We note that if anchor $i$ is chained to $j$, chaining $i$ to a predecessor
 of $j$ is likely to yield a lower score. When evaluating Eq.~(\ref{eq:chain}),
 we start from anchor $i-1$ and stop the process if we cannot find a better
 score after up to $h$ iterations. This approach reduces the average time to
-$O(h\cdot n)$. In practice, we can almost always find the optimal chain with
+$O(hN)$. In practice, we can almost always find the optimal chain with
 $h=50$; even if the heuristic fails, the optimal chain is often close.
 
 \subsubsection{Backtracking}
@@ -379,6 +379,16 @@ alignment between the two subsequences involved in the global alignment, but
 this time with the one subsequence reverse complemented. This additional
 alignment step may identify short inversions that are missed during chaining.
 
+\subsubsection{Filtering out misplaced anchors}
+Due to sequencing errors and local homology, some anchors in a chain may be
+wrong. If we blindly align regions between two misplaced anchors, we will
+produce a suboptimal alignment. To reduce this artifact, we filter out
+anchors that lead to a $>$10bp insertion and a $>$10bp deletion at the same
+time, and filter out terminal anchors that lead to a long gap towards the ends
+of a chain. These heuristics greatly alleviate the issues with misplaced
+anchors, but they are unable to fix all such errors. Local misalignment is a
+limitation of minimap2 which we hope to address in future.
+
 \subsection{Aligning spliced sequences}
 
 The algorithm described above can be adapted to spliced alignment. In this
@@ -623,7 +633,7 @@ simulated data set than Bowtie2 and SNAP but less accurate than BWA-MEM
 (Fig.~\ref{fig:eval}b). Closer investigation reveals that BWA-MEM achieves
 a higher accuracy partly because it tries to locally align a read in a small
 region close to its mate. If we disable this feature, BWA-MEM becomes slightly
-less accurate than minimap2. We might consider to implement a similar heuristic
+less accurate than minimap2. We might implement a similar heuristic
 in minimap2 in future.
 
 To evaluate the accuracy of minimap2 on real data, we aligned human reads
@@ -643,11 +653,10 @@ context of small variant calling.
 
 Minimap2 retains minimap's functionality to find overlaps between long reads
 and to search against large multi-species databases such as \emph{nt} from
-NCBI. Minimap2 can also align similar genomes or different assemblies of the
-same species. It took 7 wall-clock minutes over 8 CPU cores to align a human
-SMRT assembly (AC:GCA\_001297185.1) to GRCh38. QUAST~\citep{Gurevich:2013aa}
-v5.0 will use minimap2 to evaluate the quality of assemblies against a
-reference genome.
+NCBI. Minimap2 also aligns similar genomes or different assemblies of the
+same species. It can map a human SMRT assembly (AC:GCA\_001297185.1) to
+GRCh38 in 7 minutes using 8 CPU cores. QUAST~\citep{Gurevich:2013aa} v5.0 will
+use minimap2 to evaluate the quality of assemblies against a reference genome.
 
 \section{Discussions}
 
