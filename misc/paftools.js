@@ -1262,6 +1262,156 @@ function paf_pbsim2fq(args)
 	buf2.destroy();
 }
 
+function paf_junceval(args) // FIXME: the reported number of mapped reads is slightly off
+{
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false;
+	while ((c = getopt(args, "l:ep")) != null) {
+		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
+		else if (c == 'e') print_err_only = print_ovlp = true;
+		else if (c == 'p') print_ovlp = true;
+	}
+
+	if (args.length - getopt.ind < 2) {
+		print("Usage: paftools.js junceval [options] <gene.gtf> <aln.sam>");
+		print("Options:");
+		print("  -l INT    tolerance of junction positions (0 for exact) [0]");
+		print("  -p        print overlapping introns");
+		print("  -e        print erroreous overlapping introns");
+		exit(1);
+	}
+
+	var file, buf = new Bytes();
+
+	var tr = {};
+	file = new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		if (t[0].charAt(0) == '#') continue;
+		if (t[2] != 'exon') continue;
+		var st = parseInt(t[3]) - 1;
+		var en = parseInt(t[4]);
+		if ((m = /transcript_id "(\S+)"/.exec(t[8])) == null) continue;
+		var tid = m[1];
+		if (tr[tid] == null) tr[tid] = [t[0], t[6], 0, 0, []];
+		tr[tid][4].push([st, en]);
+	}
+	file.close();
+
+	var anno = {};
+	for (var tid in tr) {
+		var t = tr[tid];
+		Interval.sort(t[4]);
+		t[2] = t[4][0][0];
+		t[3] = t[4][t[4].length - 1][1];
+		if (anno[t[0]] == null) anno[t[0]] = [];
+		var s = t[4];
+		for (var i = 0; i < s.length - 1; ++i) {
+			if (s[i][1] >= s[i+1][0])
+				warn("WARNING: incorrect annotation for transcript "+tid+" ("+s[i][1]+" >= "+s[i+1][0]+")")
+					anno[t[0]].push([s[i][1], s[i+1][0]]);
+		}
+	}
+	tr = null;
+
+	for (var chr in anno) {
+		var e = anno[chr];
+		if (e.length == 0) continue;
+		Interval.sort(e);
+		var k = 0;
+		for (var i = 1; i < e.length; ++i) // dedup
+			if (e[i][0] != e[k][0] || e[i][1] != e[k][1])
+				e[++k] = e[i].slice(0);
+		e.length = k + 1;
+		Interval.index_end(e);
+	}
+
+	var n_pri = 0, n_unmapped = 0, n_mapped = 0;
+	var n_sgl = 0, n_splice = 0, n_splice_hit = 0, n_splice_novel = 0;
+
+	file = new File(args[getopt.ind+1]);
+	var last_qname = null;
+	var re_cigar = /(\d+)([MIDNSHX=])/g;
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+
+		if (t[0].charAt(0) == '@') continue;
+		var flag = parseInt(t[1]);
+		if (flag&0x100) continue;
+		if (first_only && last_qname == t[0]) continue;
+		if (t[2] == '*') {
+			++n_unmapped;
+			continue;
+		} else {
+			++n_pri;
+			if (last_qname != t[0]) ++n_mapped;
+		}
+
+		var pos = parseInt(t[3]) - 1, intron = [];
+		while ((m = re_cigar.exec(t[5])) != null) {
+			var len = parseInt(m[1]), op = m[2];
+			if (op == 'N') {
+				intron.push([pos, pos + len]);
+				pos += len;
+			} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
+		}
+		if (intron.length == 0) {
+			++n_sgl;
+			continue;
+		}
+		n_splice += intron.length;
+
+		var chr = anno[t[2]];
+		if (chr != null) {
+			for (var i = 0; i < intron.length; ++i) {
+				var o = Interval.find_ovlp(chr, intron[i][0], intron[i][1]);
+				if (o.length > 0) {
+					var hit = false;
+					for (var j = 0; j < o.length; ++j) {
+						var st_diff = intron[i][0] - o[j][0];
+						var en_diff = intron[i][1] - o[j][1];
+						if (st_diff < 0) st_diff = -st_diff;
+						if (en_diff < 0) en_diff = -en_diff;
+						if (st_diff <= l_fuzzy && en_diff <= l_fuzzy)
+							++n_splice_hit, hit = true;
+						if (hit) break;
+					}
+					if (print_ovlp) {
+						var type = hit? 'C' : 'P';
+						if (hit && print_err_only) continue;
+						var x = '[';
+						for (var j = 0; j < o.length; ++j) {
+							if (j) x += ', ';
+							x += '(' + o[j][0] + "," + o[j][1] + ')';
+						}
+						x += ']';
+						print(type, t[0], i+1, t[2], intron[i][0], intron[i][1], x);
+					}
+				} else {
+					++n_splice_novel;
+					if (print_ovlp)
+						print('N', t[0], i+1, t[2], intron[i][0], intron[i][1]);
+				}
+			}
+		} else {
+			n_splice_novel += intron.length;
+		}
+		last_qname = t[0];
+	}
+	file.close();
+
+	buf.destroy();
+
+	if (!print_ovlp) {
+		print("# unmapped reads: " + n_unmapped);
+		print("# mapped reads: " + n_mapped);
+		print("# primary alignments: " + n_pri);
+		print("# singletons: " + n_sgl);
+		print("# predicted introns: " + n_splice);
+		print("# non-overlapping introns: " + n_splice_novel);
+		print("# correct introns: " + n_splice_hit + " (" + (n_splice_hit / n_splice * 100).toFixed(2) + "%)");
+	}
+}
+
 // evaluate overlap sensitivity
 function paf_ov_eval(args)
 {
@@ -1354,6 +1504,7 @@ function main(args)
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
 		print("  pbsim2fq   convert PBSIM-simulated MAF to FASTQ");
+		print("  junceval   evaluate splice junction consistency with known annotations");
 		print("  ov-eval    evaluate read overlap sensitivity using read-to-ref mapping");
 		exit(1);
 	}
@@ -1368,6 +1519,7 @@ function main(args)
 	else if (cmd == 'mapeval') paf_mapeval(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
+	else if (cmd == 'junceval') paf_junceval(args);
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
 	else throw Error("unrecognized command: " + cmd);
 }
