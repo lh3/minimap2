@@ -291,33 +291,39 @@ static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min
 	kfree(km, K);
 }
 
-static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int32_t *as, int32_t *cnt)
+static void mm_fix_bad_ends(const mm_reg1_t *r, const mm128_t *a, int bw, int min_match, int32_t *as, int32_t *cnt)
 {
-	int32_t i, l;
+	int32_t i, l, m;
 	*as = r->as, *cnt = r->cnt;
 	if (r->cnt < 3) return;
-	l = a[r->as].y >> 32 & 0xff;
+	m = l = a[r->as].y >> 32 & 0xff;
 	for (i = r->as + 1; i < r->as + r->cnt - 1; ++i) {
 		int32_t lq, lr, min, max;
+		int32_t q_span = a[i].y >> 32 & 0xff;
+		if (a[i].y & MM_SEED_LONG_JOIN) break;
 		lr = (int32_t)a[i].x - (int32_t)a[i-1].x;
 		lq = (int32_t)a[i].y - (int32_t)a[i-1].y;
 		min = lr < lq? lr : lq;
 		max = lr > lq? lr : lq;
 		if (max - min > l >> 1) *as = i;
 		l += min;
-		if (l >= bw << 1) break;
+		m += min < q_span? min : q_span;
+		if (l >= bw << 1 || (m >= min_match && m >= bw) || m >= r->mlen >> 1) break;
 	}
 	*cnt = r->as + r->cnt - *as;
-	l = a[r->as + r->cnt - 1].y >> 32 & 0xff;
+	m = l = a[r->as + r->cnt - 1].y >> 32 & 0xff;
 	for (i = r->as + r->cnt - 2; i > *as; --i) {
 		int32_t lq, lr, min, max;
+		int32_t q_span = a[i+1].y >> 32 & 0xff;
+		if (a[i+1].y & MM_SEED_LONG_JOIN) break;
 		lr = (int32_t)a[i+1].x - (int32_t)a[i].x;
 		lq = (int32_t)a[i+1].y - (int32_t)a[i].y;
 		min = lr < lq? lr : lq;
 		max = lr > lq? lr : lq;
 		if (max - min > l >> 1) *cnt = i + 1 - *as;
 		l += min;
-		if (l >= bw) break;
+		m += min < q_span? min : q_span;
+		if (l >= bw << 1 || (m >= min_match && m >= bw) || m >= r->mlen >> 1) break;
 	}
 }
 
@@ -418,7 +424,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (is_splice) {
 			mm_fix_bad_ends_splice(km, opt, mi, r, mat, qlen, qseq0, a, &as1, &cnt1);
 		} else {
-			mm_fix_bad_ends(r, a, opt->bw, &as1, &cnt1);
+			mm_fix_bad_ends(r, a, opt->bw, opt->min_chain_score * 2, &as1, &cnt1);
 		}
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
@@ -498,6 +504,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			re1 = re1 < re + l? re1 : re + l;
 			re0 = re0 > re1? re0 : re1;
 		} else re0 = re, qe0 = qe;
+	}
+	if (a[r->as].y & MM_SEED_SELF) {
+		int max_ext = r->qs > r->rs? r->qs - r->rs : r->rs - r->qs;
+		if (r->rs - rs0 > max_ext) rs0 = r->rs - max_ext;
+		if (r->qs - qs0 > max_ext) qs0 = r->qs - max_ext;
+		max_ext = r->qe > r->re? r->qe - r->re : r->re - r->qe;
+		if (re0 - r->re > max_ext) re0 = r->re + max_ext;
+		if (qe0 - r->qe > max_ext) qe0 = r->qe + max_ext;
 	}
 
 	assert(re0 > rs0);

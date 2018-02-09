@@ -9,151 +9,6 @@
 #include "bseq.h"
 #include "khash.h"
 
-void mm_mapopt_init(mm_mapopt_t *opt)
-{
-	memset(opt, 0, sizeof(mm_mapopt_t));
-	opt->seed = 11;
-	opt->mid_occ_frac = 2e-4f;
-	opt->sdust_thres = 0; // no SDUST masking
-
-	opt->min_cnt = 3;
-	opt->min_chain_score = 40;
-	opt->bw = 500;
-	opt->max_gap = 5000;
-	opt->max_gap_ref = -1;
-	opt->max_chain_skip = 25;
-
-	opt->mask_level = 0.5f;
-	opt->pri_ratio = 0.8f;
-	opt->best_n = 5;
-
-	opt->max_join_long = 20000;
-	opt->max_join_short = 2000;
-	opt->min_join_flank_sc = 1000;
-
-	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
-	opt->zdrop = 400;
-	opt->end_bonus = -1;
-	opt->min_dp_max = opt->min_chain_score * opt->a;
-	opt->min_ksw_len = 200;
-	opt->anchor_ext_len = 20, opt->anchor_ext_shift = 6;
-	opt->mini_batch_size = 500000000;
-
-	opt->pe_ori = 0; // FF
-	opt->pe_bonus = 33;
-}
-
-void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
-{
-	if ((opt->flag & MM_F_SPLICE_FOR) && (opt->flag & MM_F_SPLICE_REV))
-		opt->flag |= MM_F_SPLICE;
-	if (opt->mid_occ <= 0)
-		opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
-	if (mm_verbose >= 3)
-		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
-}
-
-void mm_mapopt_max_intron_len(mm_mapopt_t *opt, int max_intron_len)
-{
-	if ((opt->flag & MM_F_SPLICE) && max_intron_len > 0)
-		opt->max_gap_ref = opt->bw = max_intron_len;
-}
-
-int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
-{
-	if (preset == 0) {
-		mm_idxopt_init(io);
-		mm_mapopt_init(mo);
-	} else if (strcmp(preset, "ava-ont") == 0) {
-		io->flag = 0, io->k = 15, io->w = 5;
-		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
-		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
-	} else if (strcmp(preset, "ava-pb") == 0) {
-		io->flag |= MM_I_HPC, io->k = 19, io->w = 5;
-		mo->flag |= MM_F_AVA | MM_F_NO_SELF;
-		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
-	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
-		io->flag |= MM_I_HPC, io->k = 19;
-	} else if (strcmp(preset, "map-ont") == 0) {
-		io->flag = 0, io->k = 15;
-	} else if (strcmp(preset, "asm5") == 0) {
-		io->flag = 0, io->k = 19, io->w = 19;
-		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 200;
-		mo->min_dp_max = 200;
-		mo->best_n = 50;
-	} else if (strcmp(preset, "asm10") == 0) {
-		io->flag = 0, io->k = 19, io->w = 19;
-		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 200;
-		mo->min_dp_max = 200;
-		mo->best_n = 50;
-	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
-		io->flag = 0, io->k = 21, io->w = 11;
-		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS;
-		mo->pe_ori = 0<<1|1; // FR
-		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 24, mo->e2 = 1;
-		mo->zdrop = 100;
-		mo->end_bonus = 10;
-		mo->max_frag_len = 800;
-		mo->max_gap = 100;
-		mo->bw = 100;
-		mo->pri_ratio = 0.5f;
-		mo->min_cnt = 2;
-		mo->min_chain_score = 25;
-		mo->min_dp_max = 40;
-		mo->best_n = 20;
-		mo->mid_occ = 1000;
-		mo->max_occ = 5000;
-		mo->mini_batch_size = 50000000;
-	} else if (strcmp(preset, "splice") == 0 || strcmp(preset, "cdna") == 0) {
-		io->flag = 0, io->k = 15, io->w = 5;
-		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV | MM_F_SPLICE_FLANK;
-		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = 200000;
-		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
-		mo->noncan = 9;
-		mo->zdrop = 200;
-	} else return -1;
-	return 0;
-}
-
-int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
-{
-	if (mo->best_n < 0) {
-		if (mm_verbose >= 1)
-			fprintf(stderr, "[ERROR]\033[1;31m -N must be no less than 0\033[0m\n");
-		return -4;
-	}
-	if (mo->best_n == 0 && mm_verbose >= 2)
-		fprintf(stderr, "[WARNING]\033[1;31m '-N 0' reduces mapping accuracy. Please use '--secondary=no' instead.\033[0m\n");
-	if (mo->pri_ratio < 0.0f || mo->pri_ratio > 1.0f) {
-		if (mm_verbose >= 1)
-			fprintf(stderr, "[ERROR]\033[1;31m -p must be within 0 and 1 (including 0 and 1)\033[0m\n");
-		return -4;
-	}
-	if ((mo->flag & MM_F_FOR_ONLY) && (mo->flag & MM_F_REV_ONLY)) {
-		if (mm_verbose >= 1)
-			fprintf(stderr, "[ERROR]\033[1;31m --for-only and --rev-only can't be applied at the same time\033[0m\n");
-		return -3;
-	}
-	if ((mo->q != mo->q2 || mo->e != mo->e2) && !(mo->e > mo->e2 && mo->q + mo->e < mo->q2 + mo->e2)) {
-		if (mm_verbose >= 1)
-			fprintf(stderr, "[ERROR]\033[1;31m dual gap penalties violating E1>E2 and O1+E1<O2+E2\033[0m\n");
-		return -2;
-	}
-	if ((mo->q + mo->e) + (mo->q2 + mo->e2) > 127) {
-		if (mm_verbose >= 1)
-			fprintf(stderr, "[ERROR]\033[1;31m scoring system violating ({-O}+{-E})+({-O2}+{-E2}) <= 127\033[0m\n");
-		return -1;
-	}
-	return 0;
-}
-
-typedef struct {
-	uint32_t n;
-	uint32_t qpos;
-	uint32_t seg_id;
-	const uint64_t *cr;
-} mm_match_t;
-
 struct mm_tbuf_s {
 	void *km;
 };
@@ -213,95 +68,189 @@ static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t 
 	}
 }
 
-static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
-								  int *n_mini_pos, uint64_t **mini_pos)
-{
-	int rep_st = 0, rep_en = 0, i;
-	mm_match_t *m;
-	mm128_t *a;
+#include "ksort.h"
+#define heap_lt(a, b) ((a).x > (b).x)
+KSORT_INIT(heap, mm128_t, heap_lt)
 
+typedef struct {
+	uint32_t n;
+	uint32_t q_pos, q_span;
+	uint32_t seg_id:31, is_tandem:1;
+	const uint64_t *cr;
+} mm_match_t;
+
+static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos)
+{
+	int i, rep_st = 0, rep_en = 0, n_m;
+	mm_match_t *m;
 	*n_mini_pos = 0;
 	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
 	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
-	for (i = 0; i < mv->n; ++i) {
+	for (i = n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
+		const uint64_t *cr;
+		mm128_t *p = &mv->a[i];
+		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
 		int t;
-		mm128_t *p = &mv->a[i];
-		m[i].qpos = (uint32_t)p->y;
-		m[i].cr = mm_idx_get(mi, p->x>>8, &t);
-		m[i].n = t;
-		m[i].seg_id = p->y >> 32;
-	}
-	for (i = 0, *n_a = 0; i < mv->n; ++i) // find the length of a[]
-		if (m[i].n < max_occ) *n_a += m[i].n;
-	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
-	for (i = *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
-		mm128_t *p = &mv->a[i];
-		mm_match_t *q = &m[i];
-		const uint64_t *r = q->cr;
-		int k, q_span = p->x & 0xff, is_tandem = 0;
-		if (q->n >= max_occ) {
-			int en = (q->qpos>>1) + 1, st = en - q_span;
+		cr = mm_idx_get(mi, p->x>>8, &t);
+		if (t >= max_occ) {
+			int en = (q_pos >> 1) + 1, st = en - q_span;
 			if (st > rep_en) {
 				*rep_len += rep_en - rep_st;
 				rep_st = st, rep_en = en;
 			} else rep_en = en;
-			continue;
-		}
-		(*mini_pos)[(*n_mini_pos)++] = (uint64_t)q_span<<32 | q->qpos>>1;
-		if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) is_tandem = 1;
-		if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) is_tandem = 1;
-		for (k = 0; k < q->n; ++k) {
-			int32_t rpos = (uint32_t)r[k] >> 1;
-			mm128_t *p;
-			if (qname && (opt->flag&(MM_F_NO_SELF|MM_F_AVA))) {
-				const char *tname = mi->seq[r[k]>>32].name;
-				int cmp;
-				cmp = strcmp(qname, tname);
-				if ((opt->flag&MM_F_NO_SELF) && cmp == 0 && rpos == (q->qpos>>1)) // avoid the diagonal
-					continue;
-				if ((opt->flag&MM_F_AVA) && cmp > 0) // all-vs-all mode: map once
-					continue;
-			}
-			if (opt->flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
-				if ((r[k]&1) == (q->qpos&1)) { // forward strand
-					if (opt->flag & MM_F_REV_ONLY) continue;
-				} else {
-					if (opt->flag & MM_F_FOR_ONLY) continue;
-				}
-			}
-			p = &a[(*n_a)++];
-			if ((r[k]&1) == (q->qpos&1)) { // forward strand
-				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
-				p->y = (uint64_t)q_span << 32 | q->qpos >> 1;
-			} else { // reverse strand
-				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
-				p->y = (uint64_t)q_span << 32 | (qlen - ((q->qpos>>1) + 1 - q_span) - 1);
-			}
-			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
-			if (is_tandem) p->y |= MM_SEED_TANDEM;
+		} else {
+			mm_match_t *q = &m[n_m++];
+			q->q_pos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
+			q->is_tandem = 0;
+			if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) q->is_tandem = 1;
+			if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) q->is_tandem = 1;
+			*n_a += q->n;
+			(*mini_pos)[(*n_mini_pos)++] = (uint64_t)q_span<<32 | q_pos>>1;
 		}
 	}
 	*rep_len += rep_en - rep_st;
+	*_n_m = n_m;
+	return m;
+}
+
+static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const char *qname, int qlen, const mm_idx_t *mi, int *is_self)
+{
+	*is_self = 0;
+	if (qname && (flag & (MM_F_NO_DIAG|MM_F_NO_DUAL))) {
+		const mm_idx_seq_t *s = &mi->seq[r>>32];
+		int cmp;
+		cmp = strcmp(qname, s->name);
+		if ((flag&MM_F_NO_DIAG) && cmp == 0 && s->len == qlen) {
+			if ((uint32_t)r>>1 == (q->q_pos>>1)) return 1; // avoid the diagnonal anchors
+			if ((r&1) == (q->q_pos&1)) *is_self = 1; // this flag is used to avoid spurious extension on self chain
+		}
+		if ((flag&MM_F_NO_DUAL) && cmp > 0) // all-vs-all mode: map once
+			return 1;
+	}
+	if (flag & (MM_F_FOR_ONLY|MM_F_REV_ONLY)) {
+		if ((r&1) == (q->q_pos&1)) { // forward strand
+			if (flag & MM_F_REV_ONLY) return 1;
+		} else {
+			if (flag & MM_F_FOR_ONLY) return 1;
+		}
+	}
+	return 0;
+}
+
+static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
+								  int *n_mini_pos, uint64_t **mini_pos)
+{
+	int i, n_m, heap_size = 0;
+	int64_t j, n_for = 0, n_rev = 0;
+	mm_match_t *m;
+	mm128_t *a, *heap;
+
+	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
+
+	heap = (mm128_t*)kmalloc(km, n_m * sizeof(mm128_t));
+	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
+
+	for (i = 0, heap_size = 0; i < n_m; ++i) {
+		if (m[i].n > 0) {
+			heap[heap_size].x = m[i].cr[0];
+			heap[heap_size].y = (uint64_t)i<<32;
+			++heap_size;
+		}
+	}
+	ks_heapmake_heap(heap_size, heap);
+	while (heap_size > 0) {
+		mm_match_t *q = &m[heap->y>>32];
+		mm128_t *p;
+		uint64_t r = heap->x;
+		int32_t is_self, rpos = (uint32_t)r >> 1;
+		if (skip_seed(opt->flag, r, q, qname, qlen, mi, &is_self)) continue;
+		if ((r&1) == (q->q_pos&1)) { // forward strand
+			p = &a[n_for++];
+			p->x = (r&0xffffffff00000000ULL) | rpos;
+			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
+		} else { // reverse strand
+			p = &a[(*n_a) - (++n_rev)];
+			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
+			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+		}
+		p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
+		if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+		if (is_self) p->y |= MM_SEED_SELF;
+		// update the heap
+		if ((uint32_t)heap->y < q->n - 1) {
+			++heap[0].y;
+			heap[0].x = m[heap[0].y>>32].cr[(uint32_t)heap[0].y];
+		} else {
+			heap[0] = heap[heap_size - 1];
+			--heap_size;
+		}
+		ks_heapdown_heap(0, heap_size, heap);
+	}
 	kfree(km, m);
+	kfree(km, heap);
+
+	// reverse anchors on the reverse strand, as they are in the descending order
+	for (j = 0; j < n_rev>>1; ++j) {
+		mm128_t t = a[(*n_a) - 1 - j];
+		a[(*n_a) - 1 - j] = a[(*n_a) - (n_rev - j)];
+		a[(*n_a) - (n_rev - j)] = t;
+	}
+	if (*n_a > n_for + n_rev) {
+		memmove(a + n_for, a + (*n_a) - n_rev, n_rev * sizeof(mm128_t));
+		*n_a = n_for + n_rev;
+	}
+	return a;
+}
+
+static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
+								  int *n_mini_pos, uint64_t **mini_pos)
+{
+	int i, k, n_m;
+	mm_match_t *m;
+	mm128_t *a;
+	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
+	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
+	for (i = 0, *n_a = 0; i < n_m; ++i) {
+		mm_match_t *q = &m[i];
+		const uint64_t *r = q->cr;
+		for (k = 0; k < q->n; ++k) {
+			int32_t is_self, rpos = (uint32_t)r[k] >> 1;
+			mm128_t *p;
+			if (skip_seed(opt->flag, r[k], q, qname, qlen, mi, &is_self)) continue;
+			p = &a[(*n_a)++];
+			if ((r[k]&1) == (q->q_pos&1)) { // forward strand
+				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
+			} else { // reverse strand
+				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+			}
+			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
+			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+			if (is_self) p->y |= MM_SEED_SELF;
+		}
+	}
+	kfree(km, m);
+	radix_sort_128x(a, a + (*n_a));
 	return a;
 }
 
 static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_idx_t *mi, void *km, int qlen, int n_segs, const int *qlens, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
-	if (!(opt->flag & MM_F_AVA)) { // don't choose primary mapping(s) for read overlap
+	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, max_chain_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
-		if (!(opt->flag & MM_F_SPLICE) && !(opt->flag & MM_F_SR) && !(opt->flag & MM_F_NO_LJOIN))
+		if (!(opt->flag & (MM_F_SPLICE|MM_F_SR|MM_F_NO_LJOIN))) // long join not working well without primary chains
 			mm_join_long(km, opt, qlen, n_regs, regs, a);
 	}
 }
 
-static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, const char *seq, const char *qual, int *n_regs, mm_reg1_t *regs, mm128_t *a)
+static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, const char *seq, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	if (!(opt->flag & MM_F_CIGAR)) return regs;
 	regs = mm_align_skeleton(km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
-	if (!(opt->flag & MM_F_AVA)) {
+	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
 		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
 		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		mm_set_sam_pri(*n_regs, regs);
@@ -309,7 +258,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	return regs;
 }
 
-void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, const char **quals, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
@@ -331,8 +280,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	hash  = __ac_Wang_hash(hash);
 
 	collect_minimizers(b->km, opt, mi, n_segs, qlens, seqs, &mv);
-	a = collect_seed_hits(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-	radix_sort_128x(a, a + n_a);
+	if (opt->flag & MM_F_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
+	else a = collect_seed_hits(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
 		fprintf(stderr, "RS\t%d\n", rep_len);
@@ -372,8 +321,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			kfree(b->km, a);
 			kfree(b->km, u);
 			kfree(b->km, mini_pos);
-			a = collect_seed_hits(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-			radix_sort_128x(a, a + n_a);
+			if (opt->flag & MM_F_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
+			else a = collect_seed_hits(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
 	}
@@ -390,7 +339,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	if (!is_sr) mm_est_err(mi, qlen_sum, n_regs0, regs0, a, n_mini_pos, mini_pos);
 
 	if (n_segs == 1) { // uni-segment
-		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], quals? quals[0] : 0, &n_regs0, regs0, a);
+		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], &n_regs0, regs0, a);
 		mm_set_mapq(n_regs0, regs0, opt->min_chain_score, opt->a, rep_len, is_sr);
 		n_regs[0] = n_regs0, regs[0] = regs0;
 	} else { // multi-segment
@@ -399,7 +348,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		free(regs0);
 		for (i = 0; i < n_segs; ++i) {
 			mm_set_parent(b->km, opt->mask_level, n_regs[i], regs[i], opt->a * 2 + opt->b); // update mm_reg1_t::parent
-			regs[i] = align_regs(opt, mi, b->km, qlens[i], seqs[i], quals? quals[i] : 0, &n_regs[i], regs[i], seg[i].a);
+			regs[i] = align_regs(opt, mi, b->km, qlens[i], seqs[i], &n_regs[i], regs[i], seg[i].a);
 			mm_set_mapq(n_regs[i], regs[i], opt->min_chain_score, opt->a, rep_len, is_sr);
 		}
 		mm_seg_free(b->km, n_segs, seg);
@@ -427,7 +376,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	mm_reg1_t *regs;
-	mm_map_frag(mi, 1, &qlen, &seq, 0, n_regs, &regs, b, opt, qname);
+	mm_map_frag(mi, 1, &qlen, &seq, n_regs, &regs, b, opt, qname);
 	return regs;
 }
 
@@ -455,11 +404,10 @@ typedef struct {
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *s = (step_t*)_data;
-	int qlens[MM_MAX_SEG], j, off = s->seg_off[i], pe_ori = s->p->opt->pe_ori, is_sr = !!(s->p->opt->flag & MM_F_SR);
-	const char *qseqs[MM_MAX_SEG], *quals[MM_MAX_SEG];
+	int qlens[MM_MAX_SEG], j, off = s->seg_off[i], pe_ori = s->p->opt->pe_ori;
+	const char *qseqs[MM_MAX_SEG];
 	mm_tbuf_t *b = s->buf[tid];
 	assert(s->n_seg[i] <= MM_MAX_SEG);
-	memset(quals, 0, sizeof(char*) * MM_MAX_SEG);
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[off].name, tid, s->seq[off].l_seq);
 	for (j = 0; j < s->n_seg[i]; ++j) {
@@ -467,13 +415,12 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 			mm_revcomp_bseq(&s->seq[off + j]);
 		qlens[j] = s->seq[off + j].l_seq;
 		qseqs[j] = s->seq[off + j].seq;
-		quals[j] = is_sr? s->seq[off + j].qual : 0;
 	}
 	if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
 		for (j = 0; j < s->n_seg[i]; ++j)
-			mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &quals[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
+			mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
 	} else {
-		mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, quals, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+		mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
 	}
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {

@@ -5,20 +5,20 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_F_NO_SELF     0x001
-#define MM_F_AVA         0x002
-#define MM_F_CIGAR       0x004
-#define MM_F_OUT_SAM     0x008
-#define MM_F_NO_QUAL     0x010
-#define MM_F_OUT_CG      0x020
-#define MM_F_OUT_CS      0x040
-#define MM_F_SPLICE      0x080 // splice mode
-#define MM_F_SPLICE_FOR  0x100 // match GT-AG
-#define MM_F_SPLICE_REV  0x200 // match CT-AC, the reverse complement of GT-AG
-#define MM_F_NO_LJOIN    0x400
-#define MM_F_OUT_CS_LONG 0x800
-#define MM_F_SR          0x1000
-#define MM_F_FRAG_MODE   0x2000
+#define MM_F_NO_DIAG       0x001 // no exact diagonal hit
+#define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
+#define MM_F_CIGAR         0x004
+#define MM_F_OUT_SAM       0x008
+#define MM_F_NO_QUAL       0x010
+#define MM_F_OUT_CG        0x020
+#define MM_F_OUT_CS        0x040
+#define MM_F_SPLICE        0x080 // splice mode
+#define MM_F_SPLICE_FOR    0x100 // match GT-AG
+#define MM_F_SPLICE_REV    0x200 // match CT-AC, the reverse complement of GT-AG
+#define MM_F_NO_LJOIN      0x400
+#define MM_F_OUT_CS_LONG   0x800
+#define MM_F_SR            0x1000
+#define MM_F_FRAG_MODE     0x2000
 #define MM_F_NO_PRINT_2ND  0x4000
 #define MM_F_2_IO_THREADS  0x8000
 #define MM_F_LONG_CIGAR    0x10000
@@ -27,6 +27,8 @@
 #define MM_F_SOFTCLIP      0x80000
 #define MM_F_FOR_ONLY      0x100000
 #define MM_F_REV_ONLY      0x200000
+#define MM_F_HEAP_SORT     0x400000
+#define MM_F_ALL_CHAINS    0x800000
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
@@ -80,7 +82,7 @@ typedef struct {
 	int32_t mlen, blen;     // seeded exact match length; seeded alignment block length
 	int32_t n_sub;          // number of suboptimal mappings
 	int32_t score0;         // initial chaining score (before chain merging/spliting)
-	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, dummy:16;
+	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, seg_id:8, dummy:8;
 	uint32_t hash;
 	float div;
 	mm_extra_t *p;
@@ -277,6 +279,8 @@ void mm_tbuf_destroy(mm_tbuf_t *b);
  *         with mm_reg1_t::p of each element. The size is written to _n_regs_.
  */
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
+
+void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname);
 
 /**
  * Align a fasta/fastq file and print alignments to stdout

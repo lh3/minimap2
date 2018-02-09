@@ -1,3 +1,5 @@
+#!/usr/bin/env k8
+
 Bytes.prototype.reverse = function()
 {
 	for (var i = 0; i < this.length>>1; ++i) {

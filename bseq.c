@@ -115,10 +115,15 @@ mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int chunk_size, int
 	*n_ = 0;
 	if (n_fp < 1) return 0;
 	while (1) {
+		int n_read = 0;
 		for (i = 0; i < n_fp; ++i)
-			if (kseq_read(fp[i]->ks) < 0)
-				break;
-		if (i != n_fp) break; // some file reaches the end
+			if (kseq_read(fp[i]->ks) >= 0)
+				++n_read;
+		if (n_read < n_fp) {
+			if (n_read > 0)
+				fprintf(stderr, "[W::%s]\033[1;31m query files have different number of records; extra records skipped.\033[0m\n", __func__);
+			break; // some file reaches the end
+		}
 		if (a.m == 0) kv_resize(mm_bseq1_t, 0, a, 256);
 		for (i = 0; i < n_fp; ++i) {
 			mm_bseq1_t *s;

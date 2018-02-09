@@ -23,7 +23,7 @@ def readme():
 
 setup(
 	name = 'mappy',
-	version = '2.7',
+	version = '2.8',
 	url = 'https://github.com/lh3/minimap2',
 	description = 'Minimap2 python binding',
 	long_description = readme(),
@@ -33,13 +33,13 @@ setup(
 	keywords = 'sequence-alignment',
 	scripts = ['python/minimap2.py'],
     ext_modules = [Extension('mappy',
-		sources = [module_src, 'align.c', 'bseq.c', 'chain.c', 'format.c', 'hit.c', 'index.c', 'pe.c',
+		sources = [module_src, 'align.c', 'bseq.c', 'chain.c', 'format.c', 'hit.c', 'index.c', 'pe.c', 'options.c',
 				   'ksw2_extd2_sse.c', 'ksw2_exts2_sse.c', 'ksw2_extz2_sse.c', 'ksw2_ll_sse.c',
 				   'kalloc.c', 'kthread.c', 'map.c', 'misc.c', 'sdust.c', 'sketch.c', 'esterr.c'],
 		depends = ['minimap.h', 'bseq.h', 'kalloc.h', 'kdq.h', 'khash.h', 'kseq.h', 'ksort.h',
 				   'ksw2.h', 'kthread.h', 'kvec.h', 'mmpriv.h', 'sdust.h',
 				   'python/cmappy.h', 'python/cmappy.pxd'],
-		extra_compile_args = ['-msse4'], # WARNING: ancient x86_64 CPUs don't have SSE4
+		extra_compile_args = ['-DHAVE_KALLOC', '-msse4'], # WARNING: ancient x86_64 CPUs don't have SSE4
 		include_dirs = ['.'],
 		libraries = ['z', 'm', 'pthread'])],
 	classifiers = [

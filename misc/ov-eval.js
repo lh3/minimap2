@@ -1,3 +1,5 @@
+#!/usr/bin/env k8
+
 var getopt = function(args, ostr) {
 	var oli; // option letter list index
 	if (typeof(getopt.place) == 'undefined')

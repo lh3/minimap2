@@ -390,8 +390,10 @@ mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int 
 	for (s = 0; s < n_segs; ++s) {
 		regs[s] = mm_gen_regs(km, hash, qlens[s], seg[s].n_u, seg[s].u, seg[s].a);
 		n_regs[s] = seg[s].n_u;
-		for (i = 0; i < n_regs[s]; ++i)
+		for (i = 0; i < n_regs[s]; ++i) {
 			regs[s][i].seg_split = 1;
+			regs[s][i].seg_id = s;
+		}
 	}
 	return seg;
 }
