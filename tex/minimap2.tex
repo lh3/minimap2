@@ -479,7 +479,10 @@ commercial and academic uses. Minimap2 uses the same base algorithm for all
 applications, but it has to apply different sets of parameters depending on
 input data types. Similar to BWA-MEM, minimap2 introduces `presets' that
 modify multiple parameters with a simple invokation. Detailed settings
-and command-line options can be found in the minimap2 manpage.
+and command-line options can be found in the minimap2 manpage. In addition to
+the applications described in the following sections, minimap2 also retains
+minimap's functionality to find overlaps between long reads and to search
+against large multi-species databases such as \emph{nt} from NCBI.
 
 \subsection{Aligning long genomic reads}\label{sec:long-genomic}
 
@@ -512,7 +515,7 @@ BLASR~(v1.MC.rc64; \citealp{Chaisson:2012aa}),
 BWA-MEM~(v0.7.15; \citealp{Li:2013aa}),
 GraphMap~(v0.5.2; \citealp{Sovic:2016aa}),
 Kart~(v2.2.5; \citealp{Lin:2017aa}),
-minialign~(v0.5.3; \citealp{Suzuki:2016}) and
+minialign~(v0.5.3; \href{https://github.com/ocxtal/minialign}{https://github.com/ocxtal/minialign}) and
 NGMLR~(v0.2.5; \citealp{Sedlazeck169557}). We excluded rHAT~\citep{Liu:2016ab}
 and LAMSA~\citep{Liu:2017aa} because they either
 crashed or produced malformatted output. In this evaluation, minimap2 has
@@ -649,14 +652,24 @@ million bases (FPPM; 3.0 vs 3.9), lower 2--50bp INDEL FNR (7.3\% vs 7.5\%) and
 similar INDEL FPPM (both 1.0). Minimap2 is broadly similar to BWA-MEM in the
 context of small variant calling.
 
-\subsection{Other applications}
+\subsection{Aligning long-read assemblies}
 
-Minimap2 retains minimap's functionality to find overlaps between long reads
-and to search against large multi-species databases such as \emph{nt} from
-NCBI. Minimap2 also aligns similar genomes or different assemblies of the
-same species. It can map a human SMRT assembly (AC:GCA\_001297185.1) to
-GRCh38 in 7 minutes using 8 CPU cores. QUAST~\citep{Gurevich:2013aa} v5.0 will
-use minimap2 to evaluate the quality of assemblies against a reference genome.
+Minimap2 can align a human SMRT assembly (AC:GCA\_001297185.1) against
+GRCh38 in 7 minutes using 8 CPU cores, over 20 times faster than
+MUMmer4~\citep{Marcais:2018aa}. With the paftools.js script from the minimap2
+package, we called 2.67 million single-base substitutions out of 2.78Gbp
+genomic regions. The transition-to-transversion ratio (ts/tv) is 2.01. In
+comparison, using MUMmer4's dnadiff pipeline, we called 2.86 million
+substitutions in 2.83Gbp at ts/tv=1.87. Given that ts/tv averaged across the
+human genome is about 2 but ts/tv averaged over random errors is 0.5, the
+minimap2 callset arguably has higher accuracy.
+
+The sample being assembled is a female. Minimap2 still called 201 substitutions
+on the Y chromosome. These substitutions all come from one contig aligned at
+96.8\% sequence identity. The contig could be a diverged segmental duplication
+absent from GRCh38. In constrast, on the Y chromosome, MUMmer4 called 9070
+substitutions across 73 SMRT contigs. The accuracy of the MUMmer4 pipeline is
+probably lower than our minimap2-based pipeline.
 
 \section{Discussions}
 
