@@ -1,5 +1,7 @@
 #!/usr/bin/env k8
 
+// Version: r697
+
 /*****************************
  ***** Library functions *****
  *****************************/
@@ -1329,7 +1331,7 @@ function paf_pbsim2fq(args)
 	buf2.destroy();
 }
 
-function paf_junceval(args) // FIXME: the reported number of mapped reads is slightly off
+function paf_junceval(args)
 {
 	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false;
 	while ((c = getopt(args, "l:ep")) != null) {
@@ -1410,7 +1412,10 @@ function paf_junceval(args) // FIXME: the reported number of mapped reads is sli
 			continue;
 		} else {
 			++n_pri;
-			if (last_qname != t[0]) ++n_mapped;
+			if (last_qname != t[0]) {
+				++n_mapped;
+				last_qname = t[0];
+			}
 		}
 
 		var pos = parseInt(t[3]) - 1, intron = [];
@@ -1462,7 +1467,6 @@ function paf_junceval(args) // FIXME: the reported number of mapped reads is sli
 		} else {
 			n_splice_novel += intron.length;
 		}
-		last_qname = t[0];
 	}
 	file.close();
 
