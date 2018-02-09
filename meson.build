@@ -96,6 +96,7 @@ mm2_cpp_sources = files([
   'kthread.c',
   'map.c',
   'misc.c',
+  'options.c',
   'pe.c',
   'sdust.c',
   'sketch.c'])
