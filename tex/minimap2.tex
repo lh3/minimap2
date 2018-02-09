@@ -480,7 +480,7 @@ applications, but it has to apply different sets of parameters depending on
 input data types. Similar to BWA-MEM, minimap2 introduces `presets' that
 modify multiple parameters with a simple invokation. Detailed settings
 and command-line options can be found in the minimap2 manpage. In addition to
-the applications described in the following sections, minimap2 also retains
+the applications evaluated in the following sections, minimap2 also retains
 minimap's functionality to find overlaps between long reads and to search
 against large multi-species databases such as \emph{nt} from NCBI.
 
@@ -654,22 +654,22 @@ context of small variant calling.
 
 \subsection{Aligning long-read assemblies}
 
-Minimap2 can align a human SMRT assembly (AC:GCA\_001297185.1) against
-GRCh38 in 7 minutes using 8 CPU cores, over 20 times faster than
+Minimap2 can align a SMRT assembly (AC:GCA\_001297185.1) against GRCh38 in 7
+minutes using 8 CPU cores, over 20 times faster than nucmer from
 MUMmer4~\citep{Marcais:2018aa}. With the paftools.js script from the minimap2
 package, we called 2.67 million single-base substitutions out of 2.78Gbp
 genomic regions. The transition-to-transversion ratio (ts/tv) is 2.01. In
 comparison, using MUMmer4's dnadiff pipeline, we called 2.86 million
 substitutions in 2.83Gbp at ts/tv=1.87. Given that ts/tv averaged across the
 human genome is about 2 but ts/tv averaged over random errors is 0.5, the
-minimap2 callset arguably has higher accuracy.
+minimap2 callset arguably has higher precision at lower sensitivity.
 
 The sample being assembled is a female. Minimap2 still called 201 substitutions
 on the Y chromosome. These substitutions all come from one contig aligned at
-96.8\% sequence identity. The contig could be a diverged segmental duplication
-absent from GRCh38. In constrast, on the Y chromosome, MUMmer4 called 9070
-substitutions across 73 SMRT contigs. The accuracy of the MUMmer4 pipeline is
-probably lower than our minimap2-based pipeline.
+96.8\% sequence identity. The contig could be a segmental duplication
+absent from GRCh38. In constrast, dnadiff called 9070 substitutions on the Y
+chromosome across 73 SMRT contigs. This again implies our minimap2-based
+pipeline has higher precision.
 
 \section{Discussions}
 
