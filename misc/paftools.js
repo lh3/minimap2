@@ -286,8 +286,12 @@ function paf_call(args)
 				} else if (m[1] == '*') {
 					if (rev) qs = y - 1, qe = y, --y;
 					else qs = y, qe = y + 1, ++y;
-					out.push([t[5], x, x+1, cov, t[11], m[2].charAt(0), m[2].charAt(1), query, qs, qe, rev? '-' : '+']);
-					++x, ++blen, ++n_diff;
+					var br = m[2].charAt(0), bq = m[2].charAt(1);
+					if (br != 'n' && bq != 'n') { // don't call a SNP if there is an ambiguous base
+						out.push([t[5], x, x+1, cov, t[11], br, bq, query, qs, qe, rev? '-' : '+']);
+						++n_diff;
+					}
+					++x, ++blen;
 				} else if (m[1] == '+') {
 					var l = m[2].length;
 					if (rev) qs = y - l, qe = y, y -= l;
