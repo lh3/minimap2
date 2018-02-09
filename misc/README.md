@@ -125,7 +125,7 @@ k8 ov-eval.js reads-to-ref.paf ovlp.paf
 
 ## <a name="asmvar"></a>Calling Variants from Haploid Assemblies
 
-Script [paf2diff.js](paf2diff.js) calls variants from coordinate-sorted
+Command `paftools.js call` calls variants from coordinate-sorted
 assembly-to-reference alignment. It calls variants from the [cs tag][cs] and
 identifies confident/callable regions as those covered by exactly one contig.
 Here are example command lines:
@@ -133,7 +133,7 @@ Here are example command lines:
 ```sh
 minimap2 -cx asm5 -t8 --cs ref.fa asm.fa > asm.paf  # keeping this file is recommended; --cs required!
 sort -k6,6 -k8,8n asm.paf > asm.srt.paf             # sort by reference start coordinate
-k8 paf2diff.js asm.srt.paf > asm.var.txt
+k8 paftools.js call asm.srt.paf > asm.var.txt
 ```
 
 Here is sample output:

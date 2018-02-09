@@ -329,6 +329,155 @@ function paf_call(args)
 	file.close();
 }
 
+function paf_stat(args)
+{
+	var c, gap_out_len = null;
+	while ((c = getopt(args, "l:")) != null)
+		if (c == 'l') gap_out_len = parseInt(getopt.arg);
+
+	if (getopt.ind == args.length) {
+		print("Usage: paftools.js stat [-l gapOutLen] <in.sam>|<in.paf>");
+		exit(1);
+	}
+
+	var buf = new Bytes();
+	var file = new File(args[getopt.ind]);
+	var re = /(\d+)([MIDSHNX=])/g;
+
+	var lineno = 0, n_pri = 0, n_2nd = 0, n_seq = 0, n_cigar_64k = 0, l_tot = 0, l_cov = 0;
+	var n_gap = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]];
+
+	function cov_len(regs)
+	{
+		regs.sort(function(a,b) {return a[0]-b[0]});
+		var st = regs[0][0], en = regs[0][1], l = 0;
+		for (var i = 1; i < regs.length; ++i) {
+			if (regs[i][0] < en)
+				en = en > regs[i][1]? en : regs[i][1];
+			else l += en - st, st = regs[i][0], en = regs[i][1];
+		}
+		l += en - st;
+		return l;
+	}
+
+	var last = null, last_qlen = null, regs = [];
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		++lineno;
+		if (line.charAt(0) != '@') {
+			var t = line.split("\t", 12);
+			var m, rs, cigar = null, is_pri = false, is_sam = false, is_rev = false, tname = null;
+			var atlen = null, aqlen, qs, qe, mapq, ori_qlen;
+			if (t[4] == '+' || t[4] == '-') { // PAF
+				if (!/\ts2:i:\d+/.test(line)) {
+					++n_2nd;
+					continue;
+				}
+				if ((m = /\tcg:Z:(\S+)/.exec(line)) != null)
+					cigar = m[1];
+				if (cigar == null) {
+					warn("WARNING: no CIGAR at line " + lineno);
+					continue;
+				}
+				tname = t[5];
+				qs = parseInt(t[2]), qe = parseInt(t[3]);
+				aqlen = qe - qs;
+				is_rev = t[4] == '+'? false : true;
+				rs = parseInt(t[7]);
+				atlen = parseInt(t[8]) - rs;
+				mapq = parseInt(t[11]);
+				ori_qlen = parseInt(t[1]);
+			} else { // SAM
+				var flag = parseInt(t[1]);
+				if ((flag & 4) || t[2] == '*' || t[5] == '*') continue;
+				if (flag & 0x100) {
+					++n_2nd;
+					continue;
+				}
+				cigar = t[5];
+				tname = t[2];
+				rs = parseInt(t[3]) - 1;
+				mapq = parseInt(t[4]);
+				aqlen = t[9].length;
+				is_sam = true;
+				is_rev = !!(flag&0x10);
+			}
+			++n_pri;
+			if (last != t[0]) {
+				if (last != null) {
+					l_tot += last_qlen;
+					l_cov += cov_len(regs);
+				}
+				regs = [];
+				++n_seq, last = t[0];
+			}
+			var M = 0, tl = 0, ql = 0, clip = [0, 0], n_cigar = 0, sclip = 0;
+			while ((m = re.exec(cigar)) != null) {
+				var l = parseInt(m[1]);
+				++n_cigar;
+				if (m[2] == 'M' || m[2] == '=' || m[2] == 'X') {
+					tl += l, ql += l, M += l;
+				} else if (m[2] == 'I' || m[2] == 'D') {
+					var type;
+					if (l < 50) type = 0;
+					else if (l < 100) type = 1;
+					else if (l < 300) type = 2;
+					else if (l < 400) type = 3;
+					else if (l < 1000) type = 4;
+					else type = 5;
+					if (m[2] == 'I') ql += l, ++n_gap[0][type];
+					else tl += l, ++n_gap[1][type];
+					if (gap_out_len != null && l >= gap_out_len)
+						print(t[0], ql, is_rev? '-' : '+', tname, rs + tl, m[2], l);
+				} else if (m[2] == 'N') {
+					tl += l;
+				} else if (m[2] == 'S') {
+					clip[M == 0? 0 : 1] = l, sclip += l;
+				} else if (m[2] == 'H') {
+					clip[M == 0? 0 : 1] = l;
+				}
+			}
+			if (n_cigar > 65535) ++n_cigar_64k;
+			if (ql + sclip != aqlen)
+				warn("WARNING: aligned query length is inconsistent with CIGAR at line " + lineno + " (" + (ql+sclip) + " != " + aqlen + ")");
+			if (atlen != null && atlen != tl)
+				warn("WARNING: aligned reference length is inconsistent with CIGAR at line " + lineno);
+			if (is_sam) {
+				qs = clip[is_rev? 1 : 0], qe = qs + ql;
+				ori_qlen = clip[0] + ql + clip[1];
+			}
+			regs.push([qs, qe]);
+			last_qlen = ori_qlen;
+		}
+	}
+	l_tot += last_qlen;
+	l_cov += cov_len(regs);
+
+	file.close();
+	buf.destroy();
+
+	if (gap_out_len == null) {
+		print("Number of mapped sequences: " + n_seq);
+		print("Number of primary alignments: " + n_pri);
+		print("Number of secondary alignments: " + n_2nd);
+		print("Number of primary alignments with >65535 CIGAR operations: " + n_cigar_64k);
+		print("Number of bases in mapped sequences: " + l_tot);
+		print("Number of mapped bases: " + l_cov);
+		print("Number of insertions in [0,50): " + n_gap[0][0]);
+		print("Number of insertions in [50,100): " + n_gap[0][1]);
+		print("Number of insertions in [100,300): " + n_gap[0][2]);
+		print("Number of insertions in [300,400): " + n_gap[0][3]);
+		print("Number of insertions in [400,1000): " + n_gap[0][4]);
+		print("Number of insertions in [1000,inf): " + n_gap[0][5]);
+		print("Number of deletions in [0,50): " + n_gap[1][0]);
+		print("Number of deletions in [50,100): " + n_gap[1][1]);
+		print("Number of deletions in [100,300): " + n_gap[1][2]);
+		print("Number of deletions in [300,400): " + n_gap[1][3]);
+		print("Number of deletions in [400,1000): " + n_gap[1][4]);
+		print("Number of deletions in [1000,inf): " + n_gap[1][5]);
+	}
+}
+
 /**************************
  *** Conversion related ***
  **************************/
@@ -493,6 +642,122 @@ function paf_view(args)
 	buf.destroy();
 
 	s_ref.destroy(); s_qry.destroy(); s_mid.destroy();
+}
+
+function paf_gff2bed(args)
+{
+	var c, fn_ucsc_fai = null, is_short = false;
+	while ((c = getopt(args, "u:s")) != null) {
+		if (c == 'u') fn_ucsc_fai = getopt.arg;
+		else if (c == 's') is_short = true;
+	}
+
+	if (getopt.ind == args.length) {
+		print("Usage: paftools.js gff2bed [-u ucsc-genome.fa.fai] <in.gff>");
+		exit(1);
+	}
+
+	var ens2ucsc = {};
+	if (fn_ucsc_fai != null) {
+		var buf = new Bytes();
+		var file = new File(fn_ucsc_fai);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var s = t[0];
+			if (/_(random|alt|decoy)$/.test(s)) {
+				s = s.replace(/_(random|alt|decoy)$/, '');
+				s = s.replace(/^chr\S+_/, '');
+			} else {
+				s = s.replace(/^chrUn_/, '');
+			}
+			s = s.replace(/v(\d+)/, ".$1");
+			if (s != t[0]) ens2ucsc[s] = t[0];
+		}
+		file.close();
+		buf.destroy();
+	}
+
+	var colors = {
+		'protein_coding':'0,128,255',
+		'lincRNA':'0,192,0',
+		'snRNA':'0,192,0',
+		'miRNA':'0,192,0',
+		'misc_RNA':'0,192,0'
+	};
+
+	function print_bed12(exons, cds_st, cds_en, is_short)
+	{
+		if (exons.length == 0) return;
+		var name = is_short? exons[0][7] + "|" + exons[0][5] : exons[0].slice(4, 7).join("|");
+		var a = exons.sort(function(a,b) {return a[1]-b[1]});
+		var sizes = [], starts = [], st, en;
+		st = a[0][1];
+		en = a[a.length - 1][2];
+		if (cds_st == 1<<30) cds_st = st;
+		if (cds_en == 0) cds_en = en;
+		if (cds_st < st || cds_en > en)
+			throw Error("inconsistent thick start or end for transcript " + a[0][4]);
+		for (var i = 0; i < a.length; ++i) {
+			sizes.push(a[i][2] - a[i][1]);
+			starts.push(a[i][1] - st);
+		}
+		var color = colors[a[0][5]];
+		if (color == null) color = '196,196,196';
+		print(a[0][0], st, en, name, 1000, a[0][3], cds_st, cds_en, color, a.length, sizes.join(",") + ",", starts.join(",") + ",");
+	}
+
+	var re_gtf = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name) "([^"]+)";/g;
+	var re_gff3 = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name)=([^;]+)/g;
+	var buf = new Bytes();
+	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
+
+	var exons = [], cds_st = 1<<30, cds_en = 0, last_id = null;
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (t[0].charAt(0) == '#') continue;
+		if (t[2] != "CDS" && t[2] != "exon") continue;
+		t[3] = parseInt(t[3]) - 1;
+		t[4] = parseInt(t[4]);
+		var id = null, type = "", gname = "N/A", biotype = "", m, tname = "N/A";
+		while ((m = re_gtf.exec(t[8])) != null) {
+			if (m[1] == "transcript_id") id = m[2];
+			else if (m[1] == "transcript_type") type = m[2];
+			else if (m[1] == "transcript_biotype") biotype = m[2];
+			else if (m[1] == "gene_name") name = m[2];
+			else if (m[1] == "transcript_name") tname = m[2];
+		}
+		while ((m = re_gff3.exec(t[8])) != null) {
+			if (m[1] == "transcript_id") id = m[2];
+			else if (m[1] == "transcript_type") type = m[2];
+			else if (m[1] == "transcript_biotype") biotype = m[2];
+			else if (m[1] == "gene_name") name = m[2];
+			else if (m[1] == "transcript_name") tname = m[2];
+		}
+		if (type == "" && biotype != "") type = biotype;
+		if (id == null) throw Error("No transcript_id");
+		if (id != last_id) {
+			print_bed12(exons, cds_st, cds_en, is_short);
+			exons = [], cds_st = 1<<30, cds_en = 0;
+			last_id = id;
+		}
+		if (t[2] == "CDS") {
+			cds_st = cds_st < t[3]? cds_st : t[3];
+			cds_en = cds_en > t[4]? cds_en : t[4];
+		} else if (t[2] == "exon") {
+			if (fn_ucsc_fai != null) {
+				if (ens2ucsc[t[0]] != null)
+					t[0] = ens2ucsc[t[0]];
+				else if (/^[A-Z]+\d+\.\d+$/.test(t[0]))
+					t[0] = t[0].replace(/([A-Z]+\d+)\.(\d+)/, "chrUn_$1v$2");
+			}
+			exons.push([t[0], t[3], t[4], t[6], id, type, name, tname]);
+		}
+	}
+	if (last_id != null)
+		print_bed12(exons, cds_st, cds_en, is_short);
+
+	file.close();
+	buf.destroy();
 }
 
 function paf_sam2paf(args)
@@ -1081,7 +1346,9 @@ function main(args)
 		print("  view       convert PAF to BLAST-like (for eyeballing) or MAF");
 		print("  sam2paf    convert SAM to PAF");
 		print("  splice2bed convert spliced alignment in PAF/SAM to BED12");
+		print("  gff2bed    convert GTF/GFF3 to BED12");
 		print("");
+		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
@@ -1095,6 +1362,8 @@ function main(args)
 	if (cmd == 'view') paf_view(args);
 	else if (cmd == 'sam2paf') paf_sam2paf(args);
 	else if (cmd == 'splice2bed') paf_splice2bed(args);
+	else if (cmd == 'gff2bed') paf_gff2bed(args);
+	else if (cmd == 'stat') paf_stat(args);
 	else if (cmd == 'call') paf_call(args);
 	else if (cmd == 'mapeval') paf_mapeval(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
