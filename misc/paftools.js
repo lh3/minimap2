@@ -840,6 +840,69 @@ function paf_sam2paf(args)
 	file.close();
 }
 
+function paf_delta2paf(args)
+{
+	if (args.length == 0) {
+		print("Usage: paftools.js delta2paf <in.delta>");
+		exit(1);
+	}
+
+	var buf = new Bytes();
+	var file = args[0] == '-'? new File() : new File(args[0]);
+
+	var rname, qname, rlen, qlen, qs, qe, rs, re, strand, NM, cigar, x, y, seen_gt = false;
+	while (file.readline(buf) >= 0) {
+		var m, line = buf.toString();
+		if ((m = /^>(\S+)\s+(\S+)\s+(\d+)\s+(\d+)/.exec(line)) != null) {
+			rname = m[1], qname = m[2], rlen = parseInt(m[3]), qlen = parseInt(m[4]);
+			seen_gt = true;
+			continue;
+		}
+		if (!seen_gt) continue;
+		var t = line.split(" ");
+		if (t.length == 7) {
+			for (var i = 0; i < 5; ++i)
+				t[i] = parseInt(t[i]);
+			strand = ((t[0] < t[1] && t[2] < t[3]) || (t[0] > t[1] && t[2] > t[3]))? 1 : -1;
+			rs = (t[0] < t[1]? t[0] : t[1]) - 1;
+			re = t[1] > t[0]? t[1] : t[0];
+			qs = (t[2] < t[3]? t[2] : t[3]) - 1;
+			qe = t[3] > t[2]? t[3] : t[2];
+			x = y = 0;
+			NM = parseInt(t[4]);
+			cigar = [];
+		} else if (t.length == 1) {
+			var d = parseInt(t[0]);
+			if (d == 0) {
+				var blen = 0, cigar_str = [];
+				if (re - rs - x != qe - qs - y) throw Error("inconsisnt alignment");
+				cigar.push((re - rs - x) << 4);
+				for (var i = 0; i < cigar.length; ++i) {
+					blen += cigar[i] >> 4;
+					cigar_str.push((cigar[i]>>4) + "MID".charAt(cigar[i]&0xf));
+				}
+				print([qname, qlen, qs, qe, strand > 0? '+' : '-', rname, rlen, rs, re, blen - NM, blen, 0, "NM:i:" + NM, "cg:Z:" + cigar_str.join("")].join("\t"));
+			} else if (d > 0) {
+				var l = d - 1;
+				x += l + 1, y += l;
+				if (l > 0) cigar.push(l<<4);
+				if (cigar.length > 0 && (cigar[cigar.length-1]&0xf) == 2)
+					cigar[cigar.length-1] += 1<<4;
+				else cigar.push(1<<4|2); // deletion
+			} else {
+				var l = -d - 1;
+				x += l, y += l + 1;
+				if (l > 0) cigar.push(l<<4);
+				if (cigar.length > 0 && (cigar[cigar.length-1]&0xf) == 1)
+					cigar[cigar.length-1] += 1<<4;
+				else cigar.push(1<<4|1); // insertion
+			}
+		}
+	}
+	file.close();
+	buf.destroy();
+}
+
 function paf_splice2bed(args)
 {
 	var colors = ["0,128,255", "255,0,0", "0,192,0"];
@@ -1494,8 +1557,9 @@ function main(args)
 		print("Usage: paftools.js <command> [arguments]");
 		print("Commands:");
 		print("  view       convert PAF to BLAST-like (for eyeballing) or MAF");
-		print("  sam2paf    convert SAM to PAF");
 		print("  splice2bed convert spliced alignment in PAF/SAM to BED12");
+		print("  sam2paf    convert SAM to PAF");
+		print("  delta2paf  convert MUMmer's delta to PAF");
 		print("  gff2bed    convert GTF/GFF3 to BED12");
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
@@ -1512,6 +1576,7 @@ function main(args)
 	var cmd = args.shift();
 	if (cmd == 'view') paf_view(args);
 	else if (cmd == 'sam2paf') paf_sam2paf(args);
+	else if (cmd == 'delta2paf') paf_delta2paf(args);
 	else if (cmd == 'splice2bed') paf_splice2bed(args);
 	else if (cmd == 'gff2bed') paf_gff2bed(args);
 	else if (cmd == 'stat') paf_stat(args);
