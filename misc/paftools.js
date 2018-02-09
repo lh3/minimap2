@@ -330,6 +330,363 @@ function paf_call(args)
 }
 
 /**************************
+ *** Conversion related ***
+ **************************/
+
+function paf_view(args)
+{
+	var c, line_len = 80, fmt = "aln";
+	while ((c = getopt(args, "f:l:")) != null) {
+		if (c == 'f') {
+			fmt = getopt.arg;
+			if (fmt != "aln" && fmt != "lastz-cigar" && fmt != "maf")
+				throw Error("format must be one of aln, lastz-cigar and maf");
+		} else if (c == 'l') line_len = parseInt(getopt.arg);
+	}
+	if (line_len == 0) line_len = 0x7fffffff;
+
+	if (getopt.ind == args.length) {
+		print("Usage: paftools.js view [options] <in.paf>");
+		print("Options:");
+		print("  -f STR    output format: aln (BLAST-like), maf or lastz-cigar [aln]");
+		print("  -l INT    line length in BLAST-like output [80]");
+		exit(1);
+	}
+
+	function padding_str(x, len, right)
+	{
+		var s = x.toString();
+		if (s.length < len) {
+			if (right) s += Array(len - s.length + 1).join(" ");
+			else s = Array(len - s.length + 1).join(" ") + s;
+		}
+		return s;
+	}
+
+	function update_aln(s_ref, s_qry, s_mid, type, seq, slen)
+	{
+		var l = type == '*'? 1 : seq.length;
+		if (type == '=' || type == ':') {
+			s_ref.set(seq);
+			s_qry.set(seq);
+			s_mid.set(Array(l+1).join("|"));
+			slen[0] += l, slen[1] += l;
+		} else if (type == '*') {
+			s_ref.set(seq.charAt(0));
+			s_qry.set(seq.charAt(1));
+			s_mid.set(' ');
+			slen[0] += 1, slen[1] += 1;
+		} else if (type == '+') {
+			s_ref.set(Array(l+1).join("-"));
+			s_qry.set(seq);
+			s_mid.set(Array(l+1).join(" "));
+			slen[1] += l;
+		} else if (type == '-') {
+			s_ref.set(seq);
+			s_qry.set(Array(l+1).join("-"));
+			s_mid.set(Array(l+1).join(" "));
+			slen[0] += l;
+		}
+	}
+
+	function print_aln(rs, qs, strand, slen, elen, s_ref, s_qry, s_mid)
+	{
+		print(["Ref+:", padding_str(rs + slen[0] + 1, 10, false), s_ref.toString(), padding_str(rs + elen[0], 10, true)].join(" "));
+		print("                 " + s_mid.toString());
+		var st, en;
+		if (strand == '+') st = qs + slen[1] + 1, en = qs + elen[1];
+		else st = qs - slen[1], en = qs - elen[1] + 1;
+		print(["Qry" + strand + ":", padding_str(st, 10, false), s_qry.toString(), padding_str(en, 10, true)].join(" "));
+	}
+
+	var s_ref = new Bytes(), s_qry = new Bytes(), s_mid = new Bytes(); // these are used to show padded alignment
+	var re_cs = /([:=\-\+\*])(\d+|[A-Za-z]+)/g;
+	var re_cg = /(\d+)([MIDNSH])/g;
+
+	var buf = new Bytes();
+	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+	var lineno = 0;
+	if (fmt == "maf") print("##maf version=1\n");
+	while (file.readline(buf) >= 0) {
+		var m, line = buf.toString();
+		var t = line.split("\t", 12);
+		++lineno;
+		s_ref.length = s_qry.length = s_mid.length = 0;
+		var slen = [0, 0], elen = [0, 0];
+		if (fmt == "lastz-cigar") { // LASTZ-cigar output
+			var cg = (m = /\tcg:Z:(\S+)/.exec(line)) != null? m[1] : null;
+			if (cg == null) {
+				warn("WARNING: converting to LASTZ-cigar format requires the 'cg' tag, which is absent on line " + lineno);
+				continue;
+			}
+			var score = (m = /\tAS:i:(\d+)/.exec(line)) != null? m[1] : 0;
+			var out = ['cigar:', t[0], t[2], t[3], t[4], t[5], t[7], t[8], '+', score];
+			while ((m = re_cg.exec(cg)) != null)
+				out.push(m[2], m[1]);
+			print(out.join(" "));
+		} else if (fmt == "maf") { // MAF output
+			var cs = (m = /\tcs:Z:(\S+)/.exec(line)) != null? m[1] : null;
+			if (cs == null) {
+				warn("WARNING: converting to MAF requires the 'cs' tag, which is absent on line " + lineno);
+				continue;
+			}
+			while ((m = re_cs.exec(cs)) != null) {
+				if (m[1] == ':')
+					throw Error("converting to MAF only works with 'minimap2 --cs=long'");
+				update_aln(s_ref, s_qry, s_mid, m[1], m[2], elen);
+			}
+			var score = (m = /\tAS:i:(\d+)/.exec(line)) != null? parseInt(m[1]) : 0;
+			var len = t[0].length > t[5].length? t[0].length : t[5].length;
+			print("a " + score);
+			print(["s", padding_str(t[5], len, true), padding_str(t[7], 10, false), padding_str(parseInt(t[8]) - parseInt(t[7]), 10, false),
+					"+", padding_str(t[6], 10, false), s_ref.toString()].join(" "));
+			var qs, qe, ql = parseInt(t[1]);
+			if (t[4] == '+') {
+				qs = parseInt(t[2]);
+				qe = parseInt(t[3]);
+			} else {
+				qs = ql - parseInt(t[3]);
+				qe = ql - parseInt(t[2]);
+			}
+			print(["s", padding_str(t[0], len, true), padding_str(qs, 10, false), padding_str(qe - qs, 10, false),
+					t[4], padding_str(ql, 10, false), s_qry.toString()].join(" "));
+			print("");
+		} else { // BLAST-like output
+			var cs = (m = /\tcs:Z:(\S+)/.exec(line)) != null? m[1] : null;
+			if (cs == null) {
+				warn("WARNING: converting to BLAST-like alignment requires the 'cs' tag, which is absent on line " + lineno);
+				continue;
+			}
+			line = line.replace(/\tc[sg]:Z:\S+/g, ""); // get rid of cs or cg tags
+			print('>' + line);
+			var rs = parseInt(t[7]), qs = t[4] == '+'? parseInt(t[2]) : parseInt(t[3]);
+			var n_blocks = 0;
+			while ((m = re_cs.exec(cs)) != null) {
+				if (m[1] == ':') m[2] = Array(parseInt(m[2]) + 1).join("=");
+				var start = 0, rest = m[1] == '*'? 1 : m[2].length;
+				while (rest > 0) {
+					var l_proc;
+					if (s_ref.length + rest >= line_len) {
+						l_proc = line_len - s_ref.length;
+						update_aln(s_ref, s_qry, s_mid, m[1], m[1] == '*'? m[2] : m[2].substr(start, l_proc), elen);
+						if (n_blocks > 0) print("");
+						print_aln(rs, qs, t[4], slen, elen, s_ref, s_qry, s_mid);
+						++n_blocks;
+						s_ref.length = s_qry.length = s_mid.length = 0;
+						slen[0] = elen[0], slen[1] = elen[1];
+					} else {
+						l_proc = rest;
+						update_aln(s_ref, s_qry, s_mid, m[1], m[1] == '*'? m[2] : m[2].substr(start, l_proc), elen);
+					}
+					rest -= l_proc, start += l_proc;
+				}
+			}
+			if (s_ref.length > 0) {
+				if (n_blocks > 0) print("");
+				print_aln(rs, qs, t[4], slen, elen, s_ref, s_qry, s_mid);
+				++n_blocks;
+			}
+			print("//");
+		}
+	}
+	file.close();
+	buf.destroy();
+
+	s_ref.destroy(); s_qry.destroy(); s_mid.destroy();
+}
+
+function paf_sam2paf(args)
+{
+	var c, pri_only = false;
+	while ((c = getopt(args, "p")) != null)
+		if (c == 'p') pri_only = true;
+
+	var file = args.length == getopt.ind || args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+	var buf = new Bytes();
+	var re = /(\d+)([MIDSHNX=])/g;
+
+	var len = {}, lineno = 0;
+	while (file.readline(buf) >= 0) {
+		var m, n_cigar = 0, line = buf.toString();
+		++lineno;
+		if (line.charAt(0) == '@') {
+			if (/^@SQ/.test(line)) {
+				var name = (m = /\tSN:(\S+)/.exec(line)) != null? m[1] : null;
+				var l = (m = /\tLN:(\d+)/.exec(line)) != null? parseInt(m[1]) : null;
+				if (name != null && l != null) len[name] = l;
+			}
+			continue;
+		}
+		var t = line.split("\t");
+		var flag = parseInt(t[1]);
+		if (t[9] != '*' && t[10] != '*' && t[9].length != t[10].length) throw Error("ERROR at line " + lineno + ": inconsistent SEQ and QUAL lengths - " + t[9].length + " != " + t[10].length);
+		if (t[2] == '*' || (flag&4)) continue;
+		if (pri_only && (flag&0x100)) continue;
+		var tlen = len[t[2]];
+		if (tlen == null) throw Error("ERROR at line " + lineno + ": can't find the length of contig " + t[2]);
+		var nn = (m = /\tnn:i:(\d+)/.exec(line)) != null? parseInt(m[1]) : 0;
+		var NM = (m = /\tNM:i:(\d+)/.exec(line)) != null? parseInt(m[1]) : null;
+		var have_NM = NM == null? false : true;
+		NM += nn;
+		var clip = [0, 0], I = [0, 0], D = [0, 0], M = 0, N = 0, ql = 0, tl = 0, mm = 0, ext_cigar = false;
+		while ((m = re.exec(t[5])) != null) {
+			var l = parseInt(m[1]);
+			if (m[2] == 'M') M += l, ql += l, tl += l, ext_cigar = false;
+			else if (m[2] == 'I') ++I[0], I[1] += l, ql += l;
+			else if (m[2] == 'D') ++D[0], D[1] += l, tl += l;
+			else if (m[2] == 'N') N += l, tl += l;
+			else if (m[2] == 'S') clip[M == 0? 0 : 1] = l, ql += l;
+			else if (m[2] == 'H') clip[M == 0? 0 : 1] = l;
+			else if (m[2] == '=') M += l, ql += l, tl += l, ext_cigar = true;
+			else if (m[2] == 'X') M += l, ql += l, tl += l, mm += l, ext_cigar = true;
+			++n_cigar;
+		}
+		if (n_cigar > 65535)
+			warn("WARNING at line " + lineno + ": " + n_cigar + " CIGAR operations");
+		if (tl + parseInt(t[3]) - 1 > tlen) {
+			warn("WARNING at line " + lineno + ": alignment end position larger than ref length; skipped");
+			continue;
+		}
+		if (t[9] != '*' && t[9].length != ql) {
+			warn("WARNING at line " + lineno + ": SEQ length inconsistent with CIGAR (" + t[9].length + " != " + ql + "); skipped");
+			continue;
+		}
+		if (!have_NM || ext_cigar) NM = I[1] + D[1] + mm;
+		if (NM < I[1] + D[1] + mm) {
+			warn("WARNING at line " + lineno + ": NM is less than the total number of gaps (" + NM + " < " + (I[1]+D[1]+mm) + ")");
+			NM = I[1] + D[1] + mm;
+		}
+		var extra = ["mm:i:"+(NM-I[1]-D[1]), "io:i:"+I[0], "in:i:"+I[1], "do:i:"+D[0], "dn:i:"+D[1]];
+		var match = M - (NM - I[1] - D[1]);
+		var blen = M + I[1] + D[1];
+		var qlen = M + I[1] + clip[0] + clip[1];
+		var qs, qe;
+		if (flag&16) qs = clip[1], qe = qlen - clip[0];
+		else qs = clip[0], qe = qlen - clip[1];
+		var ts = parseInt(t[3]) - 1, te = ts + M + D[1] + N;
+		var qname = t[0];
+		if ((flag&1) && (flag&0x40)) qname += '/1';
+		if ((flag&1) && (flag&0x80)) qname += '/2';
+		var a = [qname, qlen, qs, qe, flag&16? '-' : '+', t[2], tlen, ts, te, match, blen, t[4]];
+		print(a.join("\t"), extra.join("\t"));
+	}
+
+	buf.destroy();
+	file.close();
+}
+
+function paf_splice2bed(args)
+{
+	var colors = ["0,128,255", "255,0,0", "0,192,0"];
+
+	function print_lines(a, fmt)
+	{
+		if (a.length == 0) return;
+		if (fmt == "bed") {
+			var n_pri = 0;
+			for (var i = 0; i < a.length; ++i)
+				if (a[i][8] == 0) ++n_pri;
+			if (n_pri > 1) {
+				for (var i = 0; i < a.length; ++i)
+					if (a[i][8] == 0) a[i][8] = 1;
+			} else if (n_pri == 0) {
+				warn("Warning: " + a[0][3] + " doesn't have a primary alignment");
+			}
+			for (var i = 0; i < a.length; ++i) {
+				a[i][8] = colors[a[i][8]];
+				print(a[i].join("\t"));
+			}
+		}
+		a.length = 0;
+	}
+
+	var re = /(\d+)([MIDNSH])/g;
+	var c, fmt = "bed", fn_name_conv = null;
+	while ((c = getopt(args, "f:n:")) != null) {
+		if (c == 'f') fmt = getopt.arg;
+		else if (c == 'n') fn_name_conv = getopt.arg;
+	}
+	if (getopt.ind == args.length) {
+		warn("Usage: paftools.js splice2bed <in.paf>|<in.sam>");
+		exit(1);
+	}
+
+	var conv = null;
+	if (fn_name_conv != null) {
+		conv = new Map();
+		var file = new File(fn_name_conv);
+		var buf = new Bytes();
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			conv.put(t[0], t[1]);
+		}
+		buf.destroy();
+		file.close();
+	}
+
+	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
+	var buf = new Bytes();
+	var a = [];
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		if (line.charAt(0) == '@') continue; // skip SAM header lines
+		var t = line.split("\t");
+		var is_pri = false, cigar = null, a1;
+		var qname = conv != null? conv.get(t[0]) : null;
+		if (qname != null) t[0] = qname;
+		if (t.length >= 10 && t[4] != '+' && t[4] != '-' && /^\d+/.test(t[1])) { // SAM
+			var flag = parseInt(t[1]);
+			if (flag&1) t[0] += '/' + (flag>>6&3);
+		}
+		if (a.length && a[0][3] != t[0]) {
+			print_lines(a, fmt);
+			a = [];
+		}
+		if (t.length >= 12 && (t[4] == '+' || t[4] == '-')) { // PAF
+			for (var i = 12; i < t.length; ++i) {
+				if (t[i].substr(0, 5) == 'cg:Z:') {
+					cigar = t[i].substr(5);
+				} else if (t[i].substr(0, 5) == 's2:i:') {
+					is_pri = true;
+				}
+			}
+			a1 = [t[5], t[7], t[8], t[0], Math.floor(t[9]/t[10]*1000), t[4]];
+		} else if (t.length >= 10) { // SAM
+			var flag = parseInt(t[1]);
+			if ((flag&4) || a[2] == '*') continue;
+			cigar = t[5];
+			is_pri = (flag&0x100)? false : true;
+			a1 = [t[2], parseInt(t[3])-1, null, t[0], 1000, (flag&16)? '-' : '+'];
+		} else {
+			throw Error("unrecognized input format");
+		}
+		if (cigar == null) throw Error("missing CIGAR");
+		var m, x0 = 0, x = 0, bs = [], bl = [];
+		while ((m = re.exec(cigar)) != null) {
+			if (m[2] == 'M' || m[2] == 'D') {
+				x += parseInt(m[1]);
+			} else if (m[2] == 'N') {
+				bs.push(x0);
+				bl.push(x - x0);
+				x += parseInt(m[1]);
+				x0 = x;
+			}
+		}
+		bs.push(x0);
+		bl.push(x - x0);
+		// write the BED12 line
+		if (a1[2] == null) a1[2] = a1[1] + x;
+		a1.push(a1[1], a1[2]); // thick start/end is the same as start/end
+		a1.push(is_pri? 0 : 2, bs.length, bl.join(",")+",", bs.join(",")+",");
+		a.push(a1);
+	}
+	print_lines(a, fmt);
+	buf.destroy();
+	file.close();
+	if (conv != null) conv.destroy();
+}
+
+/**************************
  *** Evaluation related ***
  **************************/
 
@@ -640,6 +997,7 @@ function paf_pbsim2fq(args)
 	buf2.destroy();
 }
 
+// evaluate overlap sensitivity
 function paf_ov_eval(args)
 {
 	var c, min_ovlp = 2000, min_frac = 0.95, min_mapq = 10;
@@ -720,6 +1078,10 @@ function main(args)
 	if (args.length == 0) {
 		print("Usage: paftools.js <command> [arguments]");
 		print("Commands:");
+		print("  view       convert PAF to BLAST-like (for eyeballing) or MAF");
+		print("  sam2paf    convert SAM to PAF");
+		print("  splice2bed convert spliced alignment in PAF/SAM to BED12");
+		print("");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
@@ -730,7 +1092,10 @@ function main(args)
 	}
 
 	var cmd = args.shift();
-	if (cmd == 'call') paf_call(args);
+	if (cmd == 'view') paf_view(args);
+	else if (cmd == 'sam2paf') paf_sam2paf(args);
+	else if (cmd == 'splice2bed') paf_splice2bed(args);
+	else if (cmd == 'call') paf_call(args);
 	else if (cmd == 'mapeval') paf_mapeval(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
