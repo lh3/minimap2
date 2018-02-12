@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-// Version: r697
+// Version: r702
 
 /*****************************
  ***** Library functions *****
@@ -163,6 +163,10 @@ Bytes.prototype.revcomp = function()
 /********************
  ***** paftools *****
  ********************/
+
+/*****************
+ * Miscellaneous *
+ *****************/
 
 // liftover
 function paf_liftover(args)
@@ -739,9 +743,9 @@ function paf_bedcov(args)
 	warn("# target bases overlapping regions: " + hit_len + ' (' + (100.0 * hit_len / tot_len).toFixed(2) + '%)');
 }
 
-/**************************
- *** Conversion related ***
- **************************/
+/**********************
+ * Conversion related *
+ **********************/
 
 function paf_view(args)
 {
@@ -1279,9 +1283,9 @@ function paf_splice2bed(args)
 	if (conv != null) conv.destroy();
 }
 
-/**************************
- *** Evaluation related ***
- **************************/
+/**********************
+ * Evaluation related *
+ **********************/
 
 // evaluate mapping accuracy
 function paf_mapeval(args)
