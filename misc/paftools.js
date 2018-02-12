@@ -164,6 +164,140 @@ Bytes.prototype.revcomp = function()
  ***** paftools *****
  ********************/
 
+// liftover
+function paf_liftover(args)
+{
+	function read_bed(fn, to_merge)
+	{
+		if (fn == null) return null;
+		if (typeof to_merge == 'undefined') to_merge = true;
+		var file = new File(fn);
+		var buf = new Bytes();
+		var bed = {};
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			if (bed[t[0]] == null) bed[t[0]] = [];
+			bed[t[0]].push([parseInt(t[1]), parseInt(t[2])]);
+		}
+		buf.destroy();
+		file.close();
+
+		for (var chr in bed) {
+			Interval.sort(bed[chr]);
+			if (to_merge)
+				Interval.merge(bed[chr], true);
+			Interval.index_end(bed[chr], true);
+		}
+		return bed;
+	}
+
+	var re_cigar = /(\d+)([MID])/g, re_tag = /^(\S\S):([AZif]):(\S+)$/;
+	var c, to_merge = false, min_mapq = 5, min_len = 50000, max_div = 2.0;
+	var re = /(\d+)([MID])/g;
+	while ((c = getopt(args, "mq:l:d:")) != null) {
+		if (c == 'm') to_merge = true;
+		else if (c == 'q') min_mapq = parseInt(getopt.arg);
+		else if (c == 'l') min_len = parseInt(getopt.arg);
+		else if (c == 'd') max_div = parseFloat(getopt.arg);
+	}
+	if (args.length - getopt.ind < 2) {
+		print("Usage: paftools.js liftover [options] <aln.paf> <query.bed>");
+		print("Options:");
+		print("  -q INT    min mapping quality [" + min_mapq + "]");
+		print("  -l INT    min alignment length [" + min_len + "]");
+		print("  -d FLOAT  max sequence divergence (>=1 to disable) [1]");
+		exit(1);
+	}
+	var bed = read_bed(args[getopt.ind+1], to_merge);
+
+	var file = new File(args[getopt.ind]);
+	var buf = new Bytes();
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+
+		if (bed[t[0]] == null) continue; // sequence not present in BED; skip
+
+		// parse tp and cg tags
+		var m, tp = null, cg = null;
+		for (var i = 12; i < t.length; ++i) {
+			if ((m = re_tag.exec(t[i])) != null) {
+				if (m[1] == 'tp') tp = m[3];
+				else if (m[1] == 'cg') cg = m[3];
+			}
+		}
+		if (tp != 'P' && tp != 'I') continue; // only process primary alignments
+		if (cg == null) throw Error("unable to find the 'cg' tag");
+
+		// filter out bad alignments and check overlaps
+		for (var i = 1; i <= 3; ++i)
+			t[i] = parseInt(t[i]);
+		for (var i = 6; i <= 11; ++i)
+			t[i] = parseInt(t[i]);
+		if (t[11] < min_mapq || t[10] < min_len) continue;
+		var regs = Interval.find_ovlp(bed[t[0]], t[2], t[3]);
+		if (regs.length == 0) continue; // not overlapping any regions in input BED
+		if (max_div >= 0.0 && max_div < 1.0) {
+			var n_gaps = 0, n_opens = 0;
+			while ((m = re_cigar.exec(cg)) != null)
+				if (m[2] == 'I' || m[2] == 'D')
+					n_gaps += parseInt(m[1]), ++n_opens;
+			var n_mm = t[10] - t[9] - n_gaps;
+			var n_diff2 = n_mm + n_opens;
+			if (n_diff2 / (n_diff2 + t[9]) > max_div)
+				continue;
+		}
+
+		// extract start and end positions
+		var a = [], r = [], strand = t[4];
+		for (var i = 0; i < regs.length; ++i) {
+			var s = regs[i][0], e = regs[i][1];
+			if (strand == '+') {
+				a.push([s, 0, i, -2]);
+				a.push([e - 1, 1, i, -2]);
+			} else {
+				a.push([t[1] - e, 0, i, -2]);
+				a.push([t[1] - s - 1, 1, i, -2]);
+			}
+			r.push([-2, -2]);
+		}
+		a.sort(function(x, y) { return x[0] - y[0] });
+
+		// lift start/end positions
+		var k = 0, x = t[7], y = strand == '+'? t[2] : t[1] - t[3];
+		while ((m = re_cigar.exec(cg)) != null) { // TODO: be more careful about edge cases
+			var len = parseInt(m[1]);
+			if (m[2] == 'D') { // do nothing for D
+				x += len;
+				continue;
+			}
+			while (k < a.length && a[k][0] < y) ++k; // skip out-of-range positions
+			for (var i = k; i < a.length; ++i) {
+				if (y <= a[i][0] && a[i][0] < y + len)
+					a[i][3] = m[2] == 'M'? x + (a[i][0] - y) : x;
+				else break;
+			}
+			y += len;
+			if (m[2] == 'M') x += len;
+		}
+		if (x != t[8] || (strand == '+' && y != t[3]) || (strand == '-' && y != t[1] - t[2]))
+			throw Error("CIGAR is inconsistent with mapping coordinates");
+
+		// generate result
+		for (var i = 0; i < a.length; ++i) {
+			if (a[i][1] == 0) r[a[i][2]][0] = a[i][3];
+			else r[a[i][2]][1] = a[i][3] + 1; // change to half-close-half-open
+		}
+		for (var i = 0; i < r.length; ++i) {
+			var name = [t[0], regs[i][0], regs[i][1]].join("_");
+			if (r[i][0] < 0) name += "_t5", r[i][0] = t[7];
+			if (r[i][1] < 0) name += "_t3", r[i][1] = t[8];
+			print(t[5], r[i][0], r[i][1], name, 0, strand);
+		}
+	}
+	buf.destroy();
+	file.close();
+}
+
 // variant calling
 function paf_call(args)
 {
@@ -1571,6 +1705,7 @@ function main(args)
 		print("  gff2bed    convert GTF/GFF3 to BED12");
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
+		print("  liftover   simplistic liftOver");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
@@ -1588,6 +1723,7 @@ function main(args)
 	else if (cmd == 'splice2bed') paf_splice2bed(args);
 	else if (cmd == 'gff2bed') paf_gff2bed(args);
 	else if (cmd == 'stat') paf_stat(args);
+	else if (cmd == 'liftover' || cmd == 'liftOver') paf_liftover(args);
 	else if (cmd == 'call') paf_call(args);
 	else if (cmd == 'mapeval') paf_mapeval(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
