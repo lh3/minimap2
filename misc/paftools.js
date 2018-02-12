@@ -618,6 +618,127 @@ function paf_stat(args)
 	}
 }
 
+function paf_bedcov(args)
+{
+	function read_bed(fn, to_merge, to_dedup)
+	{
+		var file = new File(fn);
+		var buf = new Bytes();
+		var h = {};
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			if (h[t[0]] == null)
+				h[t[0]] = [];
+			var bst = parseInt(t[1]);
+			var ben = parseInt(t[2]);
+			if (t.length >= 12 && /^\d+$/.test(t[9])) {
+				t[9] = parseInt(t[9]);
+				var sz = t[10].split(",");
+				var st = t[11].split(",");
+				for (var i = 0; i < t[9]; ++i) {
+					st[i] = parseInt(st[i]);
+					sz[i] = parseInt(sz[i]);
+					h[t[0]].push([bst + st[i], bst + st[i] + sz[i], 0, 0, 0]);
+				}
+			} else {
+				h[t[0]].push([bst, ben, 0, 0, 0]);
+			}
+		}
+		buf.destroy();
+		file.close();
+		for (var chr in h) {
+			if (to_merge) Interval.merge(h[chr], false);
+			else if (to_dedup) Interval.dedup(h[chr], false);
+			else Interval.sort(h[chr]);
+			Interval.index_end(h[chr]);
+		}
+		return h;
+	}
+
+	var c, print_len = false, to_merge = true, to_dedup = false, fn_excl = null;
+	while ((c = getopt(args, "pde:")) != null) {
+		if (c == 'p') print_len = true;
+		else if (c == 'd') to_dedup = true, to_merge = false;
+		else if (c == 'e') fn_excl = getopt.arg;
+	}
+
+	if (args.length - getopt.ind < 2) {
+		print("Usage: paftools.js bedcov [options] <regions.bed> <target.bed>");
+		print("Options:");
+		print("  -e FILE    exclude target regions (2nd file) overlapping BED FILE []");
+		print("  -p         print number of covered bases for each target");
+		exit(1);
+	}
+
+	var excl = fn_excl != null? read_bed(fn_excl, true, false) : null;
+	var target = read_bed(args[getopt.ind], to_merge, to_dedup);
+
+	var file, buf = new Bytes();
+	var tot_len = 0, hit_len = 0;
+	file = args[getopt.ind+1] != '-'? new File(args[getopt.ind+1]) : new File();
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		var a = [];
+		var bst = parseInt(t[1]);
+		var ben = parseInt(t[2]);
+		if (t.length >= 12 && /^\d+$/.test(t[9])) { // BED12
+			t[9] = parseInt(t[9]);
+			var sz = t[10].split(",");
+			var st = t[11].split(",");
+			for (var i = 0; i < t[9]; ++i) {
+				st[i] = parseInt(st[i]);
+				sz[i] = parseInt(sz[i]);
+				a.push([bst + st[i], bst + st[i] + sz[i], false]);
+			}
+		} else a.push([bst, ben, false]); // 3-column BED
+		var feat_len = 0;
+		for (var i = 0; i < a.length; ++i) {
+			if (excl != null && excl[t[0]] != null) {
+				var oe = Interval.find_ovlp(excl[t[0]], a[i][0], a[i][1]);
+				if (oe.length > 0)
+					continue;
+			}
+			a[i][2] = true;
+			feat_len += a[i][1] - a[i][0];
+		}
+		tot_len += feat_len;
+		if (target[t[0]] == null) continue;
+		var b = [];
+		for (var i = 0; i < a.length; ++i) {
+			if (!a[i][2]) continue;
+			var o = Interval.find_ovlp(target[t[0]], a[i][0], a[i][1]);
+			for (var j = 0; j < o.length; ++j) {
+				var max_st = o[j][0] > a[i][0]? o[j][0] : a[i][0];
+				var min_en = o[j][1] < a[i][1]? o[j][1] : a[i][1];
+				b.push([max_st, min_en]);
+				o[j][2] += min_en - max_st;
+				++o[j][3];
+				if (max_st == o[j][0] && min_en == o[j][1])
+					++o[j][4];
+			}
+		}
+		// find the length covered
+		var feat_hit_len = 0;
+		if (b.length > 0) {
+			b.sort(function(a,b) {return a[0]-b[0]});
+			var st = b[0][0], en = b[0][1];
+			for (var i = 1; i < b.length; ++i) {
+				if (b[i][0] <= en) en = en > b[i][1]? en : b[i][1];
+				else feat_hit_len += en - st, st = b[i][0], en = b[i][1];
+			}
+			feat_hit_len += en - st;
+		}
+		hit_len += feat_hit_len;
+		if (print_len) print('F', t.slice(0, 4).join("\t"), feat_len, feat_hit_len);
+	}
+	file.close();
+
+	buf.destroy();
+
+	warn("# feature bases: " + tot_len);
+	warn("# feature bases overlapping targets: " + hit_len + ' (' + (100.0 * hit_len / tot_len).toFixed(2) + '%)');
+}
+
 /**************************
  *** Conversion related ***
  **************************/
@@ -1047,7 +1168,7 @@ function paf_splice2bed(args)
 {
 	var colors = ["0,128,255", "255,0,0", "0,192,0"];
 
-	function print_lines(a, fmt)
+	function print_lines(a, fmt, keep_multi)
 	{
 		if (a.length == 0) return;
 		if (fmt == "bed") {
@@ -1061,6 +1182,7 @@ function paf_splice2bed(args)
 				warn("Warning: " + a[0][3] + " doesn't have a primary alignment");
 			}
 			for (var i = 0; i < a.length; ++i) {
+				if (!keep_multi && a[i][8] == 2) continue;
 				a[i][8] = colors[a[i][8]];
 				print(a[i].join("\t"));
 			}
@@ -1069,13 +1191,16 @@ function paf_splice2bed(args)
 	}
 
 	var re = /(\d+)([MIDNSH])/g;
-	var c, fmt = "bed", fn_name_conv = null;
-	while ((c = getopt(args, "f:n:")) != null) {
+	var c, fmt = "bed", fn_name_conv = null, keep_multi = false;
+	while ((c = getopt(args, "f:n:m")) != null) {
 		if (c == 'f') fmt = getopt.arg;
 		else if (c == 'n') fn_name_conv = getopt.arg;
+		else if (c == 'm') keep_multi = true;
 	}
 	if (getopt.ind == args.length) {
-		warn("Usage: paftools.js splice2bed <in.paf>|<in.sam>");
+		print("Usage: paftools.js splice2bed [options] <in.paf>|<in.sam>");
+		print("Options:");
+		print("  -m      keep multiple mappings (SAM flag 0x100)");
 		exit(1);
 	}
 
@@ -1107,7 +1232,7 @@ function paf_splice2bed(args)
 			if (flag&1) t[0] += '/' + (flag>>6&3);
 		}
 		if (a.length && a[0][3] != t[0]) {
-			print_lines(a, fmt);
+			print_lines(a, fmt, keep_multi);
 			a = [];
 		}
 		if (t.length >= 12 && (t[4] == '+' || t[4] == '-')) { // PAF
@@ -1148,7 +1273,7 @@ function paf_splice2bed(args)
 		a1.push(is_pri? 0 : 2, bs.length, bl.join(",")+",", bs.join(",")+",");
 		a.push(a1);
 	}
-	print_lines(a, fmt);
+	print_lines(a, fmt, keep_multi);
 	buf.destroy();
 	file.close();
 	if (conv != null) conv.destroy();
@@ -1707,6 +1832,7 @@ function main(args)
 		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  liftover   simplistic liftOver");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
+		print("  bedcov     compute the number of bases covered");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
@@ -1726,6 +1852,7 @@ function main(args)
 	else if (cmd == 'liftover' || cmd == 'liftOver') paf_liftover(args);
 	else if (cmd == 'call') paf_call(args);
 	else if (cmd == 'mapeval') paf_mapeval(args);
+	else if (cmd == 'bedcov') paf_bedcov(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
 	else if (cmd == 'junceval') paf_junceval(args);
