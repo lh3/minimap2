@@ -735,8 +735,8 @@ function paf_bedcov(args)
 
 	buf.destroy();
 
-	warn("# feature bases: " + tot_len);
-	warn("# feature bases overlapping targets: " + hit_len + ' (' + (100.0 * hit_len / tot_len).toFixed(2) + '%)');
+	warn("# target bases: " + tot_len);
+	warn("# target bases overlapping regions: " + hit_len + ' (' + (100.0 * hit_len / tot_len).toFixed(2) + '%)');
 }
 
 /**************************
