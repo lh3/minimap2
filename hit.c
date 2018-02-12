@@ -245,16 +245,17 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 	}
 }
 
-void mm_filter_regs(void *km, const mm_mapopt_t *opt, int *n_regs, mm_reg1_t *regs)
+void mm_filter_regs(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs)
 { // NB: after this call, mm_reg1_t::parent can be -1 if its parent filtered out
 	int i, k;
 	for (i = k = 0; i < *n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
 		int flt = 0;
 		if (!r->inv && !r->seg_split && r->cnt < opt->min_cnt) flt = 1;
-		if (r->p) {
+		if (r->p) { // these filters are only applied when base-alignment is available
 			if (r->mlen < opt->min_chain_score) flt = 1;
 			else if (r->p->dp_max < opt->min_dp_max) flt = 1;
+			else if (r->qs > qlen * opt->max_clip_ratio && qlen - r->qe > qlen * opt->max_clip_ratio) flt = 1;
 			if (flt) free(r->p);
 		}
 		if (!flt) {
@@ -337,7 +338,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 					r->parent = regs[r->parent].parent;
 			}
 		}
-		mm_filter_regs(km, opt, n_regs_, regs);
+		mm_filter_regs(km, opt, qlen, n_regs_, regs);
 		mm_sync_regs(km, *n_regs_, regs);
 	}
 }
