@@ -40,18 +40,37 @@ Linux or Mac, you can download the precompiled k8 binary with:
 curl -L https://github.com/attractivechaos/k8/releases/download/v0.2.4/k8-0.2.4.tar.bz2 | tar -jxf -
 cp k8-0.2.4/k8-`uname -s` $HOME/bin/k8  # assuming $HOME/bin in your $PATH
 ```
+
 It is highly recommended to copy the executable `k8` to a directory on your
 `$PATH` such as `/usr/bin/env` can find it. Like python scripts, once you
-install `k8`, you can launch these k8 scripts either with
+install `k8`, you can launch paftools.js in one of the two ways:
 
 ```sh
-path/to/paftools.js
+path/to/paftools.js             # only if k8 is on your $PATH
+k8 path/to/paftools.js
 ```
 
-or with
+In a nutshell, paftools.js has the following commands:
 
-```sh
-k8 path/to/paftools.js
+```
+Usage: paftools.js <command> [arguments]
+Commands:
+  view       convert PAF to BLAST-like (for eyeballing) or MAF
+  splice2bed convert spliced alignment in PAF/SAM to BED12
+  sam2paf    convert SAM to PAF
+  delta2paf  convert MUMmer's delta to PAF
+  gff2bed    convert GTF/GFF3 to BED12
+
+  stat       collect basic mapping information in PAF/SAM
+  liftover   simplistic liftOver
+  call       call variants from asm-to-ref alignment with the cs tag
+  bedcov     compute the number of bases covered
+
+  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ
+  mason2fq   convert mason2-simulated SAM to FASTQ
+  pbsim2fq   convert PBSIM-simulated MAF to FASTQ
+  junceval   evaluate splice junction consistency with known annotations
+  ov-eval    evaluate read overlap sensitivity using read-to-ref mapping
 ```
 
 paftools.js seamlessly reads both plain text files and gzip'd text files.
@@ -104,8 +123,8 @@ default.
 
 ### <a name="oveval"></a>Evaluating read overlap sensitivity
 
-Script [ov-eval.js](ov-eval.js) takes sorted read-to-reference alignment and
-read overlaps in PAF as input, and evaluates the sensitivity. For example:
+Command **ov-eval** takes *sorted* read-to-reference alignment and read
+overlaps in PAF as input, and evaluates the sensitivity. For example:
 
 ```sh
 minimap2 -cx map-pb ref.fa reads.fq.gz | sort -k6,6 -k8,8n > reads-to-ref.paf
