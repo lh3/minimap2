@@ -175,7 +175,7 @@ function paf_liftover(args)
 	{
 		if (fn == null) return null;
 		if (typeof to_merge == 'undefined') to_merge = true;
-		var file = new File(fn);
+		var file = fn == '-'? new File() : new File(fn);
 		var buf = new Bytes();
 		var bed = {};
 		while (file.readline(buf) >= 0) {
@@ -214,7 +214,7 @@ function paf_liftover(args)
 	}
 	var bed = read_bed(args[getopt.ind+1], to_merge);
 
-	var file = new File(args[getopt.ind]);
+	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 	var buf = new Bytes();
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
@@ -485,7 +485,7 @@ function paf_stat(args)
 	}
 
 	var buf = new Bytes();
-	var file = new File(args[getopt.ind]);
+	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 	var re = /(\d+)([MIDSHNX=])/g;
 
 	var lineno = 0, n_pri = 0, n_2nd = 0, n_seq = 0, n_cigar_64k = 0, l_tot = 0, l_cov = 0;
