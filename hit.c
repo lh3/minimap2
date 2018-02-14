@@ -94,6 +94,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r2->id = -1;
 	r2->sam_pri = 0;
 	r2->p = 0;
+	r2->split_inv = 0;
 	r2->cnt = r->cnt - n;
 	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
 	r2->as = r->as + n;

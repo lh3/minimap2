@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.8-r707-dirty"
+#define MM_VERSION "2.8-r708-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -139,7 +139,6 @@ int main(int argc, char *argv[])
 		else if (c == 'm') opt.min_chain_score = atoi(optarg);
 		else if (c == 'A') opt.a = atoi(optarg);
 		else if (c == 'B') opt.b = atoi(optarg);
-		else if (c == 'z') opt.zdrop = atoi(optarg);
 		else if (c == 's') opt.min_dp_max = atoi(optarg);
 		else if (c == 'C') opt.noncan = atoi(optarg);
 		else if (c == 'I') ipt.batch_size = mm_parse_num(optarg);
@@ -209,6 +208,9 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "[ERROR]\033[1;31m unrecognized cDNA direction\033[0m\n");
 				return 1;
 			}
+		} else if (c == 'z') {
+			opt.zdrop = opt.zdrop_inv = strtol(optarg, &s, 10);
+			if (*s == ',') opt.zdrop_inv = strtol(s + 1, &s, 10);
 		} else if (c == 'O') {
 			opt.q = opt.q2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.q2 = strtol(s + 1, &s, 10);
@@ -252,7 +254,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -B INT       mismatch penalty [%d]\n", opt.b);
 		fprintf(fp_help, "    -O INT[,INT] gap open penalty [%d,%d]\n", opt.q, opt.q2);
 		fprintf(fp_help, "    -E INT[,INT] gap extension penalty; a k-long gap costs min{O1+k*E1,O2+k*E2} [%d,%d]\n", opt.e, opt.e2);
-		fprintf(fp_help, "    -z INT       Z-drop score [%d]\n", opt.zdrop);
+		fprintf(fp_help, "    -z INT[,INT] Z-drop score and inversion Z-drop score [%d,%d]\n", opt.zdrop, opt.zdrop_inv);
 		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
 		fprintf(fp_help, "  Input/Output:\n");

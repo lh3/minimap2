@@ -24,7 +24,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_join_flank_sc = 1000;
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
-	opt->zdrop = 400;
+	opt->zdrop = 400, opt->zdrop_inv = 200;
 	opt->end_bonus = -1;
 	opt->min_dp_max = opt->min_chain_score * opt->a;
 	opt->min_ksw_len = 200;
@@ -71,12 +71,12 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag = 0, io->k = 15;
 	} else if (strcmp(preset, "asm5") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
-		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = 200;
+		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
-		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = 200;
+		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
@@ -84,7 +84,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS | MM_F_HEAP_SORT;
 		mo->pe_ori = 0<<1|1; // FR
 		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 24, mo->e2 = 1;
-		mo->zdrop = 100;
+		mo->zdrop = mo->zdrop_inv = 100;
 		mo->end_bonus = 10;
 		mo->max_frag_len = 800;
 		mo->max_gap = 100;
@@ -103,7 +103,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = 200000;
 		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
 		mo->noncan = 9;
-		mo->zdrop = 200;
+		mo->zdrop = 200, mo->zdrop_inv = 100; // because mo->a is halved
 	} else return -1;
 	return 0;
 }
@@ -136,6 +136,11 @@ int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m scoring system violating ({-O}+{-E})+({-O2}+{-E2}) <= 127\033[0m\n");
 		return -1;
+	}
+	if (mo->zdrop < mo->zdrop_inv) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m Z-drop should not be less than inversion-Z-drop\033[0m\n");
+		return -5;
 	}
 	return 0;
 }
