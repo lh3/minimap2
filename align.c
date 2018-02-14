@@ -619,7 +619,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (r1->id != r1->parent && r1->parent != MM_PARENT_TMP_PRI) return 0;
 	if (r2->id != r2->parent && r2->parent != MM_PARENT_TMP_PRI) return 0;
 	if (r1->rid != r2->rid || r1->rev != r2->rev) return 0;
-	ql = r2->qs - r1->qe;
+	ql = r1->rev? r1->qs - r2->qe : r2->qs - r1->qe;
 	tl = r2->rs - r1->re;
 	if (ql < opt->min_chain_score || ql > opt->max_gap) return 0;
 	if (tl < opt->min_chain_score || tl > opt->max_gap) return 0;
@@ -627,7 +627,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
 	tseq = (uint8_t*)kmalloc(km, tl);
 	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
-	qseq = &qseq0[!r1->rev][qlen - r2->qs];
+	qseq = r1->rev? &qseq0[0][r2->qe] : &qseq0[1][qlen - r2->qs];
 
 	mm_seq_rev(ql, qseq);
 	mm_seq_rev(tl, tseq);
