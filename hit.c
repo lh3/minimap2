@@ -408,7 +408,33 @@ void mm_seg_free(void *km, int n_segs, mm_seg_t *segs)
 	kfree(km, segs);
 }
 
-void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr)
+static void mm_set_inv_mapq(void *km, int n_regs, mm_reg1_t *regs)
+{
+	int i, n_aux;
+	uint64_t *aux;
+	if (n_regs < 3) return;
+	for (i = 0; i < n_regs; ++i)
+		if (regs[i].inv) break;
+	if (i == n_regs) return; // no inversion hits
+
+	aux = (uint64_t*)kmalloc(km, n_regs * 8);
+	for (i = n_aux = 0; i < n_regs; ++i)
+		if (regs[i].parent == i || regs[i].parent < 0)
+			aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
+	radix_sort_64(aux, aux + n_aux);
+
+	for (i = 1; i < n_aux - 1; ++i) {
+		mm_reg1_t *inv = &regs[(int32_t)aux[i]];
+		if (inv->inv) {
+			mm_reg1_t *l = &regs[(int32_t)aux[i-1]];
+			mm_reg1_t *r = &regs[(int32_t)aux[i+1]];
+			inv->mapq = l->mapq < r->mapq? l->mapq : r->mapq;
+		}
+	}
+	kfree(km, aux);
+}
+
+void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr)
 {
 	static const float q_coef = 40.0f;
 	int64_t sum_sc = 0;
@@ -451,4 +477,5 @@ void mm_set_mapq(int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, in
 			if (r->p && r->p->dp_max > r->p->dp_max2 && r->mapq == 0) r->mapq = 1;
 		} else r->mapq = 0;
 	}
+	mm_set_inv_mapq(km, n_regs, regs);
 }
