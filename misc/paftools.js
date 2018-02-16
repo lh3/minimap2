@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-// Version: r702
+var paftools_version = 'r713';
 
 /*****************************
  ***** Library functions *****
@@ -362,6 +362,7 @@ function paf_call(args)
 		for (var i = 6; i <= 11; ++i)
 			t[i] = parseInt(t[i]);
 		if (t[10] < min_cov_len || t[11] < min_mapq) continue;
+		print(t[0], t[7], t[8], c1_start, c1_end);
 		for (var i = 1; i <= 3; ++i)
 			t[i] = parseInt(t[i]);
 		var ctg = t[5], x = t[7], end = t[8];
@@ -381,13 +382,13 @@ function paf_call(args)
 			}
 			c1_start = c1_end, c1_end = end;
 			c1_counted = (t[10] >= min_var_len);
-		} else { // contained
+		} else if (end > c1_start) { // contained
 			if (c1_counted && x > c1_start) {
 				c1_len += x - c1_start;
 				print('R', c1_ctg, c1_start, x);
 			}
 			c1_start = end;
-		}
+		} // else, the alignment precedes the cov1 region; do nothing
 		// output variants ahead of this alignment
 		while (out.length) {
 			if (out[0][0] != ctg || out[0][2] <= x) {
@@ -1837,6 +1838,7 @@ function main(args)
 		print("  liftover   simplistic liftOver");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("  bedcov     compute the number of bases covered");
+		print("  version    print paftools.js version");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
@@ -1861,6 +1863,7 @@ function main(args)
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
 	else if (cmd == 'junceval') paf_junceval(args);
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
+	else if (cmd == 'version') print(paftools_version);
 	else throw Error("unrecognized command: " + cmd);
 }
 
