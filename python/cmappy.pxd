@@ -26,11 +26,12 @@ cdef extern from "minimap.h":
 		int min_join_flank_sc
 		int a, b, q, e, q2, e2
 		int noncan
-		int zdrop
+		int zdrop, zdrop_inv
 		int end_bonus
 		int min_dp_max
 		int min_ksw_len
 		int anchor_ext_len, anchor_ext_shift
+		float max_clip_ratio
 		int pe_ori, pe_bonus
 		float mid_occ_frac
 		int32_t mid_occ

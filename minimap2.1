@@ -271,11 +271,22 @@ Cost for a non-canonical GT-AG splicing (effective with
 .BR --splice )
 [0]
 .TP
-.BI -z \ INT
-Break an alignment if the running score drops too quickly along the diagonal of
-the DP matrix (diagonal X-drop, or Z-drop) [400]. Increasing the value improves
-the contiguity of the alignment at the cost of poor alignment in the middle
-(e.g. caused by a long inversion).
+.BI -z \ INT1[,INT2]
+Truncate an alignment if the running alignment score drops too quickly along
+the diagonal of the DP matrix (diagonal X-drop, or Z-drop) [400,200]. If the
+drop of score is above
+.IR INT2 ,
+minimap2 will reverse complement the query in the related region and align
+again to test small inversions. Minimap2 truncates alignment if there is an
+inversion or the drop of score is greater than
+.IR INT1 .
+Decrease
+.I INT2
+to find small inversions at the cost of performance and false positives.
+Increase
+.I INT1
+to improves the contiguity of alignment at the cost of poor alignment in the
+middle.
 .TP
 .BI -s \ INT
 Minimal peak DP alignment score to output [40]. The peak score is computed from
