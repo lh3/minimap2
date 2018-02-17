@@ -111,7 +111,7 @@ cdef class Aligner:
 		if min_chain_score is not None: self.map_opt.min_chain_score = min_chain_score
 		if min_dp_score is not None: self.map_opt.min_dp_max = min_dp_score
 		if bw is not None: self.map_opt.bw = bw
-		if best_n is not None: self.best_n = best_n
+		if best_n is not None: self.map_opt.best_n = best_n
 
 		cdef cmappy.mm_idx_reader_t *r;
 		if fn_idx_out is None:
