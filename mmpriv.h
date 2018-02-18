@@ -48,6 +48,7 @@ typedef struct {
 
 double cputime(void);
 double realtime(void);
+long peakrss(void);
 
 void radix_sort_128x(mm128_t *beg, mm128_t *end);
 void radix_sort_64(uint64_t *beg, uint64_t *end);
