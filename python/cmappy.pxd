@@ -116,6 +116,6 @@ cdef extern from "cmappy.h":
 	void mm_fastx_close(kseq_t *ks)
 	int kseq_read(kseq_t *seq)
 
-	uint8_t *mappy_revcomp(int l, uint8_t *seq)
+	char *mappy_revcomp(int l, const uint8_t *seq)
 	int mm_verbose_level(int v)
 	void mm_reset_timer()

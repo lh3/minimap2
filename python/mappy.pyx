@@ -1,6 +1,7 @@
 from libc.stdint cimport uint8_t, int8_t
 from libc.stdlib cimport free
 cimport cmappy
+import sys
 
 cmappy.mm_reset_timer()
 
@@ -165,9 +166,12 @@ def fastx_read(fn):
 	cmappy.mm_fastx_close(ks)
 
 def revcomp(seq):
-	cdef uint8_t *s
-	s = cmappy.mappy_revcomp(len(seq), str.encode(seq))
-	return s if isinstance(s, str) else s.decode()
+	l = len(seq)
+	bseq = seq if isinstance(seq, bytes) else seq.encode()
+	cdef char *s = cmappy.mappy_revcomp(l, bseq)
+	r = s[:l] if isinstance(s, str) else s[:l].decode()
+	free(s)
+	return r
 
 def verbose(v=None):
 	if v is None: v = -1
