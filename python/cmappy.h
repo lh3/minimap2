@@ -101,16 +101,15 @@ static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const 
 	}
 }
 
-static inline uint8_t *mappy_revcomp(int len, uint8_t *seq)
+static inline char *mappy_revcomp(int len, const uint8_t *seq)
 {
 	int i;
-	for (i = 0; i < len>>1; ++i) {
-		uint8_t t = seq_comp_table[seq[i]];
-		seq[i] = seq_comp_table[seq[len - 1 - i]];
-		seq[len - 1 - i] = t;
-	}
-	if (len&1) seq[len>>1] = seq_comp_table[seq[len>>1]];
-	return seq;
+	char *rev;
+	rev = (char*)malloc(len + 1);
+	for (i = 0; i < len; ++i)
+		rev[len - i - 1] = seq_comp_table[seq[i]];
+	rev[len] = 0;
+	return rev;
 }
 
 #endif
