@@ -164,6 +164,11 @@ def fastx_read(fn):
 		yield name, seq, qual
 	cmappy.mm_fastx_close(ks)
 
+def revcomp(seq):
+	cdef uint8_t *s
+	s = cmappy.mappy_revcomp(len(seq), str.encode(seq))
+	return s if isinstance(s, str) else s.decode()
+
 def verbose(v=None):
 	if v is None: v = -1
 	return cmappy.mm_verbose_level(v)
