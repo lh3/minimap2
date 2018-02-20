@@ -139,8 +139,8 @@ the following format:
 It is effectively the PAF format without the QueryName and QueryLength columns
 (the first two columns in PAF).
 
-Function mappy.fastx_read
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Miscellaneous Functions
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code:: python
 
@@ -149,3 +149,11 @@ Function mappy.fastx_read
 This generator function opens a FASTA/FASTQ file and *yields* a
 :code:`(name,seq,qual)` tuple for each sequence entry. The input file may be
 optionally gzip'd.
+
+.. code:: python
+
+	mappy.revcomp(seq)
+
+Return the reverse complement of DNA string :code:`seq`. This function
+recognizes IUB code and preserves the letter cases. Uracil :code:`U` is
+complemented to :code:`A`.
