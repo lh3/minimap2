@@ -59,7 +59,7 @@ typedef struct {
 	mm_idx_seq_t *seq;         // sequence name, length and offset
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
-	void *km;
+	void *km, *h;
 } mm_idx_t;
 
 // minimap2 alignment
@@ -296,6 +296,11 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads);
 
 int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads);
+
+// query sequence name and sequence in the minimap2 index
+int mm_idx_index_name(mm_idx_t *mi);
+int mm_idx_name2id(const mm_idx_t *mi, const char *name);
+int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 
 // deprecated APIs for backward compatibility
 void mm_mapopt_init(mm_mapopt_t *opt);

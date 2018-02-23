@@ -112,4 +112,22 @@ static inline char *mappy_revcomp(int len, const uint8_t *seq)
 	return rev;
 }
 
+static char *mappy_fetch_seq(const mm_idx_t *mi, const char *name, int st, int en, int *len)
+{
+	int i, rid;
+	char *s;
+	*len = 0;
+	rid = mm_idx_name2id(mi, name);
+	if (rid < 0) return 0;
+	if (st >= mi->seq[i].len || st >= en) return 0;
+	if (en < 0 || en > mi->seq[i].len)
+		en = mi->seq[i].len;
+	s = (char*)malloc(en - st + 1);
+	*len = mm_idx_getseq(mi, rid, st, en, s);
+	for (i = 0; i < *len; ++i)
+		s[i] = "ACGTN"[(uint8_t)s[i]];
+	s[*len] = 0;
+	return s;
+}
+
 #endif

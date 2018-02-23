@@ -58,7 +58,7 @@ cdef extern from "minimap.h":
 		mm_idx_seq_t *seq
 		uint32_t *S
 		mm_idx_bucket_t *B
-		void *km
+		void *km, *h
 
 	ctypedef struct mm_idx_reader_t:
 		pass
@@ -68,6 +68,8 @@ cdef extern from "minimap.h":
 	void mm_idx_reader_close(mm_idx_reader_t *r)
 	void mm_idx_destroy(mm_idx_t *mi)
 	void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
+
+	int mm_idx_index_name(mm_idx_t *mi)
 
 	#
 	# Mapping (key struct defined in cmappy.h below)
@@ -99,6 +101,7 @@ cdef extern from "cmappy.h":
 	void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 	void mm_free_reg1(mm_reg1_t *r)
 	mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const char *seq2, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt)
+	char *mappy_fetch_seq(const mm_idx_t *mi, const char *name, int st, int en, int *l)
 
 	ctypedef struct kstring_t:
 		unsigned l, m
