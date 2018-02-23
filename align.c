@@ -46,7 +46,7 @@ static inline void update_max_zdrop(int32_t score, int i, int j, int32_t *max, i
 static int mm_test_zdrop(void *km, const mm_mapopt_t *opt, const uint8_t *qseq, const uint8_t *tseq, uint32_t n_cigar, uint32_t *cigar, const int8_t *mat)
 {
 	uint32_t k;
-	int32_t score = 0, max = 0, max_i = -1, max_j = -1, i = 0, j = 0, max_zdrop = 0;
+	int32_t score = 0, max = INT32_MIN, max_i = -1, max_j = -1, i = 0, j = 0, max_zdrop = 0;
 	int pos[2][2] = {{-1, -1}, {-1, -1}}, q_len, t_len;
 
 	// find the score and the region where score drops most along diagonal
