@@ -123,6 +123,7 @@ cdef class Aligner:
 			self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
 			cmappy.mm_idx_reader_close(r)
 			cmappy.mm_mapopt_update(&self.map_opt, self._idx)
+			cmappy.mm_idx_index_name(self._idx)
 
 	def __dealloc__(self):
 		if self._idx is not NULL:
@@ -140,8 +141,13 @@ cdef class Aligner:
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
-		if seq2 is None: regs = cmappy.mm_map_aux(self._idx, str.encode(seq), NULL, &n_regs, b._b, &self.map_opt)
-		else: regs = cmappy.mm_map_aux(self._idx, str.encode(seq), str.encode(seq2), &n_regs, b._b, &self.map_opt)
+
+		_seq = seq if isinstance(seq, bytes) else seq.encode()
+		if seq2 is None:
+			regs = cmappy.mm_map_aux(self._idx, _seq, NULL,  &n_regs, b._b, &self.map_opt)
+		else:
+			_seq2 = seq2 if isinstance(seq2, bytes) else seq2.encode()
+			regs = cmappy.mm_map_aux(self._idx, _seq, _seq2, &n_regs, b._b, &self.map_opt)
 
 		for i in range(n_regs):
 			cmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
@@ -153,7 +159,24 @@ cdef class Aligner:
 			cmappy.mm_free_reg1(&regs[i])
 		free(regs)
 
-def fastx_read(fn):
+	def seq(self, str name, int start=0, int end=0x7fffffff):
+		cdef int l
+		cdef char *s = cmappy.mappy_fetch_seq(self._idx, name.encode(), start, end, &l)
+		if l == 0: return None
+		r = s[:l] if isinstance(s, str) else s[:l].decode()
+		free(s)
+		return r
+
+	@property
+	def k(self): return self._idx.k
+
+	@property
+	def w(self): return self._idx.w
+
+	@property
+	def n_seq(self): return self._idx.n_seq
+
+def fastx_read(fn, read_comment=False):
 	cdef cmappy.kseq_t *ks
 	ks = cmappy.mm_fastx_open(str.encode(fn))
 	if ks is NULL: return None
@@ -162,7 +185,12 @@ def fastx_read(fn):
 		else: qual = None
 		name = ks.name.s if isinstance(ks.name.s, str) else ks.name.s.decode()
 		seq = ks.seq.s if isinstance(ks.seq.s, str) else ks.seq.s.decode()
-		yield name, seq, qual
+		if read_comment:
+			if ks.comment.l > 0: comment = ks.comment.s if isinstance(ks.comment.s, str) else ks.comment.s.decode()
+			else: comment = None
+			yield name, seq, qual, comment
+		else:
+			yield name, seq, qual
 	cmappy.mm_fastx_close(ks)
 
 def revcomp(seq):

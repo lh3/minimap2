@@ -20,6 +20,8 @@
 KHASH_INIT(idx, uint64_t, uint64_t, 1, idx_hash, idx_eq)
 typedef khash_t(idx) idxhash_t;
 
+KHASH_MAP_INIT_STR(str, uint32_t)
+
 #define kroundup64(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, (x)|=(x)>>32, ++(x))
 
 typedef struct mm_idx_bucket_s {
@@ -28,15 +30,6 @@ typedef struct mm_idx_bucket_s {
 	uint64_t *p; // position array for minimizers appearing >1 times
 	void *h;     // hash table indexing _p_ and minimizers appearing once
 } mm_idx_bucket_t;
-
-void mm_idxopt_init(mm_idxopt_t *opt)
-{
-	memset(opt, 0, sizeof(mm_idxopt_t));
-	opt->k = 15, opt->w = 10, opt->flag = 0;
-	opt->bucket_bits = 14;
-	opt->mini_batch_size = 50000000;
-	opt->batch_size = 4000000000ULL;
-}
 
 mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 {
@@ -54,6 +47,7 @@ void mm_idx_destroy(mm_idx_t *mi)
 {
 	int i;
 	if (mi == 0) return;
+	if (mi->h) kh_destroy(str, (khash_t(str)*)mi->h);
 	for (i = 0; i < 1<<mi->b; ++i) {
 		free(mi->B[i].p);
 		free(mi->B[i].a.a);
@@ -107,6 +101,34 @@ void mm_idx_stat(const mm_idx_t *mi)
 	}
 	fprintf(stderr, "[M::%s::%.3f*%.2f] distinct minimizers: %d (%.2f%% are singletons); average occurrences: %.3lf; average spacing: %.3lf\n",
 			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), n, 100.0*n1/n, (double)sum / n, (double)len / sum);
+}
+
+int mm_idx_index_name(mm_idx_t *mi)
+{
+	khash_t(str) *h;
+	uint32_t i;
+	int has_dup = 0, absent;
+	if (mi->h) return 0;
+	h = kh_init(str);
+	for (i = 0; i < mi->n_seq; ++i) {
+		khint_t k;
+		k = kh_put(str, h, mi->seq[i].name, &absent);
+		if (absent) kh_val(h, k) = i;
+		else has_dup = 1;
+	}
+	mi->h = h;
+	if (has_dup && mm_verbose >= 2)
+		fprintf(stderr, "[WARNING] some database sequences have identical sequence names\n");
+	return has_dup;
+}
+
+int mm_idx_name2id(const mm_idx_t *mi, const char *name)
+{
+	khash_t(str) *h = (khash_t(str)*)mi->h;
+	khint_t k;
+	if (h == 0) return -2;
+	k = kh_get(str, h, name);
+	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq)
