@@ -23,7 +23,7 @@ def readme():
 
 setup(
 	name = 'mappy',
-	version = '2.8',
+	version = '2.9',
 	url = 'https://github.com/lh3/minimap2',
 	description = 'Minimap2 python binding',
 	long_description = readme(),
@@ -43,7 +43,7 @@ setup(
 		include_dirs = ['.'],
 		libraries = ['z', 'm', 'pthread'])],
 	classifiers = [
-		'Development Status :: 4 - Beta',
+		'Development Status :: 5 - Production/Stable',
 		'License :: OSI Approved :: MIT License',
 		'Operating System :: POSIX',
 		'Programming Language :: C',
