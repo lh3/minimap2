@@ -1,3 +1,26 @@
+Release 2.9-r720 (23 February 2018)
+-----------------------------------
+
+This release fixed multiple minor bugs.
+
+* Fixed two bugs that lead to incorrect inversion alignment. Also improved the
+  sensitivity to small inversions by using double Z-drop cutoff (#112).
+
+* Fixed an issue that may cause the end of a query sequence unmapped (#104).
+
+* Added a mappy API to retrieve sequences from the index (#126) and to reverse
+  complement DNA sequences. Fixed a bug where the `best_n` parameter did not
+  work (#117).
+
+* Avoided segmentation fault given incorrect FASTQ input (#111).
+
+* Combined all auxiliary javascripts to paftools.js. Fixed several bugs in
+  these scripts at the same time.
+
+(2.9: 24 February 2018, r720)
+
+
+
 Release 2.8-r672 (1 February 2018)
 ----------------------------------
 
