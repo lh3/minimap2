@@ -39,7 +39,7 @@ setup(
 		depends = ['minimap.h', 'bseq.h', 'kalloc.h', 'kdq.h', 'khash.h', 'kseq.h', 'ksort.h',
 				   'ksw2.h', 'kthread.h', 'kvec.h', 'mmpriv.h', 'sdust.h',
 				   'python/cmappy.h', 'python/cmappy.pxd'],
-		extra_compile_args = ['-DHAVE_KALLOC', '-msse4'], # WARNING: ancient x86_64 CPUs don't have SSE4
+		extra_compile_args = ['-DHAVE_KALLOC', '-msse4.1'], # WARNING: ancient x86_64 CPUs don't have SSE4
 		include_dirs = ['.'],
 		libraries = ['z', 'm', 'pthread'])],
 	classifiers = [
