@@ -346,6 +346,10 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
   possible to add non-SIMD support, but it would make minimap2 slower by
   several times.
 
+* Minimap2 does not work with a single query or database sequence up to ~2
+  billion bases (2,147,483,647 to be exact). The total length of all sequences
+  can well exceed this threshold.
+
 
 
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
