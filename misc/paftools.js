@@ -1028,7 +1028,7 @@ function paf_gff2bed(args)
 
 function paf_sam2paf(args)
 {
-	var c, pri_only = false;
+	var c, pri_only = false, use_eq = false;
 	while ((c = getopt(args, "p")) != null)
 		if (c == 'p') pri_only = true;
 	if (args.length == getopt.ind) {
@@ -1038,9 +1038,9 @@ function paf_sam2paf(args)
 
 	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
 	var buf = new Bytes();
-	var re = /(\d+)([MIDSHNX=])/g;
+	var re = /(\d+)([MIDSHNX=])/g, re_MD = /(\d+)|(\^[A-Za-z]+)|([A-Za-z])/g;
 
-	var len = {}, lineno = 0;
+	var ctg_len = {}, lineno = 0;
 	while (file.readline(buf) >= 0) {
 		var m, n_cigar = 0, line = buf.toString();
 		++lineno;
@@ -1048,38 +1048,44 @@ function paf_sam2paf(args)
 			if (/^@SQ/.test(line)) {
 				var name = (m = /\tSN:(\S+)/.exec(line)) != null? m[1] : null;
 				var l = (m = /\tLN:(\d+)/.exec(line)) != null? parseInt(m[1]) : null;
-				if (name != null && l != null) len[name] = l;
+				if (name != null && l != null) ctg_len[name] = l;
 			}
 			continue;
 		}
 		var t = line.split("\t");
 		var flag = parseInt(t[1]);
 		if (t[9] != '*' && t[10] != '*' && t[9].length != t[10].length)
-			throw Error("ERROR at line " + lineno + ": inconsistent SEQ and QUAL lengths - " + t[9].length + " != " + t[10].length);
+			throw Error("at line " + lineno + ": inconsistent SEQ and QUAL lengths - " + t[9].length + " != " + t[10].length);
 		if (t[2] == '*' || (flag&4) || t[5] == '*') continue;
 		if (pri_only && (flag&0x100)) continue;
-		var tlen = len[t[2]];
-		if (tlen == null) throw Error("ERROR at line " + lineno + ": can't find the length of contig " + t[2]);
+		var tlen = ctg_len[t[2]];
+		if (tlen == null) throw Error("at line " + lineno + ": can't find the length of contig " + t[2]);
 		// find tags
-		var nn = 0, NM = null, MD = null;
+		var nn = 0, NM = null, MD = null, md_list = [];
 		for (var i = 11; i < t.length; ++i) {
 			if (t[i].indexOf("NM:i:") == 0) NM = parseInt(t[i].substr(5));
 			else if (t[i].indexOf("nn:i:") == 0) nn = parseInt(t[i].substr(5));
 			else if (t[i].indexOf("MD:Z:") == 0) MD = t[i].substr(5);
 		}
+		if (t[9] == '*') MD = null;
 		// infer various lengths from CIGAR
-		var clip = [0, 0], soft_clip = 0, I = [0, 0], D = [0, 0], M = 0, N = 0, mm = 0, have_M = false, have_ext = false;
+		var clip = [0, 0], soft_clip = 0, I = [0, 0], D = [0, 0], M = 0, N = 0, mm = 0, have_M = false, have_ext = false, cigar = [];
 		while ((m = re.exec(t[5])) != null) {
-			var l = parseInt(m[1]);
-			if (m[2] == 'M') M += l, have_M = true;
-			else if (m[2] == 'I') ++I[0], I[1] += l;
-			else if (m[2] == 'D') ++D[0], D[1] += l;
-			else if (m[2] == 'N') N += l;
-			else if (m[2] == 'S') clip[n_cigar == 0? 0 : 1] = l, soft_clip += l;
-			else if (m[2] == 'H') clip[n_cigar == 0? 0 : 1] = l;
-			else if (m[2] == '=') M += l, have_ext = true;
-			else if (m[2] == 'X') M += l, mm += l, have_ext = true;
+			var l = parseInt(m[1]), op = m[2];
+			if (op == 'M') M += l, have_M = true;
+			else if (op == 'I') ++I[0], I[1] += l;
+			else if (op == 'D') ++D[0], D[1] += l;
+			else if (op == 'N') N += l;
+			else if (op == 'S') clip[n_cigar == 0? 0 : 1] = l, soft_clip += l;
+			else if (op == 'H') clip[n_cigar == 0? 0 : 1] = l;
+			else if (op == '=') M += l, have_ext = true, op = 'M';
+			else if (op == 'X') M += l, mm += l, have_ext = true, op = 'M';
 			++n_cigar;
+			if (MD != null && op != 'H') {
+				if (cigar.length > 0 && cigar[cigar.length-1][1] == op)
+					cigar[cigar.length-1][0] += l;
+				else cigar.push([l, op]);
+			}
 		}
 		var ql = M + I[1] + soft_clip;
 		var tl = M + D[1] + N;
@@ -1094,6 +1100,45 @@ function paf_sam2paf(args)
 		if (t[9] != '*' && t[9].length != ql) {
 			warn("WARNING at line " + lineno + ": SEQ length inconsistent with CIGAR (" + t[9].length + " != " + ql + "); skipped");
 			continue;
+		}
+		// parse MD
+		var cs = [];
+		if (MD != null) {
+			var k = 0, cx = 0, cy = 0, mx = 0, my = 0, error = 0;
+			while ((m = re_MD.exec(MD)) != null) {
+				if (m[2] != null) { // deletion from the reference
+					var len = m[2].length - 1;
+					cs.push('-', m[2].substr(1));
+					mx += len, cx += len, ++k;
+				} else { // copy or mismatch
+					var ml = m[1] != null? parseInt(m[1]) : 1;
+					while (k < cigar.length && cigar[k][1] != 'D') {
+						var cl = cigar[k][0], op = cigar[k][1];
+						if (op == 'M') {
+							if (my + ml < cy + cl) {
+								if (ml > 0) {
+									if (m[3] != null) cs.push('*', m[3], t[9][my]);
+									else cs.push(':', ml);
+								}
+								mx += ml, my += ml, ml = 0;
+								break;
+							} else {
+								var dl = cy + cl - my;
+								cs.push(':', dl);
+								cx += cl, cy += cl, ++k;
+								mx += dl, my += dl, ml -= dl;
+							}
+						} else if (op == 'I') {
+							cs.push('+', t[9].substr(cy, cl));
+							cy += cl, my += cl, ++k;
+						} else if (op == 'S') {
+							cy += cl, my += cl, ++k;
+						} // else: inconsistent
+					}
+					if (ml != 0) throw Error("at line " + lineno + ": inconsistent MD tag");
+				}
+			}
+			if (cx != mx || cy != my) throw Error("at line " + lineno + ": inconsistent MD tag");
 		}
 		// compute matching length, block length and calibrate NM
 		if (have_ext && !have_M) { // extended CIGAR
@@ -1124,6 +1169,7 @@ function paf_sam2paf(args)
 		var tags = ["tp:A:" + type];
 		if (NM != null) tags.push("mm:i:"+mm);
 		tags.push("gn:i:"+(I[1]+D[1]), "go:i:"+(I[0]+D[0]), "cg:Z:" + t[5].replace(/\d+[SH]/g, ''));
+		if (cs.length > 0) tags.push("cs:Z:" + cs.join(""));
 		// print out
 		var a = [qname, qlen, qs, qe, flag&16? '-' : '+', t[2], tlen, ts, te, mlen, blen, t[4]];
 		print(a.join("\t"), tags.join("\t"));
