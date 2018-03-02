@@ -305,7 +305,7 @@ function paf_liftover(args)
 // variant calling
 function paf_call(args)
 {
-	var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g;
+	var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g, re_tag = /\t(\S\S:[AZif]):(\S+)/g;
 	var c, min_cov_len = 10000, min_var_len = 50000, gap_thres = 50, min_mapq = 5;
 	while ((c = getopt(args, "l:L:g:q:B:")) != null) {
 		if (c == 'l') min_cov_len = parseInt(getopt.arg);
@@ -353,7 +353,6 @@ function paf_call(args)
 		}
 	}
 
-	var re_tags = /\t([A-Za-z]{2}:[AZif]):(\S+)/g;
 	var a = [], out = [];
 	var c1_ctg = null, c1_start = 0, c1_end = 0, c1_counted = false, c1_len = 0;
 	while (file.readline(buf) >= 0) {
@@ -369,7 +368,7 @@ function paf_call(args)
 		var query = t[0], rev = (t[4] == '-'), y = rev? t[3] : t[2];
 		// collect tags
 		var cs = null, tp = null, have_s1 = false, have_s2 = false;
-		while ((m = re_tags.exec(line)) != null) {
+		while ((m = re_tag.exec(line)) != null) {
 			if (m[1] == 'cs:Z') cs = m[2];
 			else if (m[1] == 'tp:A') tp = m[2];
 			else if (m[1] == 's1:i') have_s1 = true;
@@ -1047,7 +1046,7 @@ function paf_sam2paf(args)
 
 	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
 	var buf = new Bytes();
-	var re = /(\d+)([MIDSHNX=])/g, re_MD = /(\d+)|(\^[A-Za-z]+)|([A-Za-z])/g;
+	var re = /(\d+)([MIDSHNX=])/g, re_MD = /(\d+)|(\^[A-Za-z]+)|([A-Za-z])/g, re_tag = /\t(\S\S:[AZif]):(\S+)/g;
 
 	var ctg_len = {}, lineno = 0;
 	while (file.readline(buf) >= 0) {
@@ -1061,7 +1060,7 @@ function paf_sam2paf(args)
 			}
 			continue;
 		}
-		var t = line.split("\t");
+		var t = line.split("\t", 11);
 		var flag = parseInt(t[1]);
 		if (t[9] != '*' && t[10] != '*' && t[9].length != t[10].length)
 			throw Error("at line " + lineno + ": inconsistent SEQ and QUAL lengths - " + t[9].length + " != " + t[10].length);
@@ -1071,10 +1070,10 @@ function paf_sam2paf(args)
 		if (tlen == null) throw Error("at line " + lineno + ": can't find the length of contig " + t[2]);
 		// find tags
 		var nn = 0, NM = null, MD = null, md_list = [];
-		for (var i = 11; i < t.length; ++i) {
-			if (t[i].indexOf("NM:i:") == 0) NM = parseInt(t[i].substr(5));
-			else if (t[i].indexOf("nn:i:") == 0) nn = parseInt(t[i].substr(5));
-			else if (t[i].indexOf("MD:Z:") == 0) MD = t[i].substr(5);
+		while ((m = re_tag.exec(line)) != null) {
+			if (m[1] == "NM:i") NM = parseInt(m[2]);
+			else if (m[1] == "nn:i") nn = parseInt(m[2]);
+			else if (m[1] == "MD:Z") MD = m[2];
 		}
 		if (t[9] == '*') MD = null;
 		// infer various lengths from CIGAR
