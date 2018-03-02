@@ -353,11 +353,12 @@ function paf_call(args)
 		}
 	}
 
+	var re_tags = /\t([A-Za-z]{2}:[AZif]):(\S+)/g;
 	var a = [], out = [];
 	var c1_ctg = null, c1_start = 0, c1_end = 0, c1_counted = false, c1_len = 0;
 	while (file.readline(buf) >= 0) {
 		var line = buf.toString();
-		var m, t = line.split("\t");
+		var m, t = line.split("\t", 12);
 		for (var i = 6; i <= 11; ++i)
 			t[i] = parseInt(t[i]);
 		if (t[10] < min_cov_len || t[11] < min_mapq) continue;
@@ -368,11 +369,11 @@ function paf_call(args)
 		var query = t[0], rev = (t[4] == '-'), y = rev? t[3] : t[2];
 		// collect tags
 		var cs = null, tp = null, have_s1 = false, have_s2 = false;
-		for (var i = 12; i < t.length; ++i) {
-			if (t[i].substr(0, 5) == 'cs:Z:') cs = t[i].substr(5);
-			else if (t[i].substr(0, 5) == 'tp:A:') tp = t[i][5];
-			else if (t[i].substr(0, 5) == 's1:i:') have_s1 = true;
-			else if (t[i].substr(0, 5) == 's2:i:') have_s2 = true;
+		while ((m = re_tags.exec(line)) != null) {
+			if (m[1] == 'cs:Z') cs = m[2];
+			else if (m[1] == 'tp:A') tp = m[2];
+			else if (m[1] == 's1:i') have_s1 = true;
+			else if (m[1] == 's2:i') have_s2 = true;
 		}
 		if (have_s1 && !have_s2) continue;
 		if (tp != null && (tp == 'S' || tp == 'i')) continue;
