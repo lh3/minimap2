@@ -1104,7 +1104,7 @@ function paf_sam2paf(args)
 		// parse MD
 		var cs = [];
 		if (MD != null) {
-			var k = 0, cx = 0, cy = 0, mx = 0, my = 0, error = 0;
+			var k = 0, cx = 0, cy = 0, mx = 0, my = 0;
 			while ((m = re_MD.exec(MD)) != null) {
 				if (m[2] != null) { // deletion from the reference
 					var len = m[2].length - 1;
@@ -1133,7 +1133,7 @@ function paf_sam2paf(args)
 							cy += cl, my += cl, ++k;
 						} else if (op == 'S') {
 							cy += cl, my += cl, ++k;
-						} // else: inconsistent
+						} else throw Error("at line " + lineno + ": inconsistent MD tag");
 					}
 					if (ml != 0) throw Error("at line " + lineno + ": inconsistent MD tag");
 				}
