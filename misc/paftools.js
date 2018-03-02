@@ -346,7 +346,7 @@ function paf_call(args)
 			else ++n_del[3];
 		} else {
 			++n_sub[0];
-			var s = o[5] + o[6];
+			var s = (o[5] + o[6]).toLowerCase();
 			if (s == 'ag' || s == 'ga' || s == 'ct' || s == 'tc')
 				++n_sub[1];
 			else ++n_sub[2];
@@ -357,8 +357,7 @@ function paf_call(args)
 	var c1_ctg = null, c1_start = 0, c1_end = 0, c1_counted = false, c1_len = 0;
 	while (file.readline(buf) >= 0) {
 		var line = buf.toString();
-		if (!/\ts2:i:/.test(line)) continue; // skip secondary alignments
-		var m, t = line.split("\t", 12);
+		var m, t = line.split("\t");
 		for (var i = 6; i <= 11; ++i)
 			t[i] = parseInt(t[i]);
 		if (t[10] < min_cov_len || t[11] < min_mapq) continue;
@@ -367,6 +366,16 @@ function paf_call(args)
 			t[i] = parseInt(t[i]);
 		var ctg = t[5], x = t[7], end = t[8];
 		var query = t[0], rev = (t[4] == '-'), y = rev? t[3] : t[2];
+		// collect tags
+		var cs = null, tp = null, have_s1 = false, have_s2 = false;
+		for (var i = 12; i < t.length; ++i) {
+			if (t[i].substr(0, 5) == 'cs:Z:') cs = t[i].substr(5);
+			else if (t[i].substr(0, 5) == 'tp:A:') tp = t[i][5];
+			else if (t[i].substr(0, 5) == 's1:i:') have_s1 = true;
+			else if (t[i].substr(0, 5) == 's2:i:') have_s2 = true;
+		}
+		if (have_s1 && !have_s2) continue;
+		if (tp != null && (tp == 'S' || tp == 'i')) continue;
 		// compute regions covered by 1 contig
 		if (ctg != c1_ctg || x >= c1_end) {
 			if (c1_counted && c1_end > c1_start) {
@@ -409,8 +418,7 @@ function paf_call(args)
 		a.length = k;
 		// core loop
 		if (t[10] >= min_var_len) {
-			if ((m = /\tcs:Z:(\S+)/.exec(line)) == null) continue; // no cs tag
-			var cs = m[1];
+			if (cs == null) continue; // no cs tag
 			var blen = 0, n_diff = 0;
 			tot_len += t[10];
 			while ((m = re_cs.exec(cs)) != null) {
