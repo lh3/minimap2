@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = 'r713';
+var paftools_version = 'r734';
 
 /*****************************
  ***** Library functions *****
@@ -361,7 +361,7 @@ function paf_call(args)
 		for (var i = 6; i <= 11; ++i)
 			t[i] = parseInt(t[i]);
 		if (t[10] < min_cov_len || t[11] < min_mapq) continue;
-		print(t[0], t[7], t[8], c1_start, c1_end);
+		//print(t[0], t[7], t[8], c1_start, c1_end);
 		for (var i = 1; i <= 3; ++i)
 			t[i] = parseInt(t[i]);
 		var ctg = t[5], x = t[7], end = t[8];
