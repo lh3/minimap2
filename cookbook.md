@@ -5,6 +5,9 @@
   * [Mapping long reads](#map-pb)
   * [Mapping Illumina paired-end reads](#map-sr)
   * [Evaluating mapping accuracy with simulated reads (for developers)](#mapeval)
+- [Read Overlap](#read-overlap)
+  * [Long-read overlap](#long-read-overlap)
+  * [Evaluating overlap sensitivity](#ov-eval)
 
 ## <a name="install"></a>Installation
 
@@ -72,6 +75,32 @@ mason_simulator --illumina-prob-mismatch-scale 2.5 -ir ecoli_ref.fa -n 10000 -o 
 paftools.js mason2fq tmp.sam | seqtk seq -1 > ecoli_mason_1.fq
 paftools.js mason2fq tmp.sam | seqtk seq -1 > ecoli_mason_2.fq
 ```
+
+## <a name="read-overlap"></a>Read Overlap
+
+### <a name="long-read-overlap"></a>Long read overlap
+```sh
+# For pacbio reads:
+minimap2 -x ava-pb ecoli_p6_25x_canu.fa ecoli_p6_25x_canu.fa > overlap.paf
+# For Nanopore reads (ava-ont also works with PacBio but not as good):
+minimap2 -x ava-ont -r 10000 ecoli_p6_25x_canu.fa ecoli_p6_25x_canu.fa > overlap.paf
+```
+Here we explicitly applied `-r 10000`. We are considering to set this as the
+default for the `ava-ont` mode as this seems to improve the contiguity for
+nanopore read assembly (Loman, personal communication).
+
+**Minimap2 doesn't work well with short-read overlap.**
+
+### <a name="ov-eval"></a>Evaluating overlap sensitivity
+
+```sh
+# read to reference mapping
+minimap2 -cx map-pb ecoli_ref.fa ecoli_p6_25x_canu.fa > to-ref.paf
+# evaluate overlap sensitivity
+sort -k6,6 -k8,8n to-ref.paf | paftools.js ov-eval - overlap.paf
+```
+You can see that for PacBio reads, minimap2 achieves higher overlap sensitivity
+with `-x ava-pb` (99% vs 93% with `-x ava-ont`).
 
 [pbsim]: https://github.com/pfaucon/PBSIM-PacBio-Simulator
 [mason2]: https://github.com/seqan/seqan/tree/master/apps/mason2
