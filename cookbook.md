@@ -2,6 +2,9 @@
 
 - [Installation](#install)
 - [Mapping Genomic Reads](#map-reads)
+  * [Mapping long reads](#map-pb)
+  * [Mapping Illumina paired-end reads](#map-sr)
+  * [Evaluating mapping accuracy with simulated reads (for developers)](#mapeval)
 
 ## <a name="install"></a>Installation
 
@@ -16,7 +19,7 @@ curl -L https://github.com/lh3/minimap2/releases/download/v2.0/cookbook-data.tgz
 
 ## <a name="map-reads"></a>Mapping Genomic Reads
 
-### Map PacBio reads
+### <a name="map-pb"></a>Mapping long reads
 ```sh
 minimap2 -ax map-pb -t4 ecoli_ref.fa ecoli_p6_25x_canu.fa > mapped.sam
 ```
@@ -29,14 +32,14 @@ This will save you a couple of minutes when you map against the human genome.
 **HOWEVER**, key algorithm parameters such as the k-mer length and window
 size can't be changed after indexing. Minimap2 will give you a warning if
 parameters used in a pre-built index doesn't match parameters on the command
-line. *Please always make sure you are using an intended pre-built index.*
+line. **Please always make sure you are using an intended pre-built index.**
 
-### Map Illumina paired-end reads:
+### <a name="map-sr"></a>Mapping Illumina paired-end reads:
 ```sh
 minimap2 -ax sr ecoli_ref.fa ecoli_mason_1.fq ecoli_mason_2.fq > mapped-sr.sam
 ```
 
-### Evaluating mapping accuracy with simulated reads:
+### <a name="mapeval"></a>Evaluating mapping accuracy with simulated reads (for developers)
 ```sh
 minimap2 -ax sr ecoli_ref.fa ecoli_mason_1.fq ecoli_mason_2.fq | paftools.js mapeval -
 ```
@@ -46,10 +49,29 @@ Q       60      19712   0       0.000000000     19712
 Q       0       282     219     0.010953286     19994
 U       6
 ```
-where a line starting with `Q` gives:
+where a `U`-line gives the number of unmapped reads (for SAM input only); a
+`Q`-line gives:
+
 1. Mapping quality (mapQ) threshold
 2. Number of mapped reads between this threshold and the previous mapQ threshold.
 3. Number of wrong mappings in the same mapQ interval
 4. Accumulative mapping error rate
 5. Accumulative number of mappings
-A `U` line gives the number of unmapped reads (for SAM input only).
+
+For `paftools.js mapeval` to work, you need to encode the true read positions
+in read names in the right format. For [PBSIM][pbsim] and [mason2][mason2], we
+provide scripts to generate the right format. Simulated reads in this cookbook
+were created with the following command lines:
+```sh
+# in PBSIM source code directory:
+src/pbsim ../ecoli_ref.fa --depth 1 --sample-fastq sample/sample.fastq
+paftools.js pbsim2fq ../ecoli_ref.fa.fai sd_0001.maf > ../ecoli_pbsim.fa
+
+# mason2 simulation
+mason_simulator --illumina-prob-mismatch-scale 2.5 -ir ecoli_ref.fa -n 10000 -o tmp-l.fq -or tmp-r.fq -oa tmp.sam
+paftools.js mason2fq tmp.sam | seqtk seq -1 > ecoli_mason_1.fq
+paftools.js mason2fq tmp.sam | seqtk seq -1 > ecoli_mason_2.fq
+```
+
+[pbsim]: https://github.com/pfaucon/PBSIM-PacBio-Simulator
+[mason2]: https://github.com/seqan/seqan/tree/master/apps/mason2
