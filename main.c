@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "getopt.h"
 
-#define MM_VERSION "2.9-r720"
+#define MM_VERSION "2.9-r741-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -51,6 +51,7 @@ static struct option long_options[] = {
 	{ "all-chain",      no_argument,       0, 'P' },
 	{ "dual",           required_argument, 0, 0 },   // 26
 	{ "max-clip-ratio", required_argument, 0, 0 },   // 27
+	{ "min-occ-floor",  required_argument, 0, 0 },   // 28
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -164,6 +165,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==22) opt.flag |= MM_F_FOR_ONLY; // --for-only
 		else if (c == 0 && long_idx ==23) opt.flag |= MM_F_REV_ONLY; // --rev-only
 		else if (c == 0 && long_idx ==27) opt.max_clip_ratio = atof(optarg); // --max-clip-ratio
+		else if (c == 0 && long_idx ==28) opt.min_mid_occ = atoi(optarg); // --min-occ-floor
 		else if (c == 0 && long_idx == 14) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary

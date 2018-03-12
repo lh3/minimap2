@@ -217,6 +217,14 @@ on chains. Set
 .I INT
 to a large number to switch off this heurstics.
 .TP
+.BI --min-occ-floor \ INT
+Force minimap2 to always use k-mers occurring
+.I INT
+times or less [0]. In effect, the max occurrence threshold is set to
+the
+.RI max{ INT ,
+.BR -f }.
+.TP
 .B --no-long-join
 Disable the long gap patching heuristic. When this option is applied, the
 maximum alignment gap is mostly controlled by
@@ -433,17 +441,24 @@ is determined by the sequencing error mode.
 .B asm5
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -A1 -B19 -O39,81 -E3,1 -s200
-.BR -z200 ).
+.B -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200
+.BR --min-occ-floor=100 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
 .TP
 .B asm10
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -A1 -B9 -O16,41 -E2,1 -s200
-.BR -z200 ).
+.B -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200
+.BR --min-occ-floor=100 ).
 Up to 10% sequence divergence.
+.TP
+.B asm20
+Long assembly to reference mapping
+.RB ( -k19
+.B -w10 -A1 -B6 -O6,26 -E2,1 -s200 -z200
+.BR --min-occ-floor=100 ).
+Up to 20% sequence divergence.
 .TP
 .B ava-pb
 PacBio all-vs-all overlap mapping

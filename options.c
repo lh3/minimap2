@@ -51,6 +51,8 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 		opt->flag |= MM_F_SPLICE;
 	if (opt->mid_occ <= 0)
 		opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
+	if (opt->mid_occ < opt->min_mid_occ)
+		opt->mid_occ = opt->min_mid_occ;
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
 }
@@ -81,11 +83,19 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	} else if (strcmp(preset, "asm5") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
+		mo->min_mid_occ = 100;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "asm10") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
+		mo->min_mid_occ = 100;
+		mo->min_dp_max = 200;
+		mo->best_n = 50;
+	} else if (strcmp(preset, "asm20") == 0) {
+		io->flag = 0, io->k = 19, io->w = 10;
+		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
+		mo->min_mid_occ = 100;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
