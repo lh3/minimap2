@@ -8,6 +8,9 @@
 - [Full-Genome Alignment](#genome-aln)
   * [Intra-species assembly alignment](#asm-to-ref)
   * [Calling variants from assembly-to-reference alignment](#asm-var)
+  * [Lift Over](#liftover)
+  * [Cross-species alignment](#x-species)
+  * [Print alignment](#view-aln)
 - [Read Overlap](#read-overlap)
   * [Long-read overlap](#long-read-overlap)
   * [Evaluating overlap sensitivity (for developers)](#ov-eval)
@@ -85,6 +88,7 @@ paftools.js mason2fq tmp.sam | seqtk seq -1 > ecoli_mason_2.fq
 
 ### <a name="asm-to-ref"></a>Intra-species assembly alignment
 ```sh
+# option "--cs" is recommended as paftools.js may need it
 minimap2 -cx asm5 --cs ecoli_ref.fa ecoli_canu.fa > ecoli_canu.paf
 ```
 Here `ecoli_canu.fa` is the Canu assembly of `ecoli_p6_25x_canu.fa`. This
@@ -96,31 +100,33 @@ command line outputs alignments in the [PAF format][paf]. Use `-a` instead of
 # don't forget the "--cs" option; otherwise it doesn't work
 minimap2 -cx asm5 --cs ecoli_ref.fa ecoli_canu.fa \
   | sort -k6,6 -k8,8n \
-  | paftools.js call - > out.txt
+  | paftools.js call -f ecoli_ref.fa - > out.vcf
 ```
-The first few lines in `out.txt` are
-```
-R       NC_000913       0       257899
-V       NC_000913       668     669     1       60      g       -       tig00000001     3439623 3439623 +
-V       NC_000913       896     897     1       60      g       -       tig00000001     3439850 3439850 +
-V       NC_000913       1304    1305    1       60      g       -       tig00000001     3440257 3440257 +
-```
-where an `R`-line gives the regions coverged by one contig; a `V`-line consists of:
+Without option `-f`, `paftools.js call` outputs in a custom format. In this
+format, lines starting with `R` give the regions covered by one contig only.
+This information is not available in the VCF output.
 
-1. Reference sequence name
-2. Reference start
-3. Reference end (a 0-based, half-close-half-open interval)
-4. Contig coverage (please ignore a `V`-line if this number is not one!)
-5. Mean mapping quality of contigs covering the site
-6. Reference base ("-" for an insertion)
-7. Contig base ("-" for a deletion)
-8. Contig name
-9. Contig start
-10. Contig end
-11. Contig strand
+### <a name="liftover"></a>Lift over
+```sh
+echo -e 'tig00000001\t200000\t300000' | paftools.js liftover ecoli_canu.paf -
+```
+This lifts over a region on query sequences to one or multiple regions on
+reference sequences. Note that this paftools.js command may not be efficient
+enough to lift millions of regions.
 
-`paftools.js call` does not support VCF output. This feature is planned but has
-not been implemented yet.
+### <a name="x-species"></a>Cross-species alignment
+```sh
+minimap2 -cx asm20 --cs ecoli_ref.fa ecoli_O104:H4.fa > ecoli_O104:H4.paf
+sort -k6,6 -k8,8n ecoli_O104:H4.paf | paftools.js call -f ecoli_ref.fa -L10000 -l1000 - > out.vcf
+```
+Minimap2 only works when the sequence divergence is no more than ~15%.
+
+### <a name="view-aln"></a>Print alignment
+```sh
+# option "--cs" required; minimap2-r741 or higher required for the "asm20" preset
+minimap2 -cx asm20 --cs ecoli_ref.fa ecoli_O104:H4.fa | paftools.js view - | less -S
+```
+This prints the alignment in a BLAST-like format.
 
 
 
