@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = 'r734';
+var paftools_version = 'r743';
 
 /*****************************
  ***** Library functions *****
@@ -130,6 +130,40 @@ Interval.find_ovlp = function(a, st, en)
 /**********************************
  * Reverse and reverse complement *
  **********************************/
+
+function fasta_read(fn)
+{
+	var h = {}, gt = '>'.charCodeAt(0);
+	var file = fn == '-'? new File() : new File(fn);
+	var buf = new Bytes(), seq = null, name = null, seqlen = [];
+	while (file.readline(buf) >= 0) {
+		if (buf[0] == gt) {
+			if (seq != null && name != null) {
+				seqlen.push([name, seq.length]);
+				h[name] = seq;
+				name = seq = null;
+			}
+			var m, line = buf.toString();
+			if ((m = /^>(\S+)/.exec(line)) != null) {
+				name = m[1];
+				seq = new Bytes();
+			}
+		} else seq.set(buf);
+	}
+	if (seq != null && name != null) {
+		seqlen.push([name, seq.length]);
+		h[name] = seq;
+	}
+	buf.destroy();
+	file.close();
+	return [h, seqlen];
+}
+
+function fasta_free(fa)
+{
+	for (var name in fa)
+		fa[name].destroy();
+}
 
 Bytes.prototype.reverse = function()
 {
@@ -307,12 +341,15 @@ function paf_call(args)
 {
 	var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g, re_tag = /\t(\S\S:[AZif]):(\S+)/g;
 	var c, min_cov_len = 10000, min_var_len = 50000, gap_thres = 50, min_mapq = 5;
-	while ((c = getopt(args, "l:L:g:q:B:")) != null) {
+	var fa_tmp = null, fa, fa_lens, is_vcf = false;
+	while ((c = getopt(args, "l:L:g:q:B:f:")) != null) {
 		if (c == 'l') min_cov_len = parseInt(getopt.arg);
 		else if (c == 'L') min_var_len = parseInt(getopt.arg);
 		else if (c == 'g') gap_thres = parseInt(getopt.arg);
 		else if (c == 'q') min_mapq = parseInt(getopt.arg);
+		else if (c == 'f') fa_tmp = fasta_read(getopt.arg, fa_lens);
 	}
+	if (fa_tmp != null) fa = fa_tmp[0], fa_lens = fa_tmp[1], is_vcf = true;
 
 	if (args.length == getopt.ind) {
 		print("Usage: sort -k6,6 -k8,8n <with-cs.paf> | paftools.js call [options] -");
@@ -321,12 +358,34 @@ function paf_call(args)
 		print("  -L INT    min alignment length to call variants ["+min_var_len+"]");
 		print("  -q INT    min mapping quality ["+min_mapq+"]");
 		print("  -g INT    short/long gap threshold (for statistics only) ["+gap_thres+"]");
+		print("  -f FILE   reference sequences (enabling VCF output) [null]");
 		exit(1);
 	}
 
 	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 	var buf = new Bytes();
 	var tot_len = 0, n_sub = [0, 0, 0], n_ins = [0, 0, 0, 0], n_del = [0, 0, 0, 0];
+
+	function print_vcf(o, fa)
+	{
+		var v = null;
+		if (o[3] != 1) return; // coverage is one; skip
+		if (o[5] == '-' && o[6] == '-') return;
+		if (o[5] != '-' && o[6] != '-') { // snp
+			v = [o[0], o[1] + 1, '.', o[5].toUpperCase(), o[6].toUpperCase()];
+		} else if (o[1] > 0) { // shouldn't happen in theory
+			if (fa[o[0]] == null) throw Error('sequence "' + o[0] + '" is absent from the reference FASTA');
+			if (o[1] >= fa[o[0]].length) throw Error('position ' + o[1] + ' exceeds the length of sequence "' + o[0] + '"');
+			var ref = String.fromCharCode(fa[o[0]][o[1]-1]).toUpperCase();
+			if (o[5] == '-') // insertion
+				v = [o[0], o[1], '.', ref, ref + o[6].toUpperCase()];
+			else // deletion
+				v = [o[0], o[1], '.', ref + o[5].toUpperCase(), ref];
+		}
+		v.push(o[4], '.', 'QNAME=' + o[7] + ';QSTART=' + (o[8]+1) + ';QSTRAND=' + (rev? '-' : '+'), 'GT', '1/1');
+		if (v == null) throw Error("unexpected variant: [" + o.join(",") + "]");
+		print(v.join("\t"));
+	}
 
 	function count_var(o)
 	{
@@ -351,6 +410,17 @@ function paf_call(args)
 				++n_sub[1];
 			else ++n_sub[2];
 		}
+	}
+
+	if (is_vcf) {
+		print('##fileformat=VCFv4.1');
+		for (var i = 0; i < fa_lens.length; ++i)
+			print('##contig=<ID=' + fa_lens[i][0] + ',length=' + fa_lens[i][1] + '>');
+		print('##INFO=<ID=QNAME,Number=1,Type=String,Description="Query name">');
+		print('##INFO=<ID=QSTART,Number=1,Type=Integer,Description="Query start">');
+		print('##INFO=<ID=QSTRAND,Number=1,Type=String,Description="Query strand">');
+		print('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">');
+		print('#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample');
 	}
 
 	var a = [], out = [];
@@ -380,21 +450,21 @@ function paf_call(args)
 		if (ctg != c1_ctg || x >= c1_end) {
 			if (c1_counted && c1_end > c1_start) {
 				c1_len += c1_end - c1_start;
-				print('R', c1_ctg, c1_start, c1_end);
+				if (!is_vcf) print('R', c1_ctg, c1_start, c1_end);
 			}
 			c1_ctg = ctg, c1_start = x, c1_end = end;
 			c1_counted = (t[10] >= min_var_len);
 		} else if (end > c1_end) { // overlap
 			if (c1_counted && x > c1_start) {
 				c1_len += x - c1_start;
-				print('R', c1_ctg, c1_start, x);
+				if (!is_vcf) print('R', c1_ctg, c1_start, x);
 			}
 			c1_start = c1_end, c1_end = end;
 			c1_counted = (t[10] >= min_var_len);
 		} else if (end > c1_start) { // contained
 			if (c1_counted && x > c1_start) {
 				c1_len += x - c1_start;
-				print('R', c1_ctg, c1_start, x);
+				if (!is_vcf) print('R', c1_ctg, c1_start, x);
 			}
 			c1_start = end;
 		} // else, the alignment precedes the cov1 region; do nothing
@@ -402,7 +472,8 @@ function paf_call(args)
 		while (out.length) {
 			if (out[0][0] != ctg || out[0][2] <= x) {
 				count_var(out[0]);
-				print('V', out[0].join("\t"));
+				if (is_vcf) print_vcf(out[0], fa);
+				else print('V', out[0].join("\t"));
 				out.shift();
 			} else break;
 		}
@@ -458,11 +529,12 @@ function paf_call(args)
 	}
 	if (c1_counted && c1_end > c1_start) {
 		c1_len += c1_end - c1_start;
-		print('R', c1_ctg, c1_start, c1_end);
+		if (!is_vcf) print('R', c1_ctg, c1_start, c1_end);
 	}
 	while (out.length) {
 		count_var(out[0]);
-		print('V', out[0].join("\t"));
+		if (is_vcf) print_vcf(out[0], fa);
+		else print('V', out[0].join("\t"));
 		out.shift();
 	}
 
@@ -480,6 +552,7 @@ function paf_call(args)
 
 	buf.destroy();
 	file.close();
+	if (fa != null) fasta_free(fa);
 }
 
 function paf_stat(args)
