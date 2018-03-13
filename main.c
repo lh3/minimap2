@@ -309,12 +309,17 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
+			int err;
 			if (mm_idx_reader_eof(idx_rdr)) {
-				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
+				err = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 			} else {
-				mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
+				err = mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
 				if (mm_verbose >= 2)
 					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted.\033[0m\n");
+			}
+			if (err == EOF) {
+				fprintf(stderr, "[ERROR] error writing output header\n");
+				return 1;
 			}
 		}
 		if (mm_verbose >= 3)
@@ -337,5 +342,11 @@ int main(int argc, char *argv[])
 	for (i = 0; i < argc; ++i)
 		fprintf(stderr, " %s", argv[i]);
 	fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - mm_realtime0, cputime());
+
+	int err = fflush(stdout);
+	if (err == EOF) {
+		fprintf(stderr, "[ERROR]: Could not flush output\n");
+		return 1;
+	}
 	return 0;
 }

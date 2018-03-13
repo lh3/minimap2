@@ -112,8 +112,9 @@ err_set_rg:
 	free(rg_line);
 }
 
-void mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int argc, char *argv[])
+int mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int argc, char *argv[])
 {
+	int err;
 	kstring_t str = {0,0,0};
 	if (idx) {
 		uint32_t i;
@@ -130,8 +131,9 @@ void mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int 
 			mm_sprintf_lite(&str, " %s", argv[i]);
 	}
 	mm_sprintf_lite(&str, "\n");
-	fputs(str.s, stdout);
+	err = fputs(str.s, stdout);
 	free(str.s);
+	return err;
 }
 
 static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden)
