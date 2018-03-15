@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = 'r743';
+var paftools_version = 'r746';
 
 /*****************************
  ***** Library functions *****
@@ -1758,7 +1758,7 @@ function paf_junceval(args)
 		else if (c == 'p') print_ovlp = true;
 	}
 
-	if (args.length - getopt.ind < 2) {
+	if (args.length - getopt.ind < 1) {
 		print("Usage: paftools.js junceval [options] <gene.gtf> <aln.sam>");
 		print("Options:");
 		print("  -l INT    tolerance of junction positions (0 for exact) [0]");
@@ -1770,7 +1770,7 @@ function paf_junceval(args)
 	var file, buf = new Bytes();
 
 	var tr = {};
-	file = new File(args[getopt.ind]);
+	file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
 		if (t[0].charAt(0) == '#') continue;
@@ -1815,7 +1815,7 @@ function paf_junceval(args)
 	var n_pri = 0, n_unmapped = 0, n_mapped = 0;
 	var n_sgl = 0, n_splice = 0, n_splice_hit = 0, n_splice_novel = 0;
 
-	file = new File(args[getopt.ind+1]);
+	file = getopt.ind+1 >= args.length || args[getopt.ind+1] == '-'? new File() : new File(args[getopt.ind+1]);
 	var last_qname = null;
 	var re_cigar = /(\d+)([MIDNSHX=])/g;
 	while (file.readline(buf) >= 0) {
