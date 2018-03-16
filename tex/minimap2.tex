@@ -652,9 +652,9 @@ across the whole genome and have been \emph{de novo} assembled with SMRT reads
 to high quality. This allowed us to construct an independent truth variant
 dataset~\citep{Li223297} for
 ERR1341796. In this evaluation, minimap2 has higher SNP false negative rate
-(FNR; 2.5\% of minimap2 vs 2.2\% of BWA-MEM), but fewer false positive SNPs per
-million bases (FPPM; 3.0 vs 3.9), lower 2--50bp INDEL FNR (7.3\% vs 7.5\%) and
-similar INDEL FPPM (both 1.0). Minimap2 is broadly similar to BWA-MEM in the
+(FNR; 2.6\% of minimap2 vs 2.3\% of BWA-MEM), but fewer false positive SNPs per
+million bases (FPPM; 7.0 vs 8.8), similar INDEL FNR (11.2\% vs 11.3\%) and
+similar INDEL FPPM (6.4 vs 6.5). Minimap2 is broadly comparable to BWA-MEM in the
 context of small variant calling.
 
 \subsection{Aligning long-read assemblies}
@@ -716,6 +716,8 @@ masterpiece and insightful notes before formal publication. We thank M.
 Schatz, P. Rescheneder and F. Sedlazeck for pointing out the limitation of
 BWA-MEM. We are also grateful to minimap2 users who have greatly helped to
 suggest features and to fix various issues.
+
+\paragraph{Funding\textcolon} NHGRI 1R01HG010040-01
 
 \bibliography{minimap2}
 
