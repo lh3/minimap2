@@ -1,4 +1,4 @@
-.TH minimap2 1 "24 February 2018" "minimap2-2.9 (r720)" "Bioinformatics tools"
+.TH minimap2 1 "15 March 2018" "minimap2-2.9-dirty (r746)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -123,10 +123,27 @@ provided as the target sequences, options
 will be effectively overridden by the options stored in the index file.
 .SS Mapping options
 .TP 10
-.BI -f \ FLOAT
-Ignore top
+.BI -f \ FLOAT | INT1 [, INT2 ]
+If fraction, ignore top
 .I FLOAT
-fraction of most frequent minimizers [0.0002]
+fraction of most frequent minimizers [0.0002]. If integer,
+ignore minimizers occuring more than
+.I INT1
+times.
+.I INT2
+is only effective in the
+.B --sr
+or
+.B -xsr
+mode, which sets the threshold for a second round of seeding.
+.TP
+.BI --min-occ-floor \ INT
+Force minimap2 to always use k-mers occurring
+.I INT
+times or less [0]. In effect, the max occurrence threshold is set to
+the
+.RI max{ INT ,
+.BR -f }.
 .TP
 .BI -g \ INT
 Stop chain enlongation if there are no minimizers within
@@ -216,14 +233,6 @@ option makes minimap2 exits the inner loop if it repeatedly sees seeds already
 on chains. Set
 .I INT
 to a large number to switch off this heurstics.
-.TP
-.BI --min-occ-floor \ INT
-Force minimap2 to always use k-mers occurring
-.I INT
-times or less [0]. In effect, the max occurrence threshold is set to
-the
-.RI max{ INT ,
-.BR -f }.
 .TP
 .B --no-long-join
 Disable the long gap patching heuristic. When this option is applied, the

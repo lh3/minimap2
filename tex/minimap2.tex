@@ -19,7 +19,7 @@
 \begin{document}
 \firstpage{1}
 
-\title[Aligning nucleotide sequences with minimap2]{Minimap2: versatile pairwise alignment for nucleotide sequences}
+\title[Aligning nucleotide sequences with minimap2]{Minimap2: pairwise alignment for nucleotide sequences}
 \author[Li]{Heng Li}
 \address{Broad Institute, 415 Main Street, Cambridge, MA 02142, USA}
 
@@ -64,7 +64,7 @@ the thought that 10kb long sequences should be easier to map than 100bp reads
 because we can more effectively skip repetitive regions, which are often the
 bottleneck of short-read alignment. We confirmed our speculation by achieving
 approximate mapping 50 times faster than BWA-MEM~\citep{Li:2016aa}.
-\citet{Suzuki130633} extended our work with a fast and novel algorithm on
+\citet{Suzuki:2018aa} extended our work with a fast and novel algorithm on
 generating base-level alignment, which in turn inspired us to develop minimap2
 with added functionality.
 
@@ -88,7 +88,9 @@ the versatility of minimap2.
 
 Minimap2 follows a typical seed-chain-align procedure as is used by most
 full-genome aligners. It collects minimizers~\citep{Roberts:2004fv} of the
-reference sequences and indexes them in a hash table. Then for each query
+reference sequences and indexes them in a hash table, with the key being the
+hash of a minimizer and the value being a list of locations of the minimizer
+copies. Then for each query
 sequence, minimap2 takes query minimizers as \emph{seeds}, finds exact matches
 (i.e. \emph{anchors}) to the reference, and identifies sets of colinear anchors as
 \emph{chains}. If base-level alignment is requested, minimap2 applies dynamic
@@ -118,9 +120,12 @@ distance between two anchors is too large); otherwise
 \begin{equation}\label{eq:chain-gap}
 \beta(j,i)=\gamma_c\big((y_i-y_j)-(x_i-x_j)\big)
 \end{equation}
-In implementation, a gap of length $l\not=0$ costs
+In implementation, a gap of length $l$ costs
 \[
-\gamma_c(l)=0.01\cdot \bar{w}\cdot|l|+0.5\log_2|l|
+\gamma_c(l)=\left\{\begin{array}{ll}
+0.01\cdot \bar{w}\cdot|l|+0.5\log_2|l| & (l\not=0) \\
+0 & (l=0)
+\end{array}\right.
 \]
 where $\bar{w}$ is the average seed length. For $N$ anchors, directly computing all $f(\cdot)$ with
 Eq.~(\ref{eq:chain}) takes $O(N^2)$ time. Although theoretically faster
@@ -164,7 +169,7 @@ empirical formula:
 \[
 {\rm mapQ}=40\cdot (1-f_2/f_1)\cdot\min\{1,m/10\}\cdot\log f_1
 \]
-where $m$ is the number of anchors on the primary chain, $f_1$ is the chaining
+where $\log$ denotes natural logarithm, $m$ is the number of anchors on the primary chain, $f_1$ is the chaining
 score, and $f_2\le f_1$ is the score of the best chain that is secondary to the
 primary chain. Intuitively, a chain is assigned to a higher mapping quality if
 it is long and its best secondary chain is weak.
@@ -253,7 +258,7 @@ performance of minimap2. Traditional SSE implementations~\citep{Farrar:2007hs}
 based on Eq.~(\ref{eq:ae86}) can achieve 16-way parallelization for short
 sequences, but only 4-way parallelization when the peak alignment score reaches
 32767. Long sequence alignment may exceed this threshold. Inspired by
-\citet{Wu:1996aa} and the following work, \citet{Suzuki130633} proposed a
+\citet{Wu:1996aa} and the following work, \citet{Suzuki:2018aa} proposed a
 difference-based formulation that lifted this limitation.
 In case of 2-piece gap cost, define
 \[
@@ -320,7 +325,7 @@ y_{rt}&=&\max\{0,y_{r-1,t}+u_{r-1,t}-z_{rt}+q\}-q-e\\
 \end{equation*}
 In this formulation, cells with the same diagonal index $r$ are independent of
 each other. This allows us to fully vectorize the computation of all cells on
-the same anti-diagonal in one inner loop. It also simplifies banded alignment,
+the same anti-diagonal in one inner loop. It also simplifies banded alignment (500bp band width by default),
 which would be difficult with striped vectorization~\citep{Farrar:2007hs}.
 
 On the condition that $q+e<\tilde{q}+\tilde{e}$ and $e>\tilde{e}$, the initial
@@ -355,7 +360,7 @@ times as fast as Parasail's 4-way vectorization~\citep{Daily:2016aa}.  Without
 banding, our implementation is slower than Edlib~\citep{Sosic:2017aa}, but with
 a 1000bp band, it is considerably faster. When performing global alignment
 between anchors, we expect the alignment to stay close to the diagonal of the
-DP matrix. Banding is applicable most of time.
+DP matrix. Banding is applicable most of the time.
 
 \subsubsection{The Z-drop heuristic}
 
@@ -478,7 +483,7 @@ both C and Python. It is distributed under the MIT license, free to both
 commercial and academic uses. Minimap2 uses the same base algorithm for all
 applications, but it has to apply different sets of parameters depending on
 input data types. Similar to BWA-MEM, minimap2 introduces `presets' that
-modify multiple parameters with a simple invokation. Detailed settings
+modify multiple parameters with a simple invocation. Detailed settings
 and command-line options can be found in the minimap2 manpage. In addition to
 the applications evaluated in the following sections, minimap2 also retains
 minimap's functionality to find overlaps between long reads and to search
@@ -570,7 +575,7 @@ Peak RAM (GByte)          & 8.9      & 14.5     & 3.2      & 29.2\vspace{1em}\\
 \% approx. introns        & 91.8\%   & 96.9\%   & 92.5\%   & 82.4\% \\
 \botrule
 \end{tabular}
-}{Mouse reads (AC:SRR5286960; R9.4 chemistry) were mapped to the primary assembly of mouse
+}{Mouse cDNA reads (AC:SRR5286960; R9.4 chemistry) were mapped to the primary assembly of mouse
 genome GRCm38 with the following tools and command options: minimap2 (`-ax
 splice'); GMAP (`-n 0 --min-intronlength 30 --cross-species'); SpAln (`-Q7 -LS
 -S3'); STARlong (according to
@@ -579,7 +584,7 @@ compared to the EnsEMBL gene annotation, release 89. A predicted intron
 is \emph{novel} if it has no overlaps with any annotated introns. An intron
 is \emph{exact} if it is identical to an annotated intron. An intron is
 \emph{approximate} if both its 5'- and 3'-end are within 10bp around the ends
-of an annotated intron.}
+of an annotated intron. Chimeric alignments are defined in the SAM spec~\citep{Li:2009ys}.}
 \end{table}
 
 We next aligned real mouse reads~\citep{Byrne:2017aa} with GMAP~(v2017-06-20;
@@ -687,7 +692,7 @@ involving $>$100kb introns, which was impractically slow ten years ago.  The
 minimap2 chaining algorithm is fast and highly accurate by itself.  In fact,
 chaining alone is more accurate than all the other long-read mappers in
 Fig.~\ref{fig:eval}a (data not shown). This accuracy helps to reduce downstream
-base-level alignment of candidate chains, which is still times slower than
+base-level alignment of candidate chains, which is still several times slower than
 chaining even with the Suzuki-Kasahara improvement. In addition, taking a
 general form, minimap2 chaining can be adapted to non-typical data types such as
 spliced reads and multiple reads per fragment. This gives us the opportunity to
