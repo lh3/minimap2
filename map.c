@@ -478,6 +478,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (k = 0; k < s->n_frag; ++k) {
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
+			int err;
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
 				for (j = 0; j < s->n_reg[i]; ++j) {
@@ -489,11 +490,13 @@ static void *worker_pipeline(void *shared, int step, void *in)
 						mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
 					else
 						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
-					puts(p->str.s);
+					err = puts(p->str.s);
+					if (err == EOF) exit(1);
 				}
 				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
 					mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
-					puts(p->str.s);
+					err = puts(p->str.s);
+					if (err == EOF) exit(1);
 				}
 			}
 			for (i = seg_st; i < seg_en; ++i) {
