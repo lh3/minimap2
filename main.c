@@ -4,9 +4,13 @@
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
+#ifdef HAVE_GETOPT
+#include <getopt.h>
+#else
 #include "getopt.h"
+#endif
 
-#define MM_VERSION "2.9-r741-dirty"
+#define MM_VERSION "2.9-r748-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -111,7 +115,7 @@ int main(int argc, char *argv[])
 			}
 			break;
 		}
-	optreset = 1;
+	optind = 0; // for musl getopt, optind=0 has the same effect as optreset=1; older libc doesn't have optreset
 
 	while ((c = getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) {
 		if (c == 'w') ipt.w = atoi(optarg);

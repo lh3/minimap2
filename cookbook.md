@@ -7,10 +7,10 @@
   * [Evaluating mapping accuracy with simulated reads (for developers)](#mapeval)
 - [Full-Genome Alignment](#genome-aln)
   * [Intra-species assembly alignment](#asm-to-ref)
+  * [Cross-species full-genome alignment](#x-species)
+  * [Eyeballing alignment](#view-aln)
   * [Calling variants from assembly-to-reference alignment](#asm-var)
   * [Lift Over](#liftover)
-  * [Cross-species alignment](#x-species)
-  * [Print alignment](#view-aln)
 - [Read Overlap](#read-overlap)
   * [Long-read overlap](#long-read-overlap)
   * [Evaluating overlap sensitivity (for developers)](#ov-eval)
@@ -79,7 +79,7 @@ paftools.js pbsim2fq ../ecoli_ref.fa.fai sd_0001.maf > ../ecoli_pbsim.fa
 # mason2 simulation
 mason_simulator --illumina-prob-mismatch-scale 2.5 -ir ecoli_ref.fa -n 10000 -o tmp-l.fq -or tmp-r.fq -oa tmp.sam
 paftools.js mason2fq tmp.sam | seqtk seq -1 > ecoli_mason_1.fq
-paftools.js mason2fq tmp.sam | seqtk seq -1 > ecoli_mason_2.fq
+paftools.js mason2fq tmp.sam | seqtk seq -2 > ecoli_mason_2.fq
 ```
 
 
@@ -95,6 +95,24 @@ Here `ecoli_canu.fa` is the Canu assembly of `ecoli_p6_25x_canu.fa`. This
 command line outputs alignments in the [PAF format][paf]. Use `-a` instead of
 `-c` to get output in the SAM format.
 
+### <a name="x-species"></a>Cross-species full-genome alignment
+```sh
+minimap2 -cx asm20 --cs ecoli_ref.fa ecoli_O104:H4.fa > ecoli_O104:H4.paf
+sort -k6,6 -k8,8n ecoli_O104:H4.paf | paftools.js call -f ecoli_ref.fa -L10000 -l1000 - > out.vcf
+```
+Minimap2 has three presets for full-genome alignment: "asm5" for sequence
+divergence below 1%, "asm10" for divergence around a couple of percent and
+"asm20" for divergence not more than 10%. In theory, with the right setting,
+minimap2 should work for sequence pairs with sequence divergence up to ~15%,
+but this has not been carefully evaluated.
+
+### <a name="view-aln"></a>Eyeballing alignment
+```sh
+# option "--cs" required; minimap2-r741 or higher required for the "asm20" preset
+minimap2 -cx asm20 --cs ecoli_ref.fa ecoli_O104:H4.fa | paftools.js view - | less -S
+```
+This prints the alignment in a BLAST-like format.
+
 ### <a name="asm-var"></a>Calling variants from assembly-to-reference alignment
 ```sh
 # don't forget the "--cs" option; otherwise it doesn't work
@@ -108,26 +126,12 @@ This information is not available in the VCF output.
 
 ### <a name="liftover"></a>Lift over
 ```sh
+minimap2 -cx asm5 --cs ecoli_ref.fa ecoli_canu.fa > ecoli_canu.paf
 echo -e 'tig00000001\t200000\t300000' | paftools.js liftover ecoli_canu.paf -
 ```
 This lifts over a region on query sequences to one or multiple regions on
 reference sequences. Note that this paftools.js command may not be efficient
 enough to lift millions of regions.
-
-### <a name="x-species"></a>Cross-species alignment
-```sh
-minimap2 -cx asm20 --cs ecoli_ref.fa ecoli_O104:H4.fa > ecoli_O104:H4.paf
-sort -k6,6 -k8,8n ecoli_O104:H4.paf | paftools.js call -f ecoli_ref.fa -L10000 -l1000 - > out.vcf
-```
-Minimap2 only works when the sequence divergence is no more than ~15%.
-
-### <a name="view-aln"></a>Print alignment
-```sh
-# option "--cs" required; minimap2-r741 or higher required for the "asm20" preset
-minimap2 -cx asm20 --cs ecoli_ref.fa ecoli_O104:H4.fa | paftools.js view - | less -S
-```
-This prints the alignment in a BLAST-like format.
-
 
 
 
