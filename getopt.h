@@ -28,9 +28,9 @@
 extern "C" {
 #endif
 
-int getopt(int, char * const [], const char *);
-extern char *optarg;
-extern int optind, opterr, optopt, optreset;
+int mm_getopt(int, char * const [], const char *);
+extern char *mm_optarg;
+extern int mm_optind, mm_opterr, mm_optopt, mm_optreset;
 
 struct option {
 	const char *name;
@@ -39,8 +39,8 @@ struct option {
 	int val;
 };
 
-int getopt_long(int, char *const *, const char *, const struct option *, int *);
-int getopt_long_only(int, char *const *, const char *, const struct option *, int *);
+int mm_getopt_long(int, char *const *, const char *, const struct option *, int *);
+int mm_getopt_long_only(int, char *const *, const char *, const struct option *, int *);
 
 #define no_argument        0
 #define required_argument  1

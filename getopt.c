@@ -3,10 +3,15 @@
 #include <string.h>
 #include "getopt.h"
 
-char *optarg;
-int optind=1, opterr=1, optopt, __optpos, optreset=0;
+char *mm_optarg;
+int mm_optind=1, mm_opterr=1, mm_optopt, __optpos, mm_optreset=0;
 
 #define optpos __optpos
+#define optarg mm_optarg
+#define optind mm_optind
+#define opterr mm_opterr
+#define optopt mm_optopt
+#define optreset mm_optreset
 
 static void __getopt_msg(const char *a, const char *b, const char *c, size_t l)
 {
@@ -23,7 +28,7 @@ static void __getopt_msg(const char *a, const char *b, const char *c, size_t l)
 #endif
 }
 
-int getopt(int argc, char * const argv[], const char *optstring)
+int mm_getopt(int argc, char * const argv[], const char *optstring)
 {
 	int i, c, d;
 	int k, l;
@@ -173,7 +178,7 @@ static int __getopt_long_core(int argc, char *const *argv, const char *optstring
 			return '?';
 		}
 	}
-	return getopt(argc, argv, optstring);
+	return mm_getopt(argc, argv, optstring);
 }
 
 static int __getopt_long(int argc, char *const *argv, const char *optstring, const struct option *longopts, int *idx, int longonly)
@@ -205,12 +210,12 @@ static int __getopt_long(int argc, char *const *argv, const char *optstring, con
 	return ret;
 }
 
-int getopt_long(int argc, char *const *argv, const char *optstring, const struct option *longopts, int *idx)
+int mm_getopt_long(int argc, char *const *argv, const char *optstring, const struct option *longopts, int *idx)
 {
 	return __getopt_long(argc, argv, optstring, longopts, idx, 0);
 }
 
-int getopt_long_only(int argc, char *const *argv, const char *optstring, const struct option *longopts, int *idx)
+int mm_getopt_long_only(int argc, char *const *argv, const char *optstring, const struct option *longopts, int *idx)
 {
 	return __getopt_long(argc, argv, optstring, longopts, idx, 1);
 }
