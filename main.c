@@ -67,7 +67,7 @@ static inline int64_t mm_parse_num(const char *str)
 {
 	double x;
 	char *p;
-	x = strtod(optarg, &p);
+	x = strtod(mm_optarg, &p);
 	if (*p == 'G' || *p == 'g') x *= 1e9;
 	else if (*p == 'M' || *p == 'm') x *= 1e6;
 	else if (*p == 'K' || *p == 'k') x *= 1e3;
@@ -103,30 +103,30 @@ int main(int argc, char *argv[])
 	mm_realtime0 = realtime();
 	mm_set_opt(0, &ipt, &opt);
 
-	while ((c = getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) // apply option -x/preset first
+	while ((c = mm_getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) // apply option -x/preset first
 		if (c == 'x') {
-			if (mm_set_opt(optarg, &ipt, &opt) < 0) {
-				fprintf(stderr, "[ERROR] unknown preset '%s'\n", optarg);
+			if (mm_set_opt(mm_optarg, &ipt, &opt) < 0) {
+				fprintf(stderr, "[ERROR] unknown preset '%s'\n", mm_optarg);
 				return 1;
 			}
 			break;
 		}
-	optreset = 1;
+	mm_optreset = 1;
 
-	while ((c = getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) {
-		if (c == 'w') ipt.w = atoi(optarg);
-		else if (c == 'k') ipt.k = atoi(optarg);
+	while ((c = mm_getopt_long(argc, argv, opt_str, long_options, &long_idx)) >= 0) {
+		if (c == 'w') ipt.w = atoi(mm_optarg);
+		else if (c == 'k') ipt.k = atoi(mm_optarg);
 		else if (c == 'H') ipt.flag |= MM_I_HPC;
-		else if (c == 'd') fnw = optarg; // the above are indexing related options, except -I
-		else if (c == 'r') opt.bw = (int)mm_parse_num(optarg);
-		else if (c == 't') n_threads = atoi(optarg);
-		else if (c == 'v') mm_verbose = atoi(optarg);
-		else if (c == 'g') opt.max_gap = (int)mm_parse_num(optarg);
-		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(optarg));
-		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(optarg);
-		else if (c == 'N') opt.best_n = atoi(optarg);
-		else if (c == 'p') opt.pri_ratio = atof(optarg);
-		else if (c == 'M') opt.mask_level = atof(optarg);
+		else if (c == 'd') fnw = mm_optarg; // the above are indexing related options, except -I
+		else if (c == 'r') opt.bw = (int)mm_parse_num(mm_optarg);
+		else if (c == 't') n_threads = atoi(mm_optarg);
+		else if (c == 'v') mm_verbose = atoi(mm_optarg);
+		else if (c == 'g') opt.max_gap = (int)mm_parse_num(mm_optarg);
+		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(mm_optarg));
+		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(mm_optarg);
+		else if (c == 'N') opt.best_n = atoi(mm_optarg);
+		else if (c == 'p') opt.pri_ratio = atof(mm_optarg);
+		else if (c == 'M') opt.mask_level = atof(mm_optarg);
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
 		else if (c == 'D') opt.flag |= MM_F_NO_DIAG;
 		else if (c == 'P') opt.flag |= MM_F_ALL_CHAINS;
@@ -135,58 +135,58 @@ int main(int argc, char *argv[])
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
 		else if (c == 'Y') opt.flag |= MM_F_SOFTCLIP;
 		else if (c == 'L') opt.flag |= MM_F_LONG_CIGAR;
-		else if (c == 'T') opt.sdust_thres = atoi(optarg);
-		else if (c == 'n') opt.min_cnt = atoi(optarg);
-		else if (c == 'm') opt.min_chain_score = atoi(optarg);
-		else if (c == 'A') opt.a = atoi(optarg);
-		else if (c == 'B') opt.b = atoi(optarg);
-		else if (c == 's') opt.min_dp_max = atoi(optarg);
-		else if (c == 'C') opt.noncan = atoi(optarg);
-		else if (c == 'I') ipt.batch_size = mm_parse_num(optarg);
-		else if (c == 'K') opt.mini_batch_size = (int)mm_parse_num(optarg);
-		else if (c == 'R') rg = optarg;
+		else if (c == 'T') opt.sdust_thres = atoi(mm_optarg);
+		else if (c == 'n') opt.min_cnt = atoi(mm_optarg);
+		else if (c == 'm') opt.min_chain_score = atoi(mm_optarg);
+		else if (c == 'A') opt.a = atoi(mm_optarg);
+		else if (c == 'B') opt.b = atoi(mm_optarg);
+		else if (c == 's') opt.min_dp_max = atoi(mm_optarg);
+		else if (c == 'C') opt.noncan = atoi(mm_optarg);
+		else if (c == 'I') ipt.batch_size = mm_parse_num(mm_optarg);
+		else if (c == 'K') opt.mini_batch_size = (int)mm_parse_num(mm_optarg);
+		else if (c == 'R') rg = mm_optarg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
-		else if (c == 0 && long_idx == 0) ipt.bucket_bits = atoi(optarg); // --bucket-bits
-		else if (c == 0 && long_idx == 2) opt.seed = atoi(optarg); // --seed
+		else if (c == 0 && long_idx == 0) ipt.bucket_bits = atoi(mm_optarg); // --bucket-bits
+		else if (c == 0 && long_idx == 2) opt.seed = atoi(mm_optarg); // --seed
 		else if (c == 0 && long_idx == 3) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
 		else if (c == 0 && long_idx == 4) mm_dbg_flag |= MM_DBG_PRINT_QNAME; // --print-qname
 		else if (c == 0 && long_idx == 6) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_SEED, n_threads = 1; // --print-seed
-		else if (c == 0 && long_idx == 7) opt.max_chain_skip = atoi(optarg); // --max-chain-skip
-		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(optarg); // --min-dp-len
+		else if (c == 0 && long_idx == 7) opt.max_chain_skip = atoi(mm_optarg); // --max-chain-skip
+		else if (c == 0 && long_idx == 8) opt.min_ksw_len = atoi(mm_optarg); // --min-dp-len
 		else if (c == 0 && long_idx == 9) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
 		else if (c == 0 && long_idx ==10) opt.flag |= MM_F_SPLICE; // --splice
 		else if (c == 0 && long_idx ==12) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 0 && long_idx ==13) opt.flag |= MM_F_SR; // --sr
-		else if (c == 0 && long_idx ==17) opt.end_bonus = atoi(optarg); // --end-bonus
+		else if (c == 0 && long_idx ==17) opt.end_bonus = atoi(mm_optarg); // --end-bonus
 		else if (c == 0 && long_idx ==18) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
 		else if (c == 0 && long_idx ==20) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
-		else if (c == 0 && long_idx ==21) opt.anchor_ext_shift = atoi(optarg); // --end-seed-pen
+		else if (c == 0 && long_idx ==21) opt.anchor_ext_shift = atoi(mm_optarg); // --end-seed-pen
 		else if (c == 0 && long_idx ==22) opt.flag |= MM_F_FOR_ONLY; // --for-only
 		else if (c == 0 && long_idx ==23) opt.flag |= MM_F_REV_ONLY; // --rev-only
-		else if (c == 0 && long_idx ==27) opt.max_clip_ratio = atof(optarg); // --max-clip-ratio
-		else if (c == 0 && long_idx ==28) opt.min_mid_occ = atoi(optarg); // --min-occ-floor
+		else if (c == 0 && long_idx ==27) opt.max_clip_ratio = atof(mm_optarg); // --max-clip-ratio
+		else if (c == 0 && long_idx ==28) opt.min_mid_occ = atoi(mm_optarg); // --min-occ-floor
 		else if (c == 0 && long_idx == 14) { // --frag
-			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
+			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, mm_optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary
-			yes_or_no(&opt, MM_F_NO_PRINT_2ND, long_idx, optarg, 0);
+			yes_or_no(&opt, MM_F_NO_PRINT_2ND, long_idx, mm_optarg, 0);
 		} else if (c == 0 && long_idx == 16) { // --cs
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR;
-			if (optarg == 0 || strcmp(optarg, "short") == 0) {
+			if (mm_optarg == 0 || strcmp(mm_optarg, "short") == 0) {
 				opt.flag &= ~MM_F_OUT_CS_LONG;
-			} else if (strcmp(optarg, "long") == 0) {
+			} else if (strcmp(mm_optarg, "long") == 0) {
 				opt.flag |= MM_F_OUT_CS_LONG;
-			} else if (strcmp(optarg, "none") == 0) {
+			} else if (strcmp(mm_optarg, "none") == 0) {
 				opt.flag &= ~MM_F_OUT_CS;
 			} else if (mm_verbose >= 2) {
 				fprintf(stderr, "[WARNING]\033[1;31m --cs only takes 'short' or 'long'. Invalid values are assumed to be 'short'.\033[0m\n");
 			}
 		} else if (c == 0 && long_idx == 19) { // --splice-flank
-			yes_or_no(&opt, MM_F_SPLICE_FLANK, long_idx, optarg, 1);
+			yes_or_no(&opt, MM_F_SPLICE_FLANK, long_idx, mm_optarg, 1);
 		} else if (c == 0 && long_idx == 24) { // --heap-sort
-			yes_or_no(&opt, MM_F_HEAP_SORT, long_idx, optarg, 1);
+			yes_or_no(&opt, MM_F_HEAP_SORT, long_idx, mm_optarg, 1);
 		} else if (c == 0 && long_idx == 26) { // --dual
-			yes_or_no(&opt, MM_F_NO_DUAL, long_idx, optarg, 0);
+			yes_or_no(&opt, MM_F_NO_DUAL, long_idx, mm_optarg, 0);
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)
@@ -197,27 +197,27 @@ int main(int argc, char *argv[])
 		} else if (c == 'f') {
 			double x;
 			char *p;
-			x = strtod(optarg, &p);
+			x = strtod(mm_optarg, &p);
 			if (x < 1.0) opt.mid_occ_frac = x, opt.mid_occ = 0;
 			else opt.mid_occ = (int)(x + .499);
 			if (*p == ',') opt.max_occ = (int)(strtod(p+1, &p) + .499);
 		} else if (c == 'u') {
-			if (*optarg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
-			else if (*optarg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
-			else if (*optarg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR; // match CT-AC (reverse complement of GT-AG)
-			else if (*optarg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV); // don't try to match the GT-AG signal
+			if (*mm_optarg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
+			else if (*mm_optarg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
+			else if (*mm_optarg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR; // match CT-AC (reverse complement of GT-AG)
+			else if (*mm_optarg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV); // don't try to match the GT-AG signal
 			else {
 				fprintf(stderr, "[ERROR]\033[1;31m unrecognized cDNA direction\033[0m\n");
 				return 1;
 			}
 		} else if (c == 'z') {
-			opt.zdrop = opt.zdrop_inv = strtol(optarg, &s, 10);
+			opt.zdrop = opt.zdrop_inv = strtol(mm_optarg, &s, 10);
 			if (*s == ',') opt.zdrop_inv = strtol(s + 1, &s, 10);
 		} else if (c == 'O') {
-			opt.q = opt.q2 = strtol(optarg, &s, 10);
+			opt.q = opt.q2 = strtol(mm_optarg, &s, 10);
 			if (*s == ',') opt.q2 = strtol(s + 1, &s, 10);
 		} else if (c == 'E') {
-			opt.e = opt.e2 = strtol(optarg, &s, 10);
+			opt.e = opt.e2 = strtol(mm_optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		}
 	}
@@ -230,7 +230,7 @@ int main(int argc, char *argv[])
 	if (mm_check_opt(&ipt, &opt) < 0)
 		return 1;
 
-	if (argc == optind || fp_help == stdout) {
+	if (argc == mm_optind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
 		fprintf(fp_help, "Options:\n");
 		fprintf(fp_help, "  Indexing:\n");
@@ -285,16 +285,16 @@ int main(int argc, char *argv[])
 		return fp_help == stdout? 0 : 1;
 	}
 
-	if ((opt.flag & MM_F_SR) && argc - optind > 3) {
+	if ((opt.flag & MM_F_SR) && argc - mm_optind > 3) {
 		fprintf(stderr, "[ERROR] incorrect input: in the sr mode, please specify no more than two query files.\n");
 		return 1;
 	}
-	idx_rdr = mm_idx_reader_open(argv[optind], &ipt, fnw);
+	idx_rdr = mm_idx_reader_open(argv[mm_optind], &ipt, fnw);
 	if (idx_rdr == 0) {
-		fprintf(stderr, "[ERROR] failed to open file '%s'\n", argv[optind]);
+		fprintf(stderr, "[ERROR] failed to open file '%s'\n", argv[mm_optind]);
 		return 1;
 	}
-	if (!idx_rdr->is_idx && fnw == 0 && argc - optind < 2) {
+	if (!idx_rdr->is_idx && fnw == 0 && argc - mm_optind < 2) {
 		fprintf(stderr, "[ERROR] missing input: please specify a query file to map or option -d to keep the index\n");
 		mm_idx_reader_close(idx_rdr);
 		return 1;
@@ -320,13 +320,13 @@ int main(int argc, char *argv[])
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
-		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
+		if (argc != mm_optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
-			for (i = optind + 1; i < argc; ++i)
+			for (i = mm_optind + 1; i < argc; ++i)
 				mm_map_file(mi, argv[i], &opt, n_threads);
 		} else {
-			mm_map_file_frag(mi, argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_threads);
+			mm_map_file_frag(mi, argc - (mm_optind + 1), (const char**)&argv[mm_optind + 1], &opt, n_threads);
 		}
 		mm_idx_destroy(mi);
 	}
