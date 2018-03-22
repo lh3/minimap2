@@ -489,11 +489,11 @@ static void *worker_pipeline(void *shared, int step, void *in)
 						mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
 					else
 						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
-					puts(p->str.s);
+					mm_err_puts(p->str.s);
 				}
-				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) {
+				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) { // write an unmapped record
 					mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
-					puts(p->str.s);
+					mm_err_puts(p->str.s);
 				}
 			}
 			for (i = seg_st; i < seg_en; ++i) {

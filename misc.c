@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include "mmpriv.h"
 
 int mm_verbose = 1;
@@ -118,6 +119,16 @@ double realtime(void)
 	struct timezone tzp;
 	gettimeofday(&tp, &tzp);
 	return tp.tv_sec + tp.tv_usec * 1e-6;
+}
+
+void mm_err_puts(const char *str)
+{
+	int ret;
+	ret = puts(str);
+	if (ret == EOF) {
+		fprintf(stderr, "[ERROR] failed to write the results\n");
+		exit(EXIT_FAILURE);
+	}
 }
 
 #include "ksort.h"

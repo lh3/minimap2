@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.9-r749-dirty"
+#define MM_VERSION "2.9-r750-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -335,6 +335,11 @@ int main(int argc, char *argv[])
 		mm_idx_destroy(mi);
 	}
 	mm_idx_reader_close(idx_rdr);
+
+	if (fflush(stdout) == EOF) {
+		fprintf(stderr, "[ERROR] failed to write the results\n");
+		exit(EXIT_FAILURE);
+	}
 
 	if (mm_verbose >= 3) {
 		fprintf(stderr, "[M::%s] Version: %s\n", __func__, MM_VERSION);

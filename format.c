@@ -118,7 +118,7 @@ void mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int 
 	if (idx) {
 		uint32_t i;
 		for (i = 0; i < idx->n_seq; ++i)
-			printf("@SQ\tSN:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
+			mm_sprintf_lite(&str, "@SQ\tSN:%s\tLN:%d\n", idx->seq[i].name, idx->seq[i].len);
 	}
 	if (rg) sam_write_rg_line(&str, rg);
 	mm_sprintf_lite(&str, "@PG\tID:minimap2\tPN:minimap2");
@@ -129,8 +129,7 @@ void mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int 
 		for (i = 1; i < argc; ++i)
 			mm_sprintf_lite(&str, " %s", argv[i]);
 	}
-	mm_sprintf_lite(&str, "\n");
-	fputs(str.s, stdout);
+	mm_err_puts(str.s);
 	free(str.s);
 }
 
