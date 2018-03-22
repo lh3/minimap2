@@ -388,6 +388,9 @@ is given,
 .I short
 is assumed. [none]
 .TP
+.B --MD
+Output the MD tag (see the SAM spec).
+.TP
 .B -Y
 In SAM output, use soft clipping for supplementary alignments.
 .TP
@@ -559,6 +562,7 @@ cm	i	Number of minimizers on the chain
 s1	i	Chaining score
 s2	i	Chaining score of the best secondary chain
 NM	i	Total number of mismatches and gaps in the alignment
+MD	Z	To generate the ref sequence in the alignment
 AS	i	DP alignment score
 ms	i	DP score of the max scoring segment in the alignment
 nn	i	Number of ambiguous bases in the alignment

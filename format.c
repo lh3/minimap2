@@ -133,31 +133,14 @@ void mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int 
 	free(str.s);
 }
 
-static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden)
+static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int no_iden)
 {
-	extern unsigned char seq_nt4_table[256];
 	int i, q_off, t_off;
-	uint8_t *qseq, *tseq;
-	char *tmp;
-	if (r->p == 0) return;
 	mm_sprintf_lite(s, "\tcs:Z:");
-	qseq = (uint8_t*)kmalloc(km, r->qe - r->qs);
-	tseq = (uint8_t*)kmalloc(km, r->re - r->rs);
-	tmp = (char*)kmalloc(km, r->re - r->rs > r->qe - r->qs? r->re - r->rs + 1 : r->qe - r->qs + 1);
-	mm_idx_getseq(mi, r->rid, r->rs, r->re, tseq);
-	if (!r->rev) {
-		for (i = r->qs; i < r->qe; ++i)
-			qseq[i - r->qs] = seq_nt4_table[(uint8_t)t->seq[i]];
-	} else {
-		for (i = r->qs; i < r->qe; ++i) {
-			uint8_t c = seq_nt4_table[(uint8_t)t->seq[i]];
-			qseq[r->qe - i - 1] = c >= 4? 4 : 3 - c;
-		}
-	}
 	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert(op >= 0 && op <= 3);
-		if (op == 0) {
+		if (op == 0) { // match
 			int l_tmp = 0;
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
@@ -178,17 +161,17 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 				} else mm_sprintf_lite(s, ":%d", l_tmp);
 			}
 			q_off += len, t_off += len;
-		} else if (op == 1) {
+		} else if (op == 1) { // insertion to ref
 			for (j = 0, tmp[len] = 0; j < len; ++j)
 				tmp[j] = "acgtn"[qseq[q_off + j]];
 			mm_sprintf_lite(s, "+%s", tmp);
 			q_off += len;
-		} else if (op == 2) {
+		} else if (op == 2) { // deletion from ref
 			for (j = 0, tmp[len] = 0; j < len; ++j)
 				tmp[j] = "acgtn"[tseq[t_off + j]];
 			mm_sprintf_lite(s, "-%s", tmp);
 			t_off += len;
-		} else {
+		} else { // intron
 			assert(len >= 2);
 			mm_sprintf_lite(s, "~%c%c%d%c%c", "acgtn"[tseq[t_off]], "acgtn"[tseq[t_off+1]],
 				len, "acgtn"[tseq[t_off+len-2]], "acgtn"[tseq[t_off+len-1]]);
@@ -196,6 +179,59 @@ static void write_cs(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_
 		}
 	}
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
+}
+
+static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp)
+{
+	int i, q_off, t_off, l_MD = 0;
+	mm_sprintf_lite(s, "\tMD:Z:");
+	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
+		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
+		assert(op >= 0 && op <= 2); // introns (aka reference skips) are not supported
+		if (op == 0) { // match
+			for (j = 0; j < len; ++j) {
+				if (qseq[q_off + j] != tseq[t_off + j]) {
+					mm_sprintf_lite(s, "%d%c", l_MD, "ACGTN"[tseq[t_off + j]]);
+					l_MD = 0;
+				} else ++l_MD;
+			}
+			q_off += len, t_off += len;
+		} else if (op == 1) { // insertion to ref
+			q_off += len;
+		} else if (op == 2) { // deletion from ref
+			for (j = 0, tmp[len] = 0; j < len; ++j)
+				tmp[j] = "ACGTN"[tseq[t_off + j]];
+			mm_sprintf_lite(s, "%d^%s", l_MD, tmp);
+			l_MD = 0;
+			t_off += len;
+		}
+	}
+	if (l_MD > 0) mm_sprintf_lite(s, "%d", l_MD);
+	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
+}
+
+static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD)
+{
+	extern unsigned char seq_nt4_table[256];
+	int i;
+	uint8_t *qseq, *tseq;
+	char *tmp;
+	if (r->p == 0) return;
+	qseq = (uint8_t*)kmalloc(km, r->qe - r->qs);
+	tseq = (uint8_t*)kmalloc(km, r->re - r->rs);
+	tmp = (char*)kmalloc(km, r->re - r->rs > r->qe - r->qs? r->re - r->rs + 1 : r->qe - r->qs + 1);
+	mm_idx_getseq(mi, r->rid, r->rs, r->re, tseq);
+	if (!r->rev) {
+		for (i = r->qs; i < r->qe; ++i)
+			qseq[i - r->qs] = seq_nt4_table[(uint8_t)t->seq[i]];
+	} else {
+		for (i = r->qs; i < r->qe; ++i) {
+			uint8_t c = seq_nt4_table[(uint8_t)t->seq[i]];
+			qseq[r->qe - i - 1] = c >= 4? 4 : 3 - c;
+		}
+	}
+	if (is_MD) write_MD_core(s, tseq, qseq, r, tmp);
+	else write_cs_core(s, tseq, qseq, r, tmp, no_iden);
 	kfree(km, qseq); kfree(km, tseq); kfree(km, tmp);
 }
 
@@ -236,8 +272,8 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 		for (k = 0; k < r->p->n_cigar; ++k)
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDN"[r->p->cigar[k]&0xf]);
 	}
-	if (r->p && (opt_flag & MM_F_OUT_CS))
-		write_cs(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG));
+	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
+		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD);
 }
 
 static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
@@ -433,8 +469,8 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 				}
 			}
 		}
-		if (r->p && (opt_flag & MM_F_OUT_CS))
-			write_cs(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG));
+		if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
+			write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD);
 		if (cigar_in_tag)
 			write_sam_cigar(s, flag, 1, t->l_seq, r, opt_flag);
 	}
