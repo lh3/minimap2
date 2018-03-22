@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.9-r748-dirty"
+#define MM_VERSION "2.9-r749-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -336,10 +336,12 @@ int main(int argc, char *argv[])
 	}
 	mm_idx_reader_close(idx_rdr);
 
-	fprintf(stderr, "[M::%s] Version: %s\n", __func__, MM_VERSION);
-	fprintf(stderr, "[M::%s] CMD:", __func__);
-	for (i = 0; i < argc; ++i)
-		fprintf(stderr, " %s", argv[i]);
-	fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - mm_realtime0, cputime());
+	if (mm_verbose >= 3) {
+		fprintf(stderr, "[M::%s] Version: %s\n", __func__, MM_VERSION);
+		fprintf(stderr, "[M::%s] CMD:", __func__);
+		for (i = 0; i < argc; ++i)
+			fprintf(stderr, " %s", argv[i]);
+		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - mm_realtime0, cputime());
+	}
 	return 0;
 }
