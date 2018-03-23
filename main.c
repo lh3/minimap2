@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.9-r752-dirty"
+#define MM_VERSION "2.9-r753-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -286,7 +286,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
 		fprintf(fp_help, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
 		fprintf(fp_help, "                 ava-pb: -Hk19 -Xw5 -m100 -g10000 --max-chain-skip 25 (PacBio read overlap)\n");
-		fprintf(fp_help, "                 ava-ont: -k15 -Xw5 -m100 -g10000 --max-chain-skip 25 (ONT read overlap)\n");
+		fprintf(fp_help, "                 ava-ont: -k15 -Xw5 -m100 -g10000 -r2000 --max-chain-skip 25 (ONT read overlap)\n");
 		fprintf(fp_help, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
 		fprintf(fp_help, "                 sr: short single-end reads without splicing (see minimap2.1 for details)\n");
 		fprintf(fp_help, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
