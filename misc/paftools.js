@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = 'r746';
+var paftools_version = 'r754';
 
 /*****************************
  ***** Library functions *****
@@ -993,14 +993,15 @@ function paf_view(args)
 
 function paf_gff2bed(args)
 {
-	var c, fn_ucsc_fai = null, is_short = false;
-	while ((c = getopt(args, "u:s")) != null) {
+	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false;
+	while ((c = getopt(args, "u:sg")) != null) {
 		if (c == 'u') fn_ucsc_fai = getopt.arg;
 		else if (c == 's') is_short = true;
+		else if (c == 'g') keep_gff = true;
 	}
 
 	if (getopt.ind == args.length) {
-		print("Usage: paftools.js gff2bed [-u ucsc-genome.fa.fai] <in.gff>");
+		print("Usage: paftools.js gff2bed [-g] [-u ucsc-genome.fa.fai] <in.gff>");
 		exit(1);
 	}
 
@@ -1061,6 +1062,12 @@ function paf_gff2bed(args)
 	var exons = [], cds_st = 1<<30, cds_en = 0, last_id = null;
 	while (file.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
+		if (keep_gff) {
+			if (t[0].charAt(0) != '#' && ens2ucsc[t[0]] != null)
+				t[0] = ens2ucsc[t[0]];
+			print(t.join("\t"));
+			continue;
+		}
 		if (t[0].charAt(0) == '#') continue;
 		if (t[2] != "CDS" && t[2] != "exon") continue;
 		t[3] = parseInt(t[3]) - 1;
