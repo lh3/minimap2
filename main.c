@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.9-r751-dirty"
+#define MM_VERSION "2.9-r752-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -94,7 +94,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:y";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, long_idx;
@@ -140,6 +140,7 @@ int main(int argc, char *argv[])
 		else if (c == 'Q') opt.flag |= MM_F_NO_QUAL;
 		else if (c == 'Y') opt.flag |= MM_F_SOFTCLIP;
 		else if (c == 'L') opt.flag |= MM_F_LONG_CIGAR;
+		else if (c == 'y') opt.flag |= MM_F_COPY_COMMENT;
 		else if (c == 'T') opt.sdust_thres = atoi(optarg);
 		else if (c == 'n') opt.min_cnt = atoi(optarg);
 		else if (c == 'm') opt.min_chain_score = atoi(optarg);
@@ -272,6 +273,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
+		fprintf(fp_help, "    --MD         output the MD tag\n");
 		fprintf(fp_help, "    -Y           use soft clipping for supplementary alignments\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");

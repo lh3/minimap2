@@ -274,6 +274,8 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 	}
 	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
 		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD);
+	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
+		mm_sprintf_lite(s, "\t%s", t->comment);
 }
 
 static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
@@ -474,6 +476,9 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 		if (cigar_in_tag)
 			write_sam_cigar(s, flag, 1, t->l_seq, r, opt_flag);
 	}
+
+	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
+		mm_sprintf_lite(s, "\t%s", t->comment);
 
 	s->s[s->l] = 0; // we always have room for an extra byte (see str_enlarge)
 }

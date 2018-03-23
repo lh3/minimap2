@@ -62,7 +62,7 @@ static inline char *kstrdup(const kstring_t *s)
 	return t;
 }
 
-static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual)
+static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual, int with_comment)
 {
 	int i;
 	s->name = kstrdup(&ks->name);
@@ -71,10 +71,11 @@ static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual)
 		if (s->seq[i] == 'u' || s->seq[i] == 'U')
 			--s->seq[i];
 	s->qual = with_qual && ks->qual.l? kstrdup(&ks->qual) : 0;
+	s->comment = with_comment && ks->comment.l? kstrdup(&ks->comment) : 0;
 	s->l_seq = ks->seq.l;
 }
 
-mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int frag_mode, int *n_)
+mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int with_comment, int frag_mode, int *n_)
 {
 	int64_t size = 0;
 	kvec_t(mm_bseq1_t) a = {0,0,0};
@@ -91,12 +92,12 @@ mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int
 		assert(ks->seq.l <= INT32_MAX);
 		if (a.m == 0) kv_resize(mm_bseq1_t, 0, a, 256);
 		kv_pushp(mm_bseq1_t, 0, a, &s);
-		kseq2bseq(ks, s, with_qual);
+		kseq2bseq(ks, s, with_qual, with_comment);
 		size += s->l_seq;
 		if (size >= chunk_size) {
 			if (frag_mode && a.a[a.n-1].l_seq < CHECK_PAIR_THRES) {
 				while (kseq_read(ks) >= 0) {
-					kseq2bseq(ks, &fp->s, with_qual);
+					kseq2bseq(ks, &fp->s, with_qual, with_comment);
 					if (mm_qname_same(fp->s.name, a.a[a.n-1].name)) {
 						kv_push(mm_bseq1_t, 0, a, fp->s);
 						memset(&fp->s, 0, sizeof(mm_bseq1_t));
@@ -110,12 +111,17 @@ mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int
 	return a.a;
 }
 
+mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int frag_mode, int *n_)
+{
+	return mm_bseq_read3(fp, chunk_size, with_qual, 0, frag_mode, n_);
+}
+
 mm_bseq1_t *mm_bseq_read(mm_bseq_file_t *fp, int chunk_size, int with_qual, int *n_)
 {
 	return mm_bseq_read2(fp, chunk_size, with_qual, 0, n_);
 }
 
-mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int *n_)
+mm_bseq1_t *mm_bseq_read_frag2(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int with_comment, int *n_)
 {
 	int i;
 	int64_t size = 0;
@@ -136,13 +142,18 @@ mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int chunk_size, int
 		for (i = 0; i < n_fp; ++i) {
 			mm_bseq1_t *s;
 			kv_pushp(mm_bseq1_t, 0, a, &s);
-			kseq2bseq(fp[i]->ks, s, with_qual);
+			kseq2bseq(fp[i]->ks, s, with_qual, with_comment);
 			size += s->l_seq;
 		}
 		if (size >= chunk_size) break;
 	}
 	*n_ = a.n;
 	return a.a;
+}
+
+mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int *n_)
+{
+	return mm_bseq_read_frag2(n_fp, fp, chunk_size, with_qual, 0, n_);
 }
 
 int mm_bseq_eof(mm_bseq_file_t *fp)

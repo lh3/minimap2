@@ -30,6 +30,7 @@
 #define MM_F_HEAP_SORT     0x400000
 #define MM_F_ALL_CHAINS    0x800000
 #define MM_F_OUT_MD        0x1000000
+#define MM_F_COPY_COMMENT  0x2000000
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
