@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = 'r754';
+var paftools_version = 'r755';
 
 /*****************************
  ***** Library functions *****
@@ -1758,11 +1758,12 @@ function paf_pbsim2fq(args)
 
 function paf_junceval(args)
 {
-	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false;
-	while ((c = getopt(args, "l:ep")) != null) {
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false;
+	while ((c = getopt(args, "l:epc")) != null) {
 		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 		else if (c == 'e') print_err_only = print_ovlp = true;
 		else if (c == 'p') print_ovlp = true;
+		else if (c == 'c') chr_only = true;
 	}
 
 	if (args.length - getopt.ind < 1) {
@@ -1771,6 +1772,7 @@ function paf_junceval(args)
 		print("  -l INT    tolerance of junction positions (0 for exact) [0]");
 		print("  -p        print overlapping introns");
 		print("  -e        print erroreous overlapping introns");
+		print("  -c        only consider alignments to /^(chr)?([0-9]+|X|Y)$/");
 		exit(1);
 	}
 
@@ -1829,6 +1831,7 @@ function paf_junceval(args)
 		var m, t = buf.toString().split("\t");
 
 		if (t[0].charAt(0) == '@') continue;
+		if (chr_only && !/^(chr)?([0-9]+|X|Y)$/.test(t[2])) continue;
 		var flag = parseInt(t[1]);
 		if (flag&0x100) continue;
 		if (first_only && last_qname == t[0]) continue;
