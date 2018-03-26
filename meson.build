@@ -1,10 +1,10 @@
 project(
   'minimap2',
   'c',
-  version : '2.6.0',
+  version : '2.9.0',
   default_options : [
     'buildtype=release',
-    'default_library=static',
+    'default_library=shared',
     'warning_level=3',
     'c_std=gnu11'],
   license : 'MIT',
