@@ -137,7 +137,7 @@ Nanopore reads.
 #### <a name="map-long-splice"></a>Map long mRNA/cDNA reads
 
 ```sh
-minimap2 -ax splice -uf ref.fa iso-seq.fq > aln.sam          # PacBio Iso-seq/traditional cDNA
+minimap2 -ax splice -uf -C5 ref.fa iso-seq.fq > aln.sam      # PacBio Iso-seq/traditional cDNA
 minimap2 -ax splice ref.fa nanopore-cdna.fa > aln.sam        # Nanopore 2D cDNA-seq
 minimap2 -ax splice -uf -k14 ref.fa direct-rna.fq > aln.sam  # Nanopore Direct RNA-seq
 minimap2 -ax splice --splice-flank=no SIRV.fa SIRV-seq.fa    # mapping against SIRV control
