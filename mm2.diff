@@ -1,0 +1,132 @@
+diff --git a/align.c b/align.c
+index d18cfed..2bf6ef5 100644
+--- a/align.c
++++ b/align.c
+@@ -6,6 +6,75 @@
+ #include "mmpriv.h"
+ #include "ksw2.h"
+
++static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq)
++{
++	int n_diff = 0;
++	uint32_t k, l, m, cap, toff = 0, qoff = 0;
++	mm_extra_t *p;
++	if (r->p == 0) return;
++	for (k = 0; k < r->p->n_cigar; ++k) {
++		uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
++		if (op == 0) {
++			for (l = 0; l < len; ++l)
++				if (qseq[qoff + l] != tseq[toff + l])
++					++n_diff;
++			toff += len, qoff += len;
++		} else if (op == 1) { // insertion
++			qoff += len;
++		} else if (op == 2) { // deletion
++			toff += len;
++		} else if (op == 3) { // intron
++			toff += len;
++		}
++	}
++	// update in-place if we can
++	if (n_diff == 0) {
++		for (k = 0; k < r->p->n_cigar; ++k) {
++			uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
++			if (op == 0) r->p->cigar[k] = 4 + (len<<4);
++		}
++		return;
++	}
++	// allocate new storage
++	cap = r->p->n_cigar + 2*n_diff + sizeof(mm_extra_t);
++	kroundup32(cap);
++	p = (mm_extra_t*)calloc(cap, 4);
++	memcpy(p, r->p, sizeof(mm_extra_t));
++	p->capacity = cap;
++	// update cigar while copying
++	toff = 0;
++	qoff = 0;
++	m = 0;
++	for (k = 0; k < r->p->n_cigar; ++k) {
++		uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
++		if (op == 0) { // match/mismatch
++			while (len > 0) {
++				// match
++				for (l = 0; l < len && qseq[qoff + l] == tseq[toff + l]; ++l) {}
++				if (l > 0) p->cigar[m++] = 4 + (l<<4);
++				len -= l;
++				toff += l, qoff += l;
++				// mismatch
++				for (l = 0; l < len && qseq[qoff + l] != tseq[toff + l]; ++l) {}
++				if (l > 0) p->cigar[m++] = 5 + (l<<4);
++				len -= l;
++				toff += l, qoff += l;
++			}
++			continue;
++		} else if (op == 1) { // insertion
++			qoff += len;
++		} else if (op == 2) { // deletion
++			toff += len;
++		} else if (op == 3) { // intron
++			toff += len;
++		}
++		p->cigar[m++] = r->p->cigar[k];
++	}
++	p->n_cigar = m;
++	free(r->p);
++	r->p = p;
++}
++
+ static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
+ {
+ 	int i, j;
+@@ -579,6 +648,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int
+ 	if (r->p) {
+ 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
+ 		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
++		mm_update_cigar_eqx(r, &qseq0[r->rev][qs1], tseq);
+ 		if (rev && r->p->trans_strand)
+ 			r->p->trans_strand ^= 3; // flip to the read strand
+ 	}
+@@ -630,6 +700,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
+ 	r_inv->qs = r1->qe + q_off, r_inv->qe = r_inv->qs + ez->max_q + 1;
+ 	r_inv->rs = r1->re + t_off, r_inv->re = r_inv->rs + ez->max_t + 1;
+ 	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e);
++	mm_update_cigar_eqx(r_inv, &qseq[q_off], &tseq[t_off]);
+ 	ret = 1;
+ end_align1_inv:
+ 	kfree(km, tseq);
+
+diff --git a/index.c b/index.c
+index e388ad7..2404d2c 100644
+--- a/index.c
++++ b/index.c
+@@ -340,7 +340,7 @@ mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) //
+ 	return mi;
+ }
+
+-mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name)
++mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, int n_threads, const char **seq, const char **name)
+ {
+ 	uint64_t sum_len = 0;
+ 	mm128_v a = {0,0,0};
+@@ -379,7 +379,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
+ 		}
+ 	}
+ 	free(a.a);
+-	mm_idx_post(mi, 1);
++	mm_idx_post(mi, n_threads);
+ 	return mi;
+ }
+
+diff --git a/minimap.h b/minimap.h
+index 1cff5ed..87f397b 100644
+--- a/minimap.h
++++ b/minimap.h
+@@ -221,7 +221,7 @@ int mm_idx_reader_eof(const mm_idx_reader_t *r);
+  *
+  * @return minimap2 index
+  */
+-mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const char **seq, const char **name);
++mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, int n_threads, const char **seq, const char **name);
+
+ /**
+  * Print index statistics to stderr
