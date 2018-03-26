@@ -59,7 +59,8 @@ cdef extern from "minimap.h":
 		mm_idx_seq_t *seq
 		uint32_t *S
 		mm_idx_bucket_t *B
-		void *km, *h
+		void *km
+		void *h
 
 	ctypedef struct mm_idx_reader_t:
 		pass
