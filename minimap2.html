@@ -196,11 +196,22 @@ provided as the target sequences, options
 
 <BLOCKQUOTE>
 <TABLE cellpadding=3>
-<TR valign=top><TD width=10% nowrap>
-<B>-f</B><I> FLOAT</I> </TD><TD valign=bottom>
-Ignore top
-<I>FLOAT</I> fraction of most frequent minimizers [0.0002]
+<TR valign=top><TD colspan=2>
+<B>-f</B><I> FLOAT</I><B>|</B><I>INT1</I><B>[,</B><I>INT2</I><B>]</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+If fraction, ignore top
+<I>FLOAT</I> fraction of most frequent minimizers [0.0002]. If integer,
+ignore minimizers occuring more than
+<I>INT1</I> times.
+<I>INT2</I> is only effective in the
+<B>--sr</B> or
+<B>-xsr</B> mode, which sets the threshold for a second round of seeding.
 </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--min-occ-floor</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Force minimap2 to always use k-mers occurring
+<I>INT</I> times or less [0]. In effect, the max occurrence threshold is set to
+the
+max{<I>INT</I>, <B>-f</B>}. </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-g</B><I> INT</I> </TD><TD valign=bottom>
 Stop chain enlongation if there are no minimizers within
@@ -351,12 +362,19 @@ min{<I>O1</I>+<I>k</I>*<I>E1</I>,<I>O2</I>+<I>k</I>*<I>E2</I>}. In the splice mo
 Cost for a non-canonical GT-AG splicing (effective with
 <B>--splice</B>) [0]
 </TD></TR>
-<TR valign=top><TD width=10% nowrap>
-<B>-z</B><I> INT</I> </TD><TD valign=bottom>
-Break an alignment if the running score drops too quickly along the diagonal of
-the DP matrix (diagonal X-drop, or Z-drop) [400]. Increasing the value improves
-the contiguity of the alignment at the cost of poor alignment in the middle
-(e.g. caused by a long inversion).
+<TR valign=top><TD colspan=2>
+<B>-z</B><I> INT1[,INT2]</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Truncate an alignment if the running alignment score drops too quickly along
+the diagonal of the DP matrix (diagonal X-drop, or Z-drop) [400,200]. If the
+drop of score is above
+<I>INT2</I>, minimap2 will reverse complement the query in the related region and align
+again to test small inversions. Minimap2 truncates alignment if there is an
+inversion or the drop of score is greater than
+<I>INT1</I>. Decrease
+<I>INT2</I> to find small inversions at the cost of performance and false positives.
+Increase
+<I>INT1</I> to improves the contiguity of alignment at the cost of poor alignment in the
+middle.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-s</B><I> INT</I> </TD><TD valign=bottom>
@@ -427,6 +445,10 @@ SAM read group line in a format like
 <B>@RG\\tID:foo\\tSM:bar</B> [].
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
+<B>-y</B> </TD><TD valign=bottom>
+Copy input FASTA/Q comments to output.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
 <B>-c</B> </TD><TD valign=bottom>
 Generate CIGAR. In PAF, the CIGAR is written to the &#145;cg&#146; custom tag.
 </TD></TR>
@@ -439,6 +461,10 @@ Output the
 <I>long</I>. If no
 <I>STR</I> is given,
 <I>short</I> is assumed. [none]
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--MD</B> </TD><TD valign=bottom>
+Output the MD tag (see the SAM spec).
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-Y</B> </TD><TD valign=bottom>
@@ -511,13 +537,18 @@ is determined by the sequencing error mode.
 <TR valign=top><TD width=8% nowrap>
 <B>asm5</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -A1 -B19 -O39,81 -E3,1 -s200</B> <B>-z200</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
+(<B>-k19</B> <B>-w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>asm10</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -A1 -B9 -O16,41 -E2,1 -s200</B> <B>-z200</B>). Up to 10% sequence divergence.
+(<B>-k19</B> <B>-w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Up to 10% sequence divergence.
+</TD></TR>
+<TR valign=top><TD width=8% nowrap>
+<B>asm20</B> </TD><TD valign=bottom>
+Long assembly to reference mapping
+(<B>-k19</B> <B>-w10 -A1 -B6 -O6,26 -E2,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Up to 20% sequence divergence.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>ava-pb</B> </TD><TD valign=bottom>
@@ -526,7 +557,7 @@ PacBio all-vs-all overlap mapping
 <TR valign=top><TD width=8% nowrap>
 <B>ava-ont</B> </TD><TD valign=bottom>
 Oxford Nanopore all-vs-all overlap mapping
-(<B>-k15</B> <B>-Xw5 -m100 -g10000 --max-chain-skip</B> <B>25</B>). Similarly, the major difference from
+(<B>-k15</B> <B>-Xw5 -m100 -g10000 -r2000 --max-chain-skip</B> <B>25</B>). Similarly, the major difference from
 <B>ava-pb</B> is that this preset is not using HPC minimizers.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
@@ -627,6 +658,8 @@ the SAM-like typed key-value format. Minimap2 may output the following tags:
 <TR valign=top>
 <TD align=right>NM</TD><TD align=center>i</TD><TD>Total number of mismatches and gaps in the alignment</TD></TR>
 <TR valign=top>
+<TD align=right>MD</TD><TD align=center>Z</TD><TD>To generate the ref sequence in the alignment</TD></TR>
+<TR valign=top>
 <TD align=right>AS</TD><TD align=center>i</TD><TD>DP alignment score</TD></TR>
 <TR valign=top>
 <TD align=right>ms</TD><TD align=center>i</TD><TD>DP score of the max scoring segment in the alignment</TD></TR>
@@ -694,4 +727,4 @@ non-SSE2/NEON support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.8 (r672)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>1 February 2018</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.10 (r761)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>27 March 2018</I></TD> </TR></TABLE></div></BODY></HTML>
