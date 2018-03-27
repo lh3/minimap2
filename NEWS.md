@@ -1,3 +1,50 @@
+Release 2.10-r761 (27 March 2018)
+---------------------------------
+
+Changes to minimap2:
+
+ * Optionally output the MD tag for compatibility with existing tools (#63,
+   #118 and #137).
+
+ * Use SSE compiler flags more precisely to prevent compiling errors on certain
+   machines (#127).
+
+ * Added option --min-occ-floor to set a minimum occurrence threshold. Presets
+   intended for assembly-to-reference alignment set this option to 100. This
+   option alleviates issues with regions having high copy numbers (#107).
+
+ * Exit with non-zero code on file writing errors (e.g. disk full; #103 and
+   #132).
+
+ * Added option -y to copy FASTA/FASTQ comments in query sequences to the
+   output (#136).
+
+ * Added the asm20 preset for alignments between genomes at 5-10% sequence
+   divergence.
+
+ * Changed the band-width in the ava-ont preset from 500 to 2000. Oxford
+   Nanopore reads may contain long deletion sequencing errors that break
+   chaining.
+
+Changes to mappy, the Python binding:
+
+ * Fixed a typo in Align.seq() (#126).
+
+Changes to paftools.js, the companion script:
+
+ * Command sam2paf now converts the MD tag to cs.
+
+ * Support VCF output for assembly-to-reference variant calling (#109).
+
+This version should produce identical alignment for read overlapping, RNA-seq
+read mapping, and genomic read mapping. We have also added a cook book to show
+the variety uses of minimap2 on real datasets. Please see cookbook.md in the
+minimap2 source code directory.
+
+(2.10: 27 March 2017, r761)
+
+
+
 Release 2.9-r720 (23 February 2018)
 -----------------------------------
 

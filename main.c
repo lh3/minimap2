@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.9-r753-dirty"
+#define MM_VERSION "2.10-r761"
 
 #ifdef __linux__
 #include <sys/resource.h>
