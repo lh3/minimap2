@@ -304,7 +304,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 	for (i = n_aux - 1; i >= 1; --i) {
 		mm_reg1_t *r0 = &regs[(int32_t)aux[i-1]], *r1 = &regs[(int32_t)aux[i]];
 		mm128_t *a0e, *a1s;
-		int max_gap, min_gap, sc_thres;
+		int max_gap, min_gap, sc_thres, min_flank_len;
 
 		// test
 		if (r0->as + r0->cnt != r1->as) continue; // not adjacent in a[]
@@ -318,8 +318,9 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		if (max_gap > opt->max_join_long || min_gap > opt->max_join_short) continue;
 		sc_thres = (int)((float)opt->min_join_flank_sc / opt->max_join_long * max_gap + .499);
 		if (r0->score < sc_thres || r1->score < sc_thres) continue; // require good flanking chains
-		if (r0->re - r0->rs < max_gap>>1 || r0->qe - r0->qs < max_gap>>1) continue; // require enough flanking length
-		if (r1->re - r1->rs < max_gap>>1 || r1->qe - r1->qs < max_gap>>1) continue;
+		min_flank_len = (int)(max_gap * opt->min_join_flank_ratio);
+		if (r0->re - r0->rs < min_flank_len || r0->qe - r0->qs < min_flank_len) continue; // require enough flanking length
+		if (r1->re - r1->rs < min_flank_len || r1->qe - r1->qs < min_flank_len) continue;
 
 		// all conditions satisfied; join
 		a[r1->as].y |= MM_SEED_LONG_JOIN;

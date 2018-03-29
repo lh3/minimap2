@@ -115,6 +115,7 @@ typedef struct {
 
 	int max_join_long, max_join_short;
 	int min_join_flank_sc;
+	float min_join_flank_ratio;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
 	int noncan;      // cost of non-canonical splicing sites

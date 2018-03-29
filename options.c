@@ -31,6 +31,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_join_long = 20000;
 	opt->max_join_short = 2000;
 	opt->min_join_flank_sc = 1000;
+	opt->min_join_flank_ratio = 0.5f;
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
 	opt->zdrop = 400, opt->zdrop_inv = 200;
