@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "kthread.h"
 #include "kvec.h"
 #include "kalloc.h"
@@ -390,6 +392,7 @@ typedef struct {
 	mm_bseq_file_t **fp;
 	const mm_idx_t *mi;
 	kstring_t str;
+	int multi_prefix;
 } pipeline_t;
 
 typedef struct {
@@ -481,8 +484,23 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
+
+				int ret=write(p->multi_prefix,&(s->n_reg[i]),sizeof(s->n_reg[i]));
+				fprintf(stderr,"n regs %d\n",s->n_reg[i]);
+				if(ret==-1){
+					fprintf(stderr,"Cannot write %d",s->n_reg[i]);
+				}				
+
 				for (j = 0; j < s->n_reg[i]; ++j) {
 					mm_reg1_t *r = &s->reg[i][j];
+
+					int ret=write(p->multi_prefix,r,sizeof(mm_reg1_t));
+					fprintf(stderr,"sizeof mm_reg1_t is %d\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
+					if(ret==-1){
+						fprintf(stderr,"Cannot write");
+					}	
+
+
 					assert(!r->sam_pri || r->id == r->parent);
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
 						continue;
@@ -532,6 +550,19 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 			return -1;
 		}
 	}
+	if(opt->multi_prefix!=NULL){
+		char filename[256];
+		sprintf(filename,"%s%d.tmp",opt->multi_prefix, idx->idx_id);
+		fprintf(stderr,"filename %s\n",filename);
+		pl.multi_prefix=open(filename,O_WRONLY|O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+		if (pl.multi_prefix==-1){
+			if (mm_verbose >= 1)
+				fprintf(stderr, "ERROR: failed to open file '%s'\n", opt->multi_prefix);
+			return -1;
+		}		
+	}
+
+
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;
@@ -540,6 +571,14 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 	free(pl.str.s);
 	for (i = 0; i < n_segs; ++i)
 		mm_bseq_close(pl.fp[i]);
+
+	if(opt->multi_prefix!=NULL){
+		int ret=close(pl.multi_prefix);
+		if (ret==-1){
+			fprintf(stderr, "Cannot close file descripter");
+		}
+	}
+
 	free(pl.fp);
 	return 0;
 }

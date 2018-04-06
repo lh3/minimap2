@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
@@ -25,7 +27,23 @@ void liftrlimit()
 #else
 void liftrlimit() {}
 #endif
+typedef struct {
+	int mini_batch_size, n_processed, n_threads, n_fp;
+	const mm_mapopt_t *opt;
+	mm_bseq_file_t **fp;
+	const mm_idx_t *mi;
+	kstring_t str;
+	int multi_prefix;
+} pipeline_t;
 
+typedef struct {
+	const pipeline_t *p;
+    int n_seq, n_frag;
+	mm_bseq1_t *seq;
+	int *n_reg, *seg_off, *n_seg;
+	mm_reg1_t **reg;
+	mm_tbuf_t **buf;
+} step_t;
 static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
 	{ "mb-size",        required_argument, 0, 'K' },
@@ -65,7 +83,8 @@ static struct option long_options[] = {
 	{ "min-chain-score",required_argument, 0, 'm' },
 	{ "mask-level",     required_argument, 0, 'M' },
 	{ "min-dp-score",   required_argument, 0, 's' },
-	{ "sam",            no_argument,       0, 'a' },
+	{ "sam",            no_argument,       0, 'a' }, 
+	{ "multi-prefix",   required_argument, 0, 0 },	 //39	
 	{ 0, 0, 0, 0}
 };
 
@@ -103,6 +122,7 @@ int main(int argc, char *argv[])
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
+	int32_t idx_id=0;
 
 	mm_verbose = 3;
 	liftrlimit();
@@ -228,7 +248,10 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
+		} else if (c==0 && long_idx == 39) { //multi=part
+			opt.multi_prefix=optarg;
 		}
+
 	}
 	if ((opt.flag & MM_F_SPLICE) && (opt.flag & MM_F_FRAG_MODE)) {
 		fprintf(stderr, "[ERROR]\033[1;31m --splice and --frag should not be specified at the same time.\033[0m\n");
@@ -312,6 +335,8 @@ int main(int argc, char *argv[])
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
 		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
+		fprintf(stderr,"Idx is %d\n",mi->b);
+		fprintf(stderr,"Prefix is %s\n",opt.multi_prefix);
 		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
 			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
 			mm_idx_destroy(mi);
@@ -332,6 +357,8 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
+
+		mi->idx_id=idx_id;
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = optind + 1; i < argc; ++i)
 				mm_map_file(mi, argv[i], &opt, n_threads);
@@ -339,8 +366,108 @@ int main(int argc, char *argv[])
 			mm_map_file_frag(mi, argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_threads);
 		}
 		mm_idx_destroy(mi);
+		idx_id++;
 	}
 	mm_idx_reader_close(idx_rdr);
+
+	if(opt.multi_prefix!=NULL){
+
+		fprintf(stderr,"we are here\n");
+		int i,j;
+		int n_reg;
+		mm_reg1_t *reg = (mm_reg1_t *)malloc(sizeof(mm_reg1_t)*1000); //free this
+		int is_sr = !!(opt.flag & MM_F_SR);
+		int rep_len=1;
+		void *km=NULL;
+
+		for(i=0;i<idx_id;i++){
+			char filename[256];
+			sprintf(filename,"%s%d.tmp",opt.multi_prefix, i);
+			//fprintf(stderr,"filename %s\n",filename);		
+			int file=open(filename,O_RDONLY);
+			if (file==-1){
+				fprintf(stderr,"Cannot open file %s\n",filename);
+			}
+
+			int ret=read(file,&n_reg,sizeof(int));
+			fprintf(stderr,"n regs %d\n",n_reg);
+			if(ret==-1){
+				fprintf(stderr,"Cannot read");
+			}	
+			ret=read(file,reg,sizeof(mm_reg1_t)*n_reg);
+
+			for (j = 0; j < n_reg; ++j) {
+				
+				mm_reg1_t *r = &reg[j];
+				fprintf(stderr,"sizeof mm_reg1_t is %d\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
+				if(ret==-1){
+					fprintf(stderr,"Cannot read");
+				}				
+			}
+			ret=close(file);
+			if (ret==-1){
+				fprintf(stderr, "Cannot close file descripter");
+			}
+			//mm_set_mapq(km, n_reg, reg, opt.min_chain_score, opt.a, rep_len, is_sr);
+			//multi segments are not supported
+			int n_segs=1;
+			if (argc - (optind + 1) > n_segs) {
+				fprintf(stderr,"Multi segments are not yet supported for merging %s\n");
+				return -1;
+			}
+			pipeline_t pl;
+			pipeline_t *p=&pl;
+
+			kstring_t *st;
+			st = (kstring_t*)calloc(1, sizeof(kstring_t));
+
+			memset(p, 0, sizeof(pipeline_t));			
+			pl.fp = (mm_bseq_file_t**)calloc(n_segs, sizeof(mm_bseq_file_t*));
+			for (i = 0; i < n_segs; ++i) {
+				pl.fp[i] = mm_bseq_open(argv[optind + 1]);
+				if (pl.fp[i] == 0) {
+					if (mm_verbose >= 1)
+						fprintf(stderr, "ERROR: failed to open file '%s'\n", argv[optind + 1]);
+					for (j = 0; j < i; ++j)
+						mm_bseq_close(pl.fp[j]);
+					free(pl.fp);
+					return -1;
+				}
+			}
+
+        	step_t *s;
+        	s = (step_t*)calloc(1, sizeof(step_t));
+			s->seq = mm_bseq_read3(p->fp[0], 100, 1, 1, 1, &s->n_seq);			
+			mm_bseq1_t *t = &s->seq[i];
+
+			for (j = 0; j < n_reg; ++j) {
+				
+				mm_reg1_t *r = &reg[j];
+				assert(!r->sam_pri || r->id == r->parent);
+				if ((opt.flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
+					continue;
+				if (opt.flag & MM_F_OUT_SAM)
+					mm_write_sam2(st, mi, t, 0, j, 1, &n_reg, (const mm_reg1_t*const*)&reg, km, opt.flag);
+				else
+					mm_write_paf(st, mi, t, r, km, opt.flag);
+				mm_err_puts(st->s);	
+
+			}
+			if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) { // write an unmapped record
+				mm_write_sam2(st, mi, t, 0, -1, 1, &n_reg, (const mm_reg1_t*const*)&reg, km, opt.flag);
+				mm_err_puts(st->s);
+			}
+
+			free(st->s);
+			for (i = 0; i < n_segs; ++i)
+				mm_bseq_close(pl.fp[i]);						
+					
+		}
+
+		
+
+		free(reg);
+	}
 
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");

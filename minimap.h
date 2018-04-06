@@ -62,6 +62,7 @@ typedef struct {
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
 	void *km, *h;
+	int32_t idx_id; //index id 
 } mm_idx_t;
 
 // minimap2 alignment
@@ -133,6 +134,9 @@ typedef struct {
 	int32_t mid_occ;     // ignore seeds with occurrences above this threshold
 	int32_t max_occ;
 	int mini_batch_size; // size of a batch of query bases to process in parallel
+
+	char *multi_prefix;
+
 } mm_mapopt_t;
 
 // index reader
