@@ -382,18 +382,18 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 	} else {
 		this_rid = r->rid, this_pos = r->rs, this_rev = r->rev;
 		mm_sprintf_lite(s, "\t%s\t%d\t%d\t", mi->seq[r->rid].name, r->rs+1, r->mapq);
-		if ((opt_flag & MM_F_LONG_CIGAR) && r->p && r->p->n_cigar > max_bam_cigar_op - 2) {
-			int n_cigar = r->p->n_cigar;
-			if (r->qs != 0) ++n_cigar;
-			if (r->qe != t->l_seq) ++n_cigar;
-			if (n_cigar > max_bam_cigar_op)
-				cigar_in_tag = 1;
-		}
-		if (cigar_in_tag) {
-			if (flag & 0x100) mm_sprintf_lite(s, "0S"); // secondary alignment
-			else if (flag & 0x800) mm_sprintf_lite(s, "%dS", r->re - r->rs); // supplementary alignment
-			else mm_sprintf_lite(s, "%dS", t->l_seq);
-		} else write_sam_cigar(s, flag, 0, t->l_seq, r, opt_flag);
+		// if ((opt_flag & MM_F_LONG_CIGAR) && r->p && r->p->n_cigar > max_bam_cigar_op - 2) {
+		// 	int n_cigar = r->p->n_cigar;
+		// 	if (r->qs != 0) ++n_cigar;
+		// 	if (r->qe != t->l_seq) ++n_cigar;
+		// 	if (n_cigar > max_bam_cigar_op)
+		// 		cigar_in_tag = 1;
+		// }
+		// if (cigar_in_tag) {
+		// 	if (flag & 0x100) mm_sprintf_lite(s, "0S"); // secondary alignment
+		// 	else if (flag & 0x800) mm_sprintf_lite(s, "%dS", r->re - r->rs); // supplementary alignment
+		// 	else mm_sprintf_lite(s, "%dS", t->l_seq);
+		// } else write_sam_cigar(s, flag, 0, t->l_seq, r, opt_flag);
 	}
 
 	// write mate positions
