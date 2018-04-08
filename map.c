@@ -391,7 +391,7 @@ typedef struct {
 	mm_bseq_file_t **fp;
 	const mm_idx_t *mi;
 	kstring_t str;
-	int multipart_fd;
+	FILE* multipart_fd;
 } pipeline_t;
 
 typedef struct {
@@ -484,13 +484,13 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
 
-				multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]));
+				multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]),1);
 				//fprintf(stderr,"n regs %d\n",s->n_reg[i]);
 
 				for (j = 0; j < s->n_reg[i]; ++j) {
 					mm_reg1_t *r = &s->reg[i][j];
 					
-					multipart_write(p->multipart_fd,r,sizeof(mm_reg1_t));
+					multipart_write(p->multipart_fd,r,sizeof(mm_reg1_t),1);
 					//fprintf(stderr,"sizeof mm_reg1_t is %d\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
 
 					assert(!r->sam_pri || r->id == r->parent);
@@ -543,7 +543,7 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 		}
 	}
 
-	if(opt->multi_prefix!=NULL)  pl.multipart_fd=multipart_open(opt,idx); 
+	if(opt->multi_prefix!=NULL)  pl.multipart_fd=multipart_init(opt,idx); 
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;

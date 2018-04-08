@@ -1,40 +1,46 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include <errno.h>
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
 
-int multipart_open(const mm_mapopt_t *opt, const mm_idx_t *idx){
+void multipart_write(FILE* fd, const void *buf, size_t element_size, size_t num_elements){
+	size_t ret=fwrite(buf,element_size,num_elements,fd);
+	if(ret!=num_elements){
+		fprintf(stderr,"Writing error has occured :%s\n",strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+}
+
+FILE* multipart_init(const mm_mapopt_t *opt, const mm_idx_t *idx){
 
 	char filename[256];
 	sprintf(filename,"%s%d.tmp",opt->multi_prefix, idx->idx_id);
 	fprintf(stderr,"filename %s\n",filename);
-	int fd=open(filename,O_WRONLY|O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-	if (fd==-1){
+	//int fd=open(filename,O_WRONLY|O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+	FILE *fd=fopen(filename,"wb");
+	if (fd==NULL){
 		if (mm_verbose >= 1)
 			fprintf(stderr, "ERROR: failed to open file '%s'\n for writing", opt->multi_prefix);
 		exit(EXIT_FAILURE);
 	}
+
+	//write sequence names
+	
+
 	return fd;		
 }
 
-void multipart_close(int fd){
-	int ret=close(fd);
+void multipart_close(FILE* fd){
+	int ret=fclose(fd);
 	if (ret==-1){
-		fprintf(stderr, "Cannot close file descripter");
+		fprintf(stderr, "Cannot close file");
 	}
 }
 
-void multipart_write(int fd, const void *buf, size_t count){
-	int ret=write(fd,buf,count);
-	if(ret!=count){
-		fprintf(stderr,"Writing error has occured");
-		exit(EXIT_FAILURE);
-	}
-}
+
 
 
 void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
@@ -47,14 +53,14 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 	int is_sr = !!(opt->flag & MM_F_SR);
 	int rep_len=1;
 
-	int *file=(int *)malloc(sizeof(int)*num_idx_parts);
+	FILE** file=(FILE**)malloc(sizeof(FILE*)*num_idx_parts);
 	char filename[256];
 
 	for(i=0;i<num_idx_parts;i++){		
 		sprintf(filename,"%s%d.tmp",opt->multi_prefix, i);
 		//fprintf(stderr,"filename %s\n",filename);		
-		file[i]=open(filename,O_RDONLY);
-		if (file[i]==-1){
+		file[i]=fopen(filename,"rb");
+		if (file[i]==NULL){
 			fprintf(stderr,"Cannot open file %s\n",filename);
 		}
 	}
@@ -95,15 +101,15 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 
 		n_regs_sum=0;
 		for(i=0;i<num_idx_parts;i++){
-			int ret=read(file[i],&n_reg,sizeof(int));
+			int ret=fread(&n_reg,sizeof(int),1,file[i]);
 			fprintf(stderr,"n regs %d\n",n_reg);
-			if(ret==-1){
-				fprintf(stderr,"Cannot read");
+			if(ret!=1){
+				fprintf(stderr,"Reading error");
 			}	
 			
-			ret=read(file[i],&reg[n_regs_sum],sizeof(mm_reg1_t)*n_reg);
-			if(ret==-1){
-				fprintf(stderr,"Cannot read");
+			ret=fread(&reg[n_regs_sum],sizeof(mm_reg1_t),n_reg,file[i]);
+			if(ret!=n_reg){
+				fprintf(stderr,"Reading error");
 			}
 			n_regs_sum+=n_reg;
 		}
@@ -136,7 +142,7 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 	mm_bseq_close(fastq);
 
 	for(i=0;i<num_idx_parts;i++){	
-		int ret=close(file[i]);
+		int ret=fclose(file[i]);
 		if (ret==-1){
 			fprintf(stderr, "Cannot close file descripter");
 		}
