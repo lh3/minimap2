@@ -6,35 +6,50 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
-void multipart_write(FILE* fd, const void *buf, size_t element_size, size_t num_elements){
-	size_t ret=fwrite(buf,element_size,num_elements,fd);
+void multipart_write(FILE* fp, void *buf, size_t element_size, size_t num_elements){
+	size_t ret=fwrite(buf,element_size,num_elements,fp);
 	if(ret!=num_elements){
 		fprintf(stderr,"Writing error has occured :%s\n",strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 }
 
-FILE* multipart_init(const mm_mapopt_t *opt, const mm_idx_t *idx){
+void multipart_read(FILE* fp, void *buf, size_t element_size, size_t num_elements){
+	size_t ret=fread(buf,element_size,num_elements,fp);
+	if(ret!=num_elements){
+		fprintf(stderr,"Reading error has occured :%s\n",strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+}
 
+FILE* multipart_init(const mm_mapopt_t *opt, const mm_idx_t *mi){
+
+	int i=0;
 	char filename[256];
-	sprintf(filename,"%s%d.tmp",opt->multi_prefix, idx->idx_id);
+	sprintf(filename,"%s%d.tmp",opt->multi_prefix, mi->idx_id);
 	fprintf(stderr,"filename %s\n",filename);
 	//int fd=open(filename,O_WRONLY|O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-	FILE *fd=fopen(filename,"wb");
-	if (fd==NULL){
+	FILE *fp=fopen(filename,"wb");
+	if (fp==NULL){
 		if (mm_verbose >= 1)
 			fprintf(stderr, "ERROR: failed to open file '%s'\n for writing", opt->multi_prefix);
 		exit(EXIT_FAILURE);
 	}
 
 	//write sequence names
-	
+	multipart_write(fp,&mi->n_seq, sizeof(mi->n_seq), 1);
+	for (i = 0; i < mi->n_seq; ++i) {
+		uint8_t l;
+		l = strlen(mi->seq[i].name);
+		multipart_write(fp,&l, 1, 1);
+		multipart_write(fp,mi->seq[i].name, 1, l);
+	}	
 
-	return fd;		
+	return fp;		
 }
 
-void multipart_close(FILE* fd){
-	int ret=fclose(fd);
+void multipart_close(FILE* fp){
+	int ret=fclose(fp);
 	if (ret==-1){
 		fprintf(stderr, "Cannot close file");
 	}
@@ -45,25 +60,48 @@ void multipart_close(FILE* fd){
 
 void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 
-	mm_idx_t *mi;
+
 	int i,j;
 	int n_reg;
 	int n_regs_sum;
-	mm_reg1_t *reg = (mm_reg1_t *)malloc(sizeof(mm_reg1_t)*1000); //free this
-	int is_sr = !!(opt->flag & MM_F_SR);
-	int rep_len=1;
-
-	FILE** file=(FILE**)malloc(sizeof(FILE*)*num_idx_parts);
+	uint32_t n_seq=0;
+	uint32_t current_seq=0;
 	char filename[256];
 
+	mm_reg1_t *reg = (mm_reg1_t *)malloc(sizeof(mm_reg1_t)*1000); //free this
+	FILE** file=(FILE**)malloc(sizeof(FILE*)*num_idx_parts);
+	mm_idx_t* mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
+
+
+	//go through each index
 	for(i=0;i<num_idx_parts;i++){		
 		sprintf(filename,"%s%d.tmp",opt->multi_prefix, i);
 		//fprintf(stderr,"filename %s\n",filename);		
 		file[i]=fopen(filename,"rb");
-		if (file[i]==NULL){
-			fprintf(stderr,"Cannot open file %s\n",filename);
+		if (file[i]==NULL)	fprintf(stderr,"Cannot open file %s\n",filename);
+		
+		//read the number of sequences and then the actuall number of sequences
+		if (fread(&n_seq, sizeof(uint32_t), 1, file[i]) != 1) fprintf(stderr,"Reading failed for %s\n",filename);
+		//fprintf(stderr,"We have %d sequences\n",n_seq);
+		mi->n_seq += n_seq;
+
+		mi->seq = (mm_idx_seq_t*)realloc(mi->seq, mi->n_seq*sizeof(mm_idx_seq_t));
+		for (j = 0; j < n_seq; ++j) {
+			uint8_t l;
+			mm_idx_seq_t *s = &mi->seq[current_seq]; current_seq++;
+			if (fread(&l, 1, 1, file[i]) != 1) fprintf(stderr,"Reading failed for %s\n",filename); //read name length
+			s->name = (char*)malloc(l + 1);
+			if(fread(s->name, 1, l, file[i])!=l) fprintf(stderr,"Reading failed for %s\n",filename);;
+			s->name[l] = 0;
+			//fprintf(stderr,"sequence name : %s\n",s->name);
 		}
 	}
+
+	// fprintf(stderr,"We have %d sequences\n",mi->n_seq);
+	// for (j = 0; j < mi->n_seq; ++j) {
+	// 	mm_idx_seq_t *s = &mi->seq[j];
+	// 	fprintf(stderr,"sequence name : %s\n",s->name);
+	// }
 
 	fprintf(stderr,"opening : %s\n",fn[0]);
 	mm_bseq_file_t *fastq=mm_bseq_open(fn[0]);
@@ -72,22 +110,22 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 			fprintf(stderr, "ERROR: failed to open file '%s'\n", fn[0]);
 		exit(EXIT_FAILURE);
 	}
-	int nseq=1;
 
+	int nseq=1;
 	void *km=NULL;
 	kstring_t *st;
 	st = (kstring_t*)calloc(1, sizeof(kstring_t));
 	st->s=NULL; st->l=0; st->m=0;
 
-	mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
-	mi->n_seq=100;
-	mi->seq = (mm_idx_seq_t*)calloc(mi->n_seq, sizeof(mm_idx_seq_t));
-	for (i = 0; i < mi->n_seq; ++i) {
-		uint8_t l=10;
-		mi->seq[i].name = (char*)malloc(l + 1);
-		mi->seq[i].name[l] = 0;
-		sprintf(mi->seq[i].name, "chr%d",i);
-	}
+	
+	// mi->n_seq=100;
+	// mi->seq = (mm_idx_seq_t*)calloc(mi->n_seq, sizeof(mm_idx_seq_t));
+	// for (i = 0; i < mi->n_seq; ++i) {
+	// 	uint8_t l=10;
+	// 	mi->seq[i].name = (char*)malloc(l + 1);
+	// 	mi->seq[i].name[l] = 0;
+	// 	sprintf(mi->seq[i].name, "chr%d",i);
+	// }
 
 	while(nseq>0){
 		mm_bseq1_t *seq = mm_bseq_read3(fastq, 1, 1, 1, 0, &nseq);
@@ -96,7 +134,7 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 			//fprintf(stderr,"Read %d sequenced when 1 is expected\n",nseq);
 			break;
 		}
-		fprintf(stderr,"Name %s\n",seq->name);
+		//fprintf(stderr,"Name %s\n",seq->name);
 
 
 		n_regs_sum=0;
@@ -106,10 +144,20 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 			if(ret!=1){
 				fprintf(stderr,"Reading error");
 			}	
-			
-			ret=fread(&reg[n_regs_sum],sizeof(mm_reg1_t),n_reg,file[i]);
-			if(ret!=n_reg){
-				fprintf(stderr,"Reading error");
+
+			for (j = 0; j < n_reg; ++j){
+				mm_reg1_t *r=&reg[n_regs_sum+j];
+				multipart_read(file[i],r,sizeof(mm_reg1_t),1);
+				int capacity=0;
+				multipart_read(file[i],&capacity,sizeof(uint32_t),1);
+				r->p = (mm_extra_t *)malloc(sizeof(mm_extra_t)+sizeof(uint32_t)*capacity);
+				multipart_read(file[i],r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*capacity,1);
+
+				if(capacity!=r->p->capacity){
+					fprintf(stderr,"Corrupted files?\n");
+					exit(EXIT_FAILURE);
+				}
+
 			}
 			n_regs_sum+=n_reg;
 		}

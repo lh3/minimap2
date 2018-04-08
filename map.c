@@ -484,14 +484,20 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
 
-				multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]),1);
-				//fprintf(stderr,"n regs %d\n",s->n_reg[i]);
+				if(p->opt->multi_prefix!=NULL) multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]),1);
+				fprintf(stderr,"n regs %d\n",s->n_reg[i]);
 
 				for (j = 0; j < s->n_reg[i]; ++j) {
 					mm_reg1_t *r = &s->reg[i][j];
 					
-					multipart_write(p->multipart_fd,r,sizeof(mm_reg1_t),1);
-					//fprintf(stderr,"sizeof mm_reg1_t is %d\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
+					if(p->opt->multi_prefix!=NULL) {
+						multipart_write(p->multipart_fd,r,sizeof(mm_reg1_t),1);
+						multipart_write(p->multipart_fd,&(r->p->capacity),sizeof(uint32_t),1);
+						multipart_write(p->multipart_fd,r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*r->p->capacity,1);
+ 
+						//multipart_write(p->multipart_fd,r->p->cigar,sizeof(uint32_t),r->p->n_cigar);
+					}
+					fprintf(stderr,"sizeof mm_reg1_t is %ld\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
 
 					assert(!r->sam_pri || r->id == r->parent);
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
