@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		} else if (c==0 && long_idx == 39) { //multi=part
-			fprintf(stderr, "[WARNING]\033[1;31m option --multi-prefix is experimental. Only works with unisegment reads at the moment\033[0m\n");
+			fprintf(stderr, "[WARNING]\033[1;31m option --multi-prefix is experimental. Currently works only with single ended reads.\033[0m\n");
 			opt.multi_prefix=optarg;
 		}
 
@@ -343,7 +343,7 @@ int main(int argc, char *argv[])
 			mm_idx_reader_close(idx_rdr);
 			return 1;
 		}
-		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
+		if ((opt.flag & MM_F_OUT_SAM) && (idx_rdr->n_parts == 1) && (opt.multi_prefix==NULL)) {
 			if (mm_idx_reader_eof(idx_rdr)) {
 				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 			} else {
@@ -370,7 +370,7 @@ int main(int argc, char *argv[])
 	}
 	mm_idx_reader_close(idx_rdr);
 
-	if(opt.multi_prefix!=NULL) merge(&opt,idx_id,(const char**)&argv[optind + 1]);
+	if(opt.multi_prefix!=NULL) merge(&opt,idx_id,(const char**)&argv[optind + 1], argc, argv, rg);
 
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");

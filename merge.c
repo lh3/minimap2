@@ -6,6 +6,9 @@
 #include "minimap.h"
 #include "mmpriv.h"
 
+#define MM_VERSION "2.10-r763-dirty"
+#define INITIAL_NUM_REGS 256
+
 void multipart_write(FILE* fp, void *buf, size_t element_size, size_t num_elements){
 	size_t ret=fwrite(buf,element_size,num_elements,fp);
 	if(ret!=num_elements){
@@ -22,7 +25,7 @@ void multipart_read(FILE* fp, void *buf, size_t element_size, size_t num_element
 	}
 }
 
-FILE* multipart_init(const mm_mapopt_t *opt, const mm_idx_t *mi){
+FILE* multipart_init(const mm_mapopt_t *opt, mm_idx_t *mi){
 
 	int i=0;
 	char filename[256];
@@ -37,12 +40,13 @@ FILE* multipart_init(const mm_mapopt_t *opt, const mm_idx_t *mi){
 	}
 
 	//write sequence names
-	multipart_write(fp,&mi->n_seq, sizeof(mi->n_seq), 1);
+	multipart_write(fp,&(mi->n_seq), sizeof(mi->n_seq), 1);
 	for (i = 0; i < mi->n_seq; ++i) {
 		uint8_t l;
 		l = strlen(mi->seq[i].name);
 		multipart_write(fp,&l, 1, 1);
 		multipart_write(fp,mi->seq[i].name, 1, l);
+		multipart_write(fp,&(mi->seq[i].len), 4, 1);
 	}	
 
 	return fp;		
@@ -58,30 +62,33 @@ void multipart_close(FILE* fp){
 
 
 
-void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
+void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char** argv,const char *rg){
 
 
 	int i,j;
 	int n_reg;
 	int n_regs_sum;
 	uint32_t n_seq=0;
-	uint32_t current_seq=0;
-	char filename[256];
 
-	mm_reg1_t *reg = (mm_reg1_t *)malloc(sizeof(mm_reg1_t)*1000); //free this
+	uint32_t current_seq=0;
+	uint32_t current_num_regs=INITIAL_NUM_REGS;
+
+	mm_reg1_t *reg = (mm_reg1_t *)malloc(sizeof(mm_reg1_t)*current_num_regs); 
 	FILE** file=(FILE**)malloc(sizeof(FILE*)*num_idx_parts);
 	mm_idx_t* mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
-
+	char *filename=(char *)malloc(strlen(opt->multi_prefix)+20);
+	uint32_t *cum_n_seq=(uint32_t *)malloc(sizeof(uint32_t)*num_idx_parts);
 
 	//go through each index
-	for(i=0;i<num_idx_parts;i++){		
+	for(i=0;i<num_idx_parts;i++){
+		cum_n_seq[i]=mi->n_seq;		
 		sprintf(filename,"%s%d.tmp",opt->multi_prefix, i);
 		//fprintf(stderr,"filename %s\n",filename);		
 		file[i]=fopen(filename,"rb");
 		if (file[i]==NULL)	fprintf(stderr,"Cannot open file %s\n",filename);
 		
 		//read the number of sequences and then the actuall number of sequences
-		if (fread(&n_seq, sizeof(uint32_t), 1, file[i]) != 1) fprintf(stderr,"Reading failed for %s\n",filename);
+		multipart_read(file[i],&n_seq, sizeof(uint32_t), 1);
 		//fprintf(stderr,"We have %d sequences\n",n_seq);
 		mi->n_seq += n_seq;
 
@@ -89,12 +96,19 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 		for (j = 0; j < n_seq; ++j) {
 			uint8_t l;
 			mm_idx_seq_t *s = &mi->seq[current_seq]; current_seq++;
-			if (fread(&l, 1, 1, file[i]) != 1) fprintf(stderr,"Reading failed for %s\n",filename); //read name length
+			multipart_read(file[i],&l, 1, 1); //read name length
 			s->name = (char*)malloc(l + 1);
-			if(fread(s->name, 1, l, file[i])!=l) fprintf(stderr,"Reading failed for %s\n",filename);;
+			multipart_read(file[i],s->name, 1, l);
 			s->name[l] = 0;
+			multipart_read(file[i],&(s->len), 4, 1);
+
+
 			//fprintf(stderr,"sequence name : %s\n",s->name);
 		}
+	}
+
+	if (opt->flag & MM_F_OUT_SAM){
+		mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 	}
 
 	// fprintf(stderr,"We have %d sequences\n",mi->n_seq);
@@ -102,6 +116,8 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 	// 	mm_idx_seq_t *s = &mi->seq[j];
 	// 	fprintf(stderr,"sequence name : %s\n",s->name);
 	// }
+
+
 
 	fprintf(stderr,"opening : %s\n",fn[0]);
 	mm_bseq_file_t *fastq=mm_bseq_open(fn[0]);
@@ -142,8 +158,13 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 			int ret=fread(&n_reg,sizeof(int),1,file[i]);
 			fprintf(stderr,"n regs %d\n",n_reg);
 			if(ret!=1){
-				fprintf(stderr,"Reading error");
-			}	
+				fprintf(stderr,"Reading error for dump file for index part %d\n",i);
+			}
+
+			if(current_num_regs<n_regs_sum+n_reg){
+				current_num_regs=current_num_regs+n_regs_sum;
+				reg = (mm_reg1_t *)realloc(reg,sizeof(mm_reg1_t)*current_num_regs); 
+			}
 
 			for (j = 0; j < n_reg; ++j){
 				mm_reg1_t *r=&reg[n_regs_sum+j];
@@ -158,9 +179,14 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 					exit(EXIT_FAILURE);
 				}
 
+				//fix the reference index
+				r->rid = r->rid+cum_n_seq[i];
+
 			}
 			n_regs_sum+=n_reg;
 		}
+
+
 
 		for (j = 0; j < n_regs_sum; ++j) {
 			mm_reg1_t *r = &reg[j];
@@ -173,8 +199,8 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 				//void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int opt_flag)
 				mm_write_sam2(st, mi, seq, 0, j, 1, &n_regs_sum, (const mm_reg1_t*const*)&reg, km, opt->flag);
 				//fprintf(stderr, "%d\t%s\t%d\t%d\t",r->rid, mi->seq[r->rid].name, r->rs+1, r->mapq);
-			//else
-				//mm_write_paf(st, mi, t, r, km, opt->flag);
+			else
+				mm_write_paf(st, mi, seq, r, km, opt->flag);
 			mm_err_puts(st->s);		
 		}
 
@@ -257,6 +283,8 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn){
 	free(st->s); free(st);
 	free(reg);
 	free(file);
+	free(mi);
+	free(filename);
 	
 	return;
 

@@ -484,9 +484,11 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
 
-				if(p->opt->multi_prefix!=NULL) multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]),1);
-				fprintf(stderr,"n regs %d\n",s->n_reg[i]);
-
+				if(p->opt->multi_prefix!=NULL){
+					multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]),1);
+					fprintf(stderr,"n regs %d\n",s->n_reg[i]);
+				}
+				
 				for (j = 0; j < s->n_reg[i]; ++j) {
 					mm_reg1_t *r = &s->reg[i][j];
 					
@@ -496,19 +498,21 @@ static void *worker_pipeline(void *shared, int step, void *in)
 						multipart_write(p->multipart_fd,r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*r->p->capacity,1);
  
 						//multipart_write(p->multipart_fd,r->p->cigar,sizeof(uint32_t),r->p->n_cigar);
+						fprintf(stderr,"sizeof mm_reg1_t is %ld\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
 					}
-					fprintf(stderr,"sizeof mm_reg1_t is %ld\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
-
+					
 					assert(!r->sam_pri || r->id == r->parent);
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
 						continue;
-					if (p->opt->flag & MM_F_OUT_SAM)
-						mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
-					else
-						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
-					mm_err_puts(p->str.s);
+					if (p->opt->multi_prefix==NULL){
+						if (p->opt->flag & MM_F_OUT_SAM)
+							mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
+						else
+							mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
+						mm_err_puts(p->str.s);
+					}
 				}
-				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) { // write an unmapped record
+				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM) && (p->opt->multi_prefix==NULL)) { // write an unmapped record
 					mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
 					mm_err_puts(p->str.s);
 				}
