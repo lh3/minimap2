@@ -61,15 +61,40 @@ void multipart_close(FILE* fp){
 
 
 
+static inline mm_reg1_t *merge_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, int *n_regs, mm_reg1_t *regs)
+{
+	if (!(opt->flag & MM_F_CIGAR)) return regs;
+	mm_filter_regs(km, opt, qlen, n_regs, regs);
+	mm_hit_sort_by_dp(km, n_regs, regs);
+
+	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
+		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
+		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
+		mm_set_sam_pri(*n_regs, regs);
+	}
+
+	return regs;
+}
+
+
+static inline int maximum(int *replens,int num_idx_parts){
+	assert(num_idx_parts>0);
+	int max_rep=replens[0];
+	int i;
+	for(i=1;i<num_idx_parts;i++){
+		assert(replens[i]>=0);
+		if(replens[i]>max_rep) max_rep=replens[i];
+	}
+	return max_rep;
+}
+
 
 void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char** argv,const char *rg){
-
 
 	int i,j;
 	int n_reg;
 	int n_regs_sum;
 	uint32_t n_seq=0;
-
 	uint32_t current_seq=0;
 	uint32_t current_num_regs=INITIAL_NUM_REGS;
 
@@ -78,6 +103,7 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char*
 	mm_idx_t* mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
 	char *filename=(char *)malloc(strlen(opt->multi_prefix)+20);
 	uint32_t *cum_n_seq=(uint32_t *)malloc(sizeof(uint32_t)*num_idx_parts);
+	int *replens=(int *)malloc(sizeof(int)*num_idx_parts);
 
 	//go through each index
 	for(i=0;i<num_idx_parts;i++){
@@ -101,8 +127,6 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char*
 			multipart_read(file[i],s->name, 1, l);
 			s->name[l] = 0;
 			multipart_read(file[i],&(s->len), 4, 1);
-
-
 			//fprintf(stderr,"sequence name : %s\n",s->name);
 		}
 	}
@@ -133,25 +157,14 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char*
 	st = (kstring_t*)calloc(1, sizeof(kstring_t));
 	st->s=NULL; st->l=0; st->m=0;
 
-	
-	// mi->n_seq=100;
-	// mi->seq = (mm_idx_seq_t*)calloc(mi->n_seq, sizeof(mm_idx_seq_t));
-	// for (i = 0; i < mi->n_seq; ++i) {
-	// 	uint8_t l=10;
-	// 	mi->seq[i].name = (char*)malloc(l + 1);
-	// 	mi->seq[i].name[l] = 0;
-	// 	sprintf(mi->seq[i].name, "chr%d",i);
-	// }
-
 	while(nseq>0){
 		mm_bseq1_t *seq = mm_bseq_read3(fastq, 1, 1, 1, 0, &nseq);
-
 		if(nseq!=1 || seq==NULL){
 			//fprintf(stderr,"Read %d sequenced when 1 is expected\n",nseq);
 			break;
 		}
 		//fprintf(stderr,"Name %s\n",seq->name);
-
+		int qlen=seq->l_seq;
 
 		n_regs_sum=0;
 		for(i=0;i<num_idx_parts;i++){
@@ -160,6 +173,7 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char*
 			if(ret!=1){
 				fprintf(stderr,"Reading error for dump file for index part %d\n",i);
 			}
+			multipart_read(file[i],&(replens[i]),sizeof(int),1);
 
 			if(current_num_regs<n_regs_sum+n_reg){
 				current_num_regs=current_num_regs+n_regs_sum;
@@ -181,12 +195,20 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char*
 
 				//fix the reference index
 				r->rid = r->rid+cum_n_seq[i];
-
 			}
 			n_regs_sum+=n_reg;
 		}
 
 
+		fprintf(stderr,"Replens : ");
+		for(i=0;i<num_idx_parts;i++)	fprintf(stderr,"%d\t",replens[i]);
+
+		reg=merge_regs(opt, mi, km, qlen, &n_regs_sum, reg);
+
+		int is_sr = !!(opt->flag & MM_F_SR);
+		int rep_len=maximum(replens,num_idx_parts);
+		fprintf(stderr,"\nMax replen %d\n",rep_len);
+		mm_set_mapq(km, n_regs_sum, reg, opt->min_chain_score, opt->a, rep_len, is_sr);
 
 		for (j = 0; j < n_regs_sum; ++j) {
 			mm_reg1_t *r = &reg[j];
@@ -209,76 +231,13 @@ void merge(mm_mapopt_t *opt, int num_idx_parts, const char **fn, int argc, char*
 			mm_err_puts(st->s);
 		}
 
-		
-
 	}
 
+	//close open files
 	mm_bseq_close(fastq);
+	for(i=0;i<num_idx_parts;i++) fclose(file[i]);
 
-	for(i=0;i<num_idx_parts;i++){	
-		int ret=fclose(file[i]);
-		if (ret==-1){
-			fprintf(stderr, "Cannot close file descripter");
-		}
-	}
 
-	// 	//mm_set_mapq(km, n_reg, reg, opt->min_chain_score, opt->a, rep_len, is_sr);
-	// 	//multi segments are not supported
-	// 	int n_segs=1;
-	// 	if (argc - (optind + 1) > n_segs) {
-	// 		fprintf(stderr,"Multi segments are not yet supported for merging %s\n");
-	// 		return -1;
-	// 	}
-	// 	pipeline_t pl;
-	// 	pipeline_t *p=&pl;
-
-	// 	kstring_t *st;
-	// 	st = (kstring_t*)calloc(1, sizeof(kstring_t));
-
-	// 	memset(p, 0, sizeof(pipeline_t));			
-	// 	pl.fp = (mm_bseq_file_t**)calloc(n_segs, sizeof(mm_bseq_file_t*));
-	// 	for (i = 0; i < n_segs; ++i) {
-	// 		pl.fp[i] = mm_bseq_open(argv[optind + 1]);
-	// 		if (pl.fp[i] == 0) {
-	// 			if (mm_verbose >= 1)
-	// 				fprintf(stderr, "ERROR: failed to open file '%s'\n", argv[optind + 1]);
-	// 			for (j = 0; j < i; ++j)
-	// 				mm_bseq_close(pl.fp[j]);
-	// 			free(pl.fp);
-	// 			return -1;
-	// 		}
-	// 	}
-
-//       	step_t *s;
-//       	s = (step_t*)calloc(1, sizeof(step_t));
-	// 	s->seq = mm_bseq_read3(p->fp[0], 100, 1, 1, 1, &s->n_seq);			
-	// 	mm_bseq1_t *t = &s->seq[i];
-
-	// 	for (j = 0; j < n_reg; ++j) {
-			
-	// 		mm_reg1_t *r = &reg[j];
-	// 		assert(!r->sam_pri || r->id == r->parent);
-	// 		if ((opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
-	// 			continue;
-	// 		if (opt->flag & MM_F_OUT_SAM)
-	// 			mm_write_sam2(st, mi, t, 0, j, 1, &n_reg, (const mm_reg1_t*const*)&reg, km, opt->flag);
-	// 		else
-	// 			mm_write_paf(st, mi, t, r, km, opt->flag);
-	// 		mm_err_puts(st->s);	
-
-	// 	}
-	// 	if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) { // write an unmapped record
-	// 		mm_write_sam2(st, mi, t, 0, -1, 1, &n_reg, (const mm_reg1_t*const*)&reg, km, opt->flag);
-	// 		mm_err_puts(st->s);
-	// 	}
-
-	// 	free(st->s);
-	// 	for (i = 0; i < n_segs; ++i)
-	// 		mm_bseq_close(pl.fp[i]);						
-				
-	// }
-
-	
 	// free
 	free(st->s); free(st);
 	free(reg);

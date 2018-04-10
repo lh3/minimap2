@@ -248,7 +248,11 @@ int main(int argc, char *argv[])
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		} else if (c==0 && long_idx == 39) { //multi=part
-			fprintf(stderr, "[WARNING]\033[1;31m option --multi-prefix is experimental. Currently works only with single ended reads.\033[0m\n");
+			if (argc - (optind + 1) > 1) {
+				fprintf(stderr,"[ERROR]\033[1;31m --multi-prefix is not yet implemented for multi-segment reads\033[0m\n");
+	 			return 1;
+	 		}
+			fprintf(stderr, "[WARNING]\033[1;31m option --multi-prefix is experimental. Currently works only with uni-segment reads.\033[0m\n");
 			opt.multi_prefix=optarg;
 		}
 
