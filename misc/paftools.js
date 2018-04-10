@@ -484,7 +484,7 @@ function paf_call(args)
 		// drop alignments that don't overlap with the current one
 		var k = 0;
 		for (var i = 0; i < a.length; ++i)
-			if (a[0][0] == ctg && a[0][2] > x)
+			if (a[i][0] == ctg && a[i][2] > x)
 				a[k++] = a[i];
 		a.length = k;
 		// core loop
@@ -496,7 +496,7 @@ function paf_call(args)
 				var cov = 1;
 				if (m[1] == '*' || m[1] == '+' || m[1] == '-')
 					for (var i = 0; i < a.length; ++i)
-						if (a[0][2] > x) ++cov;
+						if (a[i][2] > x) ++cov;
 				var qs, qe;
 				if (m[1] == '=' || m[1] == ':') {
 					var l = m[1] == '='? m[2].length : parseInt(m[2]);
