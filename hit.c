@@ -412,23 +412,23 @@ void mm_seg_free(void *km, int n_segs, mm_seg_t *segs)
 static void mm_set_inv_mapq(void *km, int n_regs, mm_reg1_t *regs)
 {
 	int i, n_aux;
-	uint64_t *aux;
+	mm128_t *aux;
 	if (n_regs < 3) return;
 	for (i = 0; i < n_regs; ++i)
 		if (regs[i].inv) break;
 	if (i == n_regs) return; // no inversion hits
 
-	aux = (uint64_t*)kmalloc(km, n_regs * 8);
+	aux = (mm128_t*)kmalloc(km, n_regs * 16);
 	for (i = n_aux = 0; i < n_regs; ++i)
 		if (regs[i].parent == i || regs[i].parent < 0)
-			aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
-	radix_sort_64(aux, aux + n_aux);
+			aux[n_aux].y = i, aux[n_aux++].x = (uint64_t)regs[i].rid << 32 | regs[i].rs;
+	radix_sort_128x(aux, aux + n_aux);
 
 	for (i = 1; i < n_aux - 1; ++i) {
-		mm_reg1_t *inv = &regs[(int32_t)aux[i]];
+		mm_reg1_t *inv = &regs[aux[i].y];
 		if (inv->inv) {
-			mm_reg1_t *l = &regs[(int32_t)aux[i-1]];
-			mm_reg1_t *r = &regs[(int32_t)aux[i+1]];
+			mm_reg1_t *l = &regs[aux[i-1].y];
+			mm_reg1_t *r = &regs[aux[i+1].y];
 			inv->mapq = l->mapq < r->mapq? l->mapq : r->mapq;
 		}
 	}
