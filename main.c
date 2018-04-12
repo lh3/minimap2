@@ -374,7 +374,7 @@ int main(int argc, char *argv[])
 	}
 	mm_idx_reader_close(idx_rdr);
 
-	if(opt.multi_prefix!=NULL) merge(&opt,idx_id,(const char**)&argv[optind + 1], argc, argv, rg);
+	if(opt.multi_prefix!=NULL) merge(&opt,&ipt,idx_id,(const char**)&argv[optind + 1], argc, argv, rg);
 
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");
