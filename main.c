@@ -26,23 +26,7 @@ void liftrlimit()
 #else
 void liftrlimit() {}
 #endif
-typedef struct {
-	int mini_batch_size, n_processed, n_threads, n_fp;
-	const mm_mapopt_t *opt;
-	mm_bseq_file_t **fp;
-	const mm_idx_t *mi;
-	kstring_t str;
-	int multi_prefix;
-} pipeline_t;
 
-typedef struct {
-	const pipeline_t *p;
-    int n_seq, n_frag;
-	mm_bseq1_t *seq;
-	int *n_reg, *seg_off, *n_seg;
-	mm_reg1_t **reg;
-	mm_tbuf_t **buf;
-} step_t;
 static struct option long_options[] = {
 	{ "bucket-bits",    required_argument, 0, 0 },
 	{ "mb-size",        required_argument, 0, 'K' },
@@ -82,8 +66,8 @@ static struct option long_options[] = {
 	{ "min-chain-score",required_argument, 0, 'm' },
 	{ "mask-level",     required_argument, 0, 'M' },
 	{ "min-dp-score",   required_argument, 0, 's' },
-	{ "sam",            no_argument,       0, 'a' }, 
-	{ "multi-prefix",   required_argument, 0, 0 },	 //39	
+	{ "sam",            no_argument,       0, 'a' },
+	{ "multi-prefix",   required_argument, 0, 0 },	 //39
 	{ 0, 0, 0, 0}
 };
 
@@ -247,11 +231,11 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
-		} else if (c==0 && long_idx == 39) { //multi=part
+		} else if (c==0 && long_idx == 39) { //multi-part
 			if (argc - (optind + 1) > 1) {
-				fprintf(stderr,"[ERROR]\033[1;31m --multi-prefix is not yet implemented for multi-segment reads\033[0m\n");
-	 			return 1;
-	 		}
+                fprintf(stderr,"[ERROR]\033[1;31m --multi-prefix is not yet implemented for multi-segment reads\033[0m\n");
+                return 1;
+            }
 			fprintf(stderr, "[WARNING]\033[1;31m option --multi-prefix is experimental. Currently works only with uni-segment reads.\033[0m\n");
 			opt.multi_prefix=optarg;
 		}
@@ -338,9 +322,7 @@ int main(int argc, char *argv[])
 	}
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
 		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
-	
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
-		
 		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
 			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
 			mm_idx_destroy(mi);
@@ -361,7 +343,6 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
-
 		mi->idx_id=idx_id;
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = optind + 1; i < argc; ++i)
@@ -375,7 +356,6 @@ int main(int argc, char *argv[])
 	mm_idx_reader_close(idx_rdr);
 
 	if(opt.multi_prefix!=NULL) merge(&opt,&ipt,idx_id,(const char**)&argv[optind + 1], argc, argv, rg);
-
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");
 		exit(EXIT_FAILURE);

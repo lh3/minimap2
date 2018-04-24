@@ -372,7 +372,6 @@ int mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **s
 			b->km = km_init();
 		}
 	}
-
 	return rep_len;
 }
 
@@ -465,7 +464,6 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->n_seg = s->seg_off + s->n_seq;
 			s->reg = (mm_reg1_t**)calloc(s->n_seq, sizeof(mm_reg1_t*));
 			s->replen = (int *)calloc(s->n_seq, sizeof(int));
-
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mm_qname_same(s->seq[i-1].name, s->seq[i].name)) {
 					s->n_seg[s->n_frag] = i - j;
@@ -488,26 +486,22 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
-
 				if(p->opt->multi_prefix!=NULL){
 					multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]),1);
 					multipart_write(p->multipart_fd,&(s->replen[i]),sizeof(int),1);
 					fprintf(stderr,"n regs %d\treplen %d\n",s->n_reg[i],s->replen[i]);
-					fprintf(stderr,"replen orig : %d\n",s->replen[i]);
+					fprintf(stderr,"replen original %d\n",s->replen[i]);
 				}
-				
 				for (j = 0; j < s->n_reg[i]; ++j) {
 					mm_reg1_t *r = &s->reg[i][j];
-					
 					if(p->opt->multi_prefix!=NULL) {
 						multipart_write(p->multipart_fd,r,sizeof(mm_reg1_t),1);
 						if(p->opt->flag & MM_F_CIGAR){
 							multipart_write(p->multipart_fd,&(r->p->capacity),sizeof(uint32_t),1);
 							multipart_write(p->multipart_fd,r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*r->p->capacity,1);
  						}
-						fprintf(stderr,"sizeof mm_reg1_t is %ld\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
+						fprintf(stderr,"hash %d\tdiv %f\n",r->id,r->hash,r->div);
 					}
-					
 					assert(!r->sam_pri || r->id == r->parent);
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
 						continue;
@@ -532,8 +526,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			}
 		}
 		free(s->reg); free(s->n_reg); free(s->seq); // seg_off and n_seg were allocated with reg; no memory leak here
-		free(s->replen); 
-
+		free(s->replen);
 		km_destroy(km);
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequences\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), s->n_seq);
@@ -561,7 +554,6 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 			return -1;
 		}
 	}
-
 	if(opt->multi_prefix!=NULL)  pl.multipart_fd=multipart_init(opt,idx); 
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
@@ -571,7 +563,6 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 	free(pl.str.s);
 	for (i = 0; i < n_segs; ++i)
 		mm_bseq_close(pl.fp[i]);
-
 	if(opt->multi_prefix!=NULL) multipart_close(pl.multipart_fd);
 	free(pl.fp);
 	return 0;

@@ -160,7 +160,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 
 	//k-mer size
 	mi->k=ipt->k;
-	fprintf(stderr,"Kmer size : %d\n",mi->k);
+	//fprintf(stderr,"Kmer size : %d\n",mi->k);
 
 	if (opt->flag & MM_F_OUT_SAM){
 		mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
@@ -259,7 +259,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 		//go through each  reg and print them
 		for (j = 0; j < n_regs_sum; ++j) {
 			mm_reg1_t *r = &reg[j];
-			fprintf(stderr,"sizeof mm_reg1_t is %ld\t id %d\thash %d\tdiv %f\n",sizeof(mm_reg1_t),r->id,r->hash,r->div);
+			fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
 			
 			assert(!r->sam_pri || r->id == r->parent);
 			if ((opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent){	//don't print secondary mappings if the respective option has been set
