@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.10-r764-dirty"
+#define MM_VERSION "2.10-r768-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
 		fprintf(fp_help, "Options:\n");
 		fprintf(fp_help, "  Indexing:\n");
-		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer\n");
+		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [4G]\n");
@@ -282,15 +282,12 @@ int main(int argc, char *argv[])
 //		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
-		fprintf(fp_help, "    -x STR       preset (always applied before other options) []\n");
-		fprintf(fp_help, "                 map-pb: -Hk19 (PacBio vs reference mapping)\n");
-		fprintf(fp_help, "                 map-ont: -k15 (Oxford Nanopore vs reference mapping)\n");
-		fprintf(fp_help, "                 asm5: -k19 -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 (asm to ref mapping; break at 5%% div.)\n");
-		fprintf(fp_help, "                 asm10: -k19 -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 (asm to ref mapping; break at 10%% div.)\n");
-		fprintf(fp_help, "                 ava-pb: -Hk19 -Xw5 -m100 -g10000 --max-chain-skip 25 (PacBio read overlap)\n");
-		fprintf(fp_help, "                 ava-ont: -k15 -Xw5 -m100 -g10000 -r2000 --max-chain-skip 25 (ONT read overlap)\n");
-		fprintf(fp_help, "                 splice: long-read spliced alignment (see minimap2.1 for details)\n");
-		fprintf(fp_help, "                 sr: short single-end reads without splicing (see minimap2.1 for details)\n");
+		fprintf(fp_help, "    -x STR       preset (always applied before other options; see minimap2.1 for details) []\n");
+		fprintf(fp_help, "                 - map-pb/map-ont: PacBio/Nanopore vs reference mapping\n");
+		fprintf(fp_help, "                 - ava-pb/ava-ont: PacBio/Nanopore read overlap\n");
+		fprintf(fp_help, "                 - asm5/asm10/asm20: asm-to-ref mapping, for ~0.1/1/5%% sequence divergence\n");
+		fprintf(fp_help, "                 - splice: long-read spliced alignment\n");
+		fprintf(fp_help, "                 - sr: genomic short-read mapping\n");
 		fprintf(fp_help, "\nSee `man ./minimap2.1' for detailed description of command-line options.\n");
 		return fp_help == stdout? 0 : 1;
 	}
