@@ -500,7 +500,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 							multipart_write(p->multipart_fd,&(r->p->capacity),sizeof(uint32_t),1);
 							multipart_write(p->multipart_fd,r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*r->p->capacity,1);
  						}
-						fprintf(stderr,"hash %d\tdiv %f\n",r->id,r->hash,r->div);
+						fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
 					}
 					assert(!r->sam_pri || r->id == r->parent);
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
