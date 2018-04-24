@@ -268,20 +268,30 @@ static inline void mm_adjust_minier(const mm_idx_t *mi, uint8_t *const qseq0[2],
 	}
 }
 
-static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min_gap, int diff_thres, int max_ext_len, int max_ext_cnt)
+static int *collect_long_gaps(void *km, int as1, int cnt1, mm128_t *a, int min_gap, int *n_)
 {
-	int max_st, max_en, n, i, k, max, *K;
+	int i, n, *K;
+	*n_ = 0;
 	for (i = 1, n = 0; i < cnt1; ++i) { // count the number of gaps longer than min_gap
 		int gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
 		if (gap < -min_gap || gap > min_gap) ++n;
 	}
-	if (n <= 1) return;
+	if (n <= 1) return 0;
 	K = (int*)kmalloc(km, n * sizeof(int));
 	for (i = 1, n = 0; i < cnt1; ++i) { // store the positions of long gaps
 		int gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
 		if (gap < -min_gap || gap > min_gap)
 			K[n++] = i;
 	}
+	*n_ = n;
+	return K;
+}
+
+static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min_gap, int diff_thres, int max_ext_len, int max_ext_cnt)
+{
+	int max_st, max_en, n, i, k, max, *K;
+	K = collect_long_gaps(km, as1, cnt1, a, min_gap, &n);
+	if (K == 0) return;
 	max = 0, max_st = max_en = -1;
 	for (k = 0;; ++k) { // traverse long gaps
 		int gap, l, n_ins = 0, n_del = 0, qs, rs, max_diff = 0, max_diff_l = -1;
@@ -310,6 +320,41 @@ static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min
 		}
 		if (max_diff > diff_thres && max_diff > max)
 			max = max_diff, max_st = k, max_en = max_diff_l;
+	}
+	kfree(km, K);
+}
+
+static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int min_gap)
+{
+	int n, k, *K;
+	K = collect_long_gaps(km, as1, cnt1, a, min_gap, &n);
+	if (K == 0) return;
+	for (k = 0; k < n;) {
+		int i = K[k], l;
+		int gap1 = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		int re1 = (int32_t)a[as1 + i].x;
+		int qe1 = (int32_t)a[as1 + i].y;
+		gap1 = gap1 > 0? gap1 : -gap1;
+		for (l = k + 1; l < n; ++l) {
+			int j = K[l];
+			int gap2 = ((int32_t)a[as1 + j].y - a[as1 + j - 1].y) - ((int32_t)a[as1 + j].x - a[as1 + j - 1].x);
+			int q_span_pre = a[as1 + j - 1].y >> 32 & 0xff;
+			int rs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
+			int qs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
+			int m = rs2 - re1 < qs2 - qe1? rs2 - re1 : qs2 - qe1;
+			gap2 = gap2 > 0? gap2 : -gap2;
+			if (m > gap1 + gap2) break;
+			re1 = (int32_t)a[as1 + j].x;
+			qe1 = (int32_t)a[as1 + j].y;
+			gap1 = gap2;
+		}
+		if (l > k + 1) {
+			int j, end = K[l - 1];
+			for (j = K[k]; j < end; ++j)
+				a[as1 + j].y |= MM_SEED_IGNORE;
+			a[as1 + end].y |= MM_SEED_LONG_JOIN;
+		}
+		k = l;
 	}
 	kfree(km, K);
 }
@@ -450,6 +495,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_fix_bad_ends(r, a, opt->bw, opt->min_chain_score * 2, &as1, &cnt1);
 		}
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
+		mm_filter_bad_seeds_alt(km, as1, cnt1, a, 50);
 		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 		mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
 	}
