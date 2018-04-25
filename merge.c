@@ -64,6 +64,29 @@ void multipart_close(FILE* fp){
 }
 
 
+void mm_hit_sort_by_score(void *km, int *n_regs, mm_reg1_t *r)
+{
+	int32_t i, n_aux, n = *n_regs;
+	mm128_t *aux;
+	mm_reg1_t *t;
+
+	if (n <= 1) return;
+	aux = (mm128_t*)kmalloc(km, n * 16);
+	t = (mm_reg1_t*)kmalloc(km, n * sizeof(mm_reg1_t));
+
+	for (i = n_aux = 0; i < n; ++i) {
+		aux[n_aux].x = (uint64_t)r[i].score << 32 | r[i].hash;
+		aux[n_aux++].y = i;
+	}
+	radix_sort_128x(aux, aux + n_aux);
+	for (i = n_aux - 1; i >= 0; --i)
+		t[n_aux - 1 - i] = r[aux[i].y];
+
+	memcpy(r, t, sizeof(mm_reg1_t) * n_aux);
+	*n_regs = n_aux;
+	kfree(km, aux);
+	kfree(km, t);
+}
 
 static inline mm_reg1_t *merge_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, int *n_regs, mm_reg1_t *regs)
 {
@@ -82,6 +105,9 @@ static inline mm_reg1_t *merge_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, 
 
 	if (opt->flag & MM_F_CIGAR) {
 		mm_hit_sort_by_dp(km, n_regs, regs);
+	}
+	else{
+		mm_hit_sort_by_score(km, n_regs, regs);
 	}
 
 	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
