@@ -489,8 +489,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				if(p->opt->multi_prefix!=NULL){
 					multipart_write(p->multipart_fd,&(s->n_reg[i]),sizeof(s->n_reg[i]),1);
 					multipart_write(p->multipart_fd,&(s->replen[i]),sizeof(int),1);
-					fprintf(stderr,"n regs %d\treplen %d\n",s->n_reg[i],s->replen[i]);
-					fprintf(stderr,"replen original %d\n",s->replen[i]);
+					//fprintf(stderr,"n regs %d\treplen %d\n",s->n_reg[i],s->replen[i]);
+					//fprintf(stderr,"replen original %d\n",s->replen[i]);
 				}
 				for (j = 0; j < s->n_reg[i]; ++j) {
 					mm_reg1_t *r = &s->reg[i][j];
@@ -500,7 +500,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 							multipart_write(p->multipart_fd,&(r->p->capacity),sizeof(uint32_t),1);
 							multipart_write(p->multipart_fd,r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*r->p->capacity,1);
  						}
-						fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
+						//fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
 					}
 					assert(!r->sam_pri || r->id == r->parent);
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)

@@ -64,7 +64,7 @@ void multipart_close(FILE* fp){
 }
 
 
-void mm_hit_sort_by_score(void *km, int *n_regs, mm_reg1_t *r)
+static inline void mm_hit_sort_by_score(void *km, int *n_regs, mm_reg1_t *r)
 {
 	int32_t i, n_aux, n = *n_regs;
 	mm128_t *aux;
@@ -132,6 +132,7 @@ static inline int maximum(int *replens,int num_idx_parts){
 }
 
 
+//This function can be parallelised later by a kt-pipeline later if performance is a problem
 void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **fn, int argc, char** argv,const char *rg){
 
 	int i,j,n_reg,n_regs_sum;
@@ -209,7 +210,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 	}
 
 	int nseq=1; //number of sequences read
-	void *km=NULL;	//kmemory
+	void *km=km_init();	//kmemory
 	kstring_t *st;	//kstring
 	st = (kstring_t*)calloc(1, sizeof(kstring_t));
 	st->s=NULL; st->l=0; st->m=0;
@@ -217,7 +218,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 	//read until all the query sequences are read
 	while(nseq>0){
 
-		mm_bseq1_t *seq = mm_bseq_read3(fastq, 1, 1, 1, 0, &nseq);	//read a query sequence
+		mm_bseq1_t *seq = mm_bseq_read3(fastq, 1, 1, 0, 0, &nseq);	//read a query sequence
 		if(nseq!=1 || seq==NULL){	
 			break;	//if no query sequences were read thats the end of the file. 
 		}
@@ -230,7 +231,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 		for(i=0;i<num_idx_parts;i++){
 
 			multipart_read(file[i],&n_reg,sizeof(int),1); //number of reg (mm_reg1_t)
-			fprintf(stderr,"n regs %d\n",n_reg);
+			//fprintf(stderr,"n regs %d\n",n_reg);
 
 			multipart_read(file[i],&(replens[i]),sizeof(int),1); // the replen : replen is calculated by collect_matches() in map.c. It is the sum of length of regions covered by highly repetitive k-mers.
 
@@ -285,7 +286,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 		//go through each  reg and print them
 		for (j = 0; j < n_regs_sum; ++j) {
 			mm_reg1_t *r = &reg[j];
-			fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
+			//fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
 			
 			assert(!r->sam_pri || r->id == r->parent);
 			if ((opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent){	//don't print secondary mappings if the respective option has been set
@@ -300,8 +301,6 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 			}
 			mm_err_puts(st->s);	
 
-			//free the registers p pointer, an optimisation can be done here
-			if (!r->p){ free(r->p); };	
 		}
 
 		if (n_regs_sum == 0 && (opt->flag & MM_F_OUT_SAM)) { // write an unmapped record
@@ -309,6 +308,16 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 			mm_err_puts(st->s);
 		}
 
+		for (j = 0; j < n_regs_sum; ++j) {
+			mm_reg1_t *r = &reg[j];
+			//free the registers p pointer, an optimisation can be done here
+			if (r->p!=NULL){ free(r->p); };
+		}
+
+		//free the sequence
+		free(seq->seq); free(seq->name);
+		if (seq->qual) free(seq->qual);
+		free(seq);
 
 	}
 
@@ -346,7 +355,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 	free(reg);	//this is not proper
 
 	//check if km needs to be freed
-	//km_destroy(km);
+	km_destroy(km);
 
 
 	return;
