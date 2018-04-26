@@ -6,6 +6,75 @@
 #include "mmpriv.h"
 #include "ksw2.h"
 
+static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq)
+{
+	int n_diff = 0;
+	uint32_t k, l, m, cap, toff = 0, qoff = 0;
+	mm_extra_t *p;
+	if (r->p == 0) return;
+	for (k = 0; k < r->p->n_cigar; ++k) {
+		uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+		if (op == 0) {
+			for (l = 0; l < len; ++l)
+				if (qseq[qoff + l] != tseq[toff + l])
+					++n_diff;
+			toff += len, qoff += len;
+		} else if (op == 1) { // insertion
+			qoff += len;
+		} else if (op == 2) { // deletion
+			toff += len;
+		} else if (op == 3) { // intron
+			toff += len;
+		}
+	}
+	// update in-place if we can
+	if (n_diff == 0) {
+		for (k = 0; k < r->p->n_cigar; ++k) {
+			uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+			if (op == 0) r->p->cigar[k] = 4 + (len<<4);
+		}
+		return;
+	}
+	// allocate new storage
+	cap = r->p->n_cigar + 2*n_diff + sizeof(mm_extra_t);
+	kroundup32(cap);
+	p = (mm_extra_t*)calloc(cap, 4);
+	memcpy(p, r->p, sizeof(mm_extra_t));
+	p->capacity = cap;
+	// update cigar while copying
+	toff = 0;
+	qoff = 0;
+	m = 0;
+	for (k = 0; k < r->p->n_cigar; ++k) {
+		uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+		if (op == 0) { // match/mismatch
+			while (len > 0) {
+				// match
+				for (l = 0; l < len && qseq[qoff + l] == tseq[toff + l]; ++l) {}
+				if (l > 0) p->cigar[m++] = 4 + (l<<4);
+				len -= l;
+				toff += l, qoff += l;
+				// mismatch
+				for (l = 0; l < len && qseq[qoff + l] != tseq[toff + l]; ++l) {}
+				if (l > 0) p->cigar[m++] = 5 + (l<<4);
+				len -= l;
+				toff += l, qoff += l;
+			}
+			continue;
+		} else if (op == 1) { // insertion
+			qoff += len;
+		} else if (op == 2) { // deletion
+			toff += len;
+		} else if (op == 3) { // intron
+			toff += len;
+		}
+		p->cigar[m++] = r->p->cigar[k];
+	}
+	p->n_cigar = m;
+	free(r->p);
+	r->p = p;
+}
+
 static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
 {
 	int i, j;
@@ -52,7 +121,7 @@ static int mm_test_zdrop(void *km, const mm_mapopt_t *opt, const uint8_t *qseq, 
 	// find the score and the region where score drops most along diagonal
 	for (k = 0, score = 0; k < n_cigar; ++k) {
 		uint32_t l, op = cigar[k]&0xf, len = cigar[k]>>4;
-		if (op == 0) {
+		if (op == 0 || op == 4 || op == 5) {
 			for (l = 0; l < len; ++l) {
 				score += mat[tseq[i + l] * 5 + qseq[j + l]];
 				update_max_zdrop(score, i+l, j+l, &max, &max_i, &max_j, opt->e, &max_zdrop, pos);
@@ -96,7 +165,7 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 	for (k = 0; k < p->n_cigar; ++k) { // indel left alignment
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
 		if (len == 0) to_shrink = 1;
-		if (op == 0) {
+		if (op == 0 || op == 4 || op == 5) {
 			toff += len, qoff += len;
 		} else if (op == 1 || op == 2) { // insertion or deletion
 			if (k > 0 && k < p->n_cigar - 1 && (p->cigar[k-1]&0xf) == 0 && (p->cigar[k+1]&0xf) == 0) {
@@ -156,7 +225,7 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 	r->blen = r->mlen = 0;
 	for (k = 0; k < p->n_cigar; ++k) {
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
-		if (op == 0) { // match/mismatch
+		if (op == 0 || op == 4 || op == 5) { // match/mismatch
 			int n_ambi = 0, n_diff = 0;
 			for (l = 0; l < len; ++l) {
 				int cq = qseq[qoff + l], ct = tseq[toff + l];
@@ -237,7 +306,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		int i;
 		fprintf(stderr, "score=%d, cigar=", ez->score);
 		for (i = 0; i < ez->n_cigar; ++i)
-			fprintf(stderr, "%d%c", ez->cigar[i]>>4, "MIDN"[ez->cigar[i]&0xf]);
+			fprintf(stderr, "%d%c", ez->cigar[i]>>4, "MIDN=X"[ez->cigar[i]&0xf]);
 		fprintf(stderr, "\n");
 	}
 }
@@ -628,6 +697,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
 		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
+		mm_update_cigar_eqx(r, &qseq0[r->rev][qs1], tseq);
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
@@ -686,6 +756,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	r_inv->rs = r1->re + t_off;
 	r_inv->re = r_inv->rs + ez->max_t + 1;
 	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e);
+	mm_update_cigar_eqx(r_inv, &qseq[q_off], &tseq[t_off]);
 	ret = 1;
 end_align1_inv:
 	kfree(km, tseq);
