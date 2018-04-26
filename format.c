@@ -139,8 +139,8 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	mm_sprintf_lite(s, "\tcs:Z:");
 	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
-		assert(op >= 0 && op <= 3);
-		if (op == 0) { // match
+		assert(op >= 0 && op <= 5);
+		if (op == 0 || op == 4 || op == 5) { // match
 			int l_tmp = 0;
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
@@ -187,8 +187,8 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	mm_sprintf_lite(s, "\tMD:Z:");
 	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
-		assert(op >= 0 && op <= 2); // introns (aka reference skips) are not supported
-		if (op == 0) { // match
+		assert(op == 0 || op == 1 || op == 2 || op == 4 || op == 5); // introns (aka reference skips) are not supported
+		if (op == 0 || op == 4 || op == 5) { // match
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
 					mm_sprintf_lite(s, "%d%c", l_MD, "ACGTN"[tseq[t_off + j]]);
@@ -270,7 +270,7 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 		uint32_t k;
 		mm_sprintf_lite(s, "\tcg:Z:");
 		for (k = 0; k < r->p->n_cigar; ++k)
-			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDN"[r->p->cigar[k]&0xf]);
+			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDN=X"[r->p->cigar[k]&0xf]);
 	}
 	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
 		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD);
@@ -321,7 +321,7 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 			int clip_char = (sam_flag&0x800) && !(opt_flag&MM_F_SOFTCLIP)? 'H' : 'S';
 			if (clip_len[0]) mm_sprintf_lite(s, "%d%c", clip_len[0], clip_char);
 			for (k = 0; k < r->p->n_cigar; ++k)
-				mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDN"[r->p->cigar[k]&0xf]);
+				mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDN=X"[r->p->cigar[k]&0xf]);
 			if (clip_len[1]) mm_sprintf_lite(s, "%d%c", clip_len[1], clip_char);
 		}
 	}
