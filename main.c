@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.10-r768-dirty"
+#define MM_VERSION "2.10-r770-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -58,6 +58,7 @@ static struct option long_options[] = {
 	{ "min-occ-floor",  required_argument, 0, 0 },   // 28
 	{ "MD",             no_argument,       0, 0 },   // 29
 	{ "lj-min-ratio",   required_argument, 0, 0 },   // 30
+	{ "score-N",        required_argument, 0, 0 },   // 31
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -175,6 +176,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==28) opt.min_mid_occ = atoi(optarg); // --min-occ-floor
 		else if (c == 0 && long_idx ==29) opt.flag |= MM_F_OUT_MD; // --MD
 		else if (c == 0 && long_idx ==30) opt.min_join_flank_ratio = atof(optarg); // --lj-min-ratio
+		else if (c == 0 && long_idx ==31) opt.sc_ambi = atoi(optarg); // --score-N
 		else if (c == 0 && long_idx == 14) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary

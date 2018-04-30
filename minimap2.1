@@ -1,4 +1,4 @@
-.TH minimap2 1 "27 March 2018" "minimap2-2.10 (r761)" "Bioinformatics tools"
+.TH minimap2 1 "30 April 2018" "minimap2-2.10-dirty (r770)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -321,6 +321,9 @@ no attempt to match GT-AG [n]
 .TP
 .BI --end-bonus \ INT
 Score bonus when alignment extends to the end of the query sequence [0].
+.TP
+.BI --score-N \ INT
+Score of a mismatch involving ambiguous bases [1].
 .TP
 .BR --splice-flank = yes | no
 Assume the next base to a
