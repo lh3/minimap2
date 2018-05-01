@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 
-#define MM_VERSION "2.10-r763-dirty"
+#define MM_VERSION "merge_v1.0"
 #define INITIAL_NUM_REGS 256
 
 //See : https://github.com/lh3/minimap2/issues/141
@@ -352,11 +352,8 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 	free(mi->seq);
 	free(mi);	
 
-	free(reg);	//this is not proper
-
-	//check if km needs to be freed
+	free(reg);
 	km_destroy(km);
-
 
 	return;
 
