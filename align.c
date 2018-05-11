@@ -325,7 +325,7 @@ static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min
 	kfree(km, K);
 }
 
-static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int min_gap)
+static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int min_gap, int max_ext)
 {
 	int n, k, *K;
 	K = collect_long_gaps(km, as1, cnt1, a, min_gap, &n);
@@ -336,7 +336,7 @@ static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int
 		int re1 = (int32_t)a[as1 + i].x;
 		int qe1 = (int32_t)a[as1 + i].y;
 		gap1 = gap1 > 0? gap1 : -gap1;
-		for (l = k + 1; l < n; ++l) {
+		for (l = k + 1; l < n && a[as1 + K[l]].y - a[as1 + i].y <= max_ext; ++l) {
 			int j = K[l];
 			int gap2 = ((int32_t)a[as1 + j].y - a[as1 + j - 1].y) - ((int32_t)a[as1 + j].x - a[as1 + j - 1].x);
 			int q_span_pre = a[as1 + j - 1].y >> 32 & 0xff;
@@ -496,7 +496,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_fix_bad_ends(r, a, opt->bw, opt->min_chain_score * 2, &as1, &cnt1);
 		}
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
-		mm_filter_bad_seeds_alt(km, as1, cnt1, a, 30);
+		mm_filter_bad_seeds_alt(km, as1, cnt1, a, 30, opt->max_gap);
 		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);
 		mm_adjust_minier(mi, qseq0, &a[as1 + cnt1 - 1], &re, &qe);
 	}
