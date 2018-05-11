@@ -127,11 +127,11 @@ static inline void ksw_backtrack(void *km, int is_rot, int is_rev, int min_intro
 			r = i + j;
 			if (i < off[r]) force_state = 2;
 			if (off_end && i > off_end[r]) force_state = 1;
-			tmp = force_state < 0? p[r * n_col + i - off[r]] : 0;
+			tmp = force_state < 0? p[(size_t)r * n_col + i - off[r]] : 0;
 		} else {
 			if (j < off[i]) force_state = 2;
 			if (off_end && j > off_end[i]) force_state = 1;
-			tmp = force_state < 0? p[i * n_col + j - off[i]] : 0;
+			tmp = force_state < 0? p[(size_t)i * n_col + j - off[i]] : 0;
 		}
 		if (state == 0) state = tmp & 7; // if requesting the H state, find state one maximizes it.
 		else if (!(tmp >> (state + 2) & 1)) state = 0; // if requesting other states, _state_ stays the same if it is a continuation; otherwise, set to H
