@@ -218,7 +218,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 #endif
 			}
 		} else if (!(flag&KSW_EZ_RIGHT)) { // gap left-alignment
-			__m128i *pr = p + r * n_col_ - st_;
+			__m128i *pr = p + (size_t)r * n_col_ - st_;
 			off[r] = st, off_end[r] = en;
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
@@ -265,7 +265,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				_mm_store_si128(&pr[t], d);
 			}
 		} else { // gap right-alignment
-			__m128i *pr = p + r * n_col_ - st_;
+			__m128i *pr = p + (size_t)r * n_col_ - st_;
 			off[r] = st, off_end[r] = en;
 			for (t = st_; t <= en_; ++t) {
 				__m128i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
