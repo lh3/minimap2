@@ -6,18 +6,19 @@
 #include "mmpriv.h"
 #include "ksw2.h"
 
-static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b)
+static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t sc_ambi)
 {
 	int i, j;
 	a = a < 0? -a : a;
 	b = b > 0? -b : b;
+	sc_ambi = sc_ambi > 0? -sc_ambi : sc_ambi;
 	for (i = 0; i < m - 1; ++i) {
 		for (j = 0; j < m - 1; ++j)
 			mat[i * m + j] = i == j? a : b;
-		mat[i * m + m - 1] = 0;
+		mat[i * m + m - 1] = sc_ambi;
 	}
 	for (j = 0; j < m; ++j)
-		mat[(m - 1) * m + j] = 0;
+		mat[(m - 1) * m + j] = sc_ambi;
 }
 
 static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
@@ -479,7 +480,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	r2->cnt = 0;
 	if (r->cnt == 0) return;
-	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
+	ksw_gen_simple_mat(5, mat, opt->a, opt->b, opt->sc_ambi);
 	bw = (int)(opt->bw * 1.5 + 1.);
 
 	if (is_sr && !(mi->flag & MM_I_HPC)) {
@@ -698,7 +699,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (ql < opt->min_chain_score || ql > opt->max_gap) return 0;
 	if (tl < opt->min_chain_score || tl > opt->max_gap) return 0;
 
-	ksw_gen_simple_mat(5, mat, opt->a, opt->b);
+	ksw_gen_simple_mat(5, mat, opt->a, opt->b, opt->sc_ambi);
 	tseq = (uint8_t*)kmalloc(km, tl);
 	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
 	qseq = r1->rev? &qseq0[0][r2->qe] : &qseq0[1][qlen - r2->qs];

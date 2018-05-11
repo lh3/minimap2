@@ -65,7 +65,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	flag16_ = _mm_set1_epi8(0x10);
 	sc_mch_ = _mm_set1_epi8(mat[0]);
 	sc_mis_ = _mm_set1_epi8(mat[1]);
-	sc_N_   = _mm_set1_epi8(-e);
+	sc_N_   = mat[m*m-1] == 0? _mm_set1_epi8(-e) : _mm_set1_epi8(mat[m*m-1]);
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
 	max_sc_ = _mm_set1_epi8(mat[0] + (q + e) * 2);
 

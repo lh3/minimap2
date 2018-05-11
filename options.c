@@ -34,6 +34,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_join_flank_ratio = 0.5f;
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
+	opt->sc_ambi = 1;
 	opt->zdrop = 400, opt->zdrop_inv = 200;
 	opt->end_bonus = -1;
 	opt->min_dp_max = opt->min_chain_score * opt->a;

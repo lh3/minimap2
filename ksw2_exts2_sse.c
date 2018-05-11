@@ -71,7 +71,7 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	qe_     = _mm_set1_epi8(q + e);
 	sc_mch_ = _mm_set1_epi8(mat[0]);
 	sc_mis_ = _mm_set1_epi8(mat[1]);
-	sc_N_   = _mm_set1_epi8(-e);
+	sc_N_   = mat[m*m-1] == 0? _mm_set1_epi8(-e) : _mm_set1_epi8(mat[m*m-1]);
 	m1_     = _mm_set1_epi8(m - 1); // wildcard
 
 	tlen_ = (tlen + 15) / 16;
