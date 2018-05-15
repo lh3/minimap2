@@ -286,7 +286,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 		//go through each  reg and print them
 		for (j = 0; j < n_regs_sum; ++j) {
 			mm_reg1_t *r = &reg[j];
-			//fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
+            //fprintf(stderr,"REGDETAIL id %d,cnt %d,rid %d,score %d,qs %d, qe %d, rs %d, re %d, parent %d, subsc %d, as %d, mlen %d, blen %d, n_sub %d, score0 %d, hash %u, div %f,",r->id,r->cnt,r->rid,r->score,r->qs,r->qe, r->rs, r->re,r->parent, r->subsc,r->as,r->mlen, r->blen,r->n_sub,r->score0,r->hash,r->div); 
 			
 			assert(!r->sam_pri || r->id == r->parent);
 			if ((opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent){	//don't print secondary mappings if the respective option has been set
@@ -294,6 +294,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 			}
 			if (opt->flag & MM_F_OUT_SAM){	//sam output
 				mm_write_sam2(st, mi, seq, 0, j, 1, &n_regs_sum, (const mm_reg1_t*const*)&reg, km, opt->flag);
+                //fprintf(stderr,"dp_score %d, dp_max %d, dp_max2 %d \n",r->p->dp_score, r->p->dp_max, r->p->dp_max2);
 				//fprintf(stderr, "%d\t%s\t%d\t%d\t",r->rid, mi->seq[r->rid].name, r->rs+1, r->mapq);
 			}
 			else{	//paf output

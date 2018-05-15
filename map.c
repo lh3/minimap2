@@ -500,7 +500,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 							multipart_write(p->multipart_fd,&(r->p->capacity),sizeof(uint32_t),1);
 							multipart_write(p->multipart_fd,r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*r->p->capacity,1);
  						}
-						//fprintf(stderr,"id %d\thash %d\tdiv %f\n",r->id,r->hash,r->div);
+						//fprintf(stderr,"REGDETAIL id %d,cnt %d,rid %d,score %d,qs %d, qe %d, rs %d, re %d, parent %d, subsc %d, as %d, mlen %d, blen %d, n_sub %d, score0 %d, hash %u, div %f,",r->id,r->cnt,r->rid,r->score,r->qs,r->qe, r->rs, r->re,r->parent, r->subsc,r->as,r->mlen, r->blen,r->n_sub,r->score0,r->hash,r->div); 
+						//fprintf(stderr,"dp_score %d, dp_max %d, dp_max2 %d \n",r->p->dp_score, r->p->dp_max, r->p->dp_max2);                         
 					}
 					assert(!r->sam_pri || r->id == r->parent);
 					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
