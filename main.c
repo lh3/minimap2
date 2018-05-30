@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.10-r783-dirty"
+#define MM_VERSION "2.10-r784-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -59,6 +59,7 @@ static struct option long_options[] = {
 	{ "MD",             no_argument,       0, 0 },   // 29
 	{ "lj-min-ratio",   required_argument, 0, 0 },   // 30
 	{ "score-N",        required_argument, 0, 0 },   // 31
+	{ "eqx",            no_argument,       0, 0 },   // 32
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -177,6 +178,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==29) opt.flag |= MM_F_OUT_MD; // --MD
 		else if (c == 0 && long_idx ==30) opt.min_join_flank_ratio = atof(optarg); // --lj-min-ratio
 		else if (c == 0 && long_idx ==31) opt.sc_ambi = atoi(optarg); // --score-N
+		else if (c == 0 && long_idx ==32) opt.flag |= MM_F_EQX; // --eqx
 		else if (c == 0 && long_idx == 14) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary
@@ -278,6 +280,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
 		fprintf(fp_help, "    --MD         output the MD tag\n");
+		fprintf(fp_help, "    --eqx        write =/X CIGAR operators\n");
 		fprintf(fp_help, "    -Y           use soft clipping for supplementary alignments\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");

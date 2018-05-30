@@ -198,7 +198,7 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 	mm_extra_t *p;
 	if (n_cigar == 0) return;
 	if (r->p == 0) {
-		uint32_t capacity = n_cigar + sizeof(mm_extra_t);
+		uint32_t capacity = n_cigar + sizeof(mm_extra_t); // TODO: should this be "n_cigar + sizeof(mm_extra_t)/4" instead?
 		kroundup32(capacity);
 		r->p = (mm_extra_t*)calloc(capacity, 4);
 		r->p->capacity = capacity;
@@ -216,6 +216,74 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 		memcpy(p->cigar + p->n_cigar, cigar, n_cigar * 4);
 		p->n_cigar += n_cigar;
 	}
+}
+
+static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq) // written by @armintoepfer
+{
+	int n_diff = 0;
+	uint32_t k, l, m, cap, toff = 0, qoff = 0, n_M = 0;
+	mm_extra_t *p;
+	if (r->p == 0) return;
+	for (k = 0; k < r->p->n_cigar; ++k) {
+		uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+		if (op == 0) {
+			for (l = 0; l < len; ++l)
+				if (qseq[qoff + l] != tseq[toff + l]) // TODO: N<=>N is converted to "="
+					++n_diff;
+			++n_M;
+			toff += len, qoff += len;
+		} else if (op == 1) { // insertion
+			qoff += len;
+		} else if (op == 2) { // deletion
+			toff += len;
+		} else if (op == 3) { // intron
+			toff += len;
+		}
+	}
+	// update in-place if we can
+	if (n_diff == 0) {
+		for (k = 0; k < r->p->n_cigar; ++k) {
+			uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+			if (op == 0) r->p->cigar[k] = len << 4 | 7;
+		}
+		return;
+	}
+	// allocate new storage
+	cap = r->p->n_cigar + (2 * n_diff - n_M) + sizeof(mm_extra_t);
+	kroundup32(cap);
+	p = (mm_extra_t*)calloc(cap, 4);
+	memcpy(p, r->p, sizeof(mm_extra_t));
+	p->capacity = cap;
+	// update cigar while copying
+	toff = qoff = m = 0;
+	for (k = 0; k < r->p->n_cigar; ++k) {
+		uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
+		if (op == 0) { // match/mismatch
+			while (len > 0) {
+				// match
+				for (l = 0; l < len && qseq[qoff + l] == tseq[toff + l]; ++l) {}
+				if (l > 0) p->cigar[m++] = l << 4 | 7;
+				len -= l;
+				toff += l, qoff += l;
+				// mismatch
+				for (l = 0; l < len && qseq[qoff + l] != tseq[toff + l]; ++l) {}
+				if (l > 0) p->cigar[m++] = l << 4 | 8;
+				len -= l;
+				toff += l, qoff += l;
+			}
+			continue;
+		} else if (op == 1) { // insertion
+			qoff += len;
+		} else if (op == 2) { // deletion
+			toff += len;
+		} else if (op == 3) { // intron
+			toff += len;
+		}
+		p->cigar[m++] = r->p->cigar[k];
+	}
+	p->n_cigar = m;
+	free(r->p);
+	r->p = p;
 }
 
 static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *mat, int w, int end_bonus, int zdrop, int flag, ksw_extz_t *ez)
@@ -675,6 +743,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (r->p) {
 		mm_idx_getseq(mi, rid, rs1, re1, tseq);
 		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
+		if (opt->flag & MM_F_EQX) mm_update_cigar_eqx(r, &qseq0[r->rev][qs1], tseq);
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
@@ -733,6 +802,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	r_inv->rs = r1->re + t_off;
 	r_inv->re = r_inv->rs + ez->max_t + 1;
 	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e);
+	if (opt->flag & MM_F_EQX) mm_update_cigar_eqx(r_inv, &qseq[q_off], &tseq[t_off]);
 	ret = 1;
 end_align1_inv:
 	kfree(km, tseq);
