@@ -2,7 +2,8 @@
 
 * [README][doc]: general documentation
 * [Manpage](minimap2.html): explanation of command-line options
-* [Manuscript][arxiv]: algorithms and evaluations (please cite if you use minimap2)
+* [Peer-reviewed paper][doi]: algorithms and evaluations (please cite if you use minimap2)
+* [Preprint][arxiv]: similar to the paper but free of charge
 * [GitHub Issues page][issue]: report bugs, request features and ask questions
 
 ## Acquiring minimap2
@@ -19,3 +20,4 @@
 [bioconda]: https://anaconda.org/bioconda/minimap2
 [release]: https://github.com/lh3/minimap2/releases
 [issue]: https://github.com/lh3/minimap2/issues
+[doi]: https://doi.org/10.1093/bioinformatics/bty191
