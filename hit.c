@@ -106,7 +106,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r->split |= 1, r2->split |= 2;
 }
 
-void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int test_ref_ovlp) // and compute mm_reg1_t::subsc
+void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
 	uint64_t *cov;
@@ -146,13 +146,6 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 			ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si); // overlap length; TODO: this can be simplified
 			if ((float)ol / min - (float)uncov_len / max > mask_level) {
 				int cnt_sub = 0;
-				if (test_ref_ovlp && rp->rid == ri->rid && (rp->re > ri->rs && rp->rs < ri->re)) { // have overlap on the reference sequence
-					int min_r = rp->re - rp->rs < ri->re - ri->rs? rp->re - rp->rs : ri->re - ri->rs;
-					int min_e = rp->re < ri->re? rp->re : ri->re;
-					int max_s = rp->rs > ri->rs? rp->rs : ri->rs;
-					int rl = min_e - max_s;
-					if (rl > min_r * mask_level) continue;
-				}
 				ri->parent = rp->parent;
 				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
 				if (ri->cnt >= rp->cnt) cnt_sub = 1;
