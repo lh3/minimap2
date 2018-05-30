@@ -253,7 +253,9 @@ similar to the `MD` SAM tag but is standalone and easier to parse.
 If `--cs=long` is used, the `cs` string also contains identical sequences in
 the alignment. The above example will become
 `=CGATCG-ata=AATAGAGTAG+gtc=GAAT*at=GCA`. The long form of `cs` encodes both
-reference and query sequences in one string.
+reference and query sequences in one string. The `cs` tag also encodes intron
+positions and splicing signals (see the [minimap2 manpage][manpage-cs] for
+details).
 
 #### <a name="paftools"></a>Working with the PAF format
 
@@ -365,3 +367,4 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 [issue]: https://github.com/lh3/minimap2/issues
 [k8]: https://github.com/attractivechaos/k8
 [manpage]: https://lh3.github.io/minimap2/minimap2.html
+[manpage-cs]: https://lh3.github.io/minimap2/minimap2.html#10
