@@ -61,7 +61,8 @@ mainstream long-read mappers such as BLASR, BWA-MEM, NGMLR and GMAP. It is more
 accurate on simulated long reads and produces biologically meaningful alignment
 ready for downstream analyses. For >100bp Illumina short reads, minimap2 is
 three times as fast as BWA-MEM and Bowtie2, and as accurate on simulated data.
-Detailed evaluations are available from the [minimap2 preprint][preprint].
+Detailed evaluations are available from the [minimap2 paper][doi] or the
+[preprint][preprint].
 
 ### <a name="install"></a>Installation
 
@@ -318,9 +319,10 @@ There is not a specific mailing list for the time being.
 
 ### <a name="cite"></a>Citing minimap2
 
-If you use minimap2 in your work, please consider to cite:
+If you use minimap2 in your work, please cite:
 
-> Li, H. (2017). Minimap2: fast pairwise alignment for long nucleotide sequences. [arXiv:1708.01492][preprint]
+> Li, H. (2018). Minimap2: pairwise alignment for nucleotide sequences.
+> Bioinformatics. [doi:10.1093/bioinformatics/bty191][doi]
 
 ## <a name="dguide"></a>Developers' Guide
 
@@ -368,3 +370,4 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 [k8]: https://github.com/attractivechaos/k8
 [manpage]: https://lh3.github.io/minimap2/minimap2.html
 [manpage-cs]: https://lh3.github.io/minimap2/minimap2.html#10
+[doi]: https://doi.org/10.1093/bioinformatics/bty191
