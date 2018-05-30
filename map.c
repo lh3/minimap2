@@ -163,19 +163,20 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 		mm128_t *p;
 		uint64_t r = heap->x;
 		int32_t is_self, rpos = (uint32_t)r >> 1;
-		if (skip_seed(opt->flag, r, q, qname, qlen, mi, &is_self)) continue;
-		if ((r&1) == (q->q_pos&1)) { // forward strand
-			p = &a[n_for++];
-			p->x = (r&0xffffffff00000000ULL) | rpos;
-			p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
-		} else { // reverse strand
-			p = &a[(*n_a) - (++n_rev)];
-			p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
-			p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+		if (!skip_seed(opt->flag, r, q, qname, qlen, mi, &is_self)) {
+			if ((r&1) == (q->q_pos&1)) { // forward strand
+				p = &a[n_for++];
+				p->x = (r&0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
+			} else { // reverse strand
+				p = &a[(*n_a) - (++n_rev)];
+				p->x = 1ULL<<63 | (r&0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+			}
+			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
+			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+			if (is_self) p->y |= MM_SEED_SELF;
 		}
-		p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
-		if (q->is_tandem) p->y |= MM_SEED_TANDEM;
-		if (is_self) p->y |= MM_SEED_SELF;
 		// update the heap
 		if ((uint32_t)heap->y < q->n - 1) {
 			++heap[0].y;
