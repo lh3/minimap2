@@ -133,11 +133,14 @@ cdef class Aligner:
 	def __bool__(self):
 		return (self._idx != NULL)
 
-	def map(self, seq, seq2=None, buf=None):
+	def map(self, seq, seq2=None, buf=None, max_frag_len=None):
 		cdef cmappy.mm_reg1_t *regs
 		cdef cmappy.mm_hitpy_t h
 		cdef ThreadBuffer b
 		cdef int n_regs
+		cdef cmappy.mm_mapopt_t map_opt
+		map_opt = self.map_opt
+		if max_frag_len is not None: map_opt.max_frag_len = max_frag_len
 
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
@@ -145,10 +148,10 @@ cdef class Aligner:
 
 		_seq = seq if isinstance(seq, bytes) else seq.encode()
 		if seq2 is None:
-			regs = cmappy.mm_map_aux(self._idx, _seq, NULL,  &n_regs, b._b, &self.map_opt)
+			regs = cmappy.mm_map_aux(self._idx, _seq, NULL,  &n_regs, b._b, &map_opt)
 		else:
 			_seq2 = seq2 if isinstance(seq2, bytes) else seq2.encode()
-			regs = cmappy.mm_map_aux(self._idx, _seq, _seq2, &n_regs, b._b, &self.map_opt)
+			regs = cmappy.mm_map_aux(self._idx, _seq, _seq2, &n_regs, b._b, &map_opt)
 
 		for i in range(n_regs):
 			cmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
