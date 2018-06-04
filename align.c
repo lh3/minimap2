@@ -220,18 +220,21 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 
 static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq) // written by @armintoepfer
 {
-	int n_diff = 0;
+	uint32_t n_EQX = 0;
 	uint32_t k, l, m, cap, toff = 0, qoff = 0, n_M = 0;
 	mm_extra_t *p;
 	if (r->p == 0) return;
 	for (k = 0; k < r->p->n_cigar; ++k) {
 		uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
 		if (op == 0) {
-			for (l = 0; l < len; ++l)
-				if (qseq[qoff + l] != tseq[toff + l]) // TODO: N<=>N is converted to "="
-					++n_diff;
+			while (len > 0) {
+				for (l = 0; l < len && qseq[qoff + l] == tseq[toff + l]; ++l) {} // run of "="; TODO: N<=>N is converted to "="
+				if (l > 0) { ++n_EQX; len -= l; toff += l; qoff += l; }
+
+				for (l = 0; l < len && qseq[qoff + l] != tseq[toff + l]; ++l) {} // run of "X"
+				if (l > 0) { ++n_EQX; len -= l; toff += l; qoff += l; }
+			}
 			++n_M;
-			toff += len, qoff += len;
 		} else if (op == 1) { // insertion
 			qoff += len;
 		} else if (op == 2) { // deletion
@@ -241,7 +244,7 @@ static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t
 		}
 	}
 	// update in-place if we can
-	if (n_diff == 0) {
+	if (n_EQX == n_M) {
 		for (k = 0; k < r->p->n_cigar; ++k) {
 			uint32_t op = r->p->cigar[k]&0xf, len = r->p->cigar[k]>>4;
 			if (op == 0) r->p->cigar[k] = len << 4 | 7;
@@ -249,7 +252,7 @@ static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t
 		return;
 	}
 	// allocate new storage
-	cap = r->p->n_cigar + (2 * n_diff - n_M) + sizeof(mm_extra_t);
+	cap = r->p->n_cigar + (n_EQX - n_M) + sizeof(mm_extra_t);
 	kroundup32(cap);
 	p = (mm_extra_t*)calloc(cap, 4);
 	memcpy(p, r->p, sizeof(mm_extra_t));
