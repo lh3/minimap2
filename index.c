@@ -420,8 +420,7 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 	fwrite(MM_IDX_MAGIC, 1, 4, fp);
 	fwrite(x, 4, 5, fp);
 	for (i = 0; i < mi->n_seq; ++i) {
-		uint8_t l;
-		l = strlen(mi->seq[i].name);
+		uint8_t l = mi->seq[i].name ? strlen(mi->seq[i].name) : 0;
 		fwrite(&l, 1, 1, fp);
 		fwrite(mi->seq[i].name, 1, l, fp);
 		fwrite(&mi->seq[i].len, 4, 1, fp);
