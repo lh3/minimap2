@@ -420,9 +420,14 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 	fwrite(MM_IDX_MAGIC, 1, 4, fp);
 	fwrite(x, 4, 5, fp);
 	for (i = 0; i < mi->n_seq; ++i) {
-		uint8_t l = mi->seq[i].name ? strlen(mi->seq[i].name) : 0;
-		fwrite(&l, 1, 1, fp);
-		fwrite(mi->seq[i].name, 1, l, fp);
+		if (mi->seq[i].name) {
+			uint8_t l = strlen(mi->seq[i].name);
+			fwrite(&l, 1, 1, fp);
+			fwrite(mi->seq[i].name, 1, l, fp);
+		} else {
+			uint8_t l = 0;
+			fwrite(&l, 1, 1, fp);
+		}
 		fwrite(&mi->seq[i].len, 4, 1, fp);
 		sum_len += mi->seq[i].len;
 	}
@@ -465,9 +470,11 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		uint8_t l;
 		mm_idx_seq_t *s = &mi->seq[i];
 		fread(&l, 1, 1, fp);
-		s->name = (char*)kmalloc(mi->km, l + 1);
-		fread(s->name, 1, l, fp);
-		s->name[l] = 0;
+		if (l) {
+			s->name = (char*)kmalloc(mi->km, l + 1);
+			fread(s->name, 1, l, fp);
+			s->name[l] = 0;
+		}
 		fread(&s->len, 4, 1, fp);
 		s->offset = sum_len;
 		sum_len += s->len;
