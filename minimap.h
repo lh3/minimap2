@@ -220,6 +220,33 @@ void mm_idx_reader_close(mm_idx_reader_t *r);
 int mm_idx_reader_eof(const mm_idx_reader_t *r);
 
 /**
+ * Check whether the file contains a minimap2 index
+ *
+ * @param fn         index file name
+ * @return 1 if file can be opened and is a minimap2 index; 0 otherwise
+ */
+int64_t mm_idx_is_idx(const char *fn);
+
+/**
+ * Load an index
+ *
+ * Unlike mm_idx_reader_read this function specifically loads an existing
+ * index.
+ *
+ * @param fp         pointer to FILE object
+ * @return minimap2 index read from fp
+ */
+mm_idx_t *mm_idx_load(FILE *fp);
+
+/**
+ * Save an index
+ *
+ * @param fp         pointer to FILE object
+ * @param mi         minimap2 index
+ */
+void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
+
+/**
  * Create an index from strings in memory
  *
  * @param w            minimizer window size
