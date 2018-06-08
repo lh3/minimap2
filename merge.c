@@ -35,7 +35,7 @@ FILE* multipart_init(const mm_mapopt_t *opt, mm_idx_t *mi){
 	int i=0;
 	char filename[256];
 	sprintf(filename,"%s%d.tmp",opt->multi_prefix, mi->idx_id);
-	fprintf(stderr,"filename %s\n",filename);
+	//fprintf(stderr,"filename %s\n",filename);
 	FILE *fp=fopen(filename,"wb");
 	if (fp==NULL){
 		if (mm_verbose >= 1)
@@ -338,6 +338,16 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 		fclose(file[i]);
 	}	
 
+	//delete the temporary files
+	char tmpfile[256];
+	for(i=0;i<num_idx_parts;i++) {
+		sprintf(tmpfile,"%s%d.tmp",opt->multi_prefix, i);
+		int ret=remove(tmpfile);
+		if (ret<0){
+			fprintf(stderr,"WARNING: Cannot delete the temporary file %s\n",tmpfile);
+		}	
+	}
+	
 	// free
 	free(st->s); free(st); //free the kstring 
 
@@ -355,7 +365,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 
 	free(reg);
 	km_destroy(km);
-
+	
 	return;
 
 }
