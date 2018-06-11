@@ -12,10 +12,14 @@ ifeq ($(sse2only),) # if sse2only is not defined
 else                # if sse2only is defined
 	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
 endif
-else                # if arm_neon is defined
-    OBJS+=ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
-    CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
+else				# if arm_neon is defined
+	OBJS+=ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
     INCLUDES+=-Isse2neon
+ifeq ($(aarch64),)	#if aarch64 is not defined
+	CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
+else				#if aarch64 is defined
+	CFLAGS+=-D_FILE_OFFSET_BITS=64 -fsigned-char
+endif	
 endif
 
 .PHONY:all extra clean depend
