@@ -78,7 +78,7 @@ directory to compile. If you see compilation errors, try `make sse2only=1`
 to disable SSE4 code, which will make minimap2 slightly slower.
 
 Minimap2 also works with ARM CPUs supporting the NEON instruction sets. To
-compile, use `make arm_neon=1`.
+compile for 32 bit ARM architectures (such as ARMv7), use `make arm_neon=1`. To compile for for 64 bit ARM architectures (such as ARMv8), use `make arm_neon=1 aarch64=1`.
 
 ### <a name="general"></a>General usage
 
