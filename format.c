@@ -181,11 +181,39 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
 }
 
-static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp)
+//static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp)
+//{
+//	int i, q_off, t_off, l_MD = 0;
+//	mm_sprintf_lite(s, "\tMD:Z:");
+//	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
+//		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
+//		assert(op >= 0 && op <= 2); // introns (aka reference skips) are not supported
+//		if (op == 0) { // match
+//			for (j = 0; j < len; ++j) {
+//				if (qseq[q_off + j] != tseq[t_off + j]) {
+//					mm_sprintf_lite(s, "%d%c", l_MD, "ACGTN"[tseq[t_off + j]]);
+//					l_MD = 0;
+//				} else ++l_MD;
+//			}
+//			q_off += len, t_off += len;
+//		} else if (op == 1) { // insertion to ref
+//			q_off += len;
+//		} else if (op == 2) { // deletion from ref
+//			for (j = 0, tmp[len] = 0; j < len; ++j)
+//				tmp[j] = "ACGTN"[tseq[t_off + j]];
+//			mm_sprintf_lite(s, "%d^%s", l_MD, tmp);
+//			l_MD = 0;
+//			t_off += len;
+//		}
+//	}
+//	if (l_MD > 0) mm_sprintf_lite(s, "%d", l_MD);
+//	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
+//}
+
+static void write_MD_string(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp)
 {
-	int i, q_off, t_off, l_MD = 0;
-	mm_sprintf_lite(s, "\tMD:Z:");
-	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
+    int i, q_off, t_off, l_MD = 0;
+    for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert(op >= 0 && op <= 2); // introns (aka reference skips) are not supported
 		if (op == 0) { // match
@@ -208,6 +236,12 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	}
 	if (l_MD > 0) mm_sprintf_lite(s, "%d", l_MD);
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
+}
+
+static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp)
+{
+	mm_sprintf_lite(s, "\tMD:Z:");
+	write_MD_string(s, tseq, qseq, r, tmp);
 }
 
 static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD)
@@ -489,4 +523,9 @@ void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 	for (i = 0; i < n_regs; ++i)
 		if (r == &regs[i]) break;
 	mm_write_sam2(s, mi, t, 0, i, 1, &n_regs, &regs, NULL, 0);
+}
+
+void write_MD(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp)
+{
+    write_MD_string(s, tseq, qseq, r, tmp);
 }

@@ -12,9 +12,9 @@ cdef class Alignment:
 	cdef int8_t _strand, _trans_strand
 	cdef uint8_t _mapq, _is_primary
 	cdef int _seg_id
-	cdef _ctg, _cigar # these are python objects
+	cdef _ctg, _cigar, _md # these are python objects
 
-	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, mlen, blen, NM, trans_strand, seg_id):
+	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, mlen, blen, NM, trans_strand, seg_id, md=None):
 		self._ctg = ctg if isinstance(ctg, str) else ctg.decode()
 		self._ctg_len, self._r_st, self._r_en = cl, cs, ce
 		self._strand, self._q_st, self._q_en = strand, qs, qe
@@ -24,6 +24,10 @@ cdef class Alignment:
 		self._is_primary = is_primary
 		self._trans_strand = trans_strand
 		self._seg_id = seg_id
+		if md:
+			self._md = md.decode()
+		else:
+			self._md = None
 
 	@property
 	def ctg(self): return self._ctg
@@ -73,6 +77,10 @@ cdef class Alignment:
 	@property
 	def cigar_str(self):
 		return "".join(map(lambda x: str(x[0]) + 'MIDNSH'[x[1]], self._cigar))
+
+	@property
+	def md(self):
+		return self._md
 
 	def __str__(self):
 		if self._strand > 0: strand = '+'
@@ -151,12 +159,15 @@ cdef class Aligner:
 
 		for i in range(n_regs):
 			cmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
+			md_string = cmappy.mm_computeMD(self._idx, _seq, &regs[i])
 			cigar = []
 			for k in range(h.n_cigar32):
 				c = h.cigar32[k]
 				cigar.append([c>>4, c&0xf])
-			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand, h.seg_id)
+			yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand, h.seg_id, md_string)
 			cmappy.mm_free_reg1(&regs[i])
+			cmappy.mm_free_str(md_string)
+
 		free(regs)
 
 	def seq(self, str name, int start=0, int end=0x7fffffff):
