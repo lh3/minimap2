@@ -6,6 +6,7 @@
 #include <zlib.h>
 #include "minimap.h"
 #include "kseq.h"
+#include "mmpriv.h"
 KSEQ_DECLARE(gzFile)
 
 typedef struct {
@@ -41,6 +42,11 @@ static inline void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 static inline void mm_free_reg1(mm_reg1_t *r)
 {
 	free(r->p);
+}
+
+static inline void mm_free_str(char * s)
+{
+	free(s);
 }
 
 static inline kseq_t *mm_fastx_open(const char *fn)
@@ -99,6 +105,35 @@ static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const 
 		free(regs[1]);
 		return regs[0];
 	}
+}
+
+static inline char * mm_computeMD(const mm_idx_t *mi, const char *seq1, const mm_reg1_t *r)
+{
+	extern unsigned char seq_nt4_table[256];
+	int i;
+	uint8_t *qseq, *tseq;
+	char *tmp;
+	if (r->p == 0) return 0;
+
+	qseq = (uint8_t*)malloc(r->qe - r->qs);
+	if (!r->rev) {
+		for (i = r->qs; i < r->qe; ++i)
+			qseq[i - r->qs] = seq_nt4_table[(uint8_t)seq1[i]];
+	} else {
+		for (i = r->qs; i < r->qe; ++i) {
+			uint8_t c = seq_nt4_table[(uint8_t)seq1[i]];
+			qseq[r->qe - i - 1] = c >= 4? 4 : 3 - c;
+		}
+	}
+
+	tseq = (uint8_t*)malloc(r->re - r->rs);
+	mm_idx_getseq(mi, r->rid, r->rs, r->re, tseq);
+	tmp = (char*)malloc(r->re - r->rs > r->qe - r->qs? r->re - r->rs + 1 : r->qe - r->qs + 1);
+
+    kstring_t str = {0,0,0};
+	write_MD(&str, tseq, qseq, r, tmp);
+	free(qseq); free(tseq); free(tmp);
+    return str.s;
 }
 
 static inline char *mappy_revcomp(int len, const uint8_t *seq)

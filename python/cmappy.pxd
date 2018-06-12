@@ -102,8 +102,10 @@ cdef extern from "cmappy.h":
 		int32_t n_cigar32
 		uint32_t *cigar32
 
+	char *mm_computeMD(const mm_idx_t *mi, const char *seq1, const mm_reg1_t *r)
 	void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 	void mm_free_reg1(mm_reg1_t *r)
+	void mm_free_str(char * s)
 	mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const char *seq2, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt)
 	char *mappy_fetch_seq(const mm_idx_t *mi, const char *name, int st, int en, int *l)
 
