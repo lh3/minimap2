@@ -45,10 +45,10 @@ mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 
 void mm_idx_destroy(mm_idx_t *mi)
 {
-	int i;
+	uint32_t i;
 	if (mi == 0) return;
 	if (mi->h) kh_destroy(str, (khash_t(str)*)mi->h);
-	for (i = 0; i < 1<<mi->b; ++i) {
+	for (i = 0; i < 1U<<mi->b; ++i) {
 		free(mi->B[i].p);
 		free(mi->B[i].a.a);
 		kh_destroy(idx, (idxhash_t*)mi->B[i].h);
@@ -82,14 +82,15 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 
 void mm_idx_stat(const mm_idx_t *mi)
 {
-	int i, n = 0, n1 = 0;
+	int n = 0, n1 = 0;
+	uint32_t i;
 	uint64_t sum = 0, len = 0;
 	fprintf(stderr, "[M::%s] kmer size: %d; skip: %d; is_hpc: %d; #seq: %d\n", __func__, mi->k, mi->w, mi->flag&MM_I_HPC, mi->n_seq);
 	for (i = 0; i < mi->n_seq; ++i)
 		len += mi->seq[i].len;
-	for (i = 0; i < 1<<mi->b; ++i)
+	for (i = 0; i < 1U<<mi->b; ++i)
 		if (mi->B[i].h) n += kh_size((idxhash_t*)mi->B[i].h);
-	for (i = 0; i < 1<<mi->b; ++i) {
+	for (i = 0; i < 1U<<mi->b; ++i) {
 		idxhash_t *h = (idxhash_t*)mi->B[i].h;
 		khint_t k;
 		if (h == 0) continue;
@@ -172,7 +173,8 @@ int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 
 static void worker_post(void *g, long i, int tid)
 {
-	int j, start_a, start_p, n, n_keys;
+	int n, n_keys;
+	size_t j, start_a, start_p;
 	idxhash_t *h;
 	mm_idx_t *mi = (mm_idx_t*)g;
 	mm_idx_bucket_t *b = &mi->B[i];
@@ -200,7 +202,7 @@ static void worker_post(void *g, long i, int tid)
 			int absent;
 			mm128_t *p = &b->a.a[j-1];
 			itr = kh_put(idx, h, p->x>>8>>mi->b<<1, &absent);
-			assert(absent && j - start_a == n);
+			assert(absent && j == start_a + n);
 			if (n == 1) {
 				kh_key(h, itr) |= 1;
 				kh_val(h, itr) = p->y;
@@ -216,7 +218,7 @@ static void worker_post(void *g, long i, int tid)
 		} else ++n;
 	}
 	b->h = h;
-	assert(b->n == start_p);
+	assert(b->n == (int32_t)start_p);
 
 	// deallocate and clear b->a
 	kfree(0, b->a.a);
@@ -336,7 +338,7 @@ mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini
 	pipeline_t pl;
 	if (fp == 0 || mm_bseq_eof(fp)) return 0;
 	memset(&pl, 0, sizeof(pipeline_t));
-	pl.mini_batch_size = mini_batch_size < batch_size? mini_batch_size : batch_size;
+	pl.mini_batch_size = (uint64_t)mini_batch_size < batch_size? mini_batch_size : batch_size;
 	pl.batch_size = batch_size;
 	pl.fp = fp;
 	pl.mi = mm_idx_init(w, k, b, flag);
@@ -413,8 +415,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 {
 	uint64_t sum_len = 0;
-	uint32_t x[5];
-	int i;
+	uint32_t x[5], i;
 
 	x[0] = mi->w, x[1] = mi->k, x[2] = mi->b, x[3] = mi->n_seq, x[4] = mi->flag;
 	fwrite(MM_IDX_MAGIC, 1, 4, fp);
@@ -454,9 +455,8 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 
 mm_idx_t *mm_idx_load(FILE *fp)
 {
-	int i;
 	char magic[4];
-	uint32_t x[5];
+	uint32_t x[5], i;
 	uint64_t sum_len = 0;
 	mm_idx_t *mi;
 

@@ -67,7 +67,7 @@ static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual, int with_
 	int i;
 	s->name = kstrdup(&ks->name);
 	s->seq = kstrdup(&ks->seq);
-	for (i = 0; i < ks->seq.l; ++i) // convert U to T
+	for (i = 0; i < (int)ks->seq.l; ++i) // convert U to T
 		if (s->seq[i] == 'u' || s->seq[i] == 'U')
 			--s->seq[i];
 	s->qual = with_qual && ks->qual.l? kstrdup(&ks->qual) : 0;

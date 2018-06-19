@@ -137,7 +137,7 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 {
 	int i, q_off, t_off;
 	mm_sprintf_lite(s, "\tcs:Z:");
-	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
+	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert(op >= 0 && op <= 3);
 		if (op == 0) { // match
@@ -185,7 +185,7 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 {
 	int i, q_off, t_off, l_MD = 0;
 	mm_sprintf_lite(s, "\tMD:Z:");
-	for (i = q_off = t_off = 0; i < r->p->n_cigar; ++i) {
+	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert(op >= 0 && op <= 2); // introns (aka reference skips) are not supported
 		if (op == 0) { // match

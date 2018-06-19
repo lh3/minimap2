@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.10-r784-dirty"
+#define MM_VERSION "2.10-r792-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -75,7 +75,7 @@ static inline int64_t mm_parse_num(const char *str)
 {
 	double x;
 	char *p;
-	x = strtod(optarg, &p);
+	x = strtod(str, &p);
 	if (*p == 'G' || *p == 'g') x *= 1e9;
 	else if (*p == 'M' || *p == 'm') x *= 1e6;
 	else if (*p == 'K' || *p == 'k') x *= 1e3;

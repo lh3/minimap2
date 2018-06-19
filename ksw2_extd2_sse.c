@@ -382,7 +382,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		int rev_cigar = !!(flag & KSW_EZ_REV_CIGAR);
 		if (!ez->zdropped && !(flag&KSW_EZ_EXTZ_ONLY)) {
 			ksw_backtrack(km, 1, rev_cigar, 0, (uint8_t*)p, off, off_end, n_col_*16, tlen-1, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
-		} else if (!ez->zdropped && (flag&KSW_EZ_EXTZ_ONLY) && ez->mqe + end_bonus > ez->max) {
+		} else if (!ez->zdropped && (flag&KSW_EZ_EXTZ_ONLY) && ez->mqe + end_bonus > (int)ez->max) {
 			ez->reach_end = 1;
 			ksw_backtrack(km, 1, rev_cigar, 0, (uint8_t*)p, off, off_end, n_col_*16, ez->mqe_t, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
 		} else if (ez->max_t >= 0 && ez->max_q >= 0) {
