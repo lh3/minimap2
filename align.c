@@ -376,7 +376,7 @@ static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min
 			if (k == n) break;
 		}
 		i = K[k];
-		gap = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		gap = ((int32_t)a[as1 + i].y - (int32_t)a[as1 + i - 1].y) - (int32_t)(a[as1 + i].x - a[as1 + i - 1].x);
 		if (gap > 0) n_ins += gap;
 		else n_del += -gap;
 		qs = (int32_t)a[as1 + i - 1].y;
@@ -384,7 +384,7 @@ static void mm_filter_bad_seeds(void *km, int as1, int cnt1, mm128_t *a, int min
 		for (l = k + 1; l < n && l <= k + max_ext_cnt; ++l) {
 			int j = K[l], diff;
 			if ((int32_t)a[as1 + j].y - qs > max_ext_len || (int32_t)a[as1 + j].x - rs > max_ext_len) break;
-			gap = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (a[as1 + j].x - a[as1 + j - 1].x);
+			gap = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (int32_t)(a[as1 + j].x - a[as1 + j - 1].x);
 			if (gap > 0) n_ins += gap;
 			else n_del += -gap;
 			diff = n_ins + n_del - abs(n_ins - n_del);
@@ -404,17 +404,18 @@ static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int
 	if (K == 0) return;
 	for (k = 0; k < n;) {
 		int i = K[k], l;
-		int gap1 = ((int32_t)a[as1 + i].y - a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - a[as1 + i - 1].x);
+		int gap1 = ((int32_t)a[as1 + i].y - (int32_t)a[as1 + i - 1].y) - ((int32_t)a[as1 + i].x - (int32_t)a[as1 + i - 1].x);
 		int re1 = (int32_t)a[as1 + i].x;
 		int qe1 = (int32_t)a[as1 + i].y;
 		gap1 = gap1 > 0? gap1 : -gap1;
-		for (l = k + 1; l < n && a[as1 + K[l]].y <= a[as1 + i].y + max_ext; ++l) {
-			int j = K[l];
-			int gap2 = ((int32_t)a[as1 + j].y - a[as1 + j - 1].y) - ((int32_t)a[as1 + j].x - a[as1 + j - 1].x);
-			int q_span_pre = a[as1 + j - 1].y >> 32 & 0xff;
-			int rs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
-			int qs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
-			int m = rs2 - re1 < qs2 - qe1? rs2 - re1 : qs2 - qe1;
+		for (l = k + 1; l < n; ++l) {
+			int j = K[l], gap2, q_span_pre, rs2, qs2, m;
+			if ((int32_t)a[as1 + j].y - qe1 > max_ext || (int32_t)a[as1 + j].x - re1 > max_ext) break;
+			gap2 = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (int32_t)(a[as1 + j].x - a[as1 + j - 1].x);
+			q_span_pre = a[as1 + j - 1].y >> 32 & 0xff;
+			rs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
+			qs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
+			m = rs2 - re1 < qs2 - qe1? rs2 - re1 : qs2 - qe1;
 			gap2 = gap2 > 0? gap2 : -gap2;
 			if (m > gap1 + gap2) break;
 			re1 = (int32_t)a[as1 + j].x;
