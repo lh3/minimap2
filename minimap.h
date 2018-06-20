@@ -31,6 +31,7 @@
 #define MM_F_ALL_CHAINS    0x800000
 #define MM_F_OUT_MD        0x1000000
 #define MM_F_COPY_COMMENT  0x2000000
+#define MM_F_EQX           0x4000000 // use =/X instead of M
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
@@ -119,6 +120,7 @@ typedef struct {
 	float min_join_flank_ratio;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
+	int sc_ambi; // score when one or both bases are "N"
 	int noncan;      // cost of non-canonical splicing sites
 	int zdrop, zdrop_inv;   // break alignment if alignment score drops too fast along the diagonal
 	int end_bonus;
@@ -220,6 +222,33 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads);
 void mm_idx_reader_close(mm_idx_reader_t *r);
 
 int mm_idx_reader_eof(const mm_idx_reader_t *r);
+
+/**
+ * Check whether the file contains a minimap2 index
+ *
+ * @param fn         index file name
+ * @return 1 if file can be opened and is a minimap2 index; 0 otherwise
+ */
+int64_t mm_idx_is_idx(const char *fn);
+
+/**
+ * Load an index
+ *
+ * Unlike mm_idx_reader_read this function specifically loads an existing
+ * index.
+ *
+ * @param fp         pointer to FILE object
+ * @return minimap2 index read from fp
+ */
+mm_idx_t *mm_idx_load(FILE *fp);
+
+/**
+ * Save an index
+ *
+ * @param fp         pointer to FILE object
+ * @param mi         minimap2 index
+ */
+void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
 
 /**
  * Create an index from strings in memory

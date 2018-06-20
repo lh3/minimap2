@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = 'r755';
+var paftools_version = 'r767';
 
 /*****************************
  ***** Library functions *****
@@ -676,8 +676,10 @@ function paf_stat(args)
 			last_qlen = ori_qlen;
 		}
 	}
-	l_tot += last_qlen;
-	l_cov += cov_len(regs);
+	if (regs.length) {
+		l_tot += last_qlen;
+		l_cov += cov_len(regs);
+	}
 
 	file.close();
 	buf.destroy();

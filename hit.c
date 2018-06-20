@@ -132,7 +132,7 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 			int j, x = si;
 			radix_sort_64(cov, cov + n_cov);
 			for (j = 0; j < n_cov; ++j) {
-				if (cov[j]>>32 > x) uncov_len += (cov[j]>>32) - x;
+				if ((int)(cov[j]>>32) > x) uncov_len += (cov[j]>>32) - x;
 				x = (int32_t)cov[j] > x? (int32_t)cov[j] : x;
 			}
 			if (ei > x) uncov_len += ei - x;
@@ -143,7 +143,7 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 			if (ej <= si || sj >= ei) continue; // no overlap
 			min = ej - sj < ei - si? ej - sj : ei - si;
 			max = ej - sj > ei - si? ej - sj : ei - si;
-			ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si); // overlap length
+			ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si); // overlap length; TODO: this can be simplified
 			if ((float)ol / min - (float)uncov_len / max > mask_level) {
 				int cnt_sub = 0;
 				ri->parent = rp->parent;
@@ -246,7 +246,7 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 	}
 }
 
-void mm_filter_regs(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs)
+void mm_filter_regs(const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs)
 { // NB: after this call, mm_reg1_t::parent can be -1 if its parent filtered out
 	int i, k;
 	for (i = k = 0; i < *n_regs; ++i) {
@@ -313,8 +313,8 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		a1s = &a[r1->as];
 		if (a1s->x <= a0e->x || (int32_t)a1s->y <= (int32_t)a0e->y) continue; // keep colinearity
 		max_gap = min_gap = (int32_t)a1s->y - (int32_t)a0e->y;
-		max_gap = max_gap > a1s->x - a0e->x? max_gap : a1s->x - a0e->x;
-		min_gap = min_gap < a1s->x - a0e->x? min_gap : a1s->x - a0e->x;
+		max_gap = a0e->x + max_gap > a1s->x? max_gap : a1s->x - a0e->x;
+		min_gap = a0e->x + min_gap < a1s->x? min_gap : a1s->x - a0e->x;
 		if (max_gap > opt->max_join_long || min_gap > opt->max_join_short) continue;
 		sc_thres = (int)((float)opt->min_join_flank_sc / opt->max_join_long * max_gap + .499);
 		if (r0->score < sc_thres || r1->score < sc_thres) continue; // require good flanking chains
@@ -340,7 +340,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 					r->parent = regs[r->parent].parent;
 			}
 		}
-		mm_filter_regs(km, opt, qlen, n_regs_, regs);
+		mm_filter_regs(opt, qlen, n_regs_, regs);
 		mm_sync_regs(km, *n_regs_, regs);
 	}
 }
@@ -412,23 +412,23 @@ void mm_seg_free(void *km, int n_segs, mm_seg_t *segs)
 static void mm_set_inv_mapq(void *km, int n_regs, mm_reg1_t *regs)
 {
 	int i, n_aux;
-	uint64_t *aux;
+	mm128_t *aux;
 	if (n_regs < 3) return;
 	for (i = 0; i < n_regs; ++i)
 		if (regs[i].inv) break;
 	if (i == n_regs) return; // no inversion hits
 
-	aux = (uint64_t*)kmalloc(km, n_regs * 8);
+	aux = (mm128_t*)kmalloc(km, n_regs * 16);
 	for (i = n_aux = 0; i < n_regs; ++i)
 		if (regs[i].parent == i || regs[i].parent < 0)
-			aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
-	radix_sort_64(aux, aux + n_aux);
+			aux[n_aux].y = i, aux[n_aux++].x = (uint64_t)regs[i].rid << 32 | regs[i].rs;
+	radix_sort_128x(aux, aux + n_aux);
 
 	for (i = 1; i < n_aux - 1; ++i) {
-		mm_reg1_t *inv = &regs[(int32_t)aux[i]];
+		mm_reg1_t *inv = &regs[aux[i].y];
 		if (inv->inv) {
-			mm_reg1_t *l = &regs[(int32_t)aux[i-1]];
-			mm_reg1_t *r = &regs[(int32_t)aux[i+1]];
+			mm_reg1_t *l = &regs[aux[i-1].y];
+			mm_reg1_t *r = &regs[aux[i+1].y];
 			inv->mapq = l->mapq < r->mapq? l->mapq : r->mapq;
 		}
 	}
