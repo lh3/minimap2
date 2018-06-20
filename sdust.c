@@ -70,7 +70,7 @@ void sdust_buf_destroy(sdust_buf_t *buf)
 static inline void shift_window(int t, kdq_t(int) *w, int T, int W, int *L, int *rw, int *rv, int *cw, int *cv)
 {
 	int s;
-	if ((ssize_t)kdq_size(w) >= W - SD_WLEN + 1) { // TODO: is this right for SD_WLEN!=3?
+	if ((int)kdq_size(w) >= W - SD_WLEN + 1) { // TODO: is this right for SD_WLEN!=3?
 		s = *kdq_shift(int, w);
 		*rw -= --cw[s];
 		if (*L > (int)kdq_size(w))
