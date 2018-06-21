@@ -1,4 +1,4 @@
-.TH minimap2 1 "30 April 2018" "minimap2-2.10-dirty (r770)" "Bioinformatics tools"
+.TH minimap2 1 "20 June 2018" "minimap2-2.11 (r797)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -238,6 +238,10 @@ to a large number to switch off this heurstics.
 Disable the long gap patching heuristic. When this option is applied, the
 maximum alignment gap is mostly controlled by
 .BR -r .
+.TP
+.B --lj-min-ratio \ FLOAT
+Fraction of query sequence length required to bridge a long gap [0.5]. A
+smaller value helps to recover longer gaps, at the cost of more false gaps.
 .TP
 .B --splice
 Enable the splice alignment mode.
