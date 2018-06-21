@@ -61,6 +61,7 @@ static struct option long_options[] = {
 	{ "lj-min-ratio",   required_argument, 0, 0 },   // 30
 	{ "score-N",        required_argument, 0, 0 },   // 31
 	{ "eqx",            no_argument,       0, 0 },   // 32
+	{ "multi-prefix",   required_argument, 0, 0 },	 // 33	
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -69,7 +70,6 @@ static struct option long_options[] = {
 	{ "mask-level",     required_argument, 0, 'M' },
 	{ "min-dp-score",   required_argument, 0, 's' },
 	{ "sam",            no_argument,       0, 'a' },
-	{ "multi-prefix",   required_argument, 0, 0 },	 //39
 	{ 0, 0, 0, 0}
 };
 
@@ -235,7 +235,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
-		} else if (c==0 && long_idx == 39) { //multi-part
+		} else if (c==0 && long_idx == 33) { //multi-part
 			fprintf(stderr, "[WARNING]\033[1;31m option --multi-prefix is experimental. Currently works only with uni-segment reads.\033[0m\n");
 			opt.multi_prefix=optarg;
 		}
