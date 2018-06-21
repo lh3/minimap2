@@ -17,7 +17,7 @@
 void multipart_write(FILE* fp, void *buf, size_t element_size, size_t num_elements){
 	size_t ret=fwrite(buf,element_size,num_elements,fp);
 	if(ret!=num_elements){
-		fprintf(stderr,"Writing error has occured :%s\n",strerror(errno));
+		fprintf(stderr,"Writing error has occurred :%s\n",strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 }
@@ -25,7 +25,7 @@ void multipart_write(FILE* fp, void *buf, size_t element_size, size_t num_elemen
 static inline void multipart_read(FILE* fp, void *buf, size_t element_size, size_t num_elements){
 	size_t ret=fread(buf,element_size,num_elements,fp);
 	if(ret!=num_elements){
-		fprintf(stderr,"Reading error has occured :%s\n",strerror(errno));
+		fprintf(stderr,"Reading error has occurred :%s\n",strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 }
@@ -90,18 +90,6 @@ static inline void mm_hit_sort_by_score(void *km, int *n_regs, mm_reg1_t *r)
 
 static inline mm_reg1_t *merge_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *km, int qlen, int *n_regs, mm_reg1_t *regs)
 {
-	// if (!(opt->flag & MM_F_ALL_CHAINS)){
-	// 	int backup=*n_regs;
-	// 	mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b);
-	// 	mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
-	// 	fprintf(stderr,"Filter check %d %d\n",backup,*n_regs);
-	// 	mm_set_sam_pri(*n_regs, regs);
-	// }
-
-	//if (!(opt->flag & MM_F_CIGAR)) return regs;
-	//int backup=*n_regs;
-	//mm_filter_regs(km, opt, qlen, n_regs, regs);
-	//fprintf(stderr,"Filter check %d %d\n",backup,*n_regs);
 
 	if (opt->flag & MM_F_CIGAR) {
 		mm_hit_sort_by_dp(km, n_regs, regs);
@@ -146,7 +134,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 	int *replens=(int *)malloc(sizeof(int)*num_idx_parts);
 
 	//go through each multi-part dump and grab the reference sequence information
-	//At the end, mi will have information about all the reference sequences that were in multi-part indices. aka an emulated unipartindex
+	//At the end, mi will have information about all the reference sequences that were in multi-part indices. aka an emulated uni-part index.
 	for(i=0;i<num_idx_parts;i++){
 
 		//the cumulative number of reference sequences
@@ -162,17 +150,17 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 			exit(EXIT_FAILURE);
 		}
 		
-		//read the number of reference sequnces in the multi-part index
+		//read the number of reference sequences in the multi-part index
 		multipart_read(file[i],&n_seq, sizeof(uint32_t), 1);
 		//fprintf(stderr,"We have %d sequences\n",n_seq);
 
-		//update the total number of reference sequnces read so far
+		//update the total number of reference sequences read so far
 		mi->n_seq += n_seq;
 
-		//allocate space for reference sequnces
+		//allocate space for reference sequences
 		mi->seq = (mm_idx_seq_t*)realloc(mi->seq, mi->n_seq*sizeof(mm_idx_seq_t));
 
-		//load each reference sequnce information
+		//load each reference sequence information
 		for (j = 0; j < n_seq; ++j) {
 			uint8_t l;
 			mm_idx_seq_t *s = &mi->seq[current_seq]; current_seq++;
@@ -180,7 +168,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 			s->name = (char*)malloc(l + 1);
 			multipart_read(file[i],s->name, 1, l);	//get the read name
 			s->name[l] = 0;
-			multipart_read(file[i],&(s->len), 4, 1);	//reference sequnce length
+			multipart_read(file[i],&(s->len), 4, 1);	//reference sequence length
 			//fprintf(stderr,"sequence name : %s\n",s->name);
 		}
 	}
@@ -200,7 +188,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 	// }
 
 
-	//open the query sequnce/fastq file
+	//open the query sequence/fastq file
 	//fprintf(stderr,"opening : %s\n",fn[0]);
 	mm_bseq_file_t *fastq=mm_bseq_open(fn[0]);
 	if (fastq == 0) {
@@ -227,7 +215,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 
 		n_regs_sum=0;	//total number of regs for the current query
 
-		//read the internal state (dumped in the multi-part dump files) for each query seqeunce while going through each part of the index
+		//read the internal state (dumped in the multi-part dump files) for each query sequence while going through each part of the index
 		for(i=0;i<num_idx_parts;i++){
 
 			multipart_read(file[i],&n_reg,sizeof(int),1); //number of reg (mm_reg1_t)
@@ -251,7 +239,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 					multipart_read(file[i],&capacity,sizeof(uint32_t),1);	//read the capacity of cigar[] under mm_extra_t *p in mm_reg1_t
 					
 					//this is freed later. not the most optimal way, but for now.
-					r->p = (mm_extra_t *)malloc(sizeof(mm_extra_t)+sizeof(uint32_t)*capacity);		//cigar[] is a flexible array member  : allocate memmory as at : https://wiki.sei.cmu.edu/confluence/display/c/MEM33-C.++Allocate+and+copy+structures+containing+a+flexible+array+member+dynamically
+					r->p = (mm_extra_t *)malloc(sizeof(mm_extra_t)+sizeof(uint32_t)*capacity);		//cigar[] is a flexible array member  : allocate memory as at : https://wiki.sei.cmu.edu/confluence/display/c/MEM33-C.++Allocate+and+copy+structures+containing+a+flexible+array+member+dynamically
 					multipart_read(file[i],r->p,sizeof(mm_extra_t)+sizeof(uint32_t)*capacity,1);	//read the mm_extra_t
 
 					if(capacity!=r->p->capacity){
@@ -262,7 +250,7 @@ void merge(mm_mapopt_t *opt, mm_idxopt_t *ipt, int num_idx_parts, const char **f
 					r->p=NULL;
 				}
 
-				//fix the reference index in the emulated uni-part index by using the cumulative sum of reference sequnces in each part of multi-part index
+				//fix the reference index in the emulated uni-part index by using the cumulative sum of reference sequences in each part of multi-part index
 				r->rid = r->rid+cum_n_seq[i];
 			}
 
