@@ -73,13 +73,17 @@ static inline void mm_reset_timer(void)
 extern unsigned char seq_comp_table[256];
 static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const char *seq2, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt)
 {
+	mm_reg1_t *r;
+
+	Py_BEGIN_ALLOW_THREADS
 	if (seq2 == 0) {
-		return mm_map(mi, strlen(seq1), seq1, n_regs, b, opt, NULL);
+		r = mm_map(mi, strlen(seq1), seq1, n_regs, b, opt, NULL);
 	} else {
 		int _n_regs[2];
 		mm_reg1_t *regs[2];
 		char *seq[2];
 		int i, len[2];
+
 		len[0] = strlen(seq1);
 		len[1] = strlen(seq2);
 		seq[0] = (char*)seq1;
@@ -97,8 +101,11 @@ static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const 
 		regs[0] = (mm_reg1_t*)realloc(regs[0], sizeof(mm_reg1_t) * (*n_regs));
 		memcpy(&regs[0][_n_regs[0]], regs[1], _n_regs[1] * sizeof(mm_reg1_t));
 		free(regs[1]);
-		return regs[0];
+		r = regs[0];
 	}
+	Py_END_ALLOW_THREADS
+
+	return r;
 }
 
 static inline char *mappy_revcomp(int len, const uint8_t *seq)
