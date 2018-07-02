@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, n_parts, old_best_n = -1;
-	char *fnw = 0, *rg = 0, *s;
+	char *fnw = 0, *rg = 0, *splice_fname = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
@@ -233,8 +233,7 @@ int main(int argc, char *argv[])
 			else if (*o.arg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR; // match CT-AC (reverse complement of GT-AG)
 			else if (*o.arg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV); // don't try to match the GT-AG signal
 			else {
-				fprintf(stderr, "[ERROR]\033[1;31m unrecognized cDNA direction\033[0m\n");
-				return 1;
+				splice_fname = o.arg;
 			}
 		} else if (c == 'z') {
 			opt.zdrop = opt.zdrop_inv = strtol(o.arg, &s, 10);
@@ -333,6 +332,12 @@ int main(int argc, char *argv[])
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
 		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
 			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
+			mm_idx_destroy(mi);
+			mm_idx_reader_close(idx_rdr);
+			return 1;
+		}
+		if (splice_fname != 0 && mm_idx_splice_load(splice_fname, mi) < 0) {
+			fprintf(stderr, "[ERROR] Could not load the splices from \"%s\".\n", splice_fname);
 			mm_idx_destroy(mi);
 			mm_idx_reader_close(idx_rdr);
 			return 1;

@@ -14,6 +14,7 @@
 #include "mmpriv.h"
 #include "kvec.h"
 #include "khash.h"
+#include "ksort.h"
 
 #define idx_hash(a) ((a)>>1)
 #define idx_eq(a, b) ((a)>>1 == (b)>>1)
@@ -30,6 +31,14 @@ typedef struct mm_idx_bucket_s {
 	uint64_t *p; // position array for minimizers appearing >1 times
 	void *h;     // hash table indexing _p_ and minimizers appearing once
 } mm_idx_bucket_t;
+
+// Definitions for the arrays of user-specified splices sites:
+typedef uint32_t splice_t;
+typedef kvec_t(splice_t) splice_v;
+#define SPLICE_DONOR (1U<<31)                               // MSB of splice position indicates if its a donor (1) or acceptor (0)
+#define SPLICE_IS_DONOR(pos) (((pos) & SPLICE_DONOR) != 0)  // True if the splice site is a donor
+#define SPLICE_POS(pos) ((pos) & ~SPLICE_DONOR)             // Splice site coordinate (untagged)
+KRADIX_SORT_INIT(splice, splice_t, SPLICE_POS, sizeof(splice_t))
 
 mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 {
@@ -54,6 +63,11 @@ void mm_idx_destroy(mm_idx_t *mi)
 			free(mi->B[i].a.a);
 			kh_destroy(idx, (idxhash_t*)mi->B[i].h);
 		}
+	}
+	if (mi->splices) {
+		for(unsigned i = 0 ; i < mi->n_seq ; i++)
+			kv_destroy(((splice_v*) mi->splices)[i]);
+		kfree(mi->km, mi->splices);
 	}
 	if (!mi->km) {
 		for (i = 0; i < mi->n_seq; ++i)
@@ -584,4 +598,59 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases, mm_bseq_eof() might not work
 {
 	return r->is_idx? (feof(r->fp.idx) || ftell(r->fp.idx) == r->idx_size) : mm_bseq_eof(r->fp.seq);
+}
+
+int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
+	FILE* f = fopen(fname, "r");
+	if (f == NULL) {
+		perror("Could not open splice file");
+		return -1;
+	}
+
+	mm_idx_index_name(mi);
+	splice_v* splice_vectors = (splice_v*) kmalloc(mi->km, sizeof(splice_v) * mi->n_seq);
+	for(unsigned i = 0 ; i < mi->n_seq ; i++)
+		kv_init(splice_vectors[i]);
+	mi->splices = splice_vectors;
+
+	char line[256];
+	static const char* delim = " \t";
+	while (fgets(line, sizeof(line), f)) {
+		char* chr = strtok(line, delim);
+		if (chr == NULL || strcmp(chr, "track") == 0 || strcmp(chr, "browser") == 0)
+			continue;
+
+		// Corresponding sequence in the index:
+		int seq_id = mm_idx_name2id(mi, chr);
+		if (seq_id < 0) {
+			if (mm_verbose >= 2)
+				fprintf(stderr, "[WARNING] Name \"%s\" from introns annotations not found in reference database.\n", chr);
+			continue;
+		}
+
+		char* start_s = strtok(NULL, delim);
+		char* stop_s = strtok(NULL, delim);
+
+		if (start_s == NULL || stop_s == NULL) {
+			fprintf(stderr, "Malformed splice line: '%s'\n", line);
+			fclose(f);
+			return -1;
+		}
+
+		uint32_t donor = atol(start_s) - 1; // "Donor" site is before the first base of the intron
+		uint32_t acceptor = atol(stop_s) - 1; // "Acceptor" site is the last base of the intron (BED use past the end notation)
+
+		kv_push(splice_t, 0, splice_vectors[seq_id], donor | SPLICE_DONOR);
+		kv_push(splice_t, 0, splice_vectors[seq_id], acceptor);
+	}
+
+	// Sort splicing coordinates for each reference sequence
+	for (unsigned i = 0 ; i < mi->n_seq ; i++) {
+		splice_v splices = splice_vectors[i];
+		if (kv_size(splices))
+			radix_sort_splice(splices.a, splices.a + kv_size(splices));
+	}
+
+	fclose(f);
+	return 0;
 }

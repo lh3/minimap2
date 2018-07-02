@@ -66,7 +66,7 @@ typedef struct {
 	mm_idx_seq_t *seq;         // sequence name, length and offset
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
-	void *km, *h;
+	void *km, *h, *splices;
 } mm_idx_t;
 
 // minimap2 alignment
@@ -255,6 +255,15 @@ mm_idx_t *mm_idx_load(FILE *fp);
  * @param mi         minimap2 index
  */
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
+
+/**
+ * Load splicing sites in the index
+ *
+ * @param fname      file name.
+ *
+ * @return 0 in case of success
+ */
+int mm_idx_splice_load(const char* fname, mm_idx_t *mi);
 
 /**
  * Create an index from strings in memory
