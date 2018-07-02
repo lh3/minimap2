@@ -160,6 +160,27 @@ int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, ui
 	return en - st;
 }
 
+int mm_idx_getseq_splicetags(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq)
+{
+	int res = mm_idx_getseq(mi, rid, st, en, seq);
+	if (mi->splices) {
+		const splice_v splices = ((const splice_v*) mi->splices)[rid];
+		// Bissects splices array for the left of the interval
+		int low = 0, high = kv_size(splices) - 1;
+		while(low <= high) {
+			size_t mid = (low + high) / 2;
+			if (SPLICE_POS(kv_A(splices, mid)) >= st)
+				high = mid - 1;
+			else
+				low = mid + 1;
+		}
+		const splice_t* splices_end = &kv_A(splices, kv_size(splices));
+		for(const splice_t *p = &kv_A(splices, low) ; p < splices_end && SPLICE_POS(*p) < en; p++)
+			seq[SPLICE_POS(*p) - st] |= 1 << (4 + SPLICE_IS_DONOR(*p));
+	}
+	return res;
+}
+
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 {
 	int i;

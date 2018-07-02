@@ -371,6 +371,7 @@ int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_r
 int mm_idx_index_name(mm_idx_t *mi);
 int mm_idx_name2id(const mm_idx_t *mi, const char *name);
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
+int mm_idx_getseq_splicetags(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 
 // deprecated APIs for backward compatibility
 void mm_mapopt_init(mm_mapopt_t *opt);
