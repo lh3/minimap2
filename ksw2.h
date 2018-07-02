@@ -15,6 +15,7 @@
 #define KSW_EZ_SPLICE_FOR  0x100
 #define KSW_EZ_SPLICE_REV  0x200
 #define KSW_EZ_SPLICE_FLANK 0x400
+#define KSW_EZ_SPLICE_TAGS 0x800
 
 #ifdef __cplusplus
 extern "C" {

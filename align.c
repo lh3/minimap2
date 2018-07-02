@@ -583,6 +583,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		if (splice_flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
 		if (splice_flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
 		if (opt->flag & MM_F_SPLICE_FLANK) extra_flag |= KSW_EZ_SPLICE_FLANK;
+		if (mi->splices) extra_flag |= KSW_EZ_SPLICE_TAGS;
 	}
 
 	/* Look for the start and end of regions to perform DP. This sounds easy
@@ -666,7 +667,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	if (qs > 0 && rs > 0) { // left extension
 		qseq = &qseq0[rev][qs0];
-		mm_idx_getseq(mi, rid, rs0, rs, tseq);
+		mm_idx_getseq_splicetags(mi, rid, rs0, rs, tseq);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
 		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, mat, bw, opt->end_bonus, r->split_inv? opt->zdrop_inv : opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
@@ -694,7 +695,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
 			// perform alignment
 			qseq = &qseq0[rev][qs];
-			mm_idx_getseq(mi, rid, rs, re, tseq);
+			mm_idx_getseq_splicetags(mi, rid, rs, re, tseq);
 			if (is_sr) { // perform ungapped alignment
 				assert(qe - qs == re - rs);
 				ksw_reset_extz(ez);
@@ -733,7 +734,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	if (!dropped && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
-		mm_idx_getseq(mi, rid, re, re0, tseq);
+		mm_idx_getseq_splicetags(mi, rid, re, re0, tseq);
 		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, mat, bw, opt->end_bonus, opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);

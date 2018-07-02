@@ -107,26 +107,36 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	}
 
 	for (t = 0; t < qlen; ++t) qr[t] = query[qlen - 1 - t];
-	memcpy(sf, target, tlen);
+	if (flag & KSW_EZ_SPLICE_TAGS) // Remove tags on target
+		for (t = 0; t < tlen; ++t) sf[t] = target[t] & ((1<<4) - 1);
+	else
+		memcpy(sf, target, tlen);
 
 	// set the donor and acceptor arrays. TODO: this assumes 0/1/2/3 encoding!
-	if (flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) {
-		int semi_cost = flag&KSW_EZ_SPLICE_FLANK? -noncan/2 : 0; // GTr or yAG is worth 0.5 bit; see PMID:18688272
-		memset(donor, -noncan, tlen_ * 16);
-		for (t = 0; t < tlen - 4; ++t) {
-			int can_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG
-			if ((flag & KSW_EZ_SPLICE_FOR) && target[t+1] == 2 && target[t+2] == 3) can_type = 1; // GTr...
-			if ((flag & KSW_EZ_SPLICE_REV) && target[t+1] == 1 && target[t+2] == 3) can_type = 1; // CTr...
-			if (can_type && (target[t+3] == 0 || target[t+3] == 2)) can_type = 2;
-			if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
-		}
-		memset(acceptor, -noncan, tlen_ * 16);
-		for (t = 2; t < tlen; ++t) {
-			int can_type = 0;
-			if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 0 && target[t] == 2) can_type = 1; // ...yAG
-			if ((flag & KSW_EZ_SPLICE_REV) && target[t-1] == 0 && target[t] == 1) can_type = 1; // ...yAC
-			if (can_type && (target[t-2] == 1 || target[t-2] == 3)) can_type = 2;
-			if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
+	int8_t splice_scores[4] = { -noncan, flag&KSW_EZ_SPLICE_FLANK? -noncan/2 : 0, 0 , noncan/2 };
+	if (flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV|KSW_EZ_SPLICE_TAGS)) {
+		__m128i noncan_ = _mm_set1_epi8(-noncan);
+		for (t = 0; t < tlen_; ++t) donor[t] = noncan_;
+		for (t = 0; t < tlen_; ++t) acceptor[t] = noncan_;
+
+		const uint8_t external_base = flag & KSW_EZ_SPLICE_FOR ? 2 : 1; // Forward => G, reverse => C
+		for (t = 0; t < tlen; ++t) {
+			int donor_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG, 3=user-specified
+			if (target[t] & (1<<5))
+				donor_type = 3;
+			else if ((flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) && t < tlen - 3
+					 && sf[t+1] == external_base && sf[t+2] == 3) // Forward => GT, reverse => CT
+				donor_type = (sf[t+3] == 0 || sf[t+3] == 2) ? 2 : 1;
+
+			int acceptor_type = 0;
+			if (target[t] & (1<<4))
+				acceptor_type = 3;
+			else if ((flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) && t >= 2
+					 && sf[t-1] == 0 && sf[t] == external_base) // Forward => AG, reverse => AC
+				acceptor_type =  (sf[t-2] == 1 || sf[t-2] == 3) ? 2 : 1;
+
+			if (donor_type) ((int8_t*)donor)[t] = splice_scores[donor_type];
+			if (acceptor_type) ((int8_t*)acceptor)[t] = splice_scores[acceptor_type];
 		}
 	}
 
