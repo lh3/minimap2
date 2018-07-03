@@ -340,12 +340,13 @@ function paf_liftover(args)
 function paf_call(args)
 {
 	var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g, re_tag = /\t(\S\S:[AZif]):(\S+)/g;
-	var c, min_cov_len = 10000, min_var_len = 50000, gap_thres = 50, min_mapq = 5;
+	var c, min_cov_len = 10000, min_var_len = 50000, gap_thres = 50, gap_thres_long = 1000, min_mapq = 5;
 	var fa_tmp = null, fa, fa_lens, is_vcf = false;
 	while ((c = getopt(args, "l:L:g:q:B:f:")) != null) {
 		if (c == 'l') min_cov_len = parseInt(getopt.arg);
 		else if (c == 'L') min_var_len = parseInt(getopt.arg);
 		else if (c == 'g') gap_thres = parseInt(getopt.arg);
+		else if (c == 'G') gap_thres_long = parseInt(getopt.arg);
 		else if (c == 'q') min_mapq = parseInt(getopt.arg);
 		else if (c == 'f') fa_tmp = fasta_read(getopt.arg, fa_lens);
 	}
@@ -364,7 +365,7 @@ function paf_call(args)
 
 	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 	var buf = new Bytes();
-	var tot_len = 0, n_sub = [0, 0, 0], n_ins = [0, 0, 0, 0], n_del = [0, 0, 0, 0];
+	var tot_len = 0, n_sub = [0, 0, 0], n_ins = [0, 0, 0, 0, 0], n_del = [0, 0, 0, 0, 0];
 
 	function print_vcf(o, fa)
 	{
@@ -396,13 +397,15 @@ function paf_call(args)
 			if (l == 1) ++n_ins[0];
 			else if (l == 2) ++n_ins[1];
 			else if (l < gap_thres) ++n_ins[2];
-			else ++n_ins[3];
+			else if (l < gap_thres_long) ++n_ins[3];
+			else ++n_ins[4];
 		} else if (o[6] == '-') { // deletion
 			var l = o[5].length;
 			if (l == 1) ++n_del[0];
 			else if (l == 2) ++n_del[1];
 			else if (l < gap_thres) ++n_del[2];
-			else ++n_del[3];
+			else if (l < gap_thres_long) ++n_del[3];
+			else ++n_del[4];
 		} else {
 			++n_sub[0];
 			var s = (o[5] + o[6]).toLowerCase();
@@ -547,8 +550,10 @@ function paf_call(args)
 	warn(n_ins[1] + " 2bp insertions");
 	warn(n_del[2] + " [3,"+gap_thres+") deletions");
 	warn(n_ins[2] + " [3,"+gap_thres+") insertions");
-	warn(n_del[3] + " >="+gap_thres+" deletions");
-	warn(n_ins[3] + " >="+gap_thres+" insertions");
+	warn(n_del[3] + " ["+gap_thres+","+gap_thres_long+") deletions");
+	warn(n_ins[3] + " ["+gap_thres+","+gap_thres_long+") insertions");
+	warn(n_del[4] + " >=" + gap_thres_long + " deletions");
+	warn(n_ins[4] + " >=" + gap_thres_long + " insertions");
 
 	buf.destroy();
 	file.close();
