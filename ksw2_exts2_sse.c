@@ -119,20 +119,27 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		for (t = 0; t < tlen_; ++t) donor[t] = noncan_;
 		for (t = 0; t < tlen_; ++t) acceptor[t] = noncan_;
 
+		int canon_detect = !!(flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV));
 		const uint8_t external_base = flag & KSW_EZ_SPLICE_FOR ? 2 : 1; // Forward => G, reverse => C
+		const uint8_t external_base_comp = flag & KSW_EZ_SPLICE_FOR ? 1 : 2;
 		for (t = 0; t < tlen; ++t) {
 			int donor_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG, 3=user-specified
-			if (target[t] & (1<<5))
-				donor_type = 3;
-			else if ((flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) && t < tlen - 3
-					 && sf[t+1] == external_base && sf[t+2] == 3) // Forward => GT, reverse => CT
+			if (target[t] & (1<<5)) { // user supplied donor site
+				if(canon_detect && t < tlen - 3 && sf[t+1] == external_base_comp && sf[t+2] == 3)
+					// A canonical user site on the opposite strand to the one on which canonical sites are currently detected,
+					donor_type = 0; // so we disable it.
+				else
+					donor_type = 3;
+			} else if (canon_detect && t < tlen - 3 && sf[t+1] == external_base && sf[t+2] == 3) // Forward => GT, reverse => CT
 				donor_type = (sf[t+3] == 0 || sf[t+3] == 2) ? 2 : 1;
 
 			int acceptor_type = 0;
-			if (target[t] & (1<<4))
-				acceptor_type = 3;
-			else if ((flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) && t >= 2
-					 && sf[t-1] == 0 && sf[t] == external_base) // Forward => AG, reverse => AC
+			if (target[t] & (1<<4)) { // user supplied acceptor site
+				if(canon_detect && t >= 2 && sf[t-1] == 0 && sf[t] == external_base_comp)
+					acceptor_type = 0;
+				else
+					acceptor_type = 3;
+			} else if (canon_detect && t >= 2 && sf[t-1] == 0 && sf[t] == external_base) // Forward => AG, reverse => AC
 				acceptor_type =  (sf[t-2] == 1 || sf[t-2] == 3) ? 2 : 1;
 
 			if (donor_type) ((int8_t*)donor)[t] = splice_scores[donor_type];
