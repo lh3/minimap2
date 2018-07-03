@@ -24,10 +24,7 @@ cdef class Alignment:
 		self._is_primary = is_primary
 		self._trans_strand = trans_strand
 		self._seg_id = seg_id
-		if md:
-			self._md = md.decode()
-		else:
-			self._md = None
+		self._md = md if isinstance(md, str) else md.decode()
 
 	@property
 	def ctg(self): return self._ctg
