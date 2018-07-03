@@ -220,6 +220,36 @@ void mm_idx_reader_close(mm_idx_reader_t *r);
 int mm_idx_reader_eof(const mm_idx_reader_t *r);
 
 /**
+ * Check whether the file contains a minimap2 index
+ *
+ * @param fn         file name
+ *
+ * @return the file size if fn is an index file; 0 if fn is not.
+ */
+int64_t mm_idx_is_idx(const char *fn);
+
+/**
+ * Load a part of an index
+ *
+ * Given a uni-part index, this function loads the entire index into memory.
+ * Given a multi-part index, it loads one part only and places the file pointer
+ * at the end of that part.
+ *
+ * @param fp         pointer to FILE object
+ *
+ * @return minimap2 index read from fp
+ */
+mm_idx_t *mm_idx_load(FILE *fp);
+
+/**
+ * Append an index (or one part of a full index) to file
+ *
+ * @param fp         pointer to FILE object
+ * @param mi         minimap2 index
+ */
+void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
+
+/**
  * Create an index from strings in memory
  *
  * @param w            minimizer window size

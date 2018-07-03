@@ -39,12 +39,12 @@ static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *se
 	for (j = k = 0; j < n; ++j) { // squeeze out minimizers that significantly overlap with LCRs
 		int32_t qpos = (uint32_t)a[j].y>>1, span = a[j].x&0xff;
 		int32_t s = qpos - (span - 1), e = s + span;
-		while (u < n_dreg && (uint32_t)dreg[u] <= s) ++u;
-		if (u < n_dreg && dreg[u]>>32 < e) {
+		while (u < n_dreg && (int32_t)dreg[u] <= s) ++u;
+		if (u < n_dreg && (int32_t)(dreg[u]>>32) < e) {
 			int v, l = 0;
-			for (v = u; v < n_dreg && dreg[v]>>32 < e; ++v) { // iterate over LCRs overlapping this minimizer
-				int ss = s > dreg[v]>>32? s : dreg[v]>>32;
-				int ee = e < (uint32_t)dreg[v]? e : (uint32_t)dreg[v];
+			for (v = u; v < n_dreg && (int32_t)(dreg[v]>>32) < e; ++v) { // iterate over LCRs overlapping this minimizer
+				int ss = s > (int32_t)(dreg[v]>>32)? s : dreg[v]>>32;
+				int ee = e < (int32_t)dreg[v]? e : (uint32_t)dreg[v];
 				l += ee - ss;
 			}
 			if (l <= span>>1) a[k++] = a[j]; // keep the minimizer if less than half of it falls in masked region
@@ -56,9 +56,10 @@ static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *se
 
 static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, mm128_v *mv)
 {
-	int i, j, n, sum = 0;
+	int i, n, sum = 0;
 	mv->n = 0;
 	for (i = n = 0; i < n_segs; ++i) {
+		size_t j;
 		mm_sketch(km, seqs[i], qlens[i], mi->w, mi->k, i, mi->flag&MM_I_HPC, mv);
 		for (j = n; j < mv->n; ++j)
 			mv->a[j].y += sum << 1;
@@ -81,12 +82,13 @@ typedef struct {
 
 static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos)
 {
-	int i, rep_st = 0, rep_en = 0, n_m;
+	int rep_st = 0, rep_en = 0, n_m;
+	size_t i;
 	mm_match_t *m;
 	*n_mini_pos = 0;
 	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
 	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
-	for (i = n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
+	for (i = 0, n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
 		const uint64_t *cr;
 		mm128_t *p = &mv->a[i];
 		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
@@ -120,7 +122,7 @@ static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const cha
 		const mm_idx_seq_t *s = &mi->seq[r>>32];
 		int cmp;
 		cmp = strcmp(qname, s->name);
-		if ((flag&MM_F_NO_DIAG) && cmp == 0 && s->len == qlen) {
+		if ((flag&MM_F_NO_DIAG) && cmp == 0 && (int)s->len == qlen) {
 			if ((uint32_t)r>>1 == (q->q_pos>>1)) return 1; // avoid the diagnonal anchors
 			if ((r&1) == (q->q_pos&1)) *is_self = 1; // this flag is used to avoid spurious extension on self chain
 		}
@@ -206,7 +208,7 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, uint64_t **mini_pos)
 {
-	int i, k, n_m;
+	int i, n_m;
 	mm_match_t *m;
 	mm128_t *a;
 	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
@@ -214,6 +216,7 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mm_match_t *q = &m[i];
 		const uint64_t *r = q->cr;
+		uint32_t k;
 		for (k = 0; k < q->n; ++k) {
 			int32_t is_self, rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
@@ -309,10 +312,10 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		if (n_regs0 > 0) { // test if the best chain has all the segments
 			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
 			for (i = 0; i < n_regs0; ++i) { // find the best chain
-				if (max < u[i]>>32) max = u[i]>>32, max_i = i, max_off = off;
+				if (max < (int)(u[i]>>32)) max = u[i]>>32, max_i = i, max_off = off;
 				off += (uint32_t)u[i];
 			}
-			for (i = 1; i < (uint32_t)u[max_i]; ++i) // count the number of segments in the best chain
+			for (i = 1; i < (int32_t)u[max_i]; ++i) // count the number of segments in the best chain
 				if ((a[max_off+i].y&MM_SEED_SEG_MASK) != (a[max_off+i-1].y&MM_SEED_SEG_MASK))
 					++n_chained_segs;
 			if (n_chained_segs < n_segs)

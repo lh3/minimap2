@@ -3,6 +3,8 @@ from libc.stdlib cimport free
 cimport cmappy
 import sys
 
+__version__ = '2.11'
+
 cmappy.mm_reset_timer()
 
 cdef class Alignment:
@@ -105,7 +107,7 @@ cdef class Aligner:
 	cdef cmappy.mm_idxopt_t idx_opt
 	cdef cmappy.mm_mapopt_t map_opt
 
-	def __cinit__(self, fn_idx_in, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None):
+	def __cinit__(self, fn_idx_in, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None):
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
 			cmappy.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
@@ -118,6 +120,7 @@ cdef class Aligner:
 		if min_dp_score is not None: self.map_opt.min_dp_max = min_dp_score
 		if bw is not None: self.map_opt.bw = bw
 		if best_n is not None: self.map_opt.best_n = best_n
+		if max_frag_len is not None: self.map_opt.max_frag_len = max_frag_len
 
 		cdef cmappy.mm_idx_reader_t *r;
 		if fn_idx_out is None:
@@ -137,11 +140,14 @@ cdef class Aligner:
 	def __bool__(self):
 		return (self._idx != NULL)
 
-	def map(self, seq, seq2=None, buf=None):
+	def map(self, seq, seq2=None, buf=None, max_frag_len=None):
 		cdef cmappy.mm_reg1_t *regs
 		cdef cmappy.mm_hitpy_t h
 		cdef ThreadBuffer b
 		cdef int n_regs
+		cdef cmappy.mm_mapopt_t map_opt
+		map_opt = self.map_opt
+		if max_frag_len is not None: map_opt.max_frag_len = max_frag_len
 
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
@@ -149,10 +155,10 @@ cdef class Aligner:
 
 		_seq = seq if isinstance(seq, bytes) else seq.encode()
 		if seq2 is None:
-			regs = cmappy.mm_map_aux(self._idx, _seq, NULL,  &n_regs, b._b, &self.map_opt)
+			regs = cmappy.mm_map_aux(self._idx, _seq, NULL,  &n_regs, b._b, &map_opt)
 		else:
 			_seq2 = seq2 if isinstance(seq2, bytes) else seq2.encode()
-			regs = cmappy.mm_map_aux(self._idx, _seq, _seq2, &n_regs, b._b, &self.map_opt)
+			regs = cmappy.mm_map_aux(self._idx, _seq, _seq2, &n_regs, b._b, &map_opt)
 
 		for i in range(n_regs):
 			cmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
