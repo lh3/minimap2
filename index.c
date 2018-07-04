@@ -65,7 +65,7 @@ void mm_idx_destroy(mm_idx_t *mi)
 		}
 	}
 	if (mi->splices) {
-		for(unsigned i = 0 ; i < mi->n_seq ; i++)
+		for(i = 0 ; i < mi->n_seq ; i++)
 			kv_destroy(((splice_v*) mi->splices)[i]);
 		kfree(mi->km, mi->splices);
 	}
@@ -174,8 +174,8 @@ int mm_idx_getseq_splicetags(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint
 			else
 				low = mid + 1;
 		}
-		const splice_t* splices_end = &kv_A(splices, kv_size(splices));
-		for(const splice_t *p = &kv_A(splices, low) ; p < splices_end && SPLICE_POS(*p) < en; p++)
+		const splice_t *p, *splices_end = &kv_A(splices, kv_size(splices));
+		for(p = &kv_A(splices, low) ; p < splices_end && SPLICE_POS(*p) < en; p++)
 			seq[SPLICE_POS(*p) - st] |= 1 << (4 + SPLICE_IS_DONOR(*p));
 	}
 	return res;
@@ -622,6 +622,8 @@ int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases
 }
 
 int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
+	unsigned i;
+
 	int type = 0; // 0=Unknown, 1=BED (introns), 2=TSV/CSV (unpaired sites)
 	const char* delim = " \t\r\n";
 	size_t fname_len = strlen(fname);
@@ -648,7 +650,7 @@ int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
 
 	mm_idx_index_name(mi);
 	splice_v* splice_vectors = (splice_v*) kmalloc(mi->km, sizeof(splice_v) * mi->n_seq);
-	for(unsigned i = 0 ; i < mi->n_seq ; i++)
+	for(i = 0 ; i < mi->n_seq ; i++)
 		kv_init(splice_vectors[i]);
 	mi->splices = splice_vectors;
 
@@ -713,7 +715,7 @@ int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
 	}
 
 	// Sort splicing coordinates for each reference sequence
-	for (unsigned i = 0 ; i < mi->n_seq ; i++) {
+	for (i = 0 ; i < mi->n_seq ; i++) {
 		splice_v splices = splice_vectors[i];
 		if (kv_size(splices))
 			radix_sort_splice(splices.a, splices.a + kv_size(splices));
