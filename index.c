@@ -622,6 +622,24 @@ int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases
 }
 
 int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
+	int type = 0; // 0=Unknown, 1=BED (introns), 2=TSV/CSV (unpaired sites)
+	const char* delim = " \t\r\n";
+	size_t fname_len = strlen(fname);
+	if (fname_len >= 4) {
+		if(strncasecmp(fname + fname_len - 4, ".bed", 4) == 0)
+			type = 1;
+		 else if (strncasecmp(fname + fname_len - 4, ".tsv", 4) == 0)
+			type = 2;
+		else if (strncasecmp(fname + fname_len - 4, ".csv", 4) == 0) {
+			type = 2;
+			delim = ",\r\n";
+		}
+	}
+	if (!type) {
+		fprintf(stderr, "Unknown file type for splicing annotations: \"%s\"\n", fname);
+		return -1;
+	}
+
 	FILE* f = fopen(fname, "r");
 	if (f == NULL) {
 		perror("Could not open splice file");
@@ -635,34 +653,63 @@ int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
 	mi->splices = splice_vectors;
 
 	char line[256];
-	static const char* delim = " \t";
-	while (fgets(line, sizeof(line), f)) {
-		char* chr = strtok(line, delim);
-		if (chr == NULL || strcmp(chr, "track") == 0 || strcmp(chr, "browser") == 0)
-			continue;
+	int linenb = 0;
+	if(type == 1) {
+		while (fgets(line, sizeof(line), f)) {
+			linenb++;
+			char* chr = strtok(line, delim);
+			if (chr == NULL || strcmp(chr, "track") == 0 || strcmp(chr, "browser") == 0)
+				continue;
 
-		// Corresponding sequence in the index:
-		int seq_id = mm_idx_name2id(mi, chr);
-		if (seq_id < 0) {
-			if (mm_verbose >= 2)
-				fprintf(stderr, "[WARNING] Name \"%s\" from introns annotations not found in reference database.\n", chr);
-			continue;
+			// Corresponding sequence in the index:
+			int seq_id = mm_idx_name2id(mi, chr);
+			if (seq_id < 0) {
+				if (mm_verbose >= 2)
+					fprintf(stderr, "[WARNING] Name \"%s\" from introns annotations not found in reference database.\n", chr);
+				continue;
+			}
+
+			char* start_s = strtok(NULL, delim);
+			char* stop_s = strtok(NULL, delim);
+			if (start_s == NULL || stop_s == NULL) {
+				fprintf(stderr, "%s: malformed splice annotation at line %d\n", fname, linenb);
+				fclose(f);
+				return -1;
+			}
+
+			uint32_t donor = atol(start_s) - 1; // "Donor" site is before the first base of the intron
+			uint32_t acceptor = atol(stop_s) - 1; // "Acceptor" site is the last base of the intron (BED use past the end notation)
+			assert(donor < SPLICE_DONOR && acceptor < SPLICE_DONOR);
+			kv_push(splice_t, 0, splice_vectors[seq_id], donor | SPLICE_DONOR);
+			kv_push(splice_t, 0, splice_vectors[seq_id], acceptor);
 		}
+	} else if(type == 2) {
+		while (fgets(line, sizeof(line), f)) {
+			linenb++;
+			char* chr = strtok(line, delim);
+			if (chr == NULL)
+				continue;
 
-		char* start_s = strtok(NULL, delim);
-		char* stop_s = strtok(NULL, delim);
+			int seq_id = mm_idx_name2id(mi, chr);
+			if (seq_id < 0) {
+				if (mm_verbose >= 2)
+					fprintf(stderr, "[WARNING] Name \"%s\" from introns annotations not found in reference database.\n", chr);
+				continue;
+			}
 
-		if (start_s == NULL || stop_s == NULL) {
-			fprintf(stderr, "Malformed splice line: '%s'\n", line);
-			fclose(f);
-			return -1;
+			char* pos_s = strtok(NULL, delim);
+			char* kind_s = strtok(NULL, delim);
+			if (pos_s == NULL || kind_s == NULL || strlen(kind_s) != 1 || ((kind_s[0] | 0x20) != 'l' && (kind_s[0] | 0x20) != 'r') ) {
+				fprintf(stderr, "%s: malformed splice annotation at line %d\n", fname, linenb);
+				fclose(f);
+				return -1;
+			}
+
+			uint32_t pos = atol(pos_s);
+			assert(pos < SPLICE_DONOR);
+			pos |= (kind_s[0] | 0x20) == 'l' ? SPLICE_DONOR : 0;
+			kv_push(splice_t, 0, splice_vectors[seq_id], pos);
 		}
-
-		uint32_t donor = atol(start_s) - 1; // "Donor" site is before the first base of the intron
-		uint32_t acceptor = atol(stop_s) - 1; // "Acceptor" site is the last base of the intron (BED use past the end notation)
-
-		kv_push(splice_t, 0, splice_vectors[seq_id], donor | SPLICE_DONOR);
-		kv_push(splice_t, 0, splice_vectors[seq_id], acceptor);
 	}
 
 	// Sort splicing coordinates for each reference sequence
