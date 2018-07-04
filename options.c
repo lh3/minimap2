@@ -49,7 +49,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 {
-	if ((opt->flag & MM_F_SPLICE_FOR) && (opt->flag & MM_F_SPLICE_REV))
+	if ((opt->flag & MM_F_SPLICE_FOR) || (opt->flag & MM_F_SPLICE_REV))
 		opt->flag |= MM_F_SPLICE;
 	if (opt->mid_occ <= 0)
 		opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
