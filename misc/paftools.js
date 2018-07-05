@@ -560,6 +560,151 @@ function paf_call(args)
 	if (fa != null) fasta_free(fa);
 }
 
+function paf_asmstat(args)
+{
+	var c;
+	while ((c = getopt(args, "")) != null) {
+	}
+	if (getopt.ind == args.length) {
+		print("Usage: paftools.js asmstat <ref.fa.fai> <asm1.paf> [...]");
+		exit(1);
+	}
+
+	var file, buf = new Bytes();
+
+	var ref_len = 0;
+	file = new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		ref_len += parseInt(t[1]);
+	}
+	file.close();
+
+	function process_query(qblocks, qblock_len, bp) {
+		var last_blen = 0;
+		qblocks.sort(function(a,b) { return a[0]-b[0]; });
+		for (var k = 0; k < qblocks.length; ++k) {
+			var blen = qblocks[k][1] - qblocks[k][0];
+			if (k > 0) {
+				if (qblocks[k][0] < qblocks[k-1][1]) {
+					if (qblocks[k][1] < qblocks[k-1][1]) continue;
+					blen = qblocks[k][1] - qblocks[k-1][1];
+				}
+				var min = blen < last_blen? blen : last_blen;
+				var gap = 1000000000;
+				if (qblocks[k][2] == qblocks[k-1][2] && qblocks[k][3] == qblocks[k-1][3]) { // same chr and strand
+					var g1 = qblocks[k][0] - qblocks[k-1][1];
+					var g2 = qblocks[k][2] == '+'? qblocks[k][4] - qblocks[k-1][5] : qblocks[k-1][4] - qblocks[k][5];
+					gap = g1 > g2? g1 - g2 : g2 - g1;
+				}
+				bp.push([min, gap]);
+			}
+			qblock_len.push(blen);
+			last_blen = blen;
+		}
+	}
+
+	function N50(lens, tot, quantile) {
+		lens.sort(function(a,b) { return a - b; });
+		if (tot == null) {
+			tot = 0;
+			for (var k = 0; k < lens.length; ++k)
+				tot += lens[k];
+		}
+		var sum = 0;
+		for (var k = 0; k < lens.length; ++k) {
+			if (sum <= quantile * tot && sum + lens[k] > quantile * tot)
+				return lens[k];
+			sum += lens[k];
+		}
+	}
+
+	function count_bp(bp, min_blen, min_gap) {
+		var n_bp = 0;
+		for (var k = 0; k < bp.length; ++k)
+			if (bp[k][0] >= min_blen && bp[k][1] >= min_gap)
+				++n_bp;
+		return n_bp;
+	}
+
+	var labels = ['Length', 'NG50', 'Coverage', 'NGA50', 'bp(0,0)', 'bp(500,500)', 'bp(500,10k)', 'bp(2k,10k)'];
+	var rst = [];
+	for (var i = 0; i < labels.length; ++i)
+		rst[i] = [];
+
+	var n_asm = args.length - (getopt.ind + 1);
+	var header = ["Metric"];
+	for (var i = 0; i < n_asm; ++i) {
+		var fn = args[getopt.ind + 1 + i];
+		header.push(fn.replace(/.paf(.gz)?$/, ""));
+		var ref_blocks = [], qblock_len = [], qblocks = [], bp = [];
+		var query = {};
+		var last_qname = null;
+		file = new File(fn);
+		while (file.readline(buf) >= 0) {
+			var line = buf.toString();
+			if (!/\ttp:A:[PI]/.test(line)) continue;
+			var t = line.split("\t");
+			t[1] = parseInt(t[1]);
+			t[2] = parseInt(t[2]);
+			t[3] = parseInt(t[3]);
+			t[7] = parseInt(t[7]);
+			t[8] = parseInt(t[8]);
+			query[t[0]] = t[1];
+			if (t[0] != last_qname) {
+				if (last_qname != null)
+					process_query(qblocks, qblock_len, bp);
+				qblocks = [];
+				last_qname = t[0];
+			}
+			ref_blocks.push([t[5], t[7], t[8]]);
+			qblocks.push([t[2], t[3], t[4], t[5], t[7], t[8]]);
+		}
+		if (last_qname != null)
+			process_query(qblocks, qblock_len, bp);
+		file.close();
+
+		// compute NG50
+		var asm_len = 0, asm_lens = []
+		for (var ctg in query) {
+			asm_len += query[ctg];
+			asm_lens.push(query[ctg]);
+		}
+		rst[0][i] = asm_len;
+		rst[1][i] = N50(asm_lens, ref_len, 0.5);
+
+		// compute coverage
+		var l_cov = 0;
+		ref_blocks.sort(function(a, b) { return a[0] > b[0]? 1 : a[0] < b[0]? -1 : a[1] - b[1]; });
+		var last_ref = null, st = -1, en = -1;
+		for (var j = 0; j < ref_blocks.length; ++j) {
+			if (ref_blocks[j][0] != last_ref || ref_blocks[j][1] > en) {
+				l_cov += en - st;
+				last_ref = ref_blocks[j][0];
+				st = ref_blocks[j][1];
+				en = ref_blocks[j][2];
+			} else en = en > ref_blocks[j][2]? en : ref_blocks[j][2];
+		}
+		l_cov += en - st;
+		rst[2][i] = (100.0 * (l_cov / ref_len)).toFixed(2) + '%';
+
+		// compute NGA50
+		rst[3][i] = N50(qblock_len, ref_len, 0.5);
+
+		// compute break points
+		rst[4][i] = bp.length;
+		rst[5][i] = count_bp(bp, 500, 500);
+		rst[6][i] = count_bp(bp, 500, 10000);
+		rst[7][i] = count_bp(bp, 2000, 10000);
+	}
+
+	print(header.join("\t"));
+	for (var i = 0; i < labels.length; ++i)
+		print(labels[i], rst[i].join("\t"));
+
+	buf.destroy();
+}
+
 function paf_stat(args)
 {
 	var c, gap_out_len = null;
@@ -2006,6 +2151,7 @@ function main(args)
 		print("  gff2bed    convert GTF/GFF3 to BED12");
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
+		print("  asmstat    collect basic assembly information");
 		print("  liftover   simplistic liftOver");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("  bedcov     compute the number of bases covered");
@@ -2026,6 +2172,7 @@ function main(args)
 	else if (cmd == 'splice2bed') paf_splice2bed(args);
 	else if (cmd == 'gff2bed') paf_gff2bed(args);
 	else if (cmd == 'stat') paf_stat(args);
+	else if (cmd == 'asmstat') paf_asmstat(args);
 	else if (cmd == 'liftover' || cmd == 'liftOver') paf_liftover(args);
 	else if (cmd == 'call') paf_call(args);
 	else if (cmd == 'mapeval') paf_mapeval(args);
