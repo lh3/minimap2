@@ -562,11 +562,12 @@ function paf_call(args)
 
 function paf_asmstat(args)
 {
-	var c;
-	while ((c = getopt(args, "")) != null) {
+	var c, min_seg_len = 500;
+	while ((c = getopt(args, "l:")) != null) {
+		if (c == 'l') min_seg_len = parseInt(getopt.arg);
 	}
 	if (getopt.ind == args.length) {
-		print("Usage: paftools.js asmstat <ref.fa.fai> <asm1.paf> [...]");
+		print("Usage: paftools.js asmstat [-l minSegLen] <ref.fa.fai> <asm1.paf> [...]");
 		exit(1);
 	}
 
@@ -580,28 +581,31 @@ function paf_asmstat(args)
 	}
 	file.close();
 
-	function process_query(qblocks, qblock_len, bp) {
-		var last_blen = 0;
+	function process_query(qblocks, qblock_len, bp, min_seg_len) {
 		qblocks.sort(function(a,b) { return a[0]-b[0]; });
+		var last_k = null, last_blen = null;
 		for (var k = 0; k < qblocks.length; ++k) {
 			var blen = qblocks[k][1] - qblocks[k][0];
-			if (k > 0) {
-				if (qblocks[k][0] < qblocks[k-1][1]) {
-					if (qblocks[k][1] < qblocks[k-1][1]) continue;
-					blen = qblocks[k][1] - qblocks[k-1][1];
-				}
-				var min = blen < last_blen? blen : last_blen;
-				var gap = 1000000000;
-				if (qblocks[k][2] == qblocks[k-1][2] && qblocks[k][3] == qblocks[k-1][3]) { // same chr and strand
-					var g1 = qblocks[k][0] - qblocks[k-1][1];
-					var g2 = qblocks[k][2] == '+'? qblocks[k][4] - qblocks[k-1][5] : qblocks[k-1][4] - qblocks[k][5];
-					gap = g1 > g2? g1 - g2 : g2 - g1;
-				}
-				bp.push([min, gap]);
+			if (k > 0 && qblocks[k][0] < qblocks[k-1][1]) {
+				if (qblocks[k][1] < qblocks[k-1][1]) continue;
+				blen = qblocks[k][1] - qblocks[k-1][1];
 			}
 			qblock_len.push(blen);
-			last_blen = blen;
+			if (blen < min_seg_len) continue;
+			if (last_k != null) {
+				var gap = 1000000000;
+				if (qblocks[k][2] == qblocks[last_k][2] && qblocks[k][3] == qblocks[last_k][3]) { // same chr and strand
+					var g1 = qblocks[k][0] - qblocks[last_k][1];
+					var g2 = qblocks[k][2] == '+'? qblocks[k][4] - qblocks[last_k][5] : qblocks[last_k][4] - qblocks[k][5];
+					gap = g1 > g2? g1 - g2 : g2 - g1;
+				}
+				var min = blen < last_blen? blen : last_blen;
+				var flank = k == 0? min : blen;
+				bp.push([flank, gap]);
+			}
+			last_k = k, last_blen = blen;
 		}
+		return qblocks.length > 0? qblocks.length - 1 : 0;
 	}
 
 	function N50(lens, tot, quantile) {
@@ -627,7 +631,7 @@ function paf_asmstat(args)
 		return n_bp;
 	}
 
-	var labels = ['Length', 'NG50', 'Coverage', 'NGA50', 'bp(0,0)', 'bp(500,500)', 'bp(500,10k)', 'bp(2k,10k)'];
+	var labels = ['Length', 'NG50', 'Coverage', 'NGA50', '#breaks', 'bp(' + min_seg_len + ',0)', 'bp(' + min_seg_len + ',10k)'];
 	var rst = [];
 	for (var i = 0; i < labels.length; ++i)
 		rst[i] = [];
@@ -635,6 +639,7 @@ function paf_asmstat(args)
 	var n_asm = args.length - (getopt.ind + 1);
 	var header = ["Metric"];
 	for (var i = 0; i < n_asm; ++i) {
+		var n_breaks = 0;
 		var fn = args[getopt.ind + 1 + i];
 		header.push(fn.replace(/.paf(.gz)?$/, ""));
 		var ref_blocks = [], qblock_len = [], qblocks = [], bp = [];
@@ -653,7 +658,7 @@ function paf_asmstat(args)
 			query[t[0]] = t[1];
 			if (t[0] != last_qname) {
 				if (last_qname != null)
-					process_query(qblocks, qblock_len, bp);
+					n_breaks += process_query(qblocks, qblock_len, bp, min_seg_len);
 				qblocks = [];
 				last_qname = t[0];
 			}
@@ -661,7 +666,7 @@ function paf_asmstat(args)
 			qblocks.push([t[2], t[3], t[4], t[5], t[7], t[8]]);
 		}
 		if (last_qname != null)
-			process_query(qblocks, qblock_len, bp);
+			n_breaks += process_query(qblocks, qblock_len, bp, min_seg_len);
 		file.close();
 
 		// compute NG50
@@ -692,10 +697,9 @@ function paf_asmstat(args)
 		rst[3][i] = N50(qblock_len, ref_len, 0.5);
 
 		// compute break points
-		rst[4][i] = bp.length;
-		rst[5][i] = count_bp(bp, 500, 500);
+		rst[4][i] = n_breaks;
+		rst[5][i] = count_bp(bp, 500, 0);
 		rst[6][i] = count_bp(bp, 500, 10000);
-		rst[7][i] = count_bp(bp, 2000, 10000);
 	}
 
 	print(header.join("\t"));
