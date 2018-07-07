@@ -259,6 +259,10 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag)
 {
 	s->l = 0;
+	if (r == 0) {
+		mm_sprintf_lite(s, "%s\t%d", t->name, t->l_seq);
+		return;
+	}
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
 	if (mi->seq[r->rid].name) mm_sprintf_lite(s, "%s", mi->seq[r->rid].name);
 	else mm_sprintf_lite(s, "%d", r->rid);
