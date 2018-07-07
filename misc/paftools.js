@@ -562,7 +562,7 @@ function paf_call(args)
 
 function paf_asmstat(args)
 {
-	var c, min_seg_len = 1000, max_diff = 0.01;
+	var c, min_seg_len = 10000, max_diff = 0.01;
 	while ((c = getopt(args, "l:d:")) != null) {
 		if (c == 'l') min_seg_len = parseInt(getopt.arg);
 		else if (c == 'd') max_diff = parseFloat(getopt.arg);
@@ -618,7 +618,7 @@ function paf_asmstat(args)
 	}
 
 	function N50(lens, tot, quantile) {
-		lens.sort(function(a,b) { return a - b; });
+		lens.sort(function(a,b) { return b - a; });
 		if (tot == null) {
 			tot = 0;
 			for (var k = 0; k < lens.length; ++k)
@@ -669,19 +669,20 @@ function paf_asmstat(args)
 		file = new File(fn);
 		while (file.readline(buf) >= 0) {
 			var m, line = buf.toString();
+			var t = line.split("\t");
+			t[1] = parseInt(t[1]);
+			if (t.length >= 2) query[t[0]] = t[1];
+			if (t.length < 9) continue;
 			if (!/\ttp:A:[PI]/.test(line)) continue;
 			if ((m = /\tcg:Z:(\S+)/.exec(line)) == null) continue;
 			var cigar = m[1];
 			if ((m = /\tNM:i:(\d+)/.exec(line)) == null) continue;
 			var NM = parseInt(m[1]);
 			var diff = compute_diff(cigar, NM);
-			var t = line.split("\t");
-			t[1] = parseInt(t[1]);
 			t[2] = parseInt(t[2]);
 			t[3] = parseInt(t[3]);
 			t[7] = parseInt(t[7]);
 			t[8] = parseInt(t[8]);
-			query[t[0]] = t[1];
 			if (t[0] == last_qname) ++n_breaks;
 			if (diff > max_diff) continue;
 			if (t[3] - t[2] < min_seg_len) continue;
@@ -721,7 +722,7 @@ function paf_asmstat(args)
 		}
 		l_cov += en - st;
 		rst[2][i] = (100.0 * (l_cov / ref_len)).toFixed(2) + '%';
-		rst[3][i] = qcov;
+		rst[3][i] = (100.0 * (qcov  / asm_len)).toFixed(2) + '%';
 
 		// compute NGA50
 		rst[4][i] = N50(qblock_len, ref_len, 0.5);
