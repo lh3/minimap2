@@ -262,7 +262,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	return regs;
 }
 
-void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+int mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
@@ -277,7 +277,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
 		qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
 
-	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
+	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return 0;
 
 	hash  = qname? __ac_X31_hash_string(qname) : 0;
 	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
@@ -375,6 +375,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			b->km = km_init();
 		}
 	}
+	return rep_len;
 }
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
@@ -394,13 +395,14 @@ typedef struct {
 	mm_bseq_file_t **fp;
 	const mm_idx_t *mi;
 	kstring_t str;
+	FILE *fp_split;
 } pipeline_t;
 
 typedef struct {
 	const pipeline_t *p;
     int n_seq, n_frag;
 	mm_bseq1_t *seq;
-	int *n_reg, *seg_off, *n_seg;
+	int *n_reg, *seg_off, *n_seg, *rep_len;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
 } step_t;
@@ -422,9 +424,12 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	}
 	if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
 		for (j = 0; j < s->n_seg[i]; ++j)
-			mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
+			s->rep_len[off + j] = mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
 	} else {
-		mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+		int rep_len;
+		rep_len = mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+		for (j = 0; j < s->n_seg[i]; ++j)
+			s->rep_len[off + j] = rep_len;
 	}
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
@@ -459,9 +464,10 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mm_tbuf_t**)calloc(p->n_threads, sizeof(mm_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mm_tbuf_init();
-			s->n_reg = (int*)calloc(3 * s->n_seq, sizeof(int));
-			s->seg_off = s->n_reg + s->n_seq; // seg_off and n_seg are allocated together with n_reg
+			s->n_reg = (int*)calloc(4 * s->n_seq, sizeof(int));
+			s->seg_off = s->n_reg + s->n_seq; // seg_off, n_seg and rep_len are allocated together with n_reg
 			s->n_seg = s->seg_off + s->n_seq;
+			s->rep_len = s->n_seg + s->n_seq;
 			s->reg = (mm_reg1_t**)calloc(s->n_seq, sizeof(mm_reg1_t*));
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mm_qname_same(s->seq[i-1].name, s->seq[i].name)) {
@@ -485,28 +491,35 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
-				for (j = 0; j < s->n_reg[i]; ++j) {
-					mm_reg1_t *r = &s->reg[i][j];
-					assert(!r->sam_pri || r->id == r->parent);
-					if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
-						continue;
-					if (p->opt->flag & MM_F_OUT_SAM)
-						mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
-					else
-						mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
-					mm_err_puts(p->str.s);
+				if (p->opt->split_prefix) {
+					mm_err_fwrite(&s->n_reg[i],   sizeof(s->n_reg[i]),   1, p->fp_split);
+					mm_err_fwrite(&s->rep_len[i], sizeof(s->rep_len[i]), 1, p->fp_split);
 				}
-				if (s->n_reg[i] == 0) {
-					if (p->opt->flag & MM_F_OUT_SAM) {
-						mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
-						mm_err_puts(p->str.s);
-					} else if (p->opt->flag & MM_F_PAF_NO_HIT) {
-						mm_write_paf(&p->str, mi, t, 0, 0, p->opt->flag);
-						mm_err_puts(p->str.s);
+				if (s->n_reg[i] > 0) {
+					for (j = 0; j < s->n_reg[i]; ++j) {
+						mm_reg1_t *r = &s->reg[i][j];
+						assert(!r->sam_pri || r->id == r->parent);
+						if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
+							continue;
+						if (p->opt->split_prefix) {
+							mm_err_fwrite(r, sizeof(mm_reg1_t), 1, p->fp_split);
+							if (p->opt->flag & MM_F_CIGAR) {
+								mm_err_fwrite(&r->p->capacity, 4, 1, p->fp_split);
+								mm_err_fwrite(r->p, r->p->capacity, 4, p->fp_split);
+							}
+						} else {
+							if (p->opt->flag & MM_F_OUT_SAM)
+								mm_write_sam2(&p->str, mi, t, i - seg_st, j, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
+							else
+								mm_write_paf(&p->str, mi, t, r, km, p->opt->flag);
+							mm_err_puts(p->str.s);
+						}
 					}
-				}
-				if (s->n_reg[i] == 0 && (p->opt->flag & MM_F_OUT_SAM)) { // write an unmapped record
-					mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
+				} else if (p->opt->flag & (MM_F_OUT_SAM|MM_F_PAF_NO_HIT)) {
+					if (p->opt->flag & MM_F_OUT_SAM)
+						mm_write_sam2(&p->str, mi, t, i - seg_st, -1, s->n_seg[k], &s->n_reg[seg_st], (const mm_reg1_t*const*)&s->reg[seg_st], km, p->opt->flag);
+					else
+						mm_write_paf(&p->str, mi, t, 0, 0, p->opt->flag);
 					mm_err_puts(p->str.s);
 				}
 			}
@@ -517,7 +530,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				if (s->seq[i].qual) free(s->seq[i].qual);
 			}
 		}
-		free(s->reg); free(s->n_reg); free(s->seq); // seg_off and n_seg were allocated with reg; no memory leak here
+		free(s->reg); free(s->n_reg); free(s->seq); // seg_off, n_seg and rep_len were allocated with reg; no memory leak here
 		km_destroy(km);
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequences\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), s->n_seq);
@@ -548,9 +561,13 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 	pl.opt = opt, pl.mi = idx;
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;
+	if (opt->split_prefix)
+		pl.fp_split = mm_split_init(opt->split_prefix, idx);
 	pl_threads = n_threads == 1? 1 : (opt->flag&MM_F_2_IO_THREADS)? 3 : 2;
 	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
 	free(pl.str.s);
+	if (opt->split_prefix)
+		fclose(pl.fp_split);
 	for (i = 0; i < n_segs; ++i)
 		mm_bseq_close(pl.fp[i]);
 	free(pl.fp);

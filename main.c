@@ -61,6 +61,7 @@ static struct option long_options[] = {
 	{ "score-N",        required_argument, 0, 0 },   // 31
 	{ "eqx",            no_argument,       0, 0 },   // 32
 	{ "paf-no-hit",     no_argument,       0, 0 },   // 33
+	{ "split-prefix",   required_argument, 0, 0 },   // 34
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -181,6 +182,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==31) opt.sc_ambi = atoi(optarg); // --score-N
 		else if (c == 0 && long_idx ==32) opt.flag |= MM_F_EQX; // --eqx
 		else if (c == 0 && long_idx ==33) opt.flag |= MM_F_PAF_NO_HIT; // --paf-no-hit
+		else if (c == 0 && long_idx ==34) opt.split_prefix = optarg; // --split-prefix
 		else if (c == 0 && long_idx == 14) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary
