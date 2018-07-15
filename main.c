@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
 	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yY";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, long_idx;
+	int i, c, n_threads = 3, n_parts, long_idx;
 	char *fnw = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
@@ -346,7 +346,11 @@ int main(int argc, char *argv[])
 		}
 		mm_idx_destroy(mi);
 	}
+	n_parts = idx_rdr->n_parts;
 	mm_idx_reader_close(idx_rdr);
+
+	if (opt.split_prefix)
+		mm_split_merge(argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_parts);
 
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");

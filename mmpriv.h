@@ -28,6 +28,9 @@
 #define mm_seq4_set(s, i, c) ((s)[(i)>>3] |= (uint32_t)(c) << (((i)&7)<<2))
 #define mm_seq4_get(s, i)    ((s)[(i)>>3] >> (((i)&7)<<2) & 0xf)
 
+#define MALLOC(type, len) ((type*)malloc((len) * sizeof(type)))
+#define CALLOC(type, len) ((type*)calloc((len), sizeof(type)))
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -87,6 +90,8 @@ void mm_seg_free(void *km, int n_segs, mm_seg_t *segs);
 void mm_pair(void *km, int max_gap_ref, int dp_bonus, int sub_diff, int match_sc, const int *qlens, int *n_regs, mm_reg1_t **regs);
 
 FILE *mm_split_init(const char *prefix, const mm_idx_t *mi);
+FILE **mm_split_merge_prep(const char *prefix, int n_splits, mm_idx_t **mi_);
+int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx);
 
 void mm_err_puts(const char *str);
 void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp);
