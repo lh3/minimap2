@@ -399,6 +399,7 @@ typedef struct {
 	kstring_t str;
 
 	int n_parts;
+	uint32_t *rid_shift;
 	FILE *fp_split, **fp_parts;
 } pipeline_t;
 
@@ -486,6 +487,7 @@ static void merge_hits(step_t *s)
 					mm_reg1_t *r = &s->reg[k][l];
 					uint32_t capacity;
 					mm_err_fread(r, sizeof(mm_reg1_t), 1, fp[j]);
+					r->rid += s->p->rid_shift[j];
 					if (opt->flag & MM_F_CIGAR) {
 						mm_err_fread(&capacity, 4, 1, fp[j]);
 						r->p = (mm_extra_t*)calloc(capacity, 4);
@@ -494,6 +496,7 @@ static void merge_hits(step_t *s)
 					}
 				}
 			}
+			mm_hit_sort(km, &s->n_reg[k], s->reg[k]);
 			mm_set_parent(km, opt->mask_level, s->n_reg[k], s->reg[k], opt->a * 2 + opt->b);
 			if (!(opt->flag & MM_F_ALL_CHAINS)) {
 				mm_select_sub(km, opt->pri_ratio, s->p->mi->k*2, opt->best_n, &s->n_reg[k], s->reg[k]);
@@ -663,13 +666,26 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 	pl.fp = open_bseqs(pl.n_fp, fn);
 	if (pl.fp == 0) return -1;
 	pl.opt = opt;
-	pl.n_parts = n_split_idx;
-	pl.fp_parts = mm_split_merge_prep(opt->split_prefix, n_split_idx, &mi);
-	if (pl.fp_parts == 0) return -1;
-	pl.mi = mi;
 	pl.mini_batch_size = opt->mini_batch_size;
+
+	pl.n_parts = n_split_idx;
+	pl.fp_parts  = CALLOC(FILE*, pl.n_parts);
+	pl.rid_shift = CALLOC(uint32_t, pl.n_parts);
+	pl.mi = mm_split_merge_prep(opt->split_prefix, n_split_idx, pl.fp_parts, pl.rid_shift);
+	if (pl.mi == 0) {
+		free(pl.fp_parts);
+		free(pl.rid_shift);
+		return -1;
+	}
+	for (i = n_split_idx - 1; i > 0; --i)
+		pl.rid_shift[i] = pl.rid_shift[i - 1];
+	for (pl.rid_shift[0] = 0, i = 1; i < n_split_idx; ++i)
+		pl.rid_shift[i] += pl.rid_shift[i - 1];
+
 	kt_pipeline(2, worker_pipeline, &pl, 3);
+
 	free(pl.str.s);
+	free(pl.rid_shift);
 	for (i = 0; i < n_split_idx; ++i)
 		fclose(pl.fp_parts[i]);
 	free(pl.fp_parts);

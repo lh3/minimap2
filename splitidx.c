@@ -26,17 +26,13 @@ FILE *mm_split_init(const char *prefix, const mm_idx_t *mi)
 	return fp;
 }
 
-FILE **mm_split_merge_prep(const char *prefix, int n_splits, mm_idx_t **mi_)
+mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part)
 {
 	mm_idx_t *mi = 0;
-	FILE **fp;
 	char *fn;
 	int i, j;
-	uint32_t m_seq = 0;
 
 	if (n_splits < 1) return 0;
-	*mi_ = 0;
-	fp = (FILE**)calloc(n_splits, sizeof(FILE*));
 	fn = (char*)calloc(strlen(prefix) + 10, 1);
 	for (i = 0; i < n_splits; ++i) {
 		sprintf(fn, "%s.%.4d.tmp", prefix, i);
@@ -45,31 +41,28 @@ FILE **mm_split_merge_prep(const char *prefix, int n_splits, mm_idx_t **mi_)
 				fprintf(stderr, "ERROR: failed to open temporary file '%s'\n", fn);
 			for (j = 0; j < i; ++j)
 				fclose(fp[j]);
-			free(fp);
+			free(fn);
 			return 0;
 		}
 	}
 	free(fn);
+
 	mi = (mm_idx_t*)calloc(1, sizeof(mm_idx_t));
 	for (i = 0; i < n_splits; ++i) {
-		uint32_t k, n;
-		mm_err_fread(&k, 4, 1, fp[i]);
-		mm_err_fread(&n, 4, 1, fp[i]);
-		mi->k = k;
-		if (mi->n_seq + n > m_seq) {
-			m_seq = mi->n_seq + n;
-			kroundup32(m_seq);
-			mi->seq = (mm_idx_seq_t*)realloc(mi->seq, sizeof(mm_idx_seq_t) * m_seq);
-		}
-		for (k = 0; k < n; ++i) {
+		mm_err_fread(&mi->k, 4, 1, fp[i]); // TODO: check if k is all the same
+		mm_err_fread(&n_seq_part[i], 4, 1, fp[i]);
+		mi->n_seq += n_seq_part[i];
+	}
+	mi->seq = CALLOC(mm_idx_seq_t, mi->n_seq);
+	for (i = j = 0; i < n_splits; ++i) {
+		uint32_t k;
+		for (k = 0; k < n_seq_part[i]; ++k, ++j) {
 			uint8_t l;
 			mm_err_fread(&l, 1, 1, fp[i]);
-			mi->seq[mi->n_seq].name = (char*)calloc(l + 1, 1);
-			mm_err_fread(mi->seq[mi->n_seq].name, 1, l, fp[i]);
-			mm_err_fread(&mi->seq[mi->n_seq].len, 4, 1, fp[i]);
-			++mi->n_seq;
+			mi->seq[j].name = (char*)calloc(l + 1, 1);
+			mm_err_fread(mi->seq[j].name, 1, l, fp[i]);
+			mm_err_fread(&mi->seq[j].len, 4, 1, fp[i]);
 		}
 	}
-	*mi_ = mi;
-	return fp;
+	return mi;
 }
