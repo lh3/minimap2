@@ -11,6 +11,7 @@
 
 struct mm_tbuf_s {
 	void *km;
+	int rep_len, frag_gap;
 };
 
 mm_tbuf_t *mm_tbuf_init(void)
@@ -262,7 +263,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	return regs;
 }
 
-int mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
+void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
@@ -277,7 +278,7 @@ int mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **s
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
 		qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
 
-	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return 0;
+	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
 
 	hash  = qname? __ac_X31_hash_string(qname) : 0;
 	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
@@ -330,6 +331,8 @@ int mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **s
 			a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->min_cnt, opt->min_chain_score, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
 	}
+	b->frag_gap = max_chain_gap_ref;
+	b->rep_len = rep_len;
 
 	regs0 = mm_gen_regs(b->km, hash, qlen_sum, n_regs0, u, a);
 
@@ -375,7 +378,6 @@ int mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **s
 			b->km = km_init();
 		}
 	}
-	return rep_len;
 }
 
 mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
@@ -404,7 +406,7 @@ typedef struct {
 	const pipeline_t *p;
     int n_seq, n_frag;
 	mm_bseq1_t *seq;
-	int *n_reg, *seg_off, *n_seg, *rep_len;
+	int *n_reg, *seg_off, *n_seg, *rep_len, *frag_gap;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
 } step_t;
@@ -425,13 +427,17 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		qseqs[j] = s->seq[off + j].seq;
 	}
 	if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
-		for (j = 0; j < s->n_seg[i]; ++j)
-			s->rep_len[off + j] = mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
+		for (j = 0; j < s->n_seg[i]; ++j) {
+			mm_map_frag(s->p->mi, 1, &qlens[j], &qseqs[j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name);
+			s->rep_len[off + j] = b->rep_len;
+			s->frag_gap[off + j] = b->frag_gap;
+		}
 	} else {
-		int rep_len;
-		rep_len = mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
-		for (j = 0; j < s->n_seg[i]; ++j)
-			s->rep_len[off + j] = rep_len;
+		mm_map_frag(s->p->mi, s->n_seg[i], qlens, qseqs, &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name);
+		for (j = 0; j < s->n_seg[i]; ++j) {
+			s->rep_len[off + j] = b->rep_len;
+			s->frag_gap[off + j] = b->frag_gap;
+		}
 	}
 	for (j = 0; j < s->n_seg[i]; ++j) // flip the query strand and coordinate to the original read strand
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
@@ -449,20 +455,27 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 
 static void merge_hits(step_t *s)
 {
-	int f, i, k = 0, *n_reg_part, *rep_len_part;
+	int f, i, k0, k, max_seg = 0, *n_reg_part, *rep_len_part, *frag_gap_part, *qlens;
 	void *km;
 	FILE **fp = s->p->fp_parts;
 	const mm_mapopt_t *opt = s->p->opt;
 
 	km = km_init();
-	n_reg_part = CALLOC(int, s->p->n_parts * 2);
+	for (f = 0; f < s->n_frag; ++f)
+		max_seg = max_seg > s->n_seg[f]? max_seg : s->n_seg[f];
+	qlens = CALLOC(int, max_seg + s->p->n_parts * 3);
+	n_reg_part = qlens + max_seg;
 	rep_len_part = n_reg_part + s->p->n_parts;
-	for (f = 0; s->n_frag; ++f) {
+	frag_gap_part = rep_len_part + s->p->n_parts;
+	for (f = 0, k = k0 = 0; f < s->n_frag; ++f) {
+		k0 = k;
 		for (i = 0; i < s->n_seg[f]; ++i, ++k) {
 			int j, l, t, rep_len = 0;
+			qlens[i] = s->seq[k].l_seq;
 			for (j = 0, s->n_reg[k] = 0; j < s->p->n_parts; ++j) {
-				mm_err_fread(&n_reg_part[j],   sizeof(int), 1, fp[j]);
-				mm_err_fread(&rep_len_part[j], sizeof(int), 1, fp[j]);
+				mm_err_fread(&n_reg_part[j],    sizeof(int), 1, fp[j]);
+				mm_err_fread(&rep_len_part[j],  sizeof(int), 1, fp[j]);
+				mm_err_fread(&frag_gap_part[j], sizeof(int), 1, fp[j]);
 				s->n_reg[k] += n_reg_part[j];
 				if (rep_len < rep_len_part[j])
 					rep_len = rep_len_part[j];
@@ -487,10 +500,11 @@ static void merge_hits(step_t *s)
 				mm_set_sam_pri(s->n_reg[k], s->reg[k]);
 			}
 			mm_set_mapq(km, s->n_reg[k], s->reg[k], opt->min_chain_score, opt->a, rep_len, !!(opt->flag & MM_F_SR));
-			//mm_pair(b->km, max_chain_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // TODO: this needs to be called, but not here
 		}
+		if (s->n_seg[f] == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
+			mm_pair(km, frag_gap_part[0], opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, &s->n_reg[k0], &s->reg[k0]);
 	}
-	free(n_reg_part);
+	free(qlens);
 	km_destroy(km);
 }
 
@@ -513,10 +527,11 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mm_tbuf_t**)calloc(p->n_threads, sizeof(mm_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mm_tbuf_init();
-			s->n_reg = (int*)calloc(4 * s->n_seq, sizeof(int));
-			s->seg_off = s->n_reg + s->n_seq; // seg_off, n_seg and rep_len are allocated together with n_reg
+			s->n_reg = (int*)calloc(5 * s->n_seq, sizeof(int));
+			s->seg_off = s->n_reg + s->n_seq; // seg_off, n_seg, rep_len and frag_gap are allocated together with n_reg
 			s->n_seg = s->seg_off + s->n_seq;
 			s->rep_len = s->n_seg + s->n_seq;
+			s->frag_gap = s->rep_len + s->n_seq;
 			s->reg = (mm_reg1_t**)calloc(s->n_seq, sizeof(mm_reg1_t*));
 			for (i = 1, j = 0; i <= s->n_seq; ++i)
 				if (i == s->n_seq || !frag_mode || !mm_qname_same(s->seq[i-1].name, s->seq[i].name)) {
@@ -542,8 +557,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
 				if (p->opt->split_prefix && p->n_parts == 0) { // then write to temporary files
-					mm_err_fwrite(&s->n_reg[i],   sizeof(int), 1, p->fp_split);
-					mm_err_fwrite(&s->rep_len[i], sizeof(int), 1, p->fp_split);
+					mm_err_fwrite(&s->n_reg[i],    sizeof(int), 1, p->fp_split);
+					mm_err_fwrite(&s->rep_len[i],  sizeof(int), 1, p->fp_split);
+					mm_err_fwrite(&s->frag_gap[i], sizeof(int), 1, p->fp_split);
 					for (j = 0; j < s->n_reg[i]; ++j) {
 						mm_reg1_t *r = &s->reg[i][j];
 						mm_err_fwrite(r, sizeof(mm_reg1_t), 1, p->fp_split);
@@ -579,7 +595,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				if (s->seq[i].qual) free(s->seq[i].qual);
 			}
 		}
-		free(s->reg); free(s->n_reg); free(s->seq); // seg_off, n_seg and rep_len were allocated with reg; no memory leak here
+		free(s->reg); free(s->n_reg); free(s->seq); // seg_off, n_seg, rep_len and frag_gap were allocated with reg; no memory leak here
 		km_destroy(km);
 		if (mm_verbose >= 3)
 			fprintf(stderr, "[M::%s::%.3f*%.2f] mapped %d sequences\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), s->n_seq);
