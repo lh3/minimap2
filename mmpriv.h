@@ -92,6 +92,7 @@ void mm_pair(void *km, int max_gap_ref, int dp_bonus, int sub_diff, int match_sc
 FILE *mm_split_init(const char *prefix, const mm_idx_t *mi);
 mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part);
 int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx);
+void mm_split_rm_tmp(const char *prefix, int n_splits);
 
 void mm_err_puts(const char *str);
 void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp);

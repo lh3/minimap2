@@ -329,7 +329,7 @@ int main(int argc, char *argv[])
 				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 			} else {
 				mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
-				if (mm_verbose >= 2)
+				if (opt.split_prefix == 0 && mm_verbose >= 2)
 					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted.\033[0m\n");
 			}
 		}
