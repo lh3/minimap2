@@ -239,7 +239,7 @@ Disable the long gap patching heuristic. When this option is applied, the
 maximum alignment gap is mostly controlled by
 .BR -r .
 .TP
-.B --lj-min-ratio \ FLOAT
+.BI --lj-min-ratio \ FLOAT
 Fraction of query sequence length required to bridge a long gap [0.5]. A
 smaller value helps to recover longer gaps, at the cost of more false gaps.
 .TP
@@ -251,6 +251,9 @@ Enable short-read alignment heuristics. In the short-read mode, minimap2
 applies a second round of chaining with a higher minimizer occurrence threshold
 if no good chain is found. In addition, minimap2 attempts to patch gaps between
 seeds with ungapped alignment.
+.TP
+.BI --split-prefix \ STR
+Prefix to create temporary files. Typically used for a multi-part index.
 .TP
 .BR --frag = no | yes
 Whether to enable the fragment mode [no]

@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.11-r797"
+#define MM_VERSION "2.11-r815-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -61,6 +61,7 @@ static struct option long_options[] = {
 	{ "score-N",        required_argument, 0, 0 },   // 31
 	{ "eqx",            no_argument,       0, 0 },   // 32
 	{ "paf-no-hit",     no_argument,       0, 0 },   // 33
+	{ "split-prefix",   required_argument, 0, 0 },   // 34
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -101,7 +102,7 @@ int main(int argc, char *argv[])
 	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yY";
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, long_idx;
+	int i, c, n_threads = 3, n_parts, long_idx;
 	char *fnw = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
@@ -181,6 +182,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==31) opt.sc_ambi = atoi(optarg); // --score-N
 		else if (c == 0 && long_idx ==32) opt.flag |= MM_F_EQX; // --eqx
 		else if (c == 0 && long_idx ==33) opt.flag |= MM_F_PAF_NO_HIT; // --paf-no-hit
+		else if (c == 0 && long_idx ==34) opt.split_prefix = optarg; // --split-prefix
 		else if (c == 0 && long_idx == 14) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary
@@ -327,8 +329,8 @@ int main(int argc, char *argv[])
 				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 			} else {
 				mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
-				if (mm_verbose >= 2)
-					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted.\033[0m\n");
+				if (opt.split_prefix == 0 && mm_verbose >= 2)
+					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted. Please use --split-prefix.\033[0m\n");
 			}
 		}
 		if (mm_verbose >= 3)
@@ -344,7 +346,11 @@ int main(int argc, char *argv[])
 		}
 		mm_idx_destroy(mi);
 	}
+	n_parts = idx_rdr->n_parts;
 	mm_idx_reader_close(idx_rdr);
+
+	if (opt.split_prefix)
+		mm_split_merge(argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_parts);
 
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");

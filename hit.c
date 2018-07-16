@@ -164,9 +164,9 @@ set_parent_test:
 	kfree(km, w);
 }
 
-void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r)
+void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r)
 {
-	int32_t i, n_aux, n = *n_regs;
+	int32_t i, n_aux, n = *n_regs, has_cigar = 0, no_cigar = 0;
 	mm128_t *aux;
 	mm_reg1_t *t;
 
@@ -175,14 +175,20 @@ void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r)
 	t = (mm_reg1_t*)kmalloc(km, n * sizeof(mm_reg1_t));
 	for (i = n_aux = 0; i < n; ++i) {
 		if (r[i].inv || r[i].cnt > 0) { // squeeze out elements with cnt==0 (soft deleted)
-			assert(r[i].p);
-			aux[n_aux].x = (uint64_t)r[i].p->dp_max << 32 | r[i].hash;
+			if (r[i].p) {
+				aux[n_aux].x = (uint64_t)r[i].p->dp_max << 32 | r[i].hash;
+				has_cigar = 1;
+			} else {
+				aux[n_aux].x = (uint64_t)r[i].score << 32 | r[i].hash;
+				no_cigar = 1;
+			}
 			aux[n_aux++].y = i;
 		} else if (r[i].p) {
 			free(r[i].p);
 			r[i].p = 0;
 		}
 	}
+	assert(has_cigar + no_cigar == 1);
 	radix_sort_128x(aux, aux + n_aux);
 	for (i = n_aux - 1; i >= 0; --i)
 		t[n_aux - 1 - i] = r[aux[i].y];

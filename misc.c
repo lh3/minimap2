@@ -131,6 +131,26 @@ void mm_err_puts(const char *str)
 	}
 }
 
+void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp)
+{
+	int ret;
+	ret = fwrite(p, size, nitems, fp);
+	if (ret == EOF) {
+		fprintf(stderr, "[ERROR] failed to write data\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
+void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp)
+{
+	int ret;
+	ret = fread(p, size, nitems, fp);
+	if (ret == EOF) {
+		fprintf(stderr, "[ERROR] failed to read data\n");
+		exit(EXIT_FAILURE);
+	}
+}
+
 #include "ksort.h"
 
 #define sort_key_128x(a) ((a).x)

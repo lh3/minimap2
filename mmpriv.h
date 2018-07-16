@@ -28,6 +28,9 @@
 #define mm_seq4_set(s, i, c) ((s)[(i)>>3] |= (uint32_t)(c) << (((i)&7)<<2))
 #define mm_seq4_get(s, i)    ((s)[(i)>>3] >> (((i)&7)<<2) & 0xf)
 
+#define MALLOC(type, len) ((type*)malloc((len) * sizeof(type)))
+#define CALLOC(type, len) ((type*)calloc((len), sizeof(type)))
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -77,7 +80,7 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int max_gap_ref, int min_diff, int best_n, int n_segs, const int *qlens, int *n_, mm_reg1_t *r);
 void mm_filter_regs(const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs);
 void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs, mm128_t *a);
-void mm_hit_sort_by_dp(void *km, int *n_regs, mm_reg1_t *r);
+void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r);
 void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr);
 
 void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, const uint64_t *mini_pos);
@@ -86,7 +89,14 @@ mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int 
 void mm_seg_free(void *km, int n_segs, mm_seg_t *segs);
 void mm_pair(void *km, int max_gap_ref, int dp_bonus, int sub_diff, int match_sc, const int *qlens, int *n_regs, mm_reg1_t **regs);
 
+FILE *mm_split_init(const char *prefix, const mm_idx_t *mi);
+mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part);
+int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx);
+void mm_split_rm_tmp(const char *prefix, int n_splits);
+
 void mm_err_puts(const char *str);
+void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp);
+void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp);
 
 #ifdef __cplusplus
 }

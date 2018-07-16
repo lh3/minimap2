@@ -199,12 +199,12 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 	mm_extra_t *p;
 	if (n_cigar == 0) return;
 	if (r->p == 0) {
-		uint32_t capacity = n_cigar + sizeof(mm_extra_t); // TODO: should this be "n_cigar + sizeof(mm_extra_t)/4" instead?
+		uint32_t capacity = n_cigar + sizeof(mm_extra_t)/4;
 		kroundup32(capacity);
 		r->p = (mm_extra_t*)calloc(capacity, 4);
 		r->p->capacity = capacity;
-	} else if (r->p->n_cigar + n_cigar + sizeof(mm_extra_t) > r->p->capacity) {
-		r->p->capacity = r->p->n_cigar + n_cigar + sizeof(mm_extra_t);
+	} else if (r->p->n_cigar + n_cigar + sizeof(mm_extra_t)/4 > r->p->capacity) {
+		r->p->capacity = r->p->n_cigar + n_cigar + sizeof(mm_extra_t)/4;
 		kroundup32(r->p->capacity);
 		r->p = (mm_extra_t*)realloc(r->p, r->p->capacity * 4);
 	}
@@ -878,6 +878,6 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	kfree(km, qseq0[0]);
 	kfree(km, ez.cigar);
 	mm_filter_regs(opt, qlen, n_regs_, regs);
-	mm_hit_sort_by_dp(km, n_regs_, regs);
+	mm_hit_sort(km, n_regs_, regs);
 	return regs;
 }

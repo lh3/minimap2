@@ -60,6 +60,7 @@ typedef struct {
 typedef struct {
 	int32_t b, w, k, flag;
 	uint32_t n_seq;            // number of reference sequences
+	int32_t index;
 	mm_idx_seq_t *seq;         // sequence name, length and offset
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
@@ -136,6 +137,8 @@ typedef struct {
 	int32_t mid_occ;     // ignore seeds with occurrences above this threshold
 	int32_t max_occ;
 	int mini_batch_size; // size of a batch of query bases to process in parallel
+
+	const char *split_prefix;
 } mm_mapopt_t;
 
 // index reader
