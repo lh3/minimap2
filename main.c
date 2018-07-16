@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.11-r814-dirty"
+#define MM_VERSION "2.11-r815-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 			} else {
 				mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
 				if (opt.split_prefix == 0 && mm_verbose >= 2)
-					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted.\033[0m\n");
+					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted. Please use --split-prefix.\033[0m\n");
 			}
 		}
 		if (mm_verbose >= 3)

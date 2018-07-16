@@ -48,10 +48,12 @@ void mm_idx_destroy(mm_idx_t *mi)
 	uint32_t i;
 	if (mi == 0) return;
 	if (mi->h) kh_destroy(str, (khash_t(str)*)mi->h);
-	for (i = 0; i < 1U<<mi->b; ++i) {
-		free(mi->B[i].p);
-		free(mi->B[i].a.a);
-		kh_destroy(idx, (idxhash_t*)mi->B[i].h);
+	if (mi->B) {
+		for (i = 0; i < 1U<<mi->b; ++i) {
+			free(mi->B[i].p);
+			free(mi->B[i].a.a);
+			kh_destroy(idx, (idxhash_t*)mi->B[i].h);
+		}
 	}
 	if (!mi->km) {
 		for (i = 0; i < mi->n_seq; ++i)

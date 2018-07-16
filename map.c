@@ -659,6 +659,7 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 {
 	int i;
 	pipeline_t pl;
+	mm_idx_t *mi;
 	if (n_segs < 1 || n_split_idx < 1) return -1;
 	memset(&pl, 0, sizeof(pipeline_t));
 	pl.n_fp = n_segs;
@@ -670,7 +671,7 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 	pl.n_parts = n_split_idx;
 	pl.fp_parts  = CALLOC(FILE*, pl.n_parts);
 	pl.rid_shift = CALLOC(uint32_t, pl.n_parts);
-	pl.mi = mm_split_merge_prep(opt->split_prefix, n_split_idx, pl.fp_parts, pl.rid_shift);
+	pl.mi = mi = mm_split_merge_prep(opt->split_prefix, n_split_idx, pl.fp_parts, pl.rid_shift);
 	if (pl.mi == 0) {
 		free(pl.fp_parts);
 		free(pl.rid_shift);
@@ -687,6 +688,7 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 	kt_pipeline(2, worker_pipeline, &pl, 3);
 
 	free(pl.str.s);
+	mm_idx_destroy(mi);
 	free(pl.rid_shift);
 	for (i = 0; i < n_split_idx; ++i)
 		fclose(pl.fp_parts[i]);
