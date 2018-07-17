@@ -512,14 +512,19 @@ mm_idx_t *mm_idx_load(FILE *fp)
 int64_t mm_idx_is_idx(const char *fn)
 {
 	int fd, is_idx = 0;
-	off_t ret, off_end;
+	int64_t ret, off_end;
 	char magic[4];
 
 	if (strcmp(fn, "-") == 0) return 0; // read from pipe; not an index
 	fd = open(fn, O_RDONLY);
 	if (fd < 0) return -1; // error
+#ifdef WIN32
+	if ((off_end = _lseeki64(fd, 0, SEEK_END)) >= 4) {
+		_lseeki64(fd, 0, SEEK_SET);
+#else
 	if ((off_end = lseek(fd, 0, SEEK_END)) >= 4) {
 		lseek(fd, 0, SEEK_SET);
+#endif // WIN32
 		ret = read(fd, magic, 4);
 		if (ret == 4 && strncmp(magic, MM_IDX_MAGIC, 4) == 0)
 			is_idx = 1;
