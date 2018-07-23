@@ -1,4 +1,5 @@
 .TH minimap2 1 "20 June 2018" "minimap2-2.11 (r797)" "Bioinformatics tools"
+.TH minimap2 1 "20 June 2018" "minimap2-2.11 (r797)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -97,7 +98,9 @@ minimap2 needs to read
 multiple times to map it against each batch of target sequences.
 .I NUM
 may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
-multi-part index.
+multi-part index. See option
+.B --multi-prefix
+that attempts to recover the mapping quality.
 .TP
 .B --idx-no-seq
 Don't store target sequences in the index. It saves disk space and memory but
@@ -436,6 +439,13 @@ memory.
 .TP
 .BR --secondary = yes | no
 Whether to output secondary alignments [yes]
+.TP
+.BI --multi-prefix \ STR
+Enables the merging of the final output when using a multi-part index (generated using
+.BR -I
+). Merging operation attempts to generate an output which is very similar to that of a uni-part index. Mapping quality, flags, headers and the number of secondary mappings are the quantities that are recovered.
+.I NUM
+STR is the prefix name of the temporary files which the intermediate values are written.
 .TP
 .B --version
 Print version number to stdout

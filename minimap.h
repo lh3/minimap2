@@ -63,6 +63,7 @@ typedef struct {
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
 	void *km, *h;
+	int32_t idx_id; //index id 
 } mm_idx_t;
 
 // minimap2 alignment
@@ -135,6 +136,9 @@ typedef struct {
 	int32_t mid_occ;     // ignore seeds with occurrences above this threshold
 	int32_t max_occ;
 	int mini_batch_size; // size of a batch of query bases to process in parallel
+
+	char *multi_prefix;
+
 } mm_mapopt_t;
 
 // index reader
@@ -317,7 +321,7 @@ void mm_tbuf_destroy(mm_tbuf_t *b);
  */
 mm_reg1_t *mm_map(const mm_idx_t *mi, int l_seq, const char *seq, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *name);
 
-void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname);
+int mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname);
 
 /**
  * Align a fasta/fastq file and print alignments to stdout

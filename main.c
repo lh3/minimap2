@@ -4,6 +4,7 @@
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
+#include "merge.h"
 #ifdef HAVE_GETOPT
 #include <getopt.h>
 #else
@@ -60,6 +61,7 @@ static struct option long_options[] = {
 	{ "lj-min-ratio",   required_argument, 0, 0 },   // 30
 	{ "score-N",        required_argument, 0, 0 },   // 31
 	{ "eqx",            no_argument,       0, 0 },   // 32
+	{ "multi-prefix",   required_argument, 0, 0 },	 // 33	
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -105,6 +107,7 @@ int main(int argc, char *argv[])
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
+	int32_t idx_id=0;
 
 	mm_verbose = 3;
 	liftrlimit();
@@ -232,7 +235,11 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(optarg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
+		} else if (c==0 && long_idx == 33) { //multi-part
+			fprintf(stderr, "[WARNING]\033[1;31m option --multi-prefix is experimental. Currently works only with uni-segment reads.\033[0m\n");
+			opt.multi_prefix=optarg;
 		}
+
 	}
 	if ((opt.flag & MM_F_SPLICE) && (opt.flag & MM_F_FRAG_MODE)) {
 		fprintf(stderr, "[ERROR]\033[1;31m --splice and --frag should not be specified at the same time.\033[0m\n");
@@ -313,6 +320,10 @@ int main(int argc, char *argv[])
 	}
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
 		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
+	if ((opt.multi_prefix!=NULL) && (argc - (optind + 1) > 1)) {
+		fprintf(stderr,"[ERROR]\033[1;31m --multi-prefix is not yet implemented for multi-segment reads\033[0m\n");
+		return 1;
+    }
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
 		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
 			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
@@ -320,7 +331,7 @@ int main(int argc, char *argv[])
 			mm_idx_reader_close(idx_rdr);
 			return 1;
 		}
-		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
+		if ((opt.flag & MM_F_OUT_SAM) && (idx_rdr->n_parts == 1) && (opt.multi_prefix==NULL)) {
 			if (mm_idx_reader_eof(idx_rdr)) {
 				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 			} else {
@@ -334,6 +345,7 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != optind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
+		mi->idx_id=idx_id;
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = optind + 1; i < argc; ++i)
 				mm_map_file(mi, argv[i], &opt, n_threads);
@@ -341,9 +353,11 @@ int main(int argc, char *argv[])
 			mm_map_file_frag(mi, argc - (optind + 1), (const char**)&argv[optind + 1], &opt, n_threads);
 		}
 		mm_idx_destroy(mi);
+		idx_id++;
 	}
 	mm_idx_reader_close(idx_rdr);
 
+	if(opt.multi_prefix!=NULL) merge(&opt,&ipt,idx_id,(const char**)&argv[optind + 1], argc, argv, rg);
 	if (fflush(stdout) == EOF) {
 		fprintf(stderr, "[ERROR] failed to write the results\n");
 		exit(EXIT_FAILURE);
