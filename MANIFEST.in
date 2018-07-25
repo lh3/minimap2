@@ -4,6 +4,7 @@ include ksw2_dispatch.c
 include getopt.c
 include main.c
 include README.md
+include sse2neon/emmintrin.h
 include python/mappy.c
 include python/cmappy.h
 include python/cmappy.pxd
