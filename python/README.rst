@@ -43,7 +43,7 @@ The following Python script demonstrates the key functionality of mappy:
 APIs
 ----
 
-Mappy implements two classes and one global function.
+Mappy implements two classes and two global function.
 
 Class mappy.Aligner
 ~~~~~~~~~~~~~~~~~~~
@@ -83,13 +83,15 @@ This constructor accepts the following arguments:
 
 .. code:: python
 
-	mappy.Aligner.map(seq, seq2=None)
+	mappy.Aligner.map(seq, seq2=None, cs=False, MD=False)
 
 This method aligns :code:`seq` against the index. It is a generator, *yielding*
 a series of :code:`mappy.Alignment` objects. If :code:`seq2` is present, mappy
 performs paired-end alignment, assuming the two ends are in the FR orientation.
 Alignments of the two ends can be distinguished by the :code:`read_num` field
-(see Class mappy.Alignment below).
+(see Class mappy.Alignment below). Argument :code:`cs` asks mappy to generate
+the :code:`cs` tag; :code:`MD` is similar. These two arguments might slightly
+degrade performance and are not enabled by default.
 
 .. code:: python
 
@@ -138,6 +140,11 @@ properties:
 
 * **cigar**: CIGAR returned as an array of shape :code:`(n_cigar,2)`. The two
   numbers give the length and the operator of each CIGAR operation.
+
+* **MD**: the :code:`MD` tag as in the SAM format. It is an empty string unless
+  the :code:`MD` argument is applied when calling :code:`mappy.Aligner.map()`.
+
+* **cs**: the :code:`cs` tag.
 
 An :code:`Alignment` object can be converted to a string with :code:`str()` in
 the following format:

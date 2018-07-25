@@ -4,7 +4,7 @@ import sys, getopt
 import mappy as mp
 
 def main(argv):
-	opts, args = getopt.getopt(argv[1:], "x:n:m:k:w:r:")
+	opts, args = getopt.getopt(argv[1:], "x:n:m:k:w:r:c")
 	if len(args) < 2:
 		print("Usage: minimap2.py [options] <ref.fa>|<ref.mmi> <query.fq>")
 		print("Options:")
@@ -14,9 +14,10 @@ def main(argv):
 		print("  -k INT      k-mer length")
 		print("  -w INT      minimizer window length")
 		print("  -r INT      band width")
+		print("  -c          output the cs tag")
 		sys.exit(1)
 
-	preset, min_cnt, min_sc, k, w, bw = None, None, None, None, None, None
+	preset, min_cnt, min_sc, k, w, bw, out_cs = None, None, None, None, None, None, False
 	for opt, arg in opts:
 		if opt == '-x': preset = arg
 		elif opt == '-n': min_cnt = int(arg)
@@ -24,11 +25,12 @@ def main(argv):
 		elif opt == '-r': bw = int(arg)
 		elif opt == '-k': k = int(arg)
 		elif opt == '-w': w = int(arg)
+		elif opt == '-c': out_cs = True
 
 	a = mp.Aligner(args[0], preset=preset, min_cnt=min_cnt, min_chain_score=min_sc, k=k, w=w, bw=bw)
 	if not a: raise Exception("ERROR: failed to load/build index file '{}'".format(args[0]))
 	for name, seq, qual in mp.fastx_read(args[1]): # read one sequence
-		for h in a.map(seq): # traverse hits
+		for h in a.map(seq, cs=out_cs): # traverse hits
 			print('{}\t{}\t{}'.format(name, len(seq), h))
 
 if __name__ == "__main__":

@@ -126,8 +126,8 @@ static char *mappy_fetch_seq(const mm_idx_t *mi, const char *name, int st, int e
 	*len = 0;
 	rid = mm_idx_name2id(mi, name);
 	if (rid < 0) return 0;
-	if (st >= mi->seq[rid].len || st >= en) return 0;
-	if (en < 0 || en > mi->seq[rid].len)
+	if ((uint32_t)st >= mi->seq[rid].len || st >= en) return 0;
+	if (en < 0 || (uint32_t)en > mi->seq[rid].len)
 		en = mi->seq[rid].len;
 	s = (char*)malloc(en - st + 1);
 	*len = mm_idx_getseq(mi, rid, st, en, (uint8_t*)s);

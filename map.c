@@ -29,6 +29,11 @@ void mm_tbuf_destroy(mm_tbuf_t *b)
 	free(b);
 }
 
+void *mm_tbuf_get_km(mm_tbuf_t *b)
+{
+	return b->km;
+}
+
 static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *seq, int sdust_thres)
 {
 	int n_dreg, j, k, u = 0;
@@ -682,7 +687,7 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 	for (pl.rid_shift[0] = 0, i = 1; i < n_split_idx; ++i)
 		pl.rid_shift[i] += pl.rid_shift[i - 1];
 	if (opt->flag & MM_F_OUT_SAM)
-		for (i = 0; i < pl.mi->n_seq; ++i)
+		for (i = 0; i < (int32_t)pl.mi->n_seq; ++i)
 			printf("@SQ\tSN:%s\tLN:%d\n", pl.mi->seq[i].name, pl.mi->seq[i].len);
 
 	kt_pipeline(2, worker_pipeline, &pl, 3);

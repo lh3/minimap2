@@ -132,6 +132,11 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 
 int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 {
+	if (mo->split_prefix && (mo->flag & (MM_F_OUT_CS|MM_F_OUT_MD))) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m --cs or --MD doesn't work with --split-prefix\033[0m\n");
+		return -6;
+	}
 	if (io->k <= 0 || io->w <= 0) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m -k and -w must be positive\033[0m\n");

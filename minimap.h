@@ -301,6 +301,8 @@ mm_tbuf_t *mm_tbuf_init(void);
  */
 void mm_tbuf_destroy(mm_tbuf_t *b);
 
+void *mm_tbuf_get_km(mm_tbuf_t *b);
+
 /**
  * Align a query sequence against an index
  *
@@ -336,6 +338,22 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int n_threads);
 
 int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads);
+
+/**
+ * Generate the cs tag (new in 2.12)
+ *
+ * @param km         memory blocks; set to NULL if unsure
+ * @param buf        buffer to write the cs/MD tag; typicall NULL on the first call
+ * @param max_len    max length of the buffer; typically set to 0 on the first call
+ * @param mi         index
+ * @param r          alignment
+ * @param seq        query sequence
+ * @param no_iden    true to use : instead of =
+ *
+ * @return the length of cs
+ */
+int mm_gen_cs(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int no_iden);
+int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq);
 
 // query sequence name and sequence in the minimap2 index
 int mm_idx_index_name(mm_idx_t *mi);

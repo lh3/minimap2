@@ -35,7 +35,7 @@ setup(
     ext_modules = [Extension('mappy',
 		sources = [module_src, 'align.c', 'bseq.c', 'chain.c', 'format.c', 'hit.c', 'index.c', 'pe.c', 'options.c',
 				   'ksw2_extd2_sse.c', 'ksw2_exts2_sse.c', 'ksw2_extz2_sse.c', 'ksw2_ll_sse.c',
-				   'kalloc.c', 'kthread.c', 'map.c', 'misc.c', 'sdust.c', 'sketch.c', 'esterr.c'],
+				   'kalloc.c', 'kthread.c', 'map.c', 'misc.c', 'sdust.c', 'sketch.c', 'esterr.c', 'splitidx.c'],
 		depends = ['minimap.h', 'bseq.h', 'kalloc.h', 'kdq.h', 'khash.h', 'kseq.h', 'ksort.h',
 				   'ksw2.h', 'kthread.h', 'kvec.h', 'mmpriv.h', 'sdust.h',
 				   'python/cmappy.h', 'python/cmappy.pxd'],

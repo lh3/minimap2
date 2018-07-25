@@ -40,6 +40,7 @@ cdef extern from "minimap.h":
 		int32_t mid_occ
 		int32_t max_occ
 		int mini_batch_size
+		const char *split_prefix
 
 	int mm_set_opt(char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	int mm_verbose
@@ -86,6 +87,9 @@ cdef extern from "minimap.h":
 
 	mm_tbuf_t *mm_tbuf_init()
 	void mm_tbuf_destroy(mm_tbuf_t *b)
+	void *mm_tbuf_get_km(mm_tbuf_t *b)
+	int mm_gen_cs(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int no_iden)
+	int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq)
 
 #
 # Helper header (because it is hard to expose mm_reg1_t with Cython)

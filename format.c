@@ -133,10 +133,10 @@ void mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int 
 	free(str.s);
 }
 
-static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int no_iden)
+static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int no_iden, int write_tag)
 {
 	int i, q_off, t_off;
-	mm_sprintf_lite(s, "\tcs:Z:");
+	if (write_tag) mm_sprintf_lite(s, "\tcs:Z:");
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert(op >= 0 && op <= 3);
@@ -181,10 +181,10 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
 }
 
-static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp)
+static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int write_tag)
 {
 	int i, q_off, t_off, l_MD = 0;
-	mm_sprintf_lite(s, "\tMD:Z:");
+	if (write_tag) mm_sprintf_lite(s, "\tMD:Z:");
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert(op >= 0 && op <= 2); // introns (aka reference skips) are not supported
@@ -210,7 +210,7 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
 }
 
-static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD)
+static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD, int write_tag)
 {
 	extern unsigned char seq_nt4_table[256];
 	int i;
@@ -230,9 +230,32 @@ static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_
 			qseq[r->qe - i - 1] = c >= 4? 4 : 3 - c;
 		}
 	}
-	if (is_MD) write_MD_core(s, tseq, qseq, r, tmp);
-	else write_cs_core(s, tseq, qseq, r, tmp, no_iden);
+	if (is_MD) write_MD_core(s, tseq, qseq, r, tmp, write_tag);
+	else write_cs_core(s, tseq, qseq, r, tmp, no_iden, write_tag);
 	kfree(km, qseq); kfree(km, tseq); kfree(km, tmp);
+}
+
+int mm_gen_cs_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int is_MD, int no_iden)
+{
+	mm_bseq1_t t;
+	kstring_t str;
+	str.s = *buf, str.l = 0, str.m = *max_len;
+	t.l_seq = strlen(seq);
+	t.seq = (char*)seq;
+	write_cs_or_MD(km, &str, mi, &t, r, no_iden, is_MD, 0);
+	*max_len = str.m;
+	*buf = str.s;
+	return str.l;
+}
+
+int mm_gen_cs(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int no_iden)
+{
+	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 0, no_iden);
+}
+
+int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq)
+{
+	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 1, 0);
 }
 
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
@@ -277,7 +300,7 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDNSHP=XB"[r->p->cigar[k]&0xf]);
 	}
 	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
-		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD);
+		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1);
 	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
 		mm_sprintf_lite(s, "\t%s", t->comment);
 }
@@ -476,7 +499,7 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 			}
 		}
 		if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
-			write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD);
+			write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1);
 		if (cigar_in_tag)
 			write_sam_cigar(s, flag, 1, t->l_seq, r, opt_flag);
 	}
