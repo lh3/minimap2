@@ -601,6 +601,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				free(s->reg[i]);
 				free(s->seq[i].seq); free(s->seq[i].name);
 				if (s->seq[i].qual) free(s->seq[i].qual);
+				if (s->seq[i].comment) free(s->seq[i].comment);
 			}
 		}
 		free(s->reg); free(s->n_reg); free(s->seq); // seg_off, n_seg, rep_len and frag_gap were allocated with reg; no memory leak here
