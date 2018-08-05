@@ -563,11 +563,12 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		re = (int32_t)a[as1+cnt1-1].x + 1;
 		qe = (int32_t)a[as1+cnt1-1].y + 1;
 	} else {
-		if (is_splice) {
-			mm_fix_bad_ends_splice(km, opt, mi, r, mat, qlen, qseq0, a, &as1, &cnt1);
-		} else {
-			mm_fix_bad_ends(r, a, opt->bw, opt->min_chain_score * 2, &as1, &cnt1);
-		}
+		if (!(opt->flag & MM_F_NO_END_FLT)) {
+			if (is_splice)
+				mm_fix_bad_ends_splice(km, opt, mi, r, mat, qlen, qseq0, a, &as1, &cnt1);
+			else
+				mm_fix_bad_ends(r, a, opt->bw, opt->min_chain_score * 2, &as1, &cnt1);
+		} else as1 = r->as, cnt1 = r->cnt;
 		mm_filter_bad_seeds(km, as1, cnt1, a, 10, 40, opt->max_gap>>1, 10);
 		mm_filter_bad_seeds_alt(km, as1, cnt1, a, 30, opt->max_gap>>1);
 		mm_adjust_minier(mi, qseq0, &a[as1], &rs, &qs);

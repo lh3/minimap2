@@ -10,7 +10,7 @@
 #include "getopt.h"
 #endif
 
-#define MM_VERSION "2.11-r821-dirty"
+#define MM_VERSION "2.11-r822-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -62,6 +62,7 @@ static struct option long_options[] = {
 	{ "eqx",            no_argument,       0, 0 },   // 32
 	{ "paf-no-hit",     no_argument,       0, 0 },   // 33
 	{ "split-prefix",   required_argument, 0, 0 },   // 34
+	{ "no-end-flt",     no_argument,       0, 0 },   // 35
 	{ "help",           no_argument,       0, 'h' },
 	{ "max-intron-len", required_argument, 0, 'G' },
 	{ "version",        no_argument,       0, 'V' },
@@ -183,6 +184,7 @@ int main(int argc, char *argv[])
 		else if (c == 0 && long_idx ==32) opt.flag |= MM_F_EQX; // --eqx
 		else if (c == 0 && long_idx ==33) opt.flag |= MM_F_PAF_NO_HIT; // --paf-no-hit
 		else if (c == 0 && long_idx ==34) opt.split_prefix = optarg; // --split-prefix
+		else if (c == 0 && long_idx ==35) opt.flag |= MM_F_NO_END_FLT; // --no-end-flt
 		else if (c == 0 && long_idx == 14) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, long_idx, optarg, 1);
 		} else if (c == 0 && long_idx == 15) { // --secondary
