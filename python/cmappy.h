@@ -137,4 +137,16 @@ static char *mappy_fetch_seq(const mm_idx_t *mi, const char *name, int st, int e
 	return s;
 }
 
+static mm_idx_t *mappy_idx_seq(int w, int k, int is_hpc, int bucket_bits, const char *seq, int len)
+{
+	const char *fake_name = "N/A";
+	char *s;
+	mm_idx_t *mi;
+	s = (char*)calloc(len + 1, 1);
+	memcpy(s, seq, len);
+	mi = mm_idx_str(w, k, is_hpc, bucket_bits, 1, (const char**)&s, (const char**)&fake_name);
+	free(s);
+	return mi;
+}
+
 #endif

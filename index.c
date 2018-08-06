@@ -372,7 +372,9 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 	uint64_t sum_len = 0;
 	mm128_v a = {0,0,0};
 	mm_idx_t *mi;
+	khash_t(str) *h;
 	int i, flag = 0;
+
 	if (n <= 0) return 0;
 	for (i = 0; i < n; ++i) // get the total length
 		sum_len += strlen(seq[i]);
@@ -383,13 +385,17 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 	mi->n_seq = n;
 	mi->seq = (mm_idx_seq_t*)kcalloc(mi->km, n, sizeof(mm_idx_seq_t)); // ->seq is allocated from km
 	mi->S = (uint32_t*)calloc((sum_len + 7) / 8, 4);
+	mi->h = h = kh_init(str);
 	for (i = 0, sum_len = 0; i < n; ++i) {
 		const char *s = seq[i];
 		mm_idx_seq_t *p = &mi->seq[i];
 		uint32_t j;
 		if (name && name[i]) {
+			int absent;
 			p->name = (char*)kmalloc(mi->km, strlen(name[i]) + 1);
 			strcpy(p->name, name[i]);
+			kh_put(str, h, p->name, &absent);
+			assert(absent);
 		}
 		p->offset = sum_len;
 		p->len = strlen(s);

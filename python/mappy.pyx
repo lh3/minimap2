@@ -112,7 +112,7 @@ cdef class Aligner:
 	cdef cmappy.mm_idxopt_t idx_opt
 	cdef cmappy.mm_mapopt_t map_opt
 
-	def __cinit__(self, fn_idx_in, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None):
+	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None):
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
 			cmappy.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
@@ -126,17 +126,24 @@ cdef class Aligner:
 		if bw is not None: self.map_opt.bw = bw
 		if best_n is not None: self.map_opt.best_n = best_n
 		if max_frag_len is not None: self.map_opt.max_frag_len = max_frag_len
+		if extra_flags is not None: self.map_opt.flag |= extra_flags
 
 		cdef cmappy.mm_idx_reader_t *r;
-		if fn_idx_out is None:
-			r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
+
+		if seq is None:
+			if fn_idx_out is None:
+				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
+			else:
+				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, fn_idx_out)
+			if r is not NULL:
+				self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
+				cmappy.mm_idx_reader_close(r)
+				cmappy.mm_mapopt_update(&self.map_opt, self._idx)
+				cmappy.mm_idx_index_name(self._idx)
 		else:
-			r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, fn_idx_out)
-		if r is not NULL:
-			self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
-			cmappy.mm_idx_reader_close(r)
+			self._idx = cmappy.mappy_idx_seq(self.idx_opt.w, self.idx_opt.k, self.idx_opt.flag&1, self.idx_opt.bucket_bits, str.encode(seq), len(seq))
 			cmappy.mm_mapopt_update(&self.map_opt, self._idx)
-			cmappy.mm_idx_index_name(self._idx)
+			self.map_opt.mid_occ = 1000 # don't filter high-occ seeds
 
 	def __dealloc__(self):
 		if self._idx is not NULL:
@@ -145,7 +152,7 @@ cdef class Aligner:
 	def __bool__(self):
 		return (self._idx != NULL)
 
-	def map(self, seq, seq2=None, buf=None, cs=False, MD=False, max_frag_len=None):
+	def map(self, seq, seq2=None, buf=None, cs=False, MD=False, max_frag_len=None, extra_flags=None):
 		cdef cmappy.mm_reg1_t *regs
 		cdef cmappy.mm_hitpy_t h
 		cdef ThreadBuffer b
@@ -157,6 +164,7 @@ cdef class Aligner:
 
 		map_opt = self.map_opt
 		if max_frag_len is not None: map_opt.max_frag_len = max_frag_len
+		if extra_flags is not None: map_opt.flag |= extra_flags
 
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
