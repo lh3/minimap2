@@ -88,6 +88,12 @@ This constructor accepts the following arguments:
 * **fn_idx_out**: name of file to which the index is written. This parameter
   has no effect if **seq** is set.
 
+* **scoring**: scoring system. It is a tuple/list consisting of 4, 6 or 7
+  positive integers. The first 4 elements specify match scoring, mismatch
+  penalty, gap open and gap extension penalty. The 5th and 6th elements, if
+  present, set long-gap open and long-gap extension penalty. The 7th sets a
+  mismatch penalty involving ambiguous bases.
+
 .. code:: python
 
 	mappy.Aligner.map(seq, seq2=None, cs=False, MD=False)
