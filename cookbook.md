@@ -24,18 +24,18 @@
 
 This cookbook walks you through a variety of applications of minimap2 and its
 companion script `paftools.js`. All data here are freely available from the
-minimap2 release page at version tag [v2.11][v2.11]. Some examples only work
-with v2.11 or later.
+minimap2 release page at version tag [v2.12][v2.12]. Some examples only work
+with v2.10 or later.
 
 To acquire the data used in this cookbook and to install minimap2 and paftools,
 please follow the command lines below:
 ```sh
 # install minimap2 executables
-curl -L https://github.com/lh3/minimap2/releases/download/v2.11/minimap2-2.11_x64-linux.tar.bz2 | tar jxf -
-cp minimap2-2.11_x64-linux/{minimap2,k8,paftools.js} .  # copy executables
+curl -L https://github.com/lh3/minimap2/releases/download/v2.12/minimap2-2.12_x64-linux.tar.bz2 | tar jxf -
+cp minimap2-2.12_x64-linux/{minimap2,k8,paftools.js} .  # copy executables
 export PATH="$PATH:"`pwd`                               # put the current directory on PATH
 # download example datasets
-curl -L https://github.com/lh3/minimap2/releases/download/v2.11/cookbook-data.tgz | tar zxf -
+curl -L https://github.com/lh3/minimap2/releases/download/v2.10/cookbook-data.tgz | tar zxf -
 ```
 
 ## <a name="map-reads"></a>Mapping Genomic Reads
@@ -240,4 +240,4 @@ with `-x ava-pb` (99% vs 93% with `-x ava-ont`).
 [pbsim]: https://github.com/pfaucon/PBSIM-PacBio-Simulator
 [mason2]: https://github.com/seqan/seqan/tree/master/apps/mason2
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
-[v2.11]: https://github.com/lh3/minimap2/releases/tag/v2.11
+[v2.12]: https://github.com/lh3/minimap2/releases/tag/v2.12

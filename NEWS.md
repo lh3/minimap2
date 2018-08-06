@@ -1,3 +1,27 @@
+Release 2.12-r827 (6 August 2018)
+---------------------------------
+
+Changes to minimap2:
+
+ * Added option --split-prefix to write proper alignments (correct mapping
+   quality and clustered query sequences) given a multi-part index (#141 and
+   #189; mostly by @hasindu2008).
+
+ * Fixed a memory leak when option -y is in use.
+
+Changes to mappy:
+
+ * Support the MD/cs tag (#183 and #203).
+
+ * Allow mappy to index a single sequence, to add extra flags and to change the
+   scoring system.
+
+Minimap2 should produce alignments identical to v2.11.
+
+(2.12: 6 August 2018, r827)
+
+
+
 Release 2.11-r797 (20 June 2018)
 --------------------------------
 
