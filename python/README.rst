@@ -50,13 +50,17 @@ Class mappy.Aligner
 
 .. code:: python
 
-	mappy.Aligner(fn_idx_in, preset=None, ...)
+	mappy.Aligner(fn_idx_in=None, preset=None, ...)
 
 This constructor accepts the following arguments:
 
 * **fn_idx_in**: index or sequence file name. Minimap2 automatically tests the
   file type. If a sequence file is provided, minimap2 builds an index. The
-  sequence file can be optionally gzip'd.
+  sequence file can be optionally gzip'd. This option has no effect if **seq**
+  is set.
+
+* **seq**: a single sequence to index. The sequence name will be set to
+  :code:`N/A`.
 
 * **preset**: minimap2 preset. Currently, minimap2 supports the following
   presets: **sr** for single-end short reads; **map-pb** for PacBio
@@ -79,7 +83,10 @@ This constructor accepts the following arguments:
 
 * **n_threads**: number of indexing threads; 3 by default
 
-* **fn_idx_out**: name of file to which the index is written
+* **extra_flags**: additional flags defined in minimap.h
+
+* **fn_idx_out**: name of file to which the index is written. This parameter
+  has no effect if **seq** is set.
 
 .. code:: python
 
