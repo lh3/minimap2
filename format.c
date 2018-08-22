@@ -187,7 +187,7 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	if (write_tag) mm_sprintf_lite(s, "\tMD:Z:");
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
-		assert(op >= 0 && op <= 2); // introns (aka reference skips) are not supported
+		assert(op >= 0 && op <= 3);
 		if (op == 0) { // match
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
@@ -203,6 +203,8 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 				tmp[j] = "ACGTN"[tseq[t_off + j]];
 			mm_sprintf_lite(s, "%d^%s", l_MD, tmp);
 			l_MD = 0;
+			t_off += len;
+		} else if (op == 3) { // reference skip
 			t_off += len;
 		}
 	}
