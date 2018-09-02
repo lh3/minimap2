@@ -177,7 +177,7 @@ uint64_t *sdust(void *km, const uint8_t *seq, int l_seq, int T, int W, int *n)
 #ifdef _SDUST_MAIN
 #include <zlib.h>
 #include <stdio.h>
-#include "getopt.h"
+#include "ketopt.h"
 #include "kseq.h"
 KSEQ_INIT(gzFile, gzread)
 
@@ -186,16 +186,17 @@ int main(int argc, char *argv[])
 	gzFile fp;
 	kseq_t *ks;
 	int W = 64, T = 20, c;
+	ketopt_t o = KETOPT_INIT;
 
-	while ((c = getopt(argc, argv, "w:t:")) >= 0) {
-		if (c == 'w') W = atoi(optarg);
-		else if (c == 't') T = atoi(optarg);
+	while ((c = ketopt(&o, argc, argv, 1, "w:t:", 0)) >= 0) {
+		if (c == 'w') W = atoi(o.arg);
+		else if (c == 't') T = atoi(o.arg);
 	}
-	if (optind == argc) {
+	if (o.ind == argc) {
 		fprintf(stderr, "Usage: sdust [-w %d] [-t %d] <in.fa>\n", W, T);
 		return 1;
 	}
-	fp = strcmp(argv[optind], "-")? gzopen(argv[optind], "r") : gzdopen(fileno(stdin), "r");
+	fp = strcmp(argv[o.ind], "-")? gzopen(argv[o.ind], "r") : gzdopen(fileno(stdin), "r");
 	ks = kseq_init(fp);
 	while (kseq_read(ks) >= 0) {
 		uint64_t *r;
