@@ -24,7 +24,7 @@
 
 This cookbook walks you through a variety of applications of minimap2 and its
 companion script `paftools.js`. All data here are freely available from the
-minimap2 release page at version tag [v2.12][v2.12]. Some examples only work
+minimap2 release page at version tag [v2.10][v2.10]. Some examples only work
 with v2.10 or later.
 
 To acquire the data used in this cookbook and to install minimap2 and paftools,
@@ -240,4 +240,4 @@ with `-x ava-pb` (99% vs 93% with `-x ava-ont`).
 [pbsim]: https://github.com/pfaucon/PBSIM-PacBio-Simulator
 [mason2]: https://github.com/seqan/seqan/tree/master/apps/mason2
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
-[v2.12]: https://github.com/lh3/minimap2/releases/tag/v2.12
+[v2.10]: https://github.com/lh3/minimap2/releases/tag/v2.10
