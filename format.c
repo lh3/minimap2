@@ -419,9 +419,11 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 				cigar_in_tag = 1;
 		}
 		if (cigar_in_tag) {
-			if (flag & 0x100) mm_sprintf_lite(s, "0S"); // secondary alignment
-			else if (flag & 0x800) mm_sprintf_lite(s, "%dS", r->re - r->rs); // supplementary alignment
-			else mm_sprintf_lite(s, "%dS", t->l_seq);
+			int slen;
+			if ((flag & 0x900) == 0 || (opt_flag & MM_F_SOFTCLIP)) slen = t->l_seq;
+			else if (flag & 0x100) slen = 0;
+			else slen = r->qe - r->qs;
+			mm_sprintf_lite(s, "%dS%dN", slen, r->re - r->rs);
 		} else write_sam_cigar(s, flag, 0, t->l_seq, r, opt_flag);
 	}
 
