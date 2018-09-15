@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-import sys, getopt
+import sys
+import getopt
 import mappy as mp
 
 def main(argv):
@@ -17,7 +18,8 @@ def main(argv):
 		print("  -c          output the cs tag")
 		sys.exit(1)
 
-	preset, min_cnt, min_sc, k, w, bw, out_cs = None, None, None, None, None, None, False
+	preset = min_cnt = min_sc = k = w = bw = None
+	out_cs = False
 	for opt, arg in opts:
 		if opt == '-x': preset = arg
 		elif opt == '-n': min_cnt = int(arg)
