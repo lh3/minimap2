@@ -60,7 +60,7 @@ void mm_idx_destroy(mm_idx_t *mi)
 			free(mi->seq[i].name);
 		free(mi->seq);
 	} else km_destroy(mi->km);
-	free(mi->B); free(mi->S); free(mi);
+	free(mi->R); free(mi->B); free(mi->S); free(mi);
 }
 
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
@@ -584,4 +584,86 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases, mm_bseq_eof() might not work
 {
 	return r->is_idx? (feof(r->fp.idx) || ftell(r->fp.idx) == r->idx_size) : mm_bseq_eof(r->fp.seq);
+}
+
+#include <ctype.h>
+#include <zlib.h>
+#include "ksort.h"
+#include "kseq.h"
+KSTREAM_DECLARE(gzFile, gzread)
+
+#define sort_key_bed(a) ((a).x)
+KRADIX_SORT_INIT(bed, mm_idx_bed_t, sort_key_bed, 8)
+
+mm_idx_bed_t *mm_idx_read_bed_list(const mm_idx_t *mi, const char *fn, uint32_t *n_)
+{
+	gzFile fp;
+	kstream_t *ks;
+	kstring_t str = {0,0,0};
+	uint32_t n = 0, m = 0;
+	mm_idx_bed_t *r = 0;
+
+	fp = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(fileno(stdin), "r");
+	if (fp == 0) return 0;
+	ks = ks_init(fp);
+	while (ks_getuntil(ks, KS_SEP_LINE, &str, 0) >= 0) {
+		mm_idx_bed_t t;
+		char *p, *q;
+		int i, id = -1, st = -1, en = -1;
+		for (p = q = str.s, i = 0;; ++p) {
+			if (*p == 0 || isspace(*p)) {
+				int32_t c = *p;
+				*p = 0;
+				if (i == 0) {
+					id = mm_idx_name2id(mi, q);
+					if (id < 0) break; // unknown name; TODO: throw a warning
+				} else if (i == 1) {
+					st = atoi(q);
+					if (st < 0) break;
+				} else if (i == 2) {
+					en = atoi(q);
+					if (en < 0) break;
+				} else break;
+				if (c == 0) break;
+				++i, q = p + 1;
+			}
+		}
+		if (i == 2) en = st + 1;
+		if (i < 2 || st >= en) continue;
+		if (m == n) EXPAND(r, m);
+		t.x = (uint64_t)id << 32 | st, t.end = en, t.idx = -1;
+		r[n++] = t;
+	}
+	ks_destroy(ks);
+	gzclose(fp);
+	*n_ = n;
+	return r;
+}
+
+int mm_idx_attach_bed(mm_idx_t *mi, uint32_t n, mm_idx_bed_t *r) // TODO: check errors
+{
+	radix_sort_bed(r, r + n);
+	mi->R = r, mi->n_R = n;
+	return 0;
+}
+
+int mm_idx_read_bed(mm_idx_t *mi, const char *fn)
+{
+	mm_idx_bed_t *r;
+	uint32_t n;
+	if (mi->h == 0) mm_idx_index_name(mi);
+	r = mm_idx_read_bed_list(mi, fn, &n);
+	return mm_idx_attach_bed(mi, n, r);
+}
+
+int mm_idx_bed_query(const mm_idx_t *mi, uint64_t x)
+{
+	int32_t left = -1, right = mi->n_R;
+	while (right - left > 1) {
+		int32_t mid = left + ((right - left) >> 1);
+		if (mi->R[mid].x > x) right = mid;
+		else if (mi->R[mid].x < x) left = mid;
+		else return mid;
+	}
+	return left;
 }

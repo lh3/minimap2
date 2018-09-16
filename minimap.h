@@ -59,12 +59,19 @@ typedef struct {
 } mm_idx_seq_t;
 
 typedef struct {
+	uint64_t x;
+	int32_t end, idx;
+} mm_idx_bed_t;
+
+typedef struct {
 	int32_t b, w, k, flag;
 	uint32_t n_seq;            // number of reference sequences
 	int32_t index;
+	uint32_t n_R;
 	mm_idx_seq_t *seq;         // sequence name, length and offset
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
+	mm_idx_bed_t *R;
 	void *km, *h;
 } mm_idx_t;
 
@@ -364,6 +371,9 @@ int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, ui
 // deprecated APIs for backward compatibility
 void mm_mapopt_init(mm_mapopt_t *opt);
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads);
+
+int mm_idx_read_bed(mm_idx_t *mi, const char *fn);
+int mm_idx_bed_query(const mm_idx_t *mi, uint64_t x);
 
 #ifdef __cplusplus
 }

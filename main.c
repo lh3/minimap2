@@ -59,6 +59,7 @@ static ko_longopt_t long_options[] = {
 	{ "paf-no-hit",     ko_no_argument,       333 },
 	{ "split-prefix",   ko_required_argument, 334 },
 	{ "no-end-flt",     ko_no_argument,       335 },
+	{ "bed",            ko_required_argument, 336 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -101,7 +102,7 @@ int main(int argc, char *argv[])
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, n_parts;
-	char *fnw = 0, *rg = 0, *s;
+	char *fnw = 0, *fn_bed = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
@@ -188,6 +189,7 @@ int main(int argc, char *argv[])
 		else if (c == 333) opt.flag |= MM_F_PAF_NO_HIT; // --paf-no-hit
 		else if (c == 334) opt.split_prefix = o.arg; // --split-prefix
 		else if (c == 335) opt.flag |= MM_F_NO_END_FLT; // --no-end-flt
+		else if (c == 336) fn_bed = o.arg; // --bed-prefer
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary
@@ -342,6 +344,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
+		if (fn_bed) mm_idx_read_bed(mi, fn_bed);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i)
