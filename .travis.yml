@@ -4,6 +4,18 @@ matrix:
       compiler: gcc
       script: make
     - language: c
+      compiler: gcc-8
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - gcc-8
+      env:
+        - CC=gcc-8
+        - AR=gcc-ar-8
+      script: make
+    - language: c
       compiler: clang
       script: make
     - language: python
