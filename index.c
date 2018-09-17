@@ -143,6 +143,7 @@ int mm_idx_getseq2(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, u
 	en1 = mi->seq[rid].offset + en;
 	for (i = st1; i < en1; ++i)
 		seq[i - st1] = mm_seq4_get(mi->S, i);
+	if (b) memset(b, 0, en - st);
 	if (b && mi->R) {
 		uint32_t i, z;
 		memset(b, 0, en - st);

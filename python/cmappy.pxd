@@ -53,6 +53,10 @@ cdef extern from "minimap.h":
 		uint64_t offset
 		uint32_t len
 
+	ctypedef struct mm_idx_bed_t:
+		uint64_t x
+		int32_t end, idx
+
 	ctypedef struct mm_idx_bucket_t:
 		pass
 
@@ -62,6 +66,7 @@ cdef extern from "minimap.h":
 		mm_idx_seq_t *seq
 		uint32_t *S
 		mm_idx_bucket_t *B
+		mm_idx_bed_t *R
 		void *km
 		void *h
 

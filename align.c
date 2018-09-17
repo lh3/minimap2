@@ -88,13 +88,14 @@ static int mm_test_zdrop(void *km, const mm_mapopt_t *opt, const uint8_t *qseq, 
 	return max_zdrop > opt->zdrop? 1 : 0;
 }
 
-static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq, int *qshift, int *tshift)
+static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq, int *qshift, int *tshift, int left_aln)
 {
 	mm_extra_t *p = r->p;
 	int32_t toff = 0, qoff = 0, to_shrink = 0;
 	uint32_t k;
 	*qshift = *tshift = 0;
 	if (p->n_cigar <= 1) return;
+	if (!left_aln) goto end_left_aln;
 	for (k = 0; k < p->n_cigar; ++k) { // indel left alignment
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
 		if (len == 0) to_shrink = 1;
@@ -123,6 +124,7 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 		}
 	}
 	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
+end_left_aln:
 	if (to_shrink) { // squeeze out zero-length operations
 		int32_t l = 0;
 		for (k = 0; k < p->n_cigar; ++k) // squeeze out zero-length operations
@@ -147,13 +149,13 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 	}
 }
 
-static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e)
+static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e, int left_aln)
 {
 	uint32_t k, l;
 	int32_t s = 0, max = 0, qshift, tshift, toff = 0, qoff = 0;
 	mm_extra_t *p = r->p;
 	if (p == 0) return;
-	mm_fix_cigar(r, qseq, tseq, &qshift, &tshift);
+	mm_fix_cigar(r, qseq, tseq, &qshift, &tshift, left_aln);
 	qseq += qshift, tseq += tshift; // qseq and tseq may be shifted due to the removal of leading I/D
 	r->blen = r->mlen = 0;
 	for (k = 0; k < p->n_cigar; ++k) {
@@ -748,8 +750,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	assert(re1 - rs1 <= re0 - rs0);
 	if (r->p) {
+		int left_aln = (opt->flag & MM_F_SPLICE) || mi->n_R == 0? 1 : 0;
 		mm_idx_getseq2(mi, rid, rs1, re1, tseq, ob);
-		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
+		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e, left_aln);
 		if (opt->flag & MM_F_EQX) mm_update_cigar_eqx(r, &qseq0[r->rev][qs1], tseq);
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
@@ -809,7 +812,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	}
 	r_inv->rs = r1->re + t_off;
 	r_inv->re = r_inv->rs + ez->max_t + 1;
-	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e);
+	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e, 0);
 	if (opt->flag & MM_F_EQX) mm_update_cigar_eqx(r_inv, &qseq[q_off], &tseq[t_off]);
 	ret = 1;
 end_align1_inv:
