@@ -290,7 +290,7 @@ static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t
 	r->p = p;
 }
 
-static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *mat, int w, int end_bonus, int zdrop, int flag, ksw_extz_t *ez)
+static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *ob, const int8_t *mat, int w, int end_bonus, int zdrop, int flag, ksw_extz_t *ez)
 {
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
 		int i;
@@ -305,7 +305,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 	else if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, end_bonus, flag, ez);
 	else
-		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
+		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ob, ez);
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
 		int i;
 		fprintf(stderr, "score=%d, cigar=", ez->score);
@@ -547,7 +547,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	int32_t i, l, bw, dropped = 0, extra_flag = 0, rs0, re0, qs0, qe0;
 	int32_t rs, re, qs, qe;
 	int32_t rs1, qs1, re1, qe1;
-	int8_t mat[25];
+	int8_t mat[25], *ob;
 
 	if (is_sr) assert(!(mi->flag & MM_I_HPC)); // HPC won't work with SR because with HPC we can't easily tell if there is a gap
 
@@ -660,13 +660,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	assert(re0 > rs0);
 	tseq = (uint8_t*)kmalloc(km, re0 - rs0);
+	ob = (int8_t*)kmalloc(km, re0 - rs0);
 
 	if (qs > 0 && rs > 0) { // left extension
 		qseq = &qseq0[rev][qs0];
-		mm_idx_getseq(mi, rid, rs0, rs, tseq);
+		mm_idx_getseq2(mi, rid, rs0, rs, tseq, ob);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
-		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, mat, bw, opt->end_bonus, r->split_inv? opt->zdrop_inv : opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
+		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, ob, mat, bw, opt->end_bonus, r->split_inv? opt->zdrop_inv : opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;
@@ -691,7 +692,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
 			// perform alignment
 			qseq = &qseq0[rev][qs];
-			mm_idx_getseq(mi, rid, rs, re, tseq);
+			mm_idx_getseq2(mi, rid, rs, re, tseq, ob);
 			if (is_sr) { // perform ungapped alignment
 				assert(qe - qs == re - rs);
 				ksw_reset_extz(ez);
@@ -701,11 +702,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				}
 				ez->cigar = ksw_push_cigar(km, &ez->n_cigar, &ez->m_cigar, ez->cigar, 0, qe - qs);
 			} else { // perform normal gapped alignment
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, -1, opt->zdrop, extra_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, ob, mat, bw1, -1, opt->zdrop, extra_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
 			}
 			// test Z-drop and inversion Z-drop
 			if ((zdrop_code = mm_test_zdrop(km, opt, qseq, tseq, ez->n_cigar, ez->cigar, mat)) != 0)
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, mat, bw1, -1, zdrop_code == 2? opt->zdrop_inv : opt->zdrop, extra_flag, ez); // second pass: lift approximate
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, ob, mat, bw1, -1, zdrop_code == 2? opt->zdrop_inv : opt->zdrop, extra_flag, ez); // second pass: lift approximate
 			// update CIGAR
 			if (ez->n_cigar > 0)
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
@@ -730,8 +731,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	if (!dropped && qe < qe0 && re < re0) { // right extension
 		qseq = &qseq0[rev][qe];
-		mm_idx_getseq(mi, rid, re, re0, tseq);
-		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, mat, bw, opt->end_bonus, opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
+		mm_idx_getseq2(mi, rid, re, re0, tseq, ob);
+		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, ob, mat, bw, opt->end_bonus, opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;
@@ -747,7 +748,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	assert(re1 - rs1 <= re0 - rs0);
 	if (r->p) {
-		mm_idx_getseq(mi, rid, rs1, re1, tseq);
+		mm_idx_getseq2(mi, rid, rs1, re1, tseq, ob);
 		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e);
 		if (opt->flag & MM_F_EQX) mm_update_cigar_eqx(r, &qseq0[r->rev][qs1], tseq);
 		if (rev && r->p->trans_strand)
@@ -755,6 +756,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	}
 
 	kfree(km, tseq);
+	kfree(km, ob);
 }
 
 static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
@@ -788,7 +790,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	mm_seq_rev(tl, tseq);
 	if (score < opt->min_dp_max) goto end_align1_inv;
 	q_off = ql - (q_off + 1), t_off = tl - (t_off + 1);
-	mm_align_pair(km, opt, ql - q_off, qseq + q_off, tl - t_off, tseq + t_off, mat, (int)(opt->bw * 1.5), -1, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
+	mm_align_pair(km, opt, ql - q_off, qseq + q_off, tl - t_off, tseq + t_off, 0, mat, (int)(opt->bw * 1.5), -1, opt->zdrop, KSW_EZ_EXTZ_ONLY, ez);
 	if (ez->n_cigar == 0) goto end_align1_inv; // should never be here
 	mm_append_cigar(r_inv, ez->n_cigar, ez->cigar);
 	r_inv->p->dp_score = ez->max;

@@ -134,7 +134,7 @@ int mm_idx_name2id(const mm_idx_t *mi, const char *name)
 	return k == kh_end(h)? -1 : kh_val(h, k);
 }
 
-int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq)
+int mm_idx_getseq2(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq, int8_t *b)
 {
 	uint64_t i, st1, en1;
 	if (rid >= mi->n_seq || st >= mi->seq[rid].len) return -1;
@@ -143,8 +143,23 @@ int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, ui
 	en1 = mi->seq[rid].offset + en;
 	for (i = st1; i < en1; ++i)
 		seq[i - st1] = mm_seq4_get(mi->S, i);
+	if (b && mi->R) {
+		uint32_t i, z;
+		memset(b, 0, en - st);
+		z = mm_idx_bed_query(mi, (uint64_t)rid << 32 | st);
+		for (i = z + 1; i < mi->n_R; ++i) {
+			uint32_t j, rr, rs, re;
+			rr = mi->R[i].x >> 32, rs = (uint32_t)mi->R[i].x, re = mi->R[i].end;
+			if (rr != rid || rs >= en) break;
+			assert(rs >= st);
+			for (j = rs; j < re; ++j)
+				b[j - st] = 1;
+		}
+	}
 	return en - st;
 }
+
+int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq) { return mm_idx_getseq2(mi, rid, st, en, seq, 0); }
 
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 {
