@@ -113,7 +113,6 @@ map.o: ksort.h
 misc.o: mmpriv.h minimap.h bseq.h ksort.h
 options.o: mmpriv.h minimap.h bseq.h
 pe.o: mmpriv.h minimap.h bseq.h kvec.h kalloc.h ksort.h
-rl.o: kseq.h
 sdust.o: kalloc.h kdq.h kvec.h ketopt.h sdust.h
 sketch.o: kvec.h kalloc.h mmpriv.h minimap.h bseq.h
 splitidx.o: mmpriv.h minimap.h bseq.h
