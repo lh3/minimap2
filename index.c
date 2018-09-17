@@ -644,8 +644,8 @@ mm_idx_bed_t *mm_idx_bed_read_list(const mm_idx_t *mi, const char *fn, uint32_t 
 				++i, q = p + 1;
 			}
 		}
-		if (i == 2) en = st + 1;
-		if (i < 2 || st >= en) continue;
+		if (en < 0) en = st + 1;
+		if (st < 0 || st >= en) continue;
 		if (m == n) EXPAND(r, m);
 		t.x = (uint64_t)id << 32 | st, t.end = en, t.idx = -1;
 		r[n++] = t;
