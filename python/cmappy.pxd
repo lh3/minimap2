@@ -117,6 +117,14 @@ cdef extern from "cmappy.h":
 	char *mappy_fetch_seq(const mm_idx_t *mi, const char *name, int st, int en, int *l)
 	mm_idx_t *mappy_idx_seq(int w, int k, int is_hpc, int bucket_bits, const char *seq, int l)
 
+	ctypedef struct mm_bedpy_t:
+		int32_t n, m
+		mm_idx_bed_t *r
+
+	mm_bedpy_t *mappy_bed_new()
+	int mappy_bed_add(mm_bedpy_t *bed, mm_idx_t *mi, const char *name, uint32_t st, uint32_t en)
+	void mappy_bed_finalize(mm_bedpy_t *bed, mm_idx_t *mi)
+
 	ctypedef struct kstring_t:
 		unsigned l, m
 		char *s

@@ -112,7 +112,7 @@ cdef class Aligner:
 	cdef cmappy.mm_idxopt_t idx_opt
 	cdef cmappy.mm_mapopt_t map_opt
 
-	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None):
+	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None, bed=None):
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
 			cmappy.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
@@ -137,6 +137,7 @@ cdef class Aligner:
 					self.map_opt.sc_ambi = scoring[6]
 
 		cdef cmappy.mm_idx_reader_t *r;
+		cdef cmappy.mm_bedpy_t *bed_agg;
 
 		if seq is None:
 			if fn_idx_out is None:
@@ -152,6 +153,14 @@ cdef class Aligner:
 			self._idx = cmappy.mappy_idx_seq(self.idx_opt.w, self.idx_opt.k, self.idx_opt.flag&1, self.idx_opt.bucket_bits, str.encode(seq), len(seq))
 			cmappy.mm_mapopt_update(&self.map_opt, self._idx)
 			self.map_opt.mid_occ = 1000 # don't filter high-occ seeds
+
+		if bed is not None:
+			bed_agg = cmappy.mappy_bed_new()
+			for b in bed:
+				if len(b) < 3: en = int(b[1]) + 1
+				else: en = int(b[2])
+				cmappy.mappy_bed_add(bed_agg, self._idx, str.encode(b[0]), int(b[1]), en)
+			cmappy.mappy_bed_finalize(bed_agg, self._idx)
 
 	def __dealloc__(self):
 		if self._idx is not NULL:

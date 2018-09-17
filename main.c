@@ -344,7 +344,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "[M::%s::%.3f*%.2f] loaded/built the index for %d target sequence(s)\n",
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
-		if (fn_bed) mm_idx_read_bed(mi, fn_bed);
+		if (fn_bed) mm_idx_bed_read(mi, fn_bed);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i)

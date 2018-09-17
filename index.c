@@ -611,7 +611,7 @@ KSTREAM_DECLARE(gzFile, gzread)
 #define sort_key_bed(a) ((a).x)
 KRADIX_SORT_INIT(bed, mm_idx_bed_t, sort_key_bed, 8)
 
-mm_idx_bed_t *mm_idx_read_bed_list(const mm_idx_t *mi, const char *fn, uint32_t *n_)
+mm_idx_bed_t *mm_idx_bed_read_list(const mm_idx_t *mi, const char *fn, uint32_t *n_)
 {
 	gzFile fp;
 	kstream_t *ks;
@@ -656,20 +656,20 @@ mm_idx_bed_t *mm_idx_read_bed_list(const mm_idx_t *mi, const char *fn, uint32_t 
 	return r;
 }
 
-int mm_idx_attach_bed(mm_idx_t *mi, uint32_t n, mm_idx_bed_t *r) // TODO: check errors
+int mm_idx_bed_attach(mm_idx_t *mi, uint32_t n, mm_idx_bed_t *r) // TODO: check errors
 {
 	radix_sort_bed(r, r + n);
 	mi->R = r, mi->n_R = n;
 	return 0;
 }
 
-int mm_idx_read_bed(mm_idx_t *mi, const char *fn)
+int mm_idx_bed_read(mm_idx_t *mi, const char *fn)
 {
 	mm_idx_bed_t *r;
 	uint32_t n;
 	if (mi->h == 0) mm_idx_index_name(mi);
-	r = mm_idx_read_bed_list(mi, fn, &n);
-	return mm_idx_attach_bed(mi, n, r);
+	r = mm_idx_bed_read_list(mi, fn, &n);
+	return mm_idx_bed_attach(mi, n, r);
 }
 
 int mm_idx_bed_query(const mm_idx_t *mi, uint64_t x)

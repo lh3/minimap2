@@ -20,6 +20,11 @@ typedef struct {
 	uint32_t *cigar32;
 } mm_hitpy_t;
 
+typedef struct {
+	int32_t n, m;
+	mm_idx_bed_t *r;
+} mm_bedpy_t;
+
 static inline void mm_reg2hitpy(const mm_idx_t *mi, mm_reg1_t *r, mm_hitpy_t *h)
 {
 	h->ctg = mi->seq[r->rid].name;
@@ -147,6 +152,35 @@ static mm_idx_t *mappy_idx_seq(int w, int k, int is_hpc, int bucket_bits, const 
 	mi = mm_idx_str(w, k, is_hpc, bucket_bits, 1, (const char**)&s, (const char**)&fake_name);
 	free(s);
 	return mi;
+}
+
+static mm_bedpy_t *mappy_bed_new(void)
+{
+	return (mm_bedpy_t*)calloc(1, sizeof(mm_bedpy_t));
+}
+
+static int mappy_bed_add(mm_bedpy_t *bed, mm_idx_t *mi, const char *name, uint32_t st, uint32_t en)
+{
+	mm_idx_bed_t *b;
+	int id;
+	if (mi->h == 0) mm_idx_index_name(mi);
+	if (bed->n == bed->m) {
+		bed->m = bed->m? bed->m + (bed->m>>1) : 16;
+		bed->r = (mm_idx_bed_t*)realloc(bed->r, sizeof(mm_idx_bed_t) * bed->m);
+	}
+	id = mm_idx_name2id(mi, name);
+	if (id < 0 || st >= en) return -1;
+	if (en > mi->seq[id].len) en = mi->seq[id].len;
+	b = &bed->r[bed->n++];
+	b->x = (uint64_t)id << 32 | st;
+	b->end = en, b->idx = -1;
+	return 0;
+}
+
+static void mappy_bed_finalize(mm_bedpy_t *bed, mm_idx_t *mi)
+{
+	mm_idx_bed_attach(mi, bed->n, bed->r); // bed->r is now owned by mi and will be deallocated with it
+	free(bed);
 }
 
 #endif
