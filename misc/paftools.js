@@ -341,14 +341,15 @@ function paf_call(args)
 {
 	var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g, re_tag = /\t(\S\S:[AZif]):(\S+)/g;
 	var c, min_cov_len = 10000, min_var_len = 50000, gap_thres = 50, gap_thres_long = 1000, min_mapq = 5;
-	var fa_tmp = null, fa, fa_lens, is_vcf = false;
-	while ((c = getopt(args, "l:L:g:q:B:f:")) != null) {
+	var fa_tmp = null, fa, fa_lens, is_vcf = false, sample_name = "sample";
+	while ((c = getopt(args, "l:L:g:q:B:f:s:")) != null) {
 		if (c == 'l') min_cov_len = parseInt(getopt.arg);
 		else if (c == 'L') min_var_len = parseInt(getopt.arg);
 		else if (c == 'g') gap_thres = parseInt(getopt.arg);
 		else if (c == 'G') gap_thres_long = parseInt(getopt.arg);
 		else if (c == 'q') min_mapq = parseInt(getopt.arg);
 		else if (c == 'f') fa_tmp = fasta_read(getopt.arg, fa_lens);
+		else if (c == 's') sample_name = getopt.arg;
 	}
 	if (fa_tmp != null) fa = fa_tmp[0], fa_lens = fa_tmp[1], is_vcf = true;
 
@@ -360,6 +361,7 @@ function paf_call(args)
 		print("  -q INT    min mapping quality ["+min_mapq+"]");
 		print("  -g INT    short/long gap threshold (for statistics only) ["+gap_thres+"]");
 		print("  -f FILE   reference sequences (enabling VCF output) [null]");
+		print("  -s NAME   sample name in VCF header ["+sample_name+"]");
 		exit(1);
 	}
 
@@ -423,7 +425,7 @@ function paf_call(args)
 		print('##INFO=<ID=QSTART,Number=1,Type=Integer,Description="Query start">');
 		print('##INFO=<ID=QSTRAND,Number=1,Type=String,Description="Query strand">');
 		print('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">');
-		print('#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	sample');
+		print('#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	'+sample_name);
 	}
 
 	var a = [], out = [];
