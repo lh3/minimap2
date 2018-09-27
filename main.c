@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.12-r846-dirty"
+#define MM_VERSION "2.12-r847-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, n_parts;
+	int i, c, n_threads = 3, n_parts, old_best_n = -1;
 	char *fnw = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(o.arg);
 		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(o.arg));
 		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(o.arg);
-		else if (c == 'N') opt.best_n = atoi(o.arg);
+		else if (c == 'N') old_best_n = opt.best_n, opt.best_n = atoi(o.arg);
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'M') opt.mask_level = atof(o.arg);
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
@@ -253,6 +253,10 @@ int main(int argc, char *argv[])
 		ipt.flag |= MM_I_NO_SEQ;
 	if (mm_check_opt(&ipt, &opt) < 0)
 		return 1;
+	if (opt.best_n == 0) {
+		fprintf(stderr, "[WARNING]\033[1;31m changed '-N 0' to '-N %d --secondary=no'.\033[0m\n", old_best_n);
+		opt.best_n = old_best_n, opt.flag |= MM_F_NO_PRINT_2ND;
+	}
 
 	if (argc == o.ind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
