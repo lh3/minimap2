@@ -106,7 +106,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r->split |= 1, r2->split |= 2;
 }
 
-void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff) // and compute mm_reg1_t::subsc
+void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
 	uint64_t *cov;
@@ -118,6 +118,7 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 	for (i = 1, k = 1; i < n; ++i) {
 		mm_reg1_t *ri = &r[i];
 		int si = ri->qs, ei = ri->qe, n_cov = 0, uncov_len = 0;
+		if (hard_mask_level) goto skip_uncov;
 		for (j = 0; j < k; ++j) { // traverse existing primary hits to find overlapping hits
 			mm_reg1_t *rp = &r[w[j]];
 			int sj = rp->qs, ej = rp->qe;
@@ -137,6 +138,7 @@ void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff
 			}
 			if (ei > x) uncov_len += ei - x;
 		}
+skip_uncov:
 		for (j = 0; j < k; ++j) { // traverse existing primary hits again
 			mm_reg1_t *rp = &r[w[j]];
 			int sj = rp->qs, ej = rp->qe, min, max, ol;

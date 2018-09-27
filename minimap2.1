@@ -193,7 +193,7 @@ Primarily used for all-vs-all read overlapping.
 .BI -p \ FLOAT
 Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
 Between two chains overlaping over half of the shorter chain (controlled by
-.BR --mask-level ),
+.BR -M ),
 the chain with a lower score is secondary to the chain with a higher score.
 If the ratio of the scores is below
 .IR FLOAT ,
@@ -225,6 +225,11 @@ Maximum fragment length (aka insert size; effective with
 Mark as secondary a chain that overlaps with a better chain by
 .I FLOAT
 or more of the shorter chain [0.5]
+.TP
+.B --hard-mask-level
+Honor option
+.B -M
+and disable a heurstic to save unmapped subsequences.
 .TP
 .BI --max-chain-skip \ INT
 A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
