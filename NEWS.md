@@ -1,3 +1,26 @@
+Release 2.13-r850 (11 October 2018)
+-----------------------------------
+
+Changes to minimap2:
+
+ * Fixed wrongly formatted SAM when -L is in use (#231 and #233).
+
+ * Fixed an integer overflow in rare cases.
+
+ * Added --hard-mask-level to fine control split alignments (#244).
+
+ * Made --MD work with spliced alignment (#139).
+
+ * Replaced musl's getopt with ketopt for portability.
+
+ * Log peak memory usage on exit.
+
+This release should produce alignments identical to v2.12 and v2.11.
+
+(2.13: 11 October 2018, r850)
+
+
+
 Release 2.12-r827 (6 August 2018)
 ---------------------------------
 
