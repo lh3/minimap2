@@ -260,7 +260,7 @@ Equivalent to
 <B>-p</B><I> FLOAT</I> </TD><TD valign=bottom>
 Minimal secondary-to-primary score ratio to output secondary mappings [0.8].
 Between two chains overlaping over half of the shorter chain (controlled by
-<B>--mask-level</B>), the chain with a lower score is secondary to the chain with a higher score.
+<B>-M</B>), the chain with a lower score is secondary to the chain with a higher score.
 If the ratio of the scores is below
 <I>FLOAT</I>, the secondary chain will not be outputted or extended with DP alignment later.
 This option has no effect when
@@ -289,6 +289,11 @@ Mark as secondary a chain that overlaps with a better chain by
 <I>FLOAT</I> or more of the shorter chain [0.5]
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<B>--hard-mask-level</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Honor option
+<B>-M</B> and disable a heurstic to save unmapped subsequences.
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <B>--max-chain-skip</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
@@ -301,6 +306,11 @@ on chains. Set
 Disable the long gap patching heuristic. When this option is applied, the
 maximum alignment gap is mostly controlled by
 <B>-r</B>. </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--lj-min-ratio</B><I> FLOAT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Fraction of query sequence length required to bridge a long gap [0.5]. A
+smaller value helps to recover longer gaps, at the cost of more false gaps.
+</TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>--splice</B> </TD><TD valign=bottom>
 Enable the splice alignment mode.
@@ -311,6 +321,10 @@ Enable short-read alignment heuristics. In the short-read mode, minimap2
 applies a second round of chaining with a higher minimizer occurrence threshold
 if no good chain is found. In addition, minimap2 attempts to patch gaps between
 seeds with ungapped alignment.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--split-prefix</B><I> STR</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Prefix to create temporary files. Typically used for a multi-part index.
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--frag</B>=<B>no</B>|<B>yes</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
@@ -394,6 +408,10 @@ How to find canonical splicing sites GT-AG -
 Score bonus when alignment extends to the end of the query sequence [0].
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<B>--score-N</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Score of a mismatch involving ambiguous bases [1].
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <B>--splice-flank</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Assume the next base to a
 <B>GT</B> donor site tends to be A/G (91% in human and 92% in mouse) and the preceding
@@ -415,6 +433,11 @@ Drop a terminal anchor if
 <I>g</I> the length of the terminal gap in the chain. This option is only effective
 with
 <B>--splice</B>. It helps to avoid tiny terminal exons. [6]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--no-end-flt</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Don&#146;t filter seeds towards the ends of chains before performing base-level
+alignment.
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=7></A>
@@ -465,6 +488,10 @@ Output the
 <TR valign=top><TD width=10% nowrap>
 <B>--MD</B> </TD><TD valign=bottom>
 Output the MD tag (see the SAM spec).
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--eqx</B> </TD><TD valign=bottom>
+Output =/X CIGAR operators for sequence match/mismatch.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-Y</B> </TD><TD valign=bottom>
@@ -671,6 +698,8 @@ the SAM-like typed key-value format. Minimap2 may output the following tags:
 <TD align=right>cg</TD><TD align=center>Z</TD><TD>CIGAR string (only in PAF)</TD></TR>
 <TR valign=top>
 <TD align=right>cs</TD><TD align=center>Z</TD><TD>Difference string</TD></TR>
+<TR valign=top>
+<TD align=right>dv</TD><TD align=center>f</TD><TD>Approximate per-base sequence divergence</TD></TR>
 </TABLE></div></BLOCKQUOTE>
 <P>
 <P>
@@ -727,4 +756,4 @@ non-SSE2/NEON support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.10 (r761)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>27 March 2018</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.13 (r850)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>11 October 2018</I></TD> </TR></TABLE></div></BODY></HTML>
