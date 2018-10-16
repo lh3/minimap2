@@ -591,9 +591,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		qs0 = 0, qe0 = qlen;
 		l = qs;
 		l += l * opt->a + opt->end_bonus > opt->q? (l * opt->a + opt->end_bonus - opt->q) / opt->e : 0;
+		l = l < opt->bw? l : opt->bw;
 		rs0 = rs - l > 0? rs - l : 0;
 		l = qlen - qe;
 		l += l * opt->a + opt->end_bonus > opt->q? (l * opt->a + opt->end_bonus - opt->q) / opt->e : 0;
+		l = l < opt->bw? l : opt->bw;
 		re0 = re + l < (int32_t)mi->seq[rid].len? re + l : mi->seq[rid].len;
 	} else {
 		// compute rs0 and qs0
