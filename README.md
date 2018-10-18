@@ -14,6 +14,7 @@ cd minimap2 && make
 # use presets (no test data)
 ./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio genomic reads
 ./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam         # Oxford Nanopore genomic reads
+./minimap2 -ax asm20 ref.fa pacbio-ccs.fq.gz > aln.sam    # PacBio CCS genomic reads
 ./minimap2 -ax sr ref.fa read1.fa read2.fa > aln.sam      # short genomic paired-end reads
 ./minimap2 -ax splice ref.fa rna-reads.fa > aln.sam       # spliced long reads (strand unknown)
 ./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore Direct RNA-seq
@@ -70,8 +71,8 @@ Detailed evaluations are available from the [minimap2 paper][doi] or the
 Minimap2 is optimized for x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-curl -L https://github.com/lh3/minimap2/releases/download/v2.12/minimap2-2.12_x64-linux.tar.bz2 | tar -jxvf -
-./minimap2-2.12_x64-linux/minimap2
+curl -L https://github.com/lh3/minimap2/releases/download/v2.13/minimap2-2.13_x64-linux.tar.bz2 | tar -jxvf -
+./minimap2-2.13_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code

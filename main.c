@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.12-r836-dirty"
+#define MM_VERSION "2.13-r852-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -59,7 +59,8 @@ static ko_longopt_t long_options[] = {
 	{ "paf-no-hit",     ko_no_argument,       333 },
 	{ "split-prefix",   ko_required_argument, 334 },
 	{ "no-end-flt",     ko_no_argument,       335 },
-	{ "bed",            ko_required_argument, 336 },
+	{ "hard-mask-level",ko_no_argument,       336 },
+	{ "bed",            ko_required_argument, 337 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -97,11 +98,11 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yY";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYP";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, n_parts;
+	int i, c, n_threads = 3, n_parts, old_best_n = -1;
 	char *fnw = 0, *fn_bed = 0, *rg = 0, *s;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
@@ -139,7 +140,7 @@ int main(int argc, char *argv[])
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(o.arg);
 		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(o.arg));
 		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(o.arg);
-		else if (c == 'N') opt.best_n = atoi(o.arg);
+		else if (c == 'N') old_best_n = opt.best_n, opt.best_n = atoi(o.arg);
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
 		else if (c == 'M') opt.mask_level = atof(o.arg);
 		else if (c == 'c') opt.flag |= MM_F_OUT_CG | MM_F_CIGAR;
@@ -189,7 +190,8 @@ int main(int argc, char *argv[])
 		else if (c == 333) opt.flag |= MM_F_PAF_NO_HIT; // --paf-no-hit
 		else if (c == 334) opt.split_prefix = o.arg; // --split-prefix
 		else if (c == 335) opt.flag |= MM_F_NO_END_FLT; // --no-end-flt
-		else if (c == 336) fn_bed = o.arg; // --bed-prefer
+		else if (c == 336) opt.flag |= MM_F_HARD_MLEVEL; // --hard-mask-level
+		else if (c == 337) fn_bed = o.arg; // --bed-prefer
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary
@@ -253,6 +255,10 @@ int main(int argc, char *argv[])
 		ipt.flag |= MM_I_NO_SEQ;
 	if (mm_check_opt(&ipt, &opt) < 0)
 		return 1;
+	if (opt.best_n == 0) {
+		fprintf(stderr, "[WARNING]\033[1;31m changed '-N 0' to '-N %d --secondary=no'.\033[0m\n", old_best_n);
+		opt.best_n = old_best_n, opt.flag |= MM_F_NO_PRINT_2ND;
+	}
 
 	if (argc == o.ind || fp_help == stdout) {
 		fprintf(fp_help, "Usage: minimap2 [options] <target.fa>|<target.idx> [query.fa] [...]\n");
@@ -370,7 +376,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[M::%s] CMD:", __func__);
 		for (i = 0; i < argc; ++i)
 			fprintf(stderr, " %s", argv[i]);
-		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec\n", __func__, realtime() - mm_realtime0, cputime());
+		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec; Peak RSS: %.3f GB\n", __func__, realtime() - mm_realtime0, cputime(), peakrss() / 1024.0 / 1024.0 / 1024.0);
 	}
 	return 0;
 }

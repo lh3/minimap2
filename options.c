@@ -174,5 +174,10 @@ int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 			fprintf(stderr, "[ERROR]\033[1;31m Z-drop should not be less than inversion-Z-drop\033[0m\n");
 		return -5;
 	}
+	if ((mo->flag & MM_F_NO_PRINT_2ND) && (mo->flag & MM_F_ALL_CHAINS)) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m -X/-P and --secondary=no can't be applied at the same time\033[0m\n");
+		return -5;
+	}
 	return 0;
 }
