@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.13-r852-dirty"
+#define MM_VERSION "2.13-r856-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -122,7 +122,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "[ERROR] missing option argument\n");
 			return 1;
 		} else if (c == '?') {
-			fprintf(stderr, "[ERROR] unknown option in \"%s\"\n", argv[o.i]);
+			fprintf(stderr, "[ERROR] unknown option in \"%s\"\n", argv[o.i - 1]);
 			return 1;
 		}
 	}
