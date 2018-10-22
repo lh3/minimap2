@@ -355,6 +355,8 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
   billion bases or longer (2,147,483,647 to be exact). The total length of all
   sequences can well exceed this threshold.
 
+* Minimap2 often misses small exons.
+
 
 
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
