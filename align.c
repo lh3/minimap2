@@ -414,7 +414,7 @@ static void mm_filter_bad_seeds_alt(void *km, int as1, int cnt1, mm128_t *a, int
 			gap2 = ((int32_t)a[as1 + j].y - (int32_t)a[as1 + j - 1].y) - (int32_t)(a[as1 + j].x - a[as1 + j - 1].x);
 			q_span_pre = a[as1 + j - 1].y >> 32 & 0xff;
 			rs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
-			qs2 = (int32_t)a[as1 + j - 1].x + q_span_pre;
+			qs2 = (int32_t)a[as1 + j - 1].y + q_span_pre;
 			m = rs2 - re1 < qs2 - qe1? rs2 - re1 : qs2 - qe1;
 			gap2 = gap2 > 0? gap2 : -gap2;
 			if (m > gap1 + gap2) break;
