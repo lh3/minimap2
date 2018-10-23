@@ -274,6 +274,10 @@ Only map to the reverse complement strand of the reference sequences.
 .BR --heap-sort = no | yes
 If yes, sort anchors with heap merge, instead of radix sort. Heap merge is
 faster for short reads, but slower for long reads. [no]
+.TP
+.B --no-pairing
+Treat two reads in a pair as independent reads. The mate related fields in SAM
+are still properly populated.
 .SS Alignment options
 .TP 10
 .BI -A \ INT
