@@ -670,6 +670,7 @@ int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
 					fprintf(stderr, "[WARNING] Name \"%s\" from introns annotations not found in reference database.\n", chr);
 				continue;
 			}
+			uint32_t seq_length = mi->seq[seq_id].len;
 
 			char* start_s = strtok(NULL, delim);
 			char* stop_s = strtok(NULL, delim);
@@ -679,8 +680,13 @@ int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
 				return -1;
 			}
 
-			uint32_t donor = atol(start_s) - 1; // "Donor" site is before the first base of the intron
-			uint32_t acceptor = atol(stop_s) - 1; // "Acceptor" site is the last base of the intron (BED use past the end notation)
+			long donor = atol(start_s) - 1; // "Donor" site is before the first base of the intron
+			long acceptor = atol(stop_s) - 1; // "Acceptor" site is the last base of the intron (BED use past the end notation)
+			if(donor < -1 || donor >= seq_length || acceptor < 0 || acceptor >= seq_length) {
+				fprintf(stderr, "[WARNING] Ignored splicing site [%ld-%ld) out of range for reference len(%s)=%u.\n", donor+1, acceptor+1, chr, seq_length);
+				continue;
+			}
+			
 			assert(donor < SPLICE_DONOR && acceptor < SPLICE_DONOR);
 			kv_push(splice_t, 0, splice_vectors[seq_id], donor | SPLICE_DONOR);
 			kv_push(splice_t, 0, splice_vectors[seq_id], acceptor);
@@ -698,6 +704,7 @@ int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
 					fprintf(stderr, "[WARNING] Name \"%s\" from introns annotations not found in reference database.\n", chr);
 				continue;
 			}
+			uint32_t seq_length = mi->seq[seq_id].len;
 
 			char* pos_s = strtok(NULL, delim);
 			char* kind_s = strtok(NULL, delim);
@@ -707,7 +714,12 @@ int mm_idx_splice_load(const char* fname, mm_idx_t* mi) {
 				return -1;
 			}
 
-			uint32_t pos = atol(pos_s);
+			long pos = atol(pos_s);
+			if(pos < 0 || pos >= seq_length) {
+				fprintf(stderr, "[WARNING] Ignored splicing site %ld %s out of range for reference len(%s)=%u.\n", pos, kind_s, chr, seq_length);
+				continue;
+			}
+
 			assert(pos < SPLICE_DONOR);
 			pos |= (kind_s[0] | 0x20) == 'l' ? SPLICE_DONOR : 0;
 			kv_push(splice_t, 0, splice_vectors[seq_id], pos);
