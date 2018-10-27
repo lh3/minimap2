@@ -139,8 +139,8 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	if (write_tag) mm_sprintf_lite(s, "\tcs:Z:");
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
-		assert(op >= 0 && op <= 3);
-		if (op == 0) { // match
+		assert((op >= 0 && op <= 3) || op == 7 || op == 8);
+		if (op == 0 || op == 7 || op == 8) { // match
 			int l_tmp = 0;
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
@@ -187,8 +187,8 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	if (write_tag) mm_sprintf_lite(s, "\tMD:Z:");
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
-		assert(op >= 0 && op <= 3);
-		if (op == 0) { // match
+		assert((op >= 0 && op <= 3) || op == 7 || op == 8);
+		if (op == 0 || op == 7 || op == 8) { // match
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
 					mm_sprintf_lite(s, "%d%c", l_MD, "ACGTN"[tseq[t_off + j]]);
