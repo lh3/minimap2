@@ -292,7 +292,8 @@ static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t
 	r->p = p;
 }
 
-static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *ob, const int8_t *mat, int w, int end_bonus, int zdrop, int flag, ksw_extz_t *ez)
+static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const int8_t *ob, const int8_t *mat,
+						  int w, int end_bonus, int zdrop, int flag, ksw_extz_t *ez)
 {
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
 		int i;

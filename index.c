@@ -154,7 +154,7 @@ int mm_idx_getseq2(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, u
 			if (rr != rid || rs >= en) break;
 			assert(rs >= st);
 			for (j = rs; j < re; ++j)
-				b[j - st] = 1;
+				b[j - st] = mi->R[i].score;
 		}
 	}
 	return en - st;
@@ -625,20 +625,24 @@ mm_idx_bed_t *mm_idx_bed_read_list(const mm_idx_t *mi, const char *fn, uint32_t 
 	while (ks_getuntil(ks, KS_SEP_LINE, &str, 0) >= 0) {
 		mm_idx_bed_t t;
 		char *p, *q;
-		int i, id = -1, st = -1, en = -1;
+		int i, id = -1, st = -1, en = -1, sc = -1;
 		for (p = q = str.s, i = 0;; ++p) {
 			if (*p == 0 || isspace(*p)) {
 				int32_t c = *p;
 				*p = 0;
-				if (i == 0) {
+				if (i == 0) { // chr
 					id = mm_idx_name2id(mi, q);
 					if (id < 0) break; // unknown name; TODO: throw a warning
-				} else if (i == 1) {
+				} else if (i == 1) { // start
 					st = atoi(q);
 					if (st < 0) break;
-				} else if (i == 2) {
+				} else if (i == 2) { // end
 					en = atoi(q);
 					if (en < 0) break;
+				} else if (i == 3) { // name; do nothing
+				} else if (i == 4) { // BED score
+					sc = atoi(q);
+					assert(sc >= 0 && sc <= 127);
 				} else break;
 				if (c == 0) break;
 				++i, q = p + 1;
@@ -647,7 +651,7 @@ mm_idx_bed_t *mm_idx_bed_read_list(const mm_idx_t *mi, const char *fn, uint32_t 
 		if (en < 0) en = st + 1;
 		if (st < 0 || st >= en) continue;
 		if (m == n) EXPAND(r, m);
-		t.x = (uint64_t)id << 32 | st, t.end = en, t.idx = -1;
+		t.x = (uint64_t)id << 32 | st, t.end = en, t.score = sc >= 0? sc : 0, t.idx = -1;
 		r[n++] = t;
 	}
 	ks_destroy(ks);

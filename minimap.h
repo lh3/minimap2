@@ -62,6 +62,7 @@ typedef struct {
 typedef struct {
 	uint64_t x;
 	int32_t end, idx;
+	int32_t score; // NB: wasting 4 bytes due to memory alignment
 } mm_idx_bed_t;
 
 typedef struct {
