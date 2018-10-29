@@ -148,12 +148,13 @@ int mm_idx_getseq2(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, u
 		uint32_t i, z;
 		memset(b, 0, en - st);
 		z = mm_idx_bed_query(mi, (uint64_t)rid << 32 | st);
-		for (i = z + 1; i < mi->n_R; ++i) {
+		for (i = z < 0? 0 : z; i < mi->n_R; ++i) {
 			uint32_t j, rr, rs, re;
 			rr = mi->R[i].x >> 32, rs = (uint32_t)mi->R[i].x, re = mi->R[i].end;
-			if (rr != rid || rs >= en) break;
-			assert(rs >= st);
-			for (j = rs; j < re; ++j)
+			if (rr > rid || rs >= en) break;
+			if (rr < rid) continue;
+			re = re < en? re : en;
+			for (j = st > rs? st : rs; j < re; ++j)
 				b[j - st] = mi->R[i].score;
 		}
 	}

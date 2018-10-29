@@ -112,6 +112,9 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	if (qd) {
 		int8_t *tmp = (int8_t*)dv;
 		for (t = 0; t < tlen; ++t) tmp[t] = -qd[t];
+		fprintf(stderr, "%d\t%d\t%x\n", tlen, qlen, flag&KSW_EZ_RIGHT);
+		for (t = 0; t < tlen; ++t) fputc("ACGTN"[target[t]], stderr); fputc('\n', stderr);
+		for (t = 0; t < tlen; ++t) fputc('0' + qd[t], stderr); fputc('\n', stderr);
 	}
 	if (!approx_max) {
 		H = (int32_t*)kmalloc(km, tlen_ * 16 * 4);
@@ -383,6 +386,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		last_st = st, last_en = en;
 		//for (t = st0; t <= en0; ++t) printf("(%d,%d)\t(%d,%d,%d,%d)\t%d\n", r, t, ((int8_t*)u)[t], ((int8_t*)v)[t], ((int8_t*)x)[t], ((int8_t*)y)[t], H[t]); // for debugging
 	}
+	fprintf(stderr, "score: %d\n", ez->score);
 	kfree(km, mem);
 	if (!approx_max) kfree(km, H);
 	if (with_cigar) { // backtrack
