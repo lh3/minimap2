@@ -17,11 +17,11 @@
 void __cpuidex(int cpuid[4], int func_id, int subfunc_id)
 {
 #if defined(__x86_64__)
-	asm volatile ("cpuid"
+	__asm__ volatile ("cpuid"
 			: "=a" (cpuid[0]), "=b" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
 			: "0" (func_id), "2" (subfunc_id));
 #else // on 32bit, ebx can NOT be used as PIC code
-	asm volatile ("xchgl %%ebx, %1; cpuid; xchgl %%ebx, %1"
+	__asm__ volatile ("xchgl %%ebx, %1; cpuid; xchgl %%ebx, %1"
 			: "=a" (cpuid[0]), "=r" (cpuid[1]), "=c" (cpuid[2]), "=d" (cpuid[3])
 			: "0" (func_id), "2" (subfunc_id));
 #endif
