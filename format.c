@@ -1,3 +1,6 @@
+// required for `char* strdup(const char* s)`
+#define _XOPEN_SOURCE 600
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
