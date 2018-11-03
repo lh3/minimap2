@@ -116,8 +116,7 @@ long peakrss(void)
 double realtime(void)
 {
 	struct timeval tp;
-	struct timezone tzp;
-	gettimeofday(&tp, &tzp);
+	gettimeofday(&tp, NULL);
 	return tp.tv_sec + tp.tv_usec * 1e-6;
 }
 
