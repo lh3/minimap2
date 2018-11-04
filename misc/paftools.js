@@ -564,10 +564,12 @@ function paf_call(args)
 
 function paf_asmstat(args)
 {
-	var c, min_seg_len = 10000, max_diff = 0.01;
-	while ((c = getopt(args, "l:d:")) != null) {
+	var c, min_seg_len = 10000, max_diff = 0.01, bp_flank_len = 0, bp_gap_len = 0;
+	while ((c = getopt(args, "l:d:b:g:")) != null) {
 		if (c == 'l') min_seg_len = parseInt(getopt.arg);
 		else if (c == 'd') max_diff = parseFloat(getopt.arg);
+		else if (c == 'b') bp_flank_len = parseInt(getopt.arg);
+		else if (c == 'g') bp_gap_len = parseInt(getopt.arg);
 	}
 	if (getopt.ind == args.length) {
 		print("Usage: paftools.js asmstat [options] <ref.fa.fai> <asm1.paf> [...]");
@@ -587,7 +589,7 @@ function paf_asmstat(args)
 	}
 	file.close();
 
-	function process_query(qblocks, qblock_len, bp) {
+	function process_query(qblocks, qblock_len, bp, qi) {
 		qblocks.sort(function(a,b) { return a[0]-b[0]; });
 		var last_k = null, last_blen = null, st = -1, en = -1, qcov = 0;
 		for (var k = 0; k < qblocks.length; ++k) {
@@ -612,6 +614,7 @@ function paf_asmstat(args)
 				var min = blen < last_blen? blen : last_blen;
 				var flank = k == 0? min : blen;
 				bp.push([flank, gap]);
+				qi.bp.push([flank, gap]);
 			}
 			last_k = k, last_blen = blen;
 		}
@@ -664,16 +667,22 @@ function paf_asmstat(args)
 	for (var i = 0; i < n_asm; ++i) {
 		var n_breaks = 0, qcov = 0;
 		var fn = args[getopt.ind + 1 + i];
-		header.push(fn.replace(/.paf(.gz)?$/, ""));
+		var label = fn.replace(/.paf(.gz)?$/, "");
+		header.push(label);
 		var ref_blocks = [], qblock_len = [], qblocks = [], bp = [];
-		var query = {};
+		var query = {}, qinfo = {};
 		var last_qname = null;
 		file = new File(fn);
 		while (file.readline(buf) >= 0) {
 			var m, line = buf.toString();
 			var t = line.split("\t");
 			t[1] = parseInt(t[1]);
-			if (t.length >= 2) query[t[0]] = t[1];
+			if (t.length >= 2) {
+				query[t[0]] = t[1];
+				if (qinfo[t[0]] == null) qinfo[t[0]] = {};
+				qinfo[t[0]].len = t[1];
+				qinfo[t[0]].bp = [];
+			}
 			if (t.length < 9) continue;
 			if (!/\ttp:A:[PI]/.test(line)) continue;
 			if ((m = /\tcg:Z:(\S+)/.exec(line)) == null) continue;
@@ -690,7 +699,7 @@ function paf_asmstat(args)
 			if (t[3] - t[2] < min_seg_len) continue;
 			if (t[0] != last_qname) {
 				if (last_qname != null)
-					qcov += process_query(qblocks, qblock_len, bp);
+					qcov += process_query(qblocks, qblock_len, bp, qinfo[last_qname]);
 				qblocks = [];
 				last_qname = t[0];
 			}
@@ -698,7 +707,7 @@ function paf_asmstat(args)
 			qblocks.push([t[2], t[3], t[4], t[5], t[7], t[8]]);
 		}
 		if (last_qname != null)
-			qcov += process_query(qblocks, qblock_len, bp);
+			qcov += process_query(qblocks, qblock_len, bp, qinfo[last_qname]);
 		file.close();
 
 		// compute NG50
@@ -733,13 +742,32 @@ function paf_asmstat(args)
 		rst[5][i] = n_breaks;
 		rst[6][i] = count_bp(bp, 500, 0);
 		rst[7][i] = count_bp(bp, 500, 10000);
+
+		// nb-plot
+		var qa = [];
+		for (var qn in qinfo)
+			qa.push([qinfo[qn].len, qinfo[qn].bp]);
+		qa = qa.sort(function(a, b) { return b[0] - a[0] });
+		var sum = 0, n_bp = 0, next_quantile = 0.1;
+		for (var j = 0; j < qa.length; ++j) {
+			sum += qa[j][0];
+			for (var k = 0; k < qa[j][1].length; ++k)
+				if (qa[j][1][k][0] >= bp_flank_len && qa[j][1][k][1] >= bp_gap_len)
+					++n_bp;
+			if (sum >= ref_len * next_quantile) {
+				print(label, Math.floor(next_quantile * 100 + .5), qa[j][0], (sum / n_bp).toFixed(0), n_bp);
+				next_quantile += 0.1;
+				if (next_quantile >= 1.0) break;
+			}
+		}
 	}
-
-	print(header.join("\t"));
-	for (var i = 0; i < labels.length; ++i)
-		print(labels[i], rst[i].join("\t"));
-
 	buf.destroy();
+
+	if (bp_flank_len <= 0) {
+		print(header.join("\t"));
+		for (var i = 0; i < labels.length; ++i)
+			print(labels[i], rst[i].join("\t"));
+	}
 }
 
 function paf_stat(args)
