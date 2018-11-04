@@ -770,6 +770,61 @@ function paf_asmstat(args)
 	}
 }
 
+function paf_asmgene(args)
+{
+	var c, min_cov = 0.99, min_iden = 0.99;
+	while ((c = getopt(args, "")) != null);
+
+	var n_fn = args.length - getopt.ind;
+	if (n_fn < 2) {
+		print("Usage: paftools.js asmgene [options] <ref-splice.paf> <asm-splice.paf> [...]");
+		exit(1);
+	}
+
+	var buf = new Bytes();
+	var gene = {}, header = ["Metric"];
+	for (var i = getopt.ind; i < args.length; ++i) {
+		var fn = args[i];
+		var label = fn.replace(/.paf(.gz)?$/, "");
+		header.push(label);
+		var file = new File(fn);
+		var lastq = null;
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			var ql = parseInt(t[1]), qs = parseInt(t[2]), qe = parseInt(t[3]), mlen = parseInt(t[9]), blen = parseInt(t[10]), mapq = parseInt(t[11]);
+			if (gene[t[0]] == null) {
+				gene[t[0]] = [];
+				for (var k = 0; k < n_fn; ++k)
+					gene[t[0]][k] = 0;
+			}
+			if (qe - qs >= ql * min_cov && mlen >= blen * min_iden)
+				gene[t[0]][i - getopt.ind]++;
+		}
+		file.close();
+	}
+
+	var col1 = ["full_uniq", "full_dup", "partial"];
+	var rst = [];
+	for (var k = 0; k < col1.length; ++k) {
+		rst[k] = [];
+		for (var i = 0; i < n_fn; ++i)
+			rst[k][i] = 0;
+	}
+	for (var g in gene) {
+		if (gene[g][0] != 1) continue;
+		for (var i = 0; i < n_fn; ++i) {
+			if (gene[g][i] == null || gene[g][i] == 0) rst[2][i]++;
+			else if (gene[g][i] == 1) rst[0][i]++;
+			else if (gene[g][i] > 1) rst[1][i]++;
+		}
+	}
+	print(header.join("\t"));
+	for (var k = 0; k < rst.length; ++k) {
+		print(col1[k], rst[k].join("\t"));
+	}
+	buf.destroy();
+}
+
 function paf_stat(args)
 {
 	var c, gap_out_len = null;
@@ -2238,6 +2293,7 @@ function main(args)
 	else if (cmd == 'gff2bed') paf_gff2bed(args);
 	else if (cmd == 'stat') paf_stat(args);
 	else if (cmd == 'asmstat') paf_asmstat(args);
+	else if (cmd == 'asmgene') paf_asmgene(args);
 	else if (cmd == 'liftover' || cmd == 'liftOver') paf_liftover(args);
 	else if (cmd == 'call') paf_call(args);
 	else if (cmd == 'mapeval') paf_mapeval(args);
