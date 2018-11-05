@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.13-r850';
+var paftools_version = '2.13-r869-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -772,7 +772,7 @@ function paf_asmstat(args)
 
 function paf_asmgene(args)
 {
-	var c, min_cov = 0.99, min_iden = 0.99;
+	var c, opt = { min_cov:0.99, min_iden:0.99 };
 	while ((c = getopt(args, "")) != null);
 
 	var n_fn = args.length - getopt.ind;
@@ -781,29 +781,57 @@ function paf_asmgene(args)
 		exit(1);
 	}
 
+	function process_query(opt, a) {
+		var b = [], cnt = [0, 0, 0];
+		for (var j = 0; j < a.length; ++j) {
+			if (a[j][4] < a[j][5] * opt.min_iden)
+				continue;
+			b.push(a[j].slice(0));
+		}
+		if (b.length == 0) return cnt;
+		// count full
+		var n_full = 0;
+		for (var j = 0; j < b.length; ++j)
+			if (b[j][3] - b[j][2] >= b[j][1] * opt.min_cov)
+				++n_full;
+		cnt[0] = n_full;
+		// compute coverage
+		b = b.sort(function(x, y) { return x[2] - y[2] });
+		var l_cov = 0, st = b[0][2], en = b[0][3];
+		for (var j = 1; j < b.length; ++j) {
+			if (b[j][2] <= en)
+				en = b[j][3] > en? b[j][3] : en;
+			else l_cov += en - st;
+		}
+		l_cov += en - st;
+		cnt[1] = l_cov / b[0][1];
+		cnt[2] = b.length;
+		return cnt;
+	}
+
 	var buf = new Bytes();
 	var gene = {}, header = ["Metric"];
 	for (var i = getopt.ind; i < args.length; ++i) {
 		var fn = args[i];
 		var label = fn.replace(/.paf(.gz)?$/, "");
 		header.push(label);
-		var file = new File(fn);
-		var lastq = null;
+		var file = new File(fn), a = [];
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			var ql = parseInt(t[1]), qs = parseInt(t[2]), qe = parseInt(t[3]), mlen = parseInt(t[9]), blen = parseInt(t[10]), mapq = parseInt(t[11]);
-			if (gene[t[0]] == null) {
-				gene[t[0]] = [];
-				for (var k = 0; k < n_fn; ++k)
-					gene[t[0]][k] = 0;
+			if (gene[t[0]] == null) gene[t[0]] = [];
+			if (a.length && t[0] != a[0][0]) {
+				gene[t[0]][i - getopt.ind] = process_query(opt, a);
+				a = [];
 			}
-			if (qe - qs >= ql * min_cov && mlen >= blen * min_iden)
-				gene[t[0]][i - getopt.ind]++;
+			a.push([t[0], ql, qs, qe, mlen, blen]);
 		}
+		if (a.length)
+			gene[t[0]][i - getopt.ind] = process_query(opt, a);
 		file.close();
 	}
 
-	var col1 = ["full_uniq", "full_dup", "partial"];
+	var col1 = ["full_sgl", "full_dup", "frag", "part50+", "part50-"];
 	var rst = [];
 	for (var k = 0; k < col1.length; ++k) {
 		rst[k] = [];
@@ -811,11 +839,14 @@ function paf_asmgene(args)
 			rst[k][i] = 0;
 	}
 	for (var g in gene) {
-		if (gene[g][0] != 1) continue;
+		if (gene[g][0] == null || gene[g][0][0] != 1) continue;
 		for (var i = 0; i < n_fn; ++i) {
-			if (gene[g][i] == null || gene[g][i] == 0) rst[2][i]++;
-			else if (gene[g][i] == 1) rst[0][i]++;
-			else if (gene[g][i] > 1) rst[1][i]++;
+			if (gene[g][i] == null) rst[4][i]++;
+			else if (gene[g][i][0] == 1) rst[0][i]++;
+			else if (gene[g][i][0] > 1) rst[1][i]++;
+			else if (gene[g][i][1] >= opt.min_cov) rst[2][i]++;
+			else if (gene[g][i][1] >= 0.5) rst[3][i]++;
+			else rst[4][i]++;
 		}
 	}
 	print(header.join("\t"));
