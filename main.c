@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.13-r875-dirty"
+#define MM_VERSION "2.13-r876-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -60,6 +60,7 @@ static ko_longopt_t long_options[] = {
 	{ "split-prefix",   ko_required_argument, 334 },
 	{ "no-end-flt",     ko_no_argument,       335 },
 	{ "hard-mask-level",ko_no_argument,       336 },
+	{ "cap-sw-mat",     ko_required_argument, 337 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -190,6 +191,7 @@ int main(int argc, char *argv[])
 		else if (c == 334) opt.split_prefix = o.arg; // --split-prefix
 		else if (c == 335) opt.flag |= MM_F_NO_END_FLT; // --no-end-flt
 		else if (c == 336) opt.flag |= MM_F_HARD_MLEVEL; // --hard-mask-level
+		else if (c == 337) opt.max_sw_mat = mm_parse_num(o.arg); // --cap-sw-mat
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary
