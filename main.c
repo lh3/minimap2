@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.13-r876-dirty"
+#define MM_VERSION "2.13-r877-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -60,7 +60,7 @@ static ko_longopt_t long_options[] = {
 	{ "split-prefix",   ko_required_argument, 334 },
 	{ "no-end-flt",     ko_no_argument,       335 },
 	{ "hard-mask-level",ko_no_argument,       336 },
-	{ "cap-sw-mat",     ko_required_argument, 337 },
+	{ "cap-sw-mem",     ko_required_argument, 337 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
