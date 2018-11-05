@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.13-r871-dirty';
+var paftools_version = '2.13-r872-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -822,7 +822,7 @@ function paf_asmgene(args)
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			var ql = parseInt(t[1]), qs = parseInt(t[2]), qe = parseInt(t[3]), mlen = parseInt(t[9]), blen = parseInt(t[10]), mapq = parseInt(t[11]);
-			if (i == getopt.ind) refpos[t[0]] = [t[0], t[5], t[7], t[8]].join("\t");
+			if (i == getopt.ind) refpos[t[0]] = [t[0], t[1], t[5], t[7], t[8]];
 			if (gene[t[0]] == null) gene[t[0]] = [];
 			if (a.length && t[0] != a[0][0]) {
 				gene[t[0]][i - getopt.ind] = process_query(opt, a);
@@ -835,6 +835,23 @@ function paf_asmgene(args)
 		file.close();
 	}
 
+	// select the longest genes (not optimal, but should be good enough)
+	var gene_list = [], gene_nr = {};
+	for (var g in refpos)
+		gene_list.push(refpos[g]);
+	gene_list = gene_list.sort(function(a, b) { return a[2] < b[2]? -1 : a[2] > b[2]? 1 : a[3] - b[3] });
+	var last = 0;
+	for (var j = 1; j < gene_list.length; ++j) {
+		if (gene_list[j][2] != gene_list[last][2] || gene_list[j][3] >= gene_list[last][4]) {
+			gene_nr[gene_list[last][0]] = 1;
+			last = j;
+		} else if (gene_list[j][1] > gene_list[last][1]) {
+			last = j;
+		}
+	}
+	gene_nr[gene_list[last][0]] = 1;
+
+	// count and print
 	var col1 = ["full_sgl", "full_dup", "frag", "part50+", "part10+", "part10-"];
 	var rst = [];
 	for (var k = 0; k < col1.length; ++k) {
@@ -844,26 +861,27 @@ function paf_asmgene(args)
 	}
 	for (var g in gene) {
 		if (gene[g][0] == null || gene[g][0][0] != 1) continue;
+		if (gene_nr[g] == null) continue;
 		for (var i = 0; i < n_fn; ++i) {
 			if (gene[g][i] == null) {
 				rst[4][i]++;
-				if (print_err) print('M', header[i], refpos[g]);
+				if (print_err) print('M', header[i], refpos[g].join("\t"));
 			} else if (gene[g][i][0] == 1) rst[0][i]++;
 			else if (gene[g][i][0] > 1) {
 				rst[1][i]++;
-				if (print_err) print('D', header[i], refpos[g]);
+				if (print_err) print('D', header[i], refpos[g].join("\t"));
 			} else if (gene[g][i][1] >= opt.min_cov) {
 				rst[2][i]++;
-				if (print_err) print('F', header[i], refpos[g]);
+				if (print_err) print('F', header[i], refpos[g].join("\t"));
 			} else if (gene[g][i][1] >= 0.5) {
 				rst[3][i]++;
-				if (print_err) print('5', header[i], refpos[g]);
+				if (print_err) print('5', header[i], refpos[g].join("\t"));
 			} else if (gene[g][i][1] >= 0.1) {
 				rst[4][i]++;
-				if (print_err) print('1', header[i], refpos[g]);
+				if (print_err) print('1', header[i], refpos[g].join("\t"));
 			} else {
 				rst[5][i]++;
-				if (print_err) print('0', header[i], refpos[g]);
+				if (print_err) print('0', header[i], refpos[g].join("\t")); // TODO: reduce code duplicates...
 			}
 		}
 	}
