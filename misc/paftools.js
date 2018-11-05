@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.13-r869-dirty';
+var paftools_version = '2.13-r870-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -831,7 +831,7 @@ function paf_asmgene(args)
 		file.close();
 	}
 
-	var col1 = ["full_sgl", "full_dup", "frag", "part50+", "part50-"];
+	var col1 = ["full_sgl", "full_dup", "frag", "part50+", "part10+", "part10-"];
 	var rst = [];
 	for (var k = 0; k < col1.length; ++k) {
 		rst[k] = [];
@@ -846,7 +846,8 @@ function paf_asmgene(args)
 			else if (gene[g][i][0] > 1) rst[1][i]++;
 			else if (gene[g][i][1] >= opt.min_cov) rst[2][i]++;
 			else if (gene[g][i][1] >= 0.5) rst[3][i]++;
-			else rst[4][i]++;
+			else if (gene[g][i][1] >= 0.1) rst[4][i]++;
+			else rst[5][i]++;
 		}
 	}
 	print(header.join("\t"));
