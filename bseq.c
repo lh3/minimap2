@@ -65,6 +65,8 @@ static inline char *kstrdup(const kstring_t *s)
 static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual, int with_comment)
 {
 	int i;
+	if (ks->name.l == 0)
+		fprintf(stderr, "[WARNING]\033[1;31m empty sequence name in the input.\033[0m\n");
 	s->name = kstrdup(&ks->name);
 	s->seq = kstrdup(&ks->seq);
 	for (i = 0; i < (int)ks->seq.l; ++i) // convert U to T
@@ -78,6 +80,7 @@ static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual, int with_
 mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int with_comment, int frag_mode, int *n_)
 {
 	int64_t size = 0;
+	int ret;
 	kvec_t(mm_bseq1_t) a = {0,0,0};
 	kseq_t *ks = fp->ks;
 	*n_ = 0;
@@ -87,7 +90,7 @@ mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int
 		size = fp->s.l_seq;
 		memset(&fp->s, 0, sizeof(mm_bseq1_t));
 	}
-	while (kseq_read(ks) >= 0) {
+	while ((ret = kseq_read(ks)) >= 0) {
 		mm_bseq1_t *s;
 		assert(ks->seq.l <= INT32_MAX);
 		if (a.m == 0) kv_resize(mm_bseq1_t, 0, a, 256);
@@ -107,6 +110,8 @@ mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int
 			break;
 		}
 	}
+	if (ret != -1)
+		fprintf(stderr, "[WARNING]\033[1;31m wrong FASTA/FASTQ record. Continue anyway.\033[0m\n");
 	*n_ = a.n;
 	return a.a;
 }
