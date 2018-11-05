@@ -39,7 +39,7 @@ mm_bseq_file_t *mm_bseq_open(const char *fn)
 {
 	mm_bseq_file_t *fp;
 	gzFile f;
-	f = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(fileno(stdin), "r");
+	f = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(0, "r");
 	if (f == 0) return 0;
 	fp = (mm_bseq_file_t*)calloc(1, sizeof(mm_bseq_file_t));
 	fp->fp = f;

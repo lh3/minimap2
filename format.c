@@ -92,7 +92,8 @@ static void sam_write_rg_line(kstring_t *str, const char *s)
 		if (mm_verbose >= 1) fprintf(stderr, "[ERROR] the read group line contained literal <tab> characters -- replace with escaped tabs: \\t\n");
 		goto err_set_rg;
 	}
-	rg_line = strdup(s);
+	rg_line = (char*)malloc(strlen(s) + 1);
+	strcpy(rg_line, s);
 	mm_escape(rg_line);
 	if ((p = strstr(rg_line, "\tID:")) == 0) {
 		if (mm_verbose >= 1) fprintf(stderr, "[ERROR] no ID within the read group line\n");
