@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.13-r870-dirty';
+var paftools_version = '2.13-r871-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -772,8 +772,11 @@ function paf_asmstat(args)
 
 function paf_asmgene(args)
 {
-	var c, opt = { min_cov:0.99, min_iden:0.99 };
-	while ((c = getopt(args, "")) != null);
+	var c, opt = { min_cov:0.99, min_iden:0.99 }, print_err = false;
+	while ((c = getopt(args, "i:c:e")) != null)
+		if (c == 'i') opt.min_iden = parseFloat(getopt.arg);
+		else if (c == 'c') opt.min_cov = parseFloat(getopt.arg);
+		else if (c == 'e') print_err = true;
 
 	var n_fn = args.length - getopt.ind;
 	if (n_fn < 2) {
@@ -810,7 +813,7 @@ function paf_asmgene(args)
 	}
 
 	var buf = new Bytes();
-	var gene = {}, header = ["Metric"];
+	var gene = {}, header = [], refpos = {};
 	for (var i = getopt.ind; i < args.length; ++i) {
 		var fn = args[i];
 		var label = fn.replace(/.paf(.gz)?$/, "");
@@ -819,6 +822,7 @@ function paf_asmgene(args)
 		while (file.readline(buf) >= 0) {
 			var t = buf.toString().split("\t");
 			var ql = parseInt(t[1]), qs = parseInt(t[2]), qe = parseInt(t[3]), mlen = parseInt(t[9]), blen = parseInt(t[10]), mapq = parseInt(t[11]);
+			if (i == getopt.ind) refpos[t[0]] = [t[0], t[5], t[7], t[8]].join("\t");
 			if (gene[t[0]] == null) gene[t[0]] = [];
 			if (a.length && t[0] != a[0][0]) {
 				gene[t[0]][i - getopt.ind] = process_query(opt, a);
@@ -841,18 +845,31 @@ function paf_asmgene(args)
 	for (var g in gene) {
 		if (gene[g][0] == null || gene[g][0][0] != 1) continue;
 		for (var i = 0; i < n_fn; ++i) {
-			if (gene[g][i] == null) rst[4][i]++;
-			else if (gene[g][i][0] == 1) rst[0][i]++;
-			else if (gene[g][i][0] > 1) rst[1][i]++;
-			else if (gene[g][i][1] >= opt.min_cov) rst[2][i]++;
-			else if (gene[g][i][1] >= 0.5) rst[3][i]++;
-			else if (gene[g][i][1] >= 0.1) rst[4][i]++;
-			else rst[5][i]++;
+			if (gene[g][i] == null) {
+				rst[4][i]++;
+				if (print_err) print('M', header[i], refpos[g]);
+			} else if (gene[g][i][0] == 1) rst[0][i]++;
+			else if (gene[g][i][0] > 1) {
+				rst[1][i]++;
+				if (print_err) print('D', header[i], refpos[g]);
+			} else if (gene[g][i][1] >= opt.min_cov) {
+				rst[2][i]++;
+				if (print_err) print('F', header[i], refpos[g]);
+			} else if (gene[g][i][1] >= 0.5) {
+				rst[3][i]++;
+				if (print_err) print('5', header[i], refpos[g]);
+			} else if (gene[g][i][1] >= 0.1) {
+				rst[4][i]++;
+				if (print_err) print('1', header[i], refpos[g]);
+			} else {
+				rst[5][i]++;
+				if (print_err) print('0', header[i], refpos[g]);
+			}
 		}
 	}
-	print(header.join("\t"));
+	print('H', 'Metric', header.join("\t"));
 	for (var k = 0; k < rst.length; ++k) {
-		print(col1[k], rst[k].join("\t"));
+		print('X', col1[k], rst[k].join("\t"));
 	}
 	buf.destroy();
 }
