@@ -28,7 +28,9 @@ void __cpuidex(int cpuid[4], int func_id, int subfunc_id)
 }
 #endif
 
-int x86_simd(void)
+static int ksw_simd = -1;
+
+static int x86_simd(void)
 {
 	int flag = 0, cpuid[4], max_id;
 	__cpuidex(cpuid, 0, 0);
@@ -54,11 +56,10 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 {
 	extern void ksw_extz2_sse2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 	extern void ksw_extz2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
-	unsigned simd;
-	simd = x86_simd();
-	if (simd & SIMD_SSE4_1)
+	if (ksw_simd < 0) ksw_simd = x86_simd();
+	if (ksw_simd & SIMD_SSE4_1)
 		ksw_extz2_sse41(km, qlen, query, tlen, target, m, mat, q, e, w, zdrop, end_bonus, flag, ez);
-	else if (simd & SIMD_SSE2)
+	else if (ksw_simd & SIMD_SSE2)
 		ksw_extz2_sse2(km, qlen, query, tlen, target, m, mat, q, e, w, zdrop, end_bonus, flag, ez);
 	else abort();
 }
@@ -70,11 +71,10 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 	extern void ksw_extd2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
-	unsigned simd;
-	simd = x86_simd();
-	if (simd & SIMD_SSE4_1)
+	if (ksw_simd < 0) ksw_simd = x86_simd();
+	if (ksw_simd & SIMD_SSE4_1)
 		ksw_extd2_sse41(km, qlen, query, tlen, target, m, mat, q, e, q2, e2, w, zdrop, end_bonus, flag, ez);
-	else if (simd & SIMD_SSE2)
+	else if (ksw_simd & SIMD_SSE2)
 		ksw_extd2_sse2(km, qlen, query, tlen, target, m, mat, q, e, q2, e2, w, zdrop, end_bonus, flag, ez);
 	else abort();
 }
@@ -86,11 +86,10 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int flag, ksw_extz_t *ez);
 	extern void ksw_exts2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
 				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int flag, ksw_extz_t *ez);
-	unsigned simd;
-	simd = x86_simd();
-	if (simd & SIMD_SSE4_1)
+	if (ksw_simd < 0) ksw_simd = x86_simd();
+	if (ksw_simd & SIMD_SSE4_1)
 		ksw_exts2_sse41(km, qlen, query, tlen, target, m, mat, q, e, q2, noncan, zdrop, flag, ez);
-	else if (simd & SIMD_SSE2)
+	else if (ksw_simd & SIMD_SSE2)
 		ksw_exts2_sse2(km, qlen, query, tlen, target, m, mat, q, e, q2, noncan, zdrop, flag, ez);
 	else abort();
 }
