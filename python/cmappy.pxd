@@ -40,6 +40,7 @@ cdef extern from "minimap.h":
 		int32_t mid_occ
 		int32_t max_occ
 		int mini_batch_size
+		int64_t max_sw_mat
 		const char *split_prefix
 
 	int mm_set_opt(char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
