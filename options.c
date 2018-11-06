@@ -159,6 +159,11 @@ int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 			fprintf(stderr, "[ERROR]\033[1;31m --for-only and --rev-only can't be applied at the same time\033[0m\n");
 		return -3;
 	}
+	if (mo->e <= 0 || mo->q <= 0) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m -O and -E must be positive\033[0m\n");
+		return -1;
+	}
 	if ((mo->q != mo->q2 || mo->e != mo->e2) && !(mo->e > mo->e2 && mo->q + mo->e < mo->q2 + mo->e2)) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m dual gap penalties violating E1>E2 and O1+E1<O2+E2\033[0m\n");
