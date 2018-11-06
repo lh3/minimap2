@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.13-r872-dirty';
+var paftools_version = '2.14-r883';
 
 /*****************************
  ***** Library functions *****
@@ -781,6 +781,10 @@ function paf_asmgene(args)
 	var n_fn = args.length - getopt.ind;
 	if (n_fn < 2) {
 		print("Usage: paftools.js asmgene [options] <ref-splice.paf> <asm-splice.paf> [...]");
+		print("Options:");
+		print("  -i FLOAT     min identity [" + opt.min_iden + "]");
+		print("  -c FLOAT     min coverage [" + opt.min_cov + "]");
+		print("  -e           print fragmented/missing genes");
 		exit(1);
 	}
 
@@ -2339,6 +2343,7 @@ function main(args)
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  asmstat    collect basic assembly information");
+		print("  asmgene    evaluate gene completeness (EXPERIMENTAL)");
 		print("  liftover   simplistic liftOver");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("  bedcov     compute the number of bases covered");
