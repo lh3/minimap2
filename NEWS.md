@@ -1,3 +1,25 @@
+Release 2.14-r8xx (yy November 2018)
+------------------------------------
+
+Changes to minimap2:
+
+ * Fixed two minor bugs caused by typos (#254 and #266).
+
+ * Fixed a bug that made minimap2 abort when -L was used with --MD/--cs (#257).
+
+ * Added --cap-sw-mem to cap the size of DP matrices (#259). Base alignment may
+   take a lot of memory in the splicing mode. This may lead to issues when we
+   run minimap2 on a cluster with a hard memory limit. The new option avoids
+   unlimited memory usage at the cost of missing a few long introns.
+
+ * Conforming to C99 and C11 if possible (#261).
+
+ * Warn about malformatted FASTA or FASTQ (#252 and #255).
+
+(2.14: yy November 2018, r8xx)
+
+
+
 Release 2.13-r850 (11 October 2018)
 -----------------------------------
 
