@@ -110,7 +110,7 @@ mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int
 			break;
 		}
 	}
-	if (ret != -1)
+	if (ret < -1)
 		fprintf(stderr, "[WARNING]\033[1;31m wrong FASTA/FASTQ record. Continue anyway.\033[0m\n");
 	*n_ = a.n;
 	return a.a;
