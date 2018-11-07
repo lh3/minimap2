@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.14-r883';
+var paftools_version = '2.14-r885-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -564,16 +564,18 @@ function paf_call(args)
 
 function paf_asmstat(args)
 {
-	var c, min_seg_len = 10000, max_diff = 0.01, bp_flank_len = 0, bp_gap_len = 0;
-	while ((c = getopt(args, "l:d:b:g:")) != null) {
+	var c, min_query_len = 0, min_seg_len = 10000, max_diff = 0.01, bp_flank_len = 0, bp_gap_len = 0;
+	while ((c = getopt(args, "l:d:b:g:q:")) != null) {
 		if (c == 'l') min_seg_len = parseInt(getopt.arg);
 		else if (c == 'd') max_diff = parseFloat(getopt.arg);
 		else if (c == 'b') bp_flank_len = parseInt(getopt.arg);
 		else if (c == 'g') bp_gap_len = parseInt(getopt.arg);
+		else if (c == 'q') min_query_len = parseInt(getopt.arg);
 	}
 	if (getopt.ind == args.length) {
 		print("Usage: paftools.js asmstat [options] <ref.fa.fai> <asm1.paf> [...]");
 		print("Options:");
+		print("  -q INT     ignore query shorter than INT [0]");
 		print("  -l INT     min alignment block length [" + min_seg_len + "]");
 		print("  -d FLOAT   max gap-compressed sequence divergence [" + max_diff + "]");
 		exit(1);
@@ -657,7 +659,7 @@ function paf_asmstat(args)
 		return (NM - n_gaps + n_gapo) / (n_M + n_gapo);
 	}
 
-	var labels = ['Length', 'NG50', 'Coverage', 'Qcov', 'NGA50', '#breaks', 'bp(' + min_seg_len + ',0)', 'bp(' + min_seg_len + ',10k)'];
+	var labels = ['Length', 'l_cov', 'Rcov', 'Rdup', 'Qcov', 'NG75', 'NG50', 'NGA50', '#breaks', 'bp(' + min_seg_len + ',0)', 'bp(' + min_seg_len + ',10k)'];
 	var rst = [];
 	for (var i = 0; i < labels.length; ++i)
 		rst[i] = [];
@@ -677,6 +679,7 @@ function paf_asmstat(args)
 			var m, line = buf.toString();
 			var t = line.split("\t");
 			t[1] = parseInt(t[1]);
+			if (t[1] < min_query_len) continue;
 			if (t.length >= 2) {
 				query[t[0]] = t[1];
 				if (qinfo[t[0]] == null) qinfo[t[0]] = {};
@@ -717,7 +720,8 @@ function paf_asmstat(args)
 			asm_lens.push(query[ctg]);
 		}
 		rst[0][i] = asm_len;
-		rst[1][i] = N50(asm_lens, ref_len, 0.5);
+		rst[5][i] = N50(asm_lens, ref_len, 0.75);
+		rst[6][i] = N50(asm_lens, ref_len, 0.5);
 
 		// compute coverage
 		var l_cov = 0;
@@ -732,18 +736,42 @@ function paf_asmstat(args)
 			} else en = en > ref_blocks[j][2]? en : ref_blocks[j][2];
 		}
 		l_cov += en - st;
+		rst[1][i] = l_cov;
 		rst[2][i] = (100.0 * (l_cov / ref_len)).toFixed(2) + '%';
-		rst[3][i] = (100.0 * (qcov  / asm_len)).toFixed(2) + '%';
+		rst[4][i] = (100.0 * (qcov  / asm_len)).toFixed(2) + '%';
+
+		// compute cov1 and cov2+ lengths; see paf_call() for details
+		var c1_ctg = null, c1_start = 0, c1_end = 0, c1_len = 0;
+		for (var j = 0; j < ref_blocks.length; ++j) {
+			if (ref_blocks[j][0] != c1_ctg || ref_blocks[j][1] >= c1_end) {
+				if (c1_end > c1_start)
+					c1_len += c1_end - c1_start;
+				c1_ctg = ref_blocks[j][0], c1_start = ref_blocks[j][1], c1_end = ref_blocks[j][2];
+			} else if (ref_blocks[j][2] > c1_end) { // overlap
+				if (ref_blocks[j][1] > c1_start)
+					c1_len += ref_blocks[j][1] - c1_start;
+				c1_start = c1_end, c1_end = ref_blocks[j][2];
+			} else if (ref_blocks[j][2] > c1_start) { // contained
+				if (ref_blocks[j][1] > c1_start)
+					c1_len += ref_blocks[j][1] - c1_start;
+				c1_start = ref_blocks[j][2];
+			}
+			//print(ref_blocks[j][0], ref_blocks[j][1], ref_blocks[j][2], c1_start, c1_end, c1_len);
+		}
+		if (c1_end > c1_start)
+			c1_len += c1_end - c1_start;
+		rst[3][i] = (100 * (l_cov - c1_len) / l_cov).toFixed(2) + '%';
 
 		// compute NGA50
-		rst[4][i] = N50(qblock_len, ref_len, 0.5);
+		rst[7][i] = N50(qblock_len, ref_len, 0.5);
 
 		// compute break points
-		rst[5][i] = n_breaks;
-		rst[6][i] = count_bp(bp, 500, 0);
-		rst[7][i] = count_bp(bp, 500, 10000);
+		rst[8][i] = n_breaks;
+		rst[9][i] = count_bp(bp, 500, 0);
+		rst[10][i] = count_bp(bp, 500, 10000);
 
-		// nb-plot
+		// nb-plot; NOT USED
+		/*
 		var qa = [];
 		for (var qn in qinfo)
 			qa.push([qinfo[qn].len, qinfo[qn].bp]);
@@ -760,6 +788,7 @@ function paf_asmstat(args)
 				if (next_quantile >= 1.0) break;
 			}
 		}
+		*/
 	}
 	buf.destroy();
 
