@@ -92,7 +92,7 @@ static int ketopt(ketopt_t *s, int argc, char *argv[], int permute, const char *
 		char *p;
 		if (s->pos == 0) s->pos = 1;
 		opt = s->opt = argv[s->i][s->pos++];
-		p = strchr(ostr, opt);
+		p = strchr((char*)ostr, opt);
 		if (p == 0) {
 			opt = '?'; /* unknown option */
 		} else if (p[1] == ':') {
