@@ -228,11 +228,16 @@ int main(int argc, char *argv[])
 			else opt.mid_occ = (int)(x + .499);
 			if (*p == ',') opt.max_occ = (int)(strtod(p+1, &p) + .499);
 		} else if (c == 'u') {
-			if (*o.arg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
-			else if (*o.arg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
-			else if (*o.arg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR; // match CT-AC (reverse complement of GT-AG)
-			else if (*o.arg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV); // don't try to match the GT-AG signal
-			else {
+			if(o.arg[1] == '\0') {
+				if (*o.arg == 'b') opt.flag |= MM_F_SPLICE_FOR|MM_F_SPLICE_REV; // both strands
+				else if (*o.arg == 'f') opt.flag |= MM_F_SPLICE_FOR, opt.flag &= ~MM_F_SPLICE_REV; // match GT-AG
+				else if (*o.arg == 'r') opt.flag |= MM_F_SPLICE_REV, opt.flag &= ~MM_F_SPLICE_FOR; // match CT-AC (reverse complement of GT-AG)
+				else if (*o.arg == 'n') opt.flag &= ~(MM_F_SPLICE_FOR|MM_F_SPLICE_REV); // don't try to match the GT-AG signal
+				else {
+					fprintf(stderr, "[ERROR]\033[1;31m unrecognized cDNA direction\033[0m\n");
+					return 1;
+				}
+			} else {
 				splice_fname = o.arg;
 			}
 		} else if (c == 'z') {
