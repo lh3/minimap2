@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.14-r885-dirty';
+var paftools_version = '2.14-r887-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -858,7 +858,7 @@ function paf_asmgene(args)
 			if (i == getopt.ind) refpos[t[0]] = [t[0], t[1], t[5], t[7], t[8]];
 			if (gene[t[0]] == null) gene[t[0]] = [];
 			if (a.length && t[0] != a[0][0]) {
-				gene[t[0]][i - getopt.ind] = process_query(opt, a);
+				gene[a[0][0]][i - getopt.ind] = process_query(opt, a);
 				a = [];
 			}
 			a.push([t[0], ql, qs, qe, mlen, blen]);
