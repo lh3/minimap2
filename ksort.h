@@ -37,7 +37,7 @@ typedef struct {
 	int depth;
 } ks_isort_stack_t;
 
-#define KSORT_SWAP(type_t, a, b) { register type_t t=(a); (a)=(b); (b)=t; }
+#define KSORT_SWAP(type_t, a, b) { type_t t=(a); (a)=(b); (b)=t; }
 
 #define KSORT_INIT(name, type_t, __sort_lt) \
 	void ks_heapdown_##name(size_t i, size_t n, type_t l[]) \

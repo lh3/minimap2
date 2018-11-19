@@ -14,7 +14,7 @@ static const char LogTable256[256] = {
 
 static inline int ilog2_32(uint32_t v)
 {
-	register uint32_t t, tt;
+	uint32_t t, tt;
 	if ((tt = v>>16)) return (t = tt>>8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
