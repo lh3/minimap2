@@ -287,7 +287,10 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->parent == r->id) mm_sprintf_lite(s, "\ts2:i:%d", r->subsc);
 	if (r->p) {
 		char buf[16];
-		snprintf(buf, 16, "%.4f", 1.0 - mm_event_identity(r));
+		double div;
+		div = 1.0 - mm_event_identity(r);
+		if (div == 0.0) buf[0] = '0', buf[1] = 0;
+		else snprintf(buf, 16, "%.4f", 1.0 - mm_event_identity(r));
 		mm_sprintf_lite(s, "\tde:f:%s", buf);
 	} else if (r->div >= 0.0f && r->div <= 1.0f) {
 		char buf[16];
