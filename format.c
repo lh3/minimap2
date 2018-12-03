@@ -521,16 +521,6 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 						mm_sprintf_lite(s, "%d%c", q->p->cigar[k]>>4, "MIDNSHP=XB"[q->p->cigar[k]&0xf]);
 					if (clip_len[1]) mm_sprintf_lite(s, "%d%c", clip_len[1], clip_char);
 
-					// if (q->qe - q->qs < q->re - q->rs) l_M = q->qe - q->qs, l_D = (q->re - q->rs) - l_M;
-					// else l_M = q->re - q->rs, l_I = (q->qe - q->qs) - l_M;
-					// clip5 = q->rev? t->l_seq - q->qe : q->qs;
-					// clip3 = q->rev? q->qs : t->l_seq - q->qe;
-					// mm_sprintf_lite(s, "%s,%d,%c,", mi->seq[q->rid].name, q->rs+1, "+-"[q->rev]);
-					// if (clip5) mm_sprintf_lite(s, "%dS", clip5);
-					// if (l_M) mm_sprintf_lite(s, "%dM", l_M);
-					// if (l_I) mm_sprintf_lite(s, "%dI", l_I);
-					// if (l_D) mm_sprintf_lite(s, "%dD", l_D);
-					// if (clip3) mm_sprintf_lite(s, "%dS", clip3);
 					mm_sprintf_lite(s, ",%d,%d;", q->mapq, q->blen - q->mlen + q->p->n_ambi);
 				}
 			}
