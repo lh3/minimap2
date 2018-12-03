@@ -506,18 +506,29 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 				mm_sprintf_lite(s, "\tSA:Z:");
 				for (i = 0; i < n_regs; ++i) {
 					const mm_reg1_t *q = &regs[i];
-					int l_M, l_I = 0, l_D = 0, clip5 = 0, clip3 = 0;
 					if (r == q || q->parent != q->id || q->p == 0) continue;
-					if (q->qe - q->qs < q->re - q->rs) l_M = q->qe - q->qs, l_D = (q->re - q->rs) - l_M;
-					else l_M = q->re - q->rs, l_I = (q->qe - q->qs) - l_M;
-					clip5 = q->rev? t->l_seq - q->qe : q->qs;
-					clip3 = q->rev? q->qs : t->l_seq - q->qe;
-					mm_sprintf_lite(s, "%s,%d,%c,", mi->seq[q->rid].name, q->rs+1, "+-"[q->rev]);
-					if (clip5) mm_sprintf_lite(s, "%dS", clip5);
-					if (l_M) mm_sprintf_lite(s, "%dM", l_M);
-					if (l_I) mm_sprintf_lite(s, "%dI", l_I);
-					if (l_D) mm_sprintf_lite(s, "%dD", l_D);
-					if (clip3) mm_sprintf_lite(s, "%dS", clip3);
+
+					uint32_t k, clip_len[2];
+					
+					clip_len[0] = q->rev? t->l_seq - q->qe : q->qs;
+					clip_len[1] = q->rev? q->qs : t->l_seq - q->qe;
+
+					int clip_char = !(opt_flag&MM_F_SOFTCLIP)? 'H' : 'S';
+					if (clip_len[0]) mm_sprintf_lite(s, "%d%c", clip_len[0], clip_char);
+					for (k = 0; k < r->p->n_cigar; ++k)
+						mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDNSHP=XB"[r->p->cigar[k]&0xf]);
+					if (clip_len[1]) mm_sprintf_lite(s, "%d%c", clip_len[1], clip_char);
+
+					// if (q->qe - q->qs < q->re - q->rs) l_M = q->qe - q->qs, l_D = (q->re - q->rs) - l_M;
+					// else l_M = q->re - q->rs, l_I = (q->qe - q->qs) - l_M;
+					// clip5 = q->rev? t->l_seq - q->qe : q->qs;
+					// clip3 = q->rev? q->qs : t->l_seq - q->qe;
+					// mm_sprintf_lite(s, "%s,%d,%c,", mi->seq[q->rid].name, q->rs+1, "+-"[q->rev]);
+					// if (clip5) mm_sprintf_lite(s, "%dS", clip5);
+					// if (l_M) mm_sprintf_lite(s, "%dM", l_M);
+					// if (l_I) mm_sprintf_lite(s, "%dI", l_I);
+					// if (l_D) mm_sprintf_lite(s, "%dD", l_D);
+					// if (clip3) mm_sprintf_lite(s, "%dS", clip3);
 					mm_sprintf_lite(s, ",%d,%d;", q->mapq, q->blen - q->mlen + q->p->n_ambi);
 				}
 			}
