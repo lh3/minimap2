@@ -515,8 +515,8 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 
 					int clip_char = !(opt_flag&MM_F_SOFTCLIP)? 'H' : 'S';
 					if (clip_len[0]) mm_sprintf_lite(s, "%d%c", clip_len[0], clip_char);
-					for (k = 0; k < r->p->n_cigar; ++k)
-						mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDNSHP=XB"[r->p->cigar[k]&0xf]);
+					for (k = 0; k < q->p->n_cigar; ++k)
+						mm_sprintf_lite(s, "%d%c", q->p->cigar[k]>>4, "MIDNSHP=XB"[q->p->cigar[k]&0xf]);
 					if (clip_len[1]) mm_sprintf_lite(s, "%d%c", clip_len[1], clip_char);
 
 					// if (q->qe - q->qs < q->re - q->rs) l_M = q->qe - q->qs, l_D = (q->re - q->rs) - l_M;
