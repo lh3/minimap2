@@ -107,6 +107,8 @@ typedef struct {
 	int sdust_thres; // score threshold for SDUST; 0 to disable
 	int flag;        // see MM_F_* macros
 
+	int max_qlen;    // max query length
+
 	int bw;          // bandwidth
 	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
 	int max_frag_len;

@@ -1,4 +1,4 @@
-.TH minimap2 1 "5 November 2018" "minimap2-2.14-dirty (r891)" "Bioinformatics tools"
+.TH minimap2 1 "12 December 2018" "minimap2-2.14-dirty (r894)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -457,6 +457,13 @@ memory.
 .TP
 .BR --secondary = yes | no
 Whether to output secondary alignments [yes]
+.TP
+.BI --max-qlen \ NUM
+Filter out query sequences longer than
+.IR NUM .
+.TP
+.B --paf-no-hit
+In PAF, output query name and length for an unmapped sequence.
 .TP
 .B --version
 Print version number to stdout
