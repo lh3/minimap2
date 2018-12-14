@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.14-r893-dirty';
+var paftools_version = '2.14-r895-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -801,11 +801,12 @@ function paf_asmstat(args)
 
 function paf_asmgene(args)
 {
-	var c, opt = { min_cov:0.99, min_iden:0.99 }, print_err = false;
-	while ((c = getopt(args, "i:c:e")) != null)
+	var c, opt = { min_cov:0.99, min_iden:0.99 }, print_err = false, auto_only = false;
+	while ((c = getopt(args, "i:c:ea")) != null)
 		if (c == 'i') opt.min_iden = parseFloat(getopt.arg);
 		else if (c == 'c') opt.min_cov = parseFloat(getopt.arg);
 		else if (c == 'e') print_err = true;
+		else if (c == 'a') auto_only = true;
 
 	var n_fn = args.length - getopt.ind;
 	if (n_fn < 2) {
@@ -813,6 +814,7 @@ function paf_asmgene(args)
 		print("Options:");
 		print("  -i FLOAT     min identity [" + opt.min_iden + "]");
 		print("  -c FLOAT     min coverage [" + opt.min_cov + "]");
+		print("  -a           only evaluate genes mapped to the autosomes");
 		print("  -e           print fragmented/missing genes");
 		exit(1);
 	}
@@ -895,6 +897,7 @@ function paf_asmgene(args)
 	for (var g in gene) {
 		if (gene[g][0] == null || gene[g][0][0] != 1) continue;
 		if (gene_nr[g] == null) continue;
+		if (auto_only && /^(chr)?[XY]$/.test(refpos[g][2])) continue;
 		for (var i = 0; i < n_fn; ++i) {
 			if (gene[g][i] == null) {
 				rst[4][i]++;
