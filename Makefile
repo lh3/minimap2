@@ -8,7 +8,11 @@ LIBS=		-lm -lz -lpthread
 
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
+ifeq ($(avx2),)
 	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
+else
+	OBJS+=ksw2_extd2_avx2.o ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
+endif
 else                # if sse2only is defined
 	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
 endif
@@ -57,11 +61,14 @@ ksw2_extz2_sse41.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 ksw2_extz2_sse2.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -msse2 -mno-sse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH -DKSW_SSE2_ONLY $(INCLUDES) $< -o $@
 
+ksw2_extd2_avx2.o:ksw2_extd2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) -mavx2 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
+
 ksw2_extd2_sse41.o:ksw2_extd2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) -msse4.1 -mno-avx2 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
 ksw2_extd2_sse2.o:ksw2_extd2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) -msse2 -mno-sse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH -DKSW_SSE2_ONLY $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) -msse2 -mno-sse4.1 -mno-avx2 $(CPPFLAGS) -DKSW_CPU_DISPATCH -DKSW_SSE2_ONLY $(INCLUDES) $< -o $@
 
 ksw2_exts2_sse41.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
@@ -69,8 +76,13 @@ ksw2_exts2_sse41.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 ksw2_exts2_sse2.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -msse2 -mno-sse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH -DKSW_SSE2_ONLY $(INCLUDES) $< -o $@
 
+ifeq ($(avx2),)
 ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
 		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
+else
+ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
+		$(CC) -c $(CFLAGS) -mavx2 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
+endif
 
 # NEON-specific targets on ARM
 
