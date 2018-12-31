@@ -31,6 +31,21 @@
 #define SIMD_WIDTH (1<<SIMD_SHIFT)
 
 
+#if defined(__AVX2__)
+static inline __m256i simd_slli_1(__m256i x)
+{
+	return _mm256_insert_epi8(_mm256_slli_si256(x, 1), _mm256_extract_epi8(x, 15), 16);
+}
+static inline __m256i simd_srli_last(__m256i x)
+{
+	return _mm256_insert_epi8(_mm256_setzero_si256(), _mm256_extract_epi8(x, 31), 0);
+}
+#elif defined(__SSE2__)
+static inline __m128i simd_slli_1(__m128i x) { return _mm_slli_si128(x, 1); }
+static inline __m128i simd_srli_last(__m128i x) { return _mm_srli_si128(x, 15); }
+#endif
+
+
 #ifdef KSW_CPU_DISPATCH
 #if defined(__AVX2__)
 void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
@@ -50,26 +65,26 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 #define __dp_code_block1 \
 	z = simd_funcw(load)(&s[t]); \
 	xt1 = simd_funcw(load)(&x[t]);                        /* xt1 <- x[r-1][t..t+15] */ \
-	tmp = simd_funcw(srli)(xt1, SIMD_WIDTH-1);            /* tmp <- x[r-1][t+15] */ \
-	xt1 = simd_funcw(or)(simd_funcw(slli)(xt1, 1), x1_);  /* xt1 <- x[r-1][t-1..t+14] */ \
+	tmp = simd_srli_last(xt1);                            /* tmp <- x[r-1][t+15] */ \
+	xt1 = simd_funcw(or)(simd_slli_1(xt1), x1_);          /* xt1 <- x[r-1][t-1..t+14] */ \
 	x1_ = tmp; \
 	vt1 = simd_funcw(load)(&v[t]);                        /* vt1 <- v[r-1][t..t+15] */ \
-	tmp = simd_funcw(srli)(vt1, SIMD_WIDTH-1);            /* tmp <- v[r-1][t+15] */ \
-	vt1 = simd_funcw(or)(simd_funcw(slli)(vt1, 1), v1_);  /* vt1 <- v[r-1][t-1..t+14] */ \
+	tmp = simd_srli_last(vt1);                            /* tmp <- v[r-1][t+15] */ \
+	vt1 = simd_funcw(or)(simd_slli_1(vt1), v1_);          /* vt1 <- v[r-1][t-1..t+14] */ \
 	v1_ = tmp; \
 	a = simd_func(add_epi8)(xt1, vt1);                    /* a <- x[r-1][t-1..t+14] + v[r-1][t-1..t+14] */ \
 	ut = simd_funcw(load)(&u[t]);                         /* ut <- u[t..t+15] */ \
 	b = simd_func(add_epi8)(simd_funcw(load)(&y[t]), ut); /* b <- y[r-1][t..t+15] + u[r-1][t..t+15] */ \
 	x2t1= simd_funcw(load)(&x2[t]); \
-	tmp = simd_funcw(srli)(x2t1, SIMD_WIDTH-1); \
-	x2t1= simd_funcw(or)(simd_funcw(slli)(x2t1, 1), x21_); \
+	tmp = simd_srli_last(x2t1); \
+	x2t1= simd_funcw(or)(simd_slli_1(x2t1), x21_); \
 	x21_= tmp; \
 	a2= simd_func(add_epi8)(x2t1, vt1); \
 	b2= simd_func(add_epi8)(simd_funcw(load)(&y2[t]), ut);
 
 #define __dp_code_block2 \
-	simd_funcw(store)(&u[t], simd_func(sub_epi8)(z, vt1));    /* u[r][t..t+15] <- z - v[r-1][t-1..t+14] */ \
-	simd_funcw(store)(&v[t], simd_func(sub_epi8)(z, ut));     /* v[r][t..t+15] <- z - u[r-1][t..t+15] */ \
+	simd_funcw(store)(&u[t], simd_func(sub_epi8)(z, vt1));/* u[r][t..t+15] <- z - v[r-1][t-1..t+14] */ \
+	simd_funcw(store)(&v[t], simd_func(sub_epi8)(z, ut)); /* v[r][t..t+15] <- z - u[r-1][t..t+15] */ \
 	tmp = simd_func(sub_epi8)(z, q_); \
 	a = simd_func(sub_epi8)(a, tmp); \
 	b = simd_func(sub_epi8)(b, tmp); \
