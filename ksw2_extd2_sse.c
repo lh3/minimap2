@@ -81,7 +81,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
-	SIMD_INT q_, q2_, qe_, qe2_, zero_, sc_mch_, sc_mis_, m1_, sc_N_;
+	SIMD_INT q_, q2_, qe_, qe2_, zero_, sc_mch_, sc_mis_, m1_, sc_N_, mask1_;
 	SIMD_INT *u, *v, *x, *y, *x2, *y2, *s, *p = 0;
 
 	ksw_reset_extz(ez);
@@ -98,6 +98,12 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	sc_mis_ = simd_func(set1_epi8)(mat[1]);
 	sc_N_   = mat[m*m-1] == 0? simd_func(set1_epi8)(-e2) : simd_func(set1_epi8)(mat[m*m-1]);
 	m1_     = simd_func(set1_epi8)(m - 1); // wildcard
+
+#if defined(__AVX2__)
+	mask1_ = _mm256_setr_epi32(0xff, 0, 0, 0, 0, 0, 0, 0);
+#elif defined(__SSE2__)
+	mask1_ = _mm_setr_epi32(0xff, 0, 0, 0);
+#endif
 
 	if (w < 0) w = tlen > qlen? tlen : qlen;
 	wl = wr = w;
@@ -195,15 +201,9 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				((uint8_t*)s)[t] = mat[sf[t] * m + qrr[t]];
 		}
 		// core loop
-#if defined(__AVX2__)
-		x1_  = _mm256_setr_epi32((uint8_t)x1,  0, 0, 0, 0, 0, 0, 0);
-		x21_ = _mm256_setr_epi32((uint8_t)x21, 0, 0, 0, 0, 0, 0, 0);
-		v1_  = _mm256_setr_epi32((uint8_t)v1,  0, 0, 0, 0, 0, 0, 0);
-#elif defined(__SSE2__)
-		x1_  = _mm_setr_epi32((uint8_t)x1,  0, 0, 0);
-		x21_ = _mm_setr_epi32((uint8_t)x21, 0, 0, 0);
-		v1_  = _mm_setr_epi32((uint8_t)v1,  0, 0, 0);
-#endif
+		x1_  = simd_funcw(and)(simd_func(set1_epi8)((uint8_t)x1),  mask1_);
+		x21_ = simd_funcw(and)(simd_func(set1_epi8)((uint8_t)x21), mask1_);
+		v1_  = simd_funcw(and)(simd_func(set1_epi8)((uint8_t)v1),  mask1_);
 		st_ = st / SIMD_WIDTH, en_ = en / SIMD_WIDTH;
 		assert(en_ - st_ + 1 <= n_col_);
 		if (!with_cigar) { // score only
