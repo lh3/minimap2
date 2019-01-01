@@ -2,15 +2,16 @@
 #include <stdlib.h>
 #include "ksw2.h"
 
-#define SIMD_SSE     0x1
-#define SIMD_SSE2    0x2
-#define SIMD_SSE3    0x4
-#define SIMD_SSSE3   0x8
-#define SIMD_SSE4_1  0x10
-#define SIMD_SSE4_2  0x20
-#define SIMD_AVX     0x40
-#define SIMD_AVX2    0x80
-#define SIMD_AVX512F 0x100
+#define SIMD_SSE      0x1
+#define SIMD_SSE2     0x2
+#define SIMD_SSE3     0x4
+#define SIMD_SSSE3    0x8
+#define SIMD_SSE4_1   0x10
+#define SIMD_SSE4_2   0x20
+#define SIMD_AVX      0x40
+#define SIMD_AVX2     0x80
+#define SIMD_AVX512F  0x100
+#define SIMD_AVX512BW 0x200
 
 #ifndef _MSC_VER
 // adapted from https://github.com/01org/linux-sgx/blob/master/common/inc/internal/linux/cpuid_gnu.h
@@ -48,6 +49,7 @@ static int x86_simd(void)
 		__cpuidex(cpuid, 7, 0);
 		if (cpuid[1]>>5 &1) flag |= SIMD_AVX2;
 		if (cpuid[1]>>16&1) flag |= SIMD_AVX512F;
+		if (cpuid[1]>>30&1) flag |= SIMD_AVX512BW;
 	}
 	return flag;
 }
@@ -73,8 +75,15 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 	extern void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
+	extern void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
+				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 	if (ksw_simd < 0) ksw_simd = x86_simd();
-#ifdef __AVX2__
+#if defined(__AVX512BW__)
+	if (ksw_simd & SIMD_AVX512BW)
+		ksw_extd2_avx512(km, qlen, query, tlen, target, m, mat, q, e, q2, e2, w, zdrop, end_bonus, flag, ez);
+	else
+#endif
+#if defined(__AVX2__)
 	if (ksw_simd & SIMD_AVX2)
 		ksw_extd2_avx2(km, qlen, query, tlen, target, m, mat, q, e, q2, e2, w, zdrop, end_bonus, flag, ez);
 	else

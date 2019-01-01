@@ -2,16 +2,21 @@ CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o chain.o align.o hit.o map.o format.o pe.o esterr.o splitidx.o ksw2_ll_sse.o
+OBJS_SSE=	ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
 
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
+ifeq ($(avx512),)
 ifeq ($(avx2),)
-	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
+	OBJS+=$(OBJS_SSE) ksw2_dispatch.o
 else
-	OBJS+=ksw2_extd2_avx2.o ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
+	OBJS+=ksw2_extd2_avx2.o $(OBJS_SSE) ksw2_dispatch.o
+endif
+else
+	OBJS+=ksw2_extd2_avx512.o ksw2_extd2_avx2.o $(OBJS_SSE) ksw2_dispatch.o
 endif
 else                # if sse2only is defined
 	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
@@ -63,6 +68,9 @@ ksw2_extz2_sse2.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 
 ksw2_extd2_avx2.o:ksw2_extd2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -mavx2 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
+
+ksw2_extd2_avx512.o:ksw2_extd2_avx512.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) -mavx512bw $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
 ksw2_extd2_sse41.o:ksw2_extd2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -msse4.1 -mno-avx2 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
