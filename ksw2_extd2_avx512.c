@@ -149,9 +149,9 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 				((uint8_t*)s)[t] = mat[sf[t] * m + qrr[t]];
 		}
 		// core loop
-		x1_  = _mm512_maskz_set1_epi8(1, (uint8_t)x1);
-		x21_ = _mm512_maskz_set1_epi8(1, (uint8_t)x21);
-		v1_  = _mm512_maskz_set1_epi8(1, (uint8_t)v1);
+		x1_  = _mm512_maskz_set1_epi8(1, x1);
+		x21_ = _mm512_maskz_set1_epi8(1, x21);
+		v1_  = _mm512_maskz_set1_epi8(1, v1);
 		st_ = st / 64, en_ = en / 64;
 		assert(en_ - st_ + 1 <= n_col_);
 		if (!with_cigar) { // score only
@@ -226,27 +226,27 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 			int32_t max_H, max_t;
 			// compute H[], max_H and max_t
 			if (r > 0) {
-				int32_t HH[64/4], tt[64/4], en1 = st0 + (en0 - st0) / (64/4) * (64/4), i;
+				int32_t HH[16], tt[16], en1 = st0 + (en0 - st0) / 16 * 16, i;
 				__m512i max_H_, max_t_;
 				max_H = H[en0] = en0 > 0? H[en0-1] + u8[en0] : H[en0] + v8[en0]; // special casing the last element
 				max_t = en0;
 				max_H_ = _mm512_set1_epi32(max_H);
 				max_t_ = _mm512_set1_epi32(max_t);
-				for (t = st0; t < en1; t += 64/4) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
+				for (t = st0; t < en1; t += 16) { // this implements: H[t]+=v8[t]; if(H[t]>max_H) max_H=H[t],max_t=t;
 					__m512i H1, t_;
 					__mmask64 tmp2;
 					H1 = _mm512_loadu_si512((__m512i*)&H[t]);
-					t_ = _mm512_broadcastb_epi8(_mm_loadu_si128((__m128i*)&v8[t]));
+					t_ = _mm512_cvtepi8_epi32(_mm_loadu_si128((__m128i*)&v8[t]));
 					H1 = _mm512_add_epi32(H1, t_);
 					_mm512_storeu_si512((__m512i*)&H[t], H1);
 					t_ = _mm512_set1_epi32(t);
 					tmp2 = _mm512_cmpgt_epi32_mask(H1, max_H_);
-					max_H_ = _mm512_mask_blend_epi8(tmp2, max_H_, H1);
-					max_H_ = _mm512_mask_blend_epi8(tmp2, max_t_, t_);
+					max_H_ = _mm512_mask_blend_epi32(tmp2, max_H_, H1);
+					max_t_ = _mm512_mask_blend_epi32(tmp2, max_t_, t_);
 				}
 				_mm512_storeu_si512((__m512i*)HH, max_H_);
 				_mm512_storeu_si512((__m512i*)tt, max_t_);
-				for (i = 0; i < 64/4; ++i)
+				for (i = 0; i < 16; ++i)
 					if (max_H < HH[i]) max_H = HH[i], max_t = tt[i] + i;
 				for (; t < en0; ++t) { // for the rest of values that haven't been computed with SSE
 					H[t] += (int32_t)v8[t];
