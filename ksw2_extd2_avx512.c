@@ -166,8 +166,8 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 				__dp_code_block2; // save u[] and v[]; update a, b, a2 and b2
 				_mm512_store_si512(&x[t],  _mm512_sub_epi8(_mm512_max_epi8(a,  zero_), qe_));
 				_mm512_store_si512(&y[t],  _mm512_sub_epi8(_mm512_max_epi8(b,  zero_), qe_));
-				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe_));
-				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe_));
+				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe2_));
+				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe2_));
 			}
 		} else if (!(flag&KSW_EZ_RIGHT)) { // gap left-alignment
 			__m512i *pr = p + (size_t)r * n_col_ - st_;
@@ -190,9 +190,9 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(b,  zero_), 0x10)); // d = b  > 0? 1<<4 : 0
 				_mm512_store_si512(&y[t],  _mm512_sub_epi8(_mm512_max_epi8(b,  zero_), qe_));
 				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(a2, zero_), 0x20)); // d = a2 > 0? 1<<5 : 0
-				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe_));
+				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe2_));
 				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(b2, zero_), 0x40)); // d = b2 > 0? 1<<6 : 0
-				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe_));
+				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe2_));
 				_mm512_store_si512(&pr[t], d);
 			}
 		} else { // gap right-alignment
@@ -201,7 +201,7 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 			for (t = st_; t <= en_; ++t) {
 				__m512i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
 				__dp_code_block1;
-				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(z, a),  _mm512_setzero(), _mm512_set1_epi8(1));
+				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(z, a),  zero_, _mm512_set1_epi8(1));
 				z = _mm512_max_epi8(z, a);
 				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(z, b),  d, _mm512_set1_epi8(2));
 				z = _mm512_max_epi8(z, b);
@@ -216,9 +216,9 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(b,  zero_), 0x10)); // d = b  >= 0? 1<<4 : 0
 				_mm512_store_si512(&y[t],  _mm512_sub_epi8(_mm512_max_epi8(b,  zero_), qe_));
 				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(a2, zero_), 0x20)); // d = a2 >= 0? 1<<5 : 0
-				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe_));
+				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe2_));
 				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(b2, zero_), 0x40)); // d = b2 >= 0? 1<<6 : 0
-				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe_));
+				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe2_));
 				_mm512_store_si512(&pr[t], d);
 			}
 		}
