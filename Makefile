@@ -72,7 +72,7 @@ ksw2_extz2_sse2.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 ksw2_extd2_avx2.o:ksw2_extd2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -mavx2 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
-ksw2_extd2_avx512.o:ksw2_extd2_avx512.c ksw2.h kalloc.h
+ksw2_extd2_avx512.o:ksw2_extd2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -mavx512bw $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
 ksw2_extd2_sse41.o:ksw2_extd2_sse.c ksw2.h kalloc.h

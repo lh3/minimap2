@@ -5,7 +5,14 @@
 
 #ifdef __SSE2__
 
-#if defined(__AVX2__)
+#if defined(__AVX512BW__)
+#include <immintrin.h>
+#define SIMD_INT __m512i
+#define SIMD_SHIFT 6
+#define simd_func(func) _mm512_##func
+#define simd_funcw(func) _mm512_##func##_si512
+
+#elif defined(__AVX2__)
 #include <immintrin.h>
 #define SIMD_INT __m256i
 #define SIMD_SHIFT 5
@@ -31,6 +38,7 @@
 #define SIMD_WIDTH (1<<SIMD_SHIFT)
 
 
+#if !defined(__AVX512BW__)
 #if defined(__AVX2__)
 static inline __m256i simd_slli_1(__m256i x)
 {
@@ -44,10 +52,14 @@ static inline __m256i simd_srli_last(__m256i x)
 static inline __m128i simd_slli_1(__m128i x) { return _mm_slli_si128(x, 1); }
 static inline __m128i simd_srli_last(__m128i x) { return _mm_srli_si128(x, 15); }
 #endif
+#endif // ~__AVX512BW__
 
 
 #ifdef KSW_CPU_DISPATCH
-#if defined(__AVX2__)
+#if defined(__AVX512BW__)
+void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
+				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
+#elif defined(__AVX2__)
 void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
 #elif defined(__SSE4_1__)
@@ -62,6 +74,24 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
 #endif // ~KSW_CPU_DISPATCH
 {
+#if defined(__AVX512BW__)
+#define __dp_code_block1 \
+	z = _mm512_load_si512(&s[t]); \
+	tmp = _mm512_loadu_si512((uint8_t*)&x[t] - 1); \
+	xt1 = _mm512_mask_blend_epi8(1, tmp, x1_); \
+	x1_ = _mm512_maskz_set1_epi8(1, *((uint8_t*)&x[t] + 63)); \
+	tmp = _mm512_loadu_si512((uint8_t*)&v[t] - 1); \
+	vt1 = _mm512_mask_blend_epi8(1, tmp, v1_); \
+	v1_ = _mm512_maskz_set1_epi8(1, *((uint8_t*)&v[t] + 63)); \
+	a = _mm512_add_epi8(xt1, vt1); \
+	ut = _mm512_load_si512(&u[t]); \
+	b = _mm512_add_epi8(_mm512_load_si512(&y[t]), ut); \
+	tmp = _mm512_loadu_si512((uint8_t*)&x2[t] - 1); \
+	x2t1 = _mm512_mask_blend_epi8(1, tmp, x21_); \
+	x21_ = _mm512_maskz_set1_epi8(1, *((uint8_t*)&x2[t] + 63)); \
+	a2= _mm512_add_epi8(x2t1, vt1); \
+	b2= _mm512_add_epi8(_mm512_load_si512(&y2[t]), ut);
+#else
 #define __dp_code_block1 \
 	z = simd_funcw(load)(&s[t]); \
 	xt1 = simd_funcw(load)(&x[t]);                        /* xt1 <- x[r-1][t..t+15] */ \
@@ -81,6 +111,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	x21_= tmp; \
 	a2= simd_func(add_epi8)(x2t1, vt1); \
 	b2= simd_func(add_epi8)(simd_funcw(load)(&y2[t]), ut);
+#endif // ~__AVX512BW__
 
 #define __dp_code_block2 \
 	simd_funcw(store)(&u[t], simd_func(sub_epi8)(z, vt1));/* u[r][t..t+15] <- z - v[r-1][t-1..t+14] */ \
@@ -114,7 +145,9 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	sc_N_   = mat[m*m-1] == 0? simd_func(set1_epi8)(-e2) : simd_func(set1_epi8)(mat[m*m-1]);
 	m1_     = simd_func(set1_epi8)(m - 1); // wildcard
 
-#if defined(__AVX2__)
+#if defined(__AVX512BW__)
+	mask1_ = _mm512_maskz_set1_epi8(1, 0xff);
+#elif defined(__AVX2__)
 	mask1_ = _mm256_setr_epi32(0xff, 0, 0, 0, 0, 0, 0, 0);
 #elif defined(__SSE2__)
 	mask1_ = _mm_setr_epi32(0xff, 0, 0, 0);
@@ -197,15 +230,21 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		// loop fission: set scores first
 		if (!(flag & KSW_EZ_GENERIC_SC)) {
 			for (t = st0; t <= en0; t += SIMD_WIDTH) {
-				SIMD_INT sq, st, tmp, mask;
+				SIMD_INT sq, st, tmp;
 				sq = simd_funcw(loadu)((SIMD_INT*)&sf[t]);
 				st = simd_funcw(loadu)((SIMD_INT*)&qrr[t]);
-				mask = simd_funcw(or)(simd_func(cmpeq_epi8)(sq, m1_), simd_func(cmpeq_epi8)(st, m1_));
+#if defined(__AVX512BW__)
+				__mmask64 mask = _mm512_cmpeq_epi8_mask(sq, m1_) | _mm512_cmpeq_epi8_mask(st, m1_);
+				tmp = _mm512_mask_blend_epi8(_mm512_cmpeq_epi8_mask(sq, st), sc_mis_, sc_mch_);
+				tmp = _mm512_mask_blend_epi8(mask, tmp, sc_N_);
+#elif defined(__SSE4_1__) || defined(__AVX2__)
+				SIMD_INT mask = simd_funcw(or)(simd_func(cmpeq_epi8)(sq, m1_), simd_func(cmpeq_epi8)(st, m1_));
 				tmp = simd_func(cmpeq_epi8)(sq, st);
-#if defined(__SSE4_1__) || defined(__AVX2__)
 				tmp = simd_func(blendv_epi8)(sc_mis_, sc_mch_, tmp);
 				tmp = simd_func(blendv_epi8)(tmp,     sc_N_,   mask);
 #elif defined(__SSE2__) // emulate blendv
+				SIMD_INT mask = simd_funcw(or)(simd_func(cmpeq_epi8)(sq, m1_), simd_func(cmpeq_epi8)(st, m1_));
+				tmp = simd_func(cmpeq_epi8)(sq, st);
 				tmp = _mm_or_si128(_mm_andnot_si128(tmp,  sc_mis_), _mm_and_si128(tmp,  sc_mch_));
 				tmp = _mm_or_si128(_mm_andnot_si128(mask, tmp),     _mm_and_si128(mask, sc_N_));
 #endif
@@ -225,7 +264,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = st_; t <= en_; ++t) {
 				SIMD_INT z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
 				__dp_code_block1;
-#if defined(__SSE4_1__) || defined(__AVX2__)
+#if defined(__SSE4_1__) || defined(__AVX2__) || defined(__AVX512BW__)
 				z = simd_func(max_epi8)(z, a);
 				z = simd_func(max_epi8)(z, b);
 				z = simd_func(max_epi8)(z, a2);
@@ -264,6 +303,26 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = st_; t <= en_; ++t) {
 				SIMD_INT d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
 				__dp_code_block1;
+#if defined(__AVX512BW__)
+				d = _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(a,  z), 1);
+				z = _mm512_max_epi8(z, a);
+				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(b,  z), d, _mm512_set1_epi8(2));
+				z = _mm512_max_epi8(z, b);
+				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(a2, z), d, _mm512_set1_epi8(3));
+				z = _mm512_max_epi8(z, a2);
+				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(b2, z), d, _mm512_set1_epi8(4));
+				z = _mm512_max_epi8(z, b2);
+				z = _mm512_min_epi8(z, sc_mch_);
+				__dp_code_block2;
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(a,  zero_), 0x08)); // d = a  > 0? 1<<3 : 0
+				_mm512_store_si512(&x[t],  _mm512_sub_epi8(_mm512_max_epi8(a,  zero_), qe_));
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(b,  zero_), 0x10)); // d = b  > 0? 1<<4 : 0
+				_mm512_store_si512(&y[t],  _mm512_sub_epi8(_mm512_max_epi8(b,  zero_), qe_));
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(a2, zero_), 0x20)); // d = a2 > 0? 1<<5 : 0
+				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe2_));
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(b2, zero_), 0x40)); // d = b2 > 0? 1<<6 : 0
+				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe2_));
+#else
 #if defined(__SSE4_1__) || defined(__AVX2__)
 				d = simd_funcw(and)(simd_func(cmpgt_epi8)(a, z), simd_func(set1_epi8)(1));       // d = a  > z? 1 : 0
 				z = simd_func(max_epi8)(z, a);
@@ -289,7 +348,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				z = _mm_or_si128(_mm_andnot_si128(tmp, z), _mm_and_si128(tmp, b2));
 				tmp = _mm_cmplt_epi8(sc_mch_, z);
 				z = _mm_or_si128(_mm_and_si128(tmp, sc_mch_), _mm_andnot_si128(tmp, z));
-#endif
+#endif // ~__SSE2__
 				__dp_code_block2;
 				tmp = simd_func(cmpgt_epi8)(a, zero_);
 				simd_funcw(store)(&x[t],  simd_func(sub_epi8)(simd_funcw(and)(tmp, a),  qe_));
@@ -303,6 +362,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				tmp = simd_func(cmpgt_epi8)(b2, zero_);
 				simd_funcw(store)(&y2[t], simd_func(sub_epi8)(simd_funcw(and)(tmp, b2), qe2_));
 				d = simd_funcw(or)(d, simd_funcw(and)(tmp, simd_func(set1_epi8)(0x40))); // d = b > 0? 1<<6 : 0
+#endif // ~__AVX512BW__
 				simd_funcw(store)(&pr[t], d);
 			}
 		} else { // gap right-alignment
@@ -311,6 +371,26 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = st_; t <= en_; ++t) {
 				SIMD_INT d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
 				__dp_code_block1;
+#if defined(__AVX512BW__)
+				d = _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(a,  z), 1);
+				z = _mm512_max_epi8(z, a);
+				d = _mm512_mask_blend_epi8(_mm512_cmpge_epi8_mask(b,  z), d, _mm512_set1_epi8(2));
+				z = _mm512_max_epi8(z, b);
+				d = _mm512_mask_blend_epi8(_mm512_cmpge_epi8_mask(a2, z), d, _mm512_set1_epi8(3));
+				z = _mm512_max_epi8(z, a2);
+				d = _mm512_mask_blend_epi8(_mm512_cmpge_epi8_mask(b2, z), d, _mm512_set1_epi8(4));
+				z = _mm512_max_epi8(z, b2);
+				z = _mm512_min_epi8(z, sc_mch_);
+				__dp_code_block2;
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(a,  zero_), 0x08)); // d = a  >= 0? 1<<3 : 0
+				_mm512_store_si512(&x[t],  _mm512_sub_epi8(_mm512_max_epi8(a,  zero_), qe_));
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(b,  zero_), 0x10)); // d = b  >= 0? 1<<4 : 0
+				_mm512_store_si512(&y[t],  _mm512_sub_epi8(_mm512_max_epi8(b,  zero_), qe_));
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(a2, zero_), 0x20)); // d = a2 >= 0? 1<<5 : 0
+				_mm512_store_si512(&x2[t], _mm512_sub_epi8(_mm512_max_epi8(a2, zero_), qe2_));
+				d = _mm512_or_si512(d, _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(b2, zero_), 0x40)); // d = b2 >= 0? 1<<6 : 0
+				_mm512_store_si512(&y2[t], _mm512_sub_epi8(_mm512_max_epi8(b2, zero_), qe2_));
+#else
 #if defined(__SSE4_1__) || defined(__AVX2__)
 				d = simd_funcw(andnot)(simd_func(cmpgt_epi8)(z, a), simd_func(set1_epi8)(1));    // d = z > a?  0 : 1
 				z = simd_func(max_epi8)(z, a);
@@ -336,7 +416,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				z = _mm_or_si128(_mm_and_si128(tmp, z), _mm_andnot_si128(tmp, b2));
 				tmp = _mm_cmplt_epi8(sc_mch_, z);
 				z = _mm_or_si128(_mm_and_si128(tmp, sc_mch_), _mm_andnot_si128(tmp, z));
-#endif
+#endif // ~__SSE2__
 				__dp_code_block2;
 				tmp = simd_func(cmpgt_epi8)(zero_, a);
 				simd_funcw(store)(&x[t],  simd_func(sub_epi8)(simd_funcw(andnot)(tmp, a),  qe_));
@@ -350,6 +430,7 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				tmp = simd_func(cmpgt_epi8)(zero_, b2);
 				simd_funcw(store)(&y2[t], simd_func(sub_epi8)(simd_funcw(andnot)(tmp, b2), qe2_));
 				d = simd_funcw(or)(d, simd_funcw(andnot)(tmp, simd_func(set1_epi8)(0x40))); // d = b > 0? 1<<6 : 0
+#endif // ~__AVX512BW__
 				simd_funcw(store)(&pr[t], d);
 			}
 		}
@@ -363,10 +444,12 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				max_t = en0;
 				max_H_ = simd_func(set1_epi32)(max_H);
 				max_t_ = simd_func(set1_epi32)(max_t);
-				for (t = st0; t < en1; t += SIMD_WIDTH/4) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
-					SIMD_INT H1, tmp, t_;
+				for (t = st0; t < en1; t += SIMD_WIDTH/4) { // this implements: H[t]+=v8[t]; if(H[t]>max_H) max_H=H[t],max_t=t;
+					SIMD_INT H1, t_;
 					H1 = simd_funcw(loadu)((SIMD_INT*)&H[t]);
-#if defined(__AVX2__)
+#if defined(__AVX512BW__)
+					t_ = _mm512_cvtepi8_epi32(_mm_loadu_si128((__m128i*)&v8[t]));
+#elif defined(__AVX2__)
 					t_ = _mm256_setr_epi32(v8[t], v8[t+1], v8[t+2], v8[t+3], v8[t+4], v8[t+5], v8[t+6], v8[t+7]);
 #elif defined(__SSE2__)
 					t_ = _mm_setr_epi32(v8[t], v8[t+1], v8[t+2], v8[t+3]);
@@ -374,11 +457,16 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 					H1 = simd_func(add_epi32)(H1, t_);
 					simd_funcw(storeu)((SIMD_INT*)&H[t], H1);
 					t_ = simd_func(set1_epi32)(t);
-					tmp = simd_func(cmpgt_epi32)(H1, max_H_);
-#if defined(__SSE4_1__) || defined(__AVX2__)
+#if defined(__AVX512BW__)
+					__mmask64 tmp = _mm512_cmpgt_epi32_mask(H1, max_H_);
+					max_H_ = _mm512_mask_blend_epi32(tmp, max_H_, H1);
+					max_t_ = _mm512_mask_blend_epi32(tmp, max_t_, t_);
+#elif defined(__SSE4_1__) || defined(__AVX2__)
+					SIMD_INT tmp = simd_func(cmpgt_epi32)(H1, max_H_);
 					max_H_ = simd_func(blendv_epi8)(max_H_, H1, tmp);
 					max_t_ = simd_func(blendv_epi8)(max_t_, t_, tmp);
 #elif defined(__SSE2__)
+					SIMD_INT tmp = simd_func(cmpgt_epi32)(H1, max_H_);
 					max_H_ = simd_funcw(or)(simd_funcw(and)(tmp, H1), simd_funcw(andnot)(tmp, max_H_));
 					max_t_ = simd_funcw(or)(simd_funcw(and)(tmp, t_), simd_funcw(andnot)(tmp, max_t_));
 #endif
