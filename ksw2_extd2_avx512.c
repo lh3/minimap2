@@ -13,16 +13,16 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 	z = _mm512_load_si512(&s[t]); \
 	tmp = _mm512_loadu_si512((uint8_t*)&x[t] - 1); \
 	xt1 = _mm512_mask_blend_epi8(1, tmp, x1_); \
-	x1_ = _mm512_maskz_mov_epi8(1, tmp); \
+	x1_ = _mm512_maskz_set1_epi8(1, *((uint8_t*)&x[t] + 63)); \
 	tmp = _mm512_loadu_si512((uint8_t*)&v[t] - 1); \
 	vt1 = _mm512_mask_blend_epi8(1, tmp, v1_); \
-	v1_ = _mm512_maskz_mov_epi8(1, tmp); \
+	v1_ = _mm512_maskz_set1_epi8(1, *((uint8_t*)&v[t] + 63)); \
 	a = _mm512_add_epi8(xt1, vt1);                     /* a <- x[r-1][t-1..t+62] + v[r-1][t-1..t+62] */ \
 	ut = _mm512_load_si512(&u[t]);                     /* ut <- u[t..t+63] */ \
 	b = _mm512_add_epi8(_mm512_load_si512(&y[t]), ut); /* b <- y[r-1][t..t+63] + u[r-1][t..t+63] */ \
 	tmp = _mm512_loadu_si512((uint8_t*)&x2[t] - 1); \
 	x2t1 = _mm512_mask_blend_epi8(1, tmp, x21_); \
-	x21_ = _mm512_maskz_mov_epi8(1, tmp); \
+	x21_ = _mm512_maskz_set1_epi8(1, *((uint8_t*)&x2[t] + 63)); \
 	a2= _mm512_add_epi8(x2t1, vt1); \
 	b2= _mm512_add_epi8(_mm512_load_si512(&y2[t]), ut);
 
