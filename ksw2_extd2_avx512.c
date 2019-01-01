@@ -12,16 +12,16 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 #define __dp_code_block1 \
 	z = _mm512_load_si512(&s[t]); \
 	tmp = _mm512_loadu_si512((uint8_t*)&x[t] - 1); \
-	xt1 = _mm512_mask_blend_epi8(1, x1_, tmp); \
+	xt1 = _mm512_mask_blend_epi8(1, tmp, x1_); \
 	x1_ = _mm512_maskz_mov_epi8(1, tmp); \
 	tmp = _mm512_loadu_si512((uint8_t*)&v[t] - 1); \
-	vt1 = _mm512_mask_blend_epi8(1, v1_, tmp); \
+	vt1 = _mm512_mask_blend_epi8(1, tmp, v1_); \
 	v1_ = _mm512_maskz_mov_epi8(1, tmp); \
 	a = _mm512_add_epi8(xt1, vt1);                     /* a <- x[r-1][t-1..t+62] + v[r-1][t-1..t+62] */ \
 	ut = _mm512_load_si512(&u[t]);                     /* ut <- u[t..t+63] */ \
 	b = _mm512_add_epi8(_mm512_load_si512(&y[t]), ut); /* b <- y[r-1][t..t+63] + u[r-1][t..t+63] */ \
 	tmp = _mm512_loadu_si512((uint8_t*)&x2[t] - 1); \
-	x2t1 = _mm512_mask_blend_epi8(1, x21_, tmp); \
+	x2t1 = _mm512_mask_blend_epi8(1, tmp, x21_); \
 	x21_ = _mm512_maskz_mov_epi8(1, tmp); \
 	a2= _mm512_add_epi8(x2t1, vt1); \
 	b2= _mm512_add_epi8(_mm512_load_si512(&y2[t]), ut);
@@ -140,8 +140,8 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 				sq = _mm512_loadu_si512((__m512i*)&sf[t]);
 				st = _mm512_loadu_si512((__m512i*)&qrr[t]);
 				mask = _mm512_cmpeq_epi8_mask(sq, m1_) | _mm512_cmpeq_epi8_mask(st, m1_);
-				tmp = _mm512_mask_blend_epi8(_mm512_cmpeq_epi8_mask(sq, st), sc_mch_, sc_mis_);
-				tmp = _mm512_mask_blend_epi8(mask, sc_N_, tmp);
+				tmp = _mm512_mask_blend_epi8(_mm512_cmpeq_epi8_mask(sq, st), sc_mis_, sc_mch_);
+				tmp = _mm512_mask_blend_epi8(mask, tmp, sc_N_);
 				_mm512_storeu_si512((__m512i*)((int8_t*)s + t), tmp);
 			}
 		} else {
@@ -175,13 +175,13 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 			for (t = st_; t <= en_; ++t) {
 				__m512i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
 				__dp_code_block1;
-				d = _mm512_mask_blend_epi8(_mm512_cmplt_epi8_mask(a,  z), _mm512_set1_epi8(1), zero_);
+				d = _mm512_maskz_set1_epi8(_mm512_cmpgt_epi8_mask(a,  z), 1);
 				z = _mm512_max_epi8(z, a);
-				d = _mm512_mask_blend_epi8(_mm512_cmplt_epi8_mask(b,  z), _mm512_set1_epi8(2), d);
+				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(b,  z), d, _mm512_set1_epi8(2));
 				z = _mm512_max_epi8(z, b);
-				d = _mm512_mask_blend_epi8(_mm512_cmplt_epi8_mask(a2, z), _mm512_set1_epi8(3), d);
+				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(a2, z), d, _mm512_set1_epi8(3));
 				z = _mm512_max_epi8(z, a2);
-				d = _mm512_mask_blend_epi8(_mm512_cmplt_epi8_mask(b2, z), _mm512_set1_epi8(4), d);
+				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(b2, z), d, _mm512_set1_epi8(4));
 				z = _mm512_max_epi8(z, b2);
 				z = _mm512_min_epi8(z, sc_mch_);
 				__dp_code_block2;
@@ -201,13 +201,13 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 			for (t = st_; t <= en_; ++t) {
 				__m512i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
 				__dp_code_block1;
-				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(z, a),  zero_, _mm512_set1_epi8(1));
+				d = _mm512_maskz_set1_epi8(_mm512_cmpge_epi8_mask(a,  z), 1);
 				z = _mm512_max_epi8(z, a);
-				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(z, b),  d, _mm512_set1_epi8(2));
+				d = _mm512_mask_blend_epi8(_mm512_cmpge_epi8_mask(b,  z), d, _mm512_set1_epi8(2));
 				z = _mm512_max_epi8(z, b);
-				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(z, a2), d, _mm512_set1_epi8(3));
+				d = _mm512_mask_blend_epi8(_mm512_cmpge_epi8_mask(a2, z), d, _mm512_set1_epi8(3));
 				z = _mm512_max_epi8(z, a2);
-				d = _mm512_mask_blend_epi8(_mm512_cmpgt_epi8_mask(z, b2), d, _mm512_set1_epi8(4));
+				d = _mm512_mask_blend_epi8(_mm512_cmpge_epi8_mask(b2, z), d, _mm512_set1_epi8(4));
 				z = _mm512_max_epi8(z, b2);
 				z = _mm512_min_epi8(z, sc_mch_);
 				__dp_code_block2;
@@ -241,8 +241,8 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 					_mm512_storeu_si512((__m512i*)&H[t], H1);
 					t_ = _mm512_set1_epi32(t);
 					tmp2 = _mm512_cmpgt_epi32_mask(H1, max_H_);
-					max_H_ = _mm512_mask_blend_epi8(tmp2, H1, max_H_);
-					max_H_ = _mm512_mask_blend_epi8(tmp2, t_, max_t_);
+					max_H_ = _mm512_mask_blend_epi8(tmp2, max_H_, H1);
+					max_H_ = _mm512_mask_blend_epi8(tmp2, max_t_, t_);
 				}
 				_mm512_storeu_si512((__m512i*)HH, max_H_);
 				_mm512_storeu_si512((__m512i*)tt, max_t_);
