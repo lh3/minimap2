@@ -1,3 +1,39 @@
+Release 2.15-r905 (10 January 2019)
+-----------------------------------
+
+Changes to minimap2:
+
+ * Fixed a rare segmentation fault when option -H is in use (#307). This may
+   happen when there are very long homopolymers towards the 5'-end of a read.
+
+ * Fixed wrong CIGARs when option --eqx is used (#266).
+
+ * Fixed a typo in the base encoding table (#264). This should have no
+   practical effect.
+
+ * Fixed a typo in the example code (#265).
+
+ * Improved the C++ compatibility by removing "register" (#261). However,
+   minimap2 still can't be compiled in the pedantic C++ mode (#306).
+
+ * Output a new "de" tag for gap-compressed sequence divergence.
+
+Changes to paftools.js:
+
+ * Added "asmgene" to evaluate the completeness of an assembly by measuring the
+   uniquely mapped single-copy genes. This command learns the idea of BUSCO.
+
+ * Added "vcfpair" to call a phased VCF from phased whole-genome assemblies. An
+   earlier version of this script is used to produce the ground truth for the
+   syndip benchmark [PMID:30013044].
+
+This release produces identical alignment coordinates and CIGARs in comparison
+to v2.14. Users are advised to upgrade due to the several bug fixes.
+
+(2.15: 10 Janurary 2019, r905)
+
+
+
 Release 2.14-r883 (5 November 2018)
 -----------------------------------
 
