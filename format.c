@@ -270,7 +270,7 @@ double mm_event_identity(const mm_reg1_t *r)
 		if (op == 1 || op == 2)
 			++n_gapo, n_gap += len;
 	}
-	return (double)r->mlen / (r->blen - r->p->n_ambi - n_gap + n_gapo);
+	return (double)r->mlen / (r->blen - n_gap + n_gapo);
 }
 
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
