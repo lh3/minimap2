@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.15-r905';
+var paftools_version = '2.15-r907-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -1623,13 +1623,14 @@ function paf_sam2paf(args)
 		var tlen = ctg_len[t[2]];
 		if (tlen == null) throw Error("at line " + lineno + ": can't find the length of contig " + t[2]);
 		// find tags
-		var nn = 0, NM = null, MD = null, md_list = [];
+		var nn = 0, NM = null, MD = null, cs_str = null, md_list = [];
 		while ((m = re_tag.exec(line)) != null) {
 			if (m[1] == "NM:i") NM = parseInt(m[2]);
 			else if (m[1] == "nn:i") nn = parseInt(m[2]);
 			else if (m[1] == "MD:Z") MD = m[2];
+			else if (m[1] == "cs:Z") cs_str = m[2];
 		}
-		if (t[9] == '*') MD = null;
+		if (t[9] == '*') MD = cs_str = null;
 		// infer various lengths from CIGAR
 		var clip = [0, 0], soft_clip = 0, I = [0, 0], D = [0, 0], M = 0, N = 0, mm = 0, have_M = false, have_ext = false, cigar = [];
 		while ((m = re.exec(t[5])) != null) {
@@ -1665,7 +1666,7 @@ function paf_sam2paf(args)
 		}
 		// parse MD
 		var cs = [];
-		if (MD != null) {
+		if (MD != null && cs_str == null) {
 			var k = 0, cx = 0, cy = 0, mx = 0, my = 0;
 			while ((m = re_MD.exec(MD)) != null) {
 				if (m[2] != null) { // deletion from the reference
@@ -1731,7 +1732,8 @@ function paf_sam2paf(args)
 		var tags = ["tp:A:" + type];
 		if (NM != null) tags.push("mm:i:"+mm);
 		tags.push("gn:i:"+(I[1]+D[1]), "go:i:"+(I[0]+D[0]), "cg:Z:" + t[5].replace(/\d+[SH]/g, ''));
-		if (cs.length > 0) tags.push("cs:Z:" + cs.join(""));
+		if (cs_str != null) tags.push("cs:Z:" + cs_str);
+		else if (cs.length > 0) tags.push("cs:Z:" + cs.join(""));
 		// print out
 		var a = [qname, qlen, qs, qe, flag&16? '-' : '+', t[2], tlen, ts, te, mlen, blen, t[4]];
 		print(a.join("\t"), tags.join("\t"));
