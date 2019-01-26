@@ -324,7 +324,7 @@ There is not a specific mailing list for the time being.
 If you use minimap2 in your work, please cite:
 
 > Li, H. (2018). Minimap2: pairwise alignment for nucleotide sequences.
-> Bioinformatics. [doi:10.1093/bioinformatics/bty191][doi]
+> *Bioinformatics*, **34**:3094-3100. [doi:10.1093/bioinformatics/bty191][doi]
 
 ## <a name="dguide"></a>Developers' Guide
 
