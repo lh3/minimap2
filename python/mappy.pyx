@@ -221,6 +221,16 @@ cdef class Aligner:
 	@property
 	def n_seq(self): return self._idx.n_seq
 
+	@property
+	def seq_names(self):
+		cdef char *p
+		sn = []
+		for i in range(self._idx.n_seq):
+			p = self._idx.seq[i].name
+			s = p if isinstance(p, str) else p.decode()
+			sn.append(s)
+		return sn
+
 def fastx_read(fn, read_comment=False):
 	cdef cmappy.kseq_t *ks
 	ks = cmappy.mm_fastx_open(str.encode(fn))

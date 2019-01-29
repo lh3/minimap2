@@ -114,6 +114,12 @@ This method retrieves a (sub)sequence from the index and returns it as a Python
 string. :code:`None` is returned if :code:`name` is not present in the index or
 the start/end coordinates are invalid.
 
+.. code:: python
+
+	mappy.Aligner.seq_names
+
+This property gives the array of sequence names in the index.
+
 Class mappy.Alignment
 ~~~~~~~~~~~~~~~~~~~~~
 
