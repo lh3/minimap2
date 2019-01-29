@@ -1,4 +1,4 @@
-.TH minimap2 1 "10 January 2019" "minimap2-2.15 (r905)" "Bioinformatics tools"
+.TH minimap2 1 "10 January 2019" "minimap2-2.15-dirty (r911)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -383,6 +383,11 @@ Set 0 to disable [0].
 .B -a
 Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
 by default.
+.TP
+.BI -o \ FILE
+Output alignments to
+.I FILE
+[stdout].
 .TP
 .B -Q
 Ignore base quality in the input file.

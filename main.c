@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.15-r910-dirty"
+#define MM_VERSION "2.15-r911-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -99,7 +99,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYP";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -165,6 +165,14 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
+		else if (c == 'o') {
+			if (strcmp(o.arg, "-") != 0) {
+				if (freopen(o.arg, "wb", stdout) == NULL) {
+					fprintf(stderr, "[ERROR]\033[1;31m failed to write the output to file '%s'\033[0m\n", o.arg);
+					exit(1);
+				}
+			}
+		}
 		else if (c == 300) ipt.bucket_bits = atoi(o.arg); // --bucket-bits
 		else if (c == 302) opt.seed = atoi(o.arg); // --seed
 		else if (c == 303) mm_dbg_flag |= MM_DBG_NO_KALLOC; // --no-kalloc
@@ -293,7 +301,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
 		fprintf(fp_help, "  Input/Output:\n");
 		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
-		fprintf(fp_help, "    -Q           don't output base quality in SAM\n");
+		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");
 		fprintf(fp_help, "    -L           write CIGAR with >65535 ops at the CG tag\n");
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");

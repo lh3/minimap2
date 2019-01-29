@@ -13,7 +13,7 @@ FILE *mm_split_init(const char *prefix, const mm_idx_t *mi)
 	sprintf(fn, "%s.%.4d.tmp", prefix, mi->index);
 	if ((fp = fopen(fn, "wb")) == NULL) {
 		if (mm_verbose >= 1)
-			fprintf(stderr, "[E::%s] failed to create file '%s'\n", __func__, fn);
+			fprintf(stderr, "[ERROR]\033[1;31m failed to write to temporary file '%s'\033[0m\n", fn);
 		exit(1);
 	}
 	mm_err_fwrite(&k, 4, 1, fp);
