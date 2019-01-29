@@ -11,8 +11,11 @@ FILE *mm_split_init(const char *prefix, const mm_idx_t *mi)
 	uint32_t i, k = mi->k;
 	fn = (char*)calloc(strlen(prefix) + 10, 1);
 	sprintf(fn, "%s.%.4d.tmp", prefix, mi->index);
-	fp = fopen(fn, "wb");
-	assert(fp);
+	if ((fp = fopen(fn, "wb")) == NULL) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[E::%s] failed to create file '%s'\n", __func__, fn);
+		exit(1);
+	}
 	mm_err_fwrite(&k, 4, 1, fp);
 	mm_err_fwrite(&mi->n_seq, 4, 1, fp);
 	for (i = 0; i < mi->n_seq; ++i) {
