@@ -301,11 +301,12 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->split) mm_sprintf_lite(s, "\tzd:i:%d", r->split);
 }
 
-void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag)
+void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag, int rep_len)
 {
 	s->l = 0;
 	if (r == 0) {
 		mm_sprintf_lite(s, "%s\t%d", t->name, t->l_seq);
+		if (rep_len >= 0) mm_sprintf_lite(s, "\trl:i:%d", rep_len);
 		return;
 	}
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
@@ -315,6 +316,7 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 	mm_sprintf_lite(s, "\t%d\t%d", r->mlen, r->blen);
 	mm_sprintf_lite(s, "\t%d", r->mapq);
 	write_tags(s, r);
+	if (rep_len >= 0) mm_sprintf_lite(s, "\trl:i:%d", rep_len);
 	if (r->p && (opt_flag & MM_F_OUT_CG)) {
 		uint32_t k;
 		mm_sprintf_lite(s, "\tcg:Z:");
@@ -325,6 +327,11 @@ void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const m
 		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1);
 	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
 		mm_sprintf_lite(s, "\t%s", t->comment);
+}
+
+void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int opt_flag)
+{
+	mm_write_paf3(s, mi, t, r, km, opt_flag, -1);
 }
 
 static void sam_write_sq(kstring_t *s, char *seq, int l, int rev, int comp)
@@ -377,7 +384,7 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 	}
 }
 
-void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int opt_flag)
+void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int opt_flag, int rep_len)
 {
 	const int max_bam_cigar_op = 65535;
 	int flag, n_regs = n_regss[seg_idx], cigar_in_tag = 0;
@@ -528,11 +535,17 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 		if (cigar_in_tag)
 			write_sam_cigar(s, flag, 1, t->l_seq, r, opt_flag);
 	}
+	if (rep_len >= 0) mm_sprintf_lite(s, "\trl:i:%d", rep_len);
 
 	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
 		mm_sprintf_lite(s, "\t%s", t->comment);
 
 	s->s[s->l] = 0; // we always have room for an extra byte (see str_enlarge)
+}
+
+void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int opt_flag)
+{
+	mm_write_sam3(s, mi, t, seg_idx, reg_idx, n_seg, n_regss, regss, km, opt_flag, -1);
 }
 
 void mm_write_sam(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int n_regs, const mm_reg1_t *regs)
