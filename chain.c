@@ -28,7 +28,10 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	mm128_t *b, *w;
 
 	if (_u) *_u = 0, *n_u_ = 0;
-	if (n == 0 || a == 0) return 0;
+	if (n == 0 || a == 0) {
+		kfree(km, a);
+		return 0;
+	}
 	f = (int32_t*)kmalloc(km, n * 4);
 	p = (int32_t*)kmalloc(km, n * 4);
 	t = (int32_t*)kmalloc(km, n * 4);
