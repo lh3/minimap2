@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.15-r907-dirty';
+var paftools_version = '2.15-r916-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -1590,11 +1590,16 @@ function paf_gff2bed(args)
 
 function paf_sam2paf(args)
 {
-	var c, pri_only = false, use_eq = false;
-	while ((c = getopt(args, "p")) != null)
+	var c, pri_only = false, long_cs = false;
+	while ((c = getopt(args, "pL")) != null) {
 		if (c == 'p') pri_only = true;
+		else if (c == 'L') long_cs = true;
+	}
 	if (args.length == getopt.ind) {
-		print("Usage: paftools.js sam2paf [-p] <in.sam>");
+		print("Usage: paftools.js sam2paf [options] <in.sam>");
+		print("Options:");
+		print("  -p      convert primary or supplementary alignments only");
+		print("  -L      output the cs tag in the long form");
 		exit(1);
 	}
 
@@ -1666,8 +1671,8 @@ function paf_sam2paf(args)
 		}
 		// parse MD
 		var cs = [];
-		if (MD != null && cs_str == null) {
-			var k = 0, cx = 0, cy = 0, mx = 0, my = 0;
+		if (MD != null && cs_str == null && t[9] != "*") {
+			var k = 0, cx = 0, cy = 0, mx = 0, my = 0; // cx: cigar ref position; cy: cigar query; mx: MD ref; my: MD query
 			while ((m = re_MD.exec(MD)) != null) {
 				if (m[2] != null) { // deletion from the reference
 					var len = m[2].length - 1;
@@ -1681,13 +1686,15 @@ function paf_sam2paf(args)
 							if (my + ml < cy + cl) {
 								if (ml > 0) {
 									if (m[3] != null) cs.push('*', m[3], t[9][my]);
+									else if (long_cs) cs.push('=', t[9].substr(my, ml));
 									else cs.push(':', ml);
 								}
 								mx += ml, my += ml, ml = 0;
 								break;
 							} else {
 								var dl = cy + cl - my;
-								cs.push(':', dl);
+								if (long_cs) cs.push('=', t[9].substr(my, dl));
+								else cs.push(':', dl);
 								cx += cl, cy += cl, ++k;
 								mx += dl, my += dl, ml -= dl;
 							}
