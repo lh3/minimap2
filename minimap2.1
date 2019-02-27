@@ -474,7 +474,9 @@ Filter out query sequences longer than
 .IR NUM .
 .TP
 .B --paf-no-hit
-In PAF, output query name and length for an unmapped sequence.
+In PAF, output unmapped queries; the strand and the reference name fields are
+set to `*'. Warning: some paftools.js commands may not work with such output
+for the moment.
 .TP
 .B --version
 Print version number to stdout

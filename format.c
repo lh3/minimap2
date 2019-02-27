@@ -305,7 +305,7 @@ void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const 
 {
 	s->l = 0;
 	if (r == 0) {
-		mm_sprintf_lite(s, "%s\t%d", t->name, t->l_seq);
+		mm_sprintf_lite(s, "%s\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0", t->name, t->l_seq);
 		if (rep_len >= 0) mm_sprintf_lite(s, "\trl:i:%d", rep_len);
 		return;
 	}

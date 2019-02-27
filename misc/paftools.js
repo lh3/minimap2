@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.15-r916-dirty';
+var paftools_version = '2.15-r921-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -433,6 +433,7 @@ function paf_call(args)
 	while (file.readline(buf) >= 0) {
 		var line = buf.toString();
 		var m, t = line.split("\t", 12);
+		if (t.length < 12 || t[5] == '*') continue; // unmapped
 		for (var i = 6; i <= 11; ++i)
 			t[i] = parseInt(t[i]);
 		if (t[10] < min_cov_len || t[11] < min_mapq) continue;
@@ -680,13 +681,12 @@ function paf_asmstat(args)
 			var t = line.split("\t");
 			t[1] = parseInt(t[1]);
 			if (t[1] < min_query_len) continue;
-			if (t.length >= 2) {
-				query[t[0]] = t[1];
-				if (qinfo[t[0]] == null) qinfo[t[0]] = {};
-				qinfo[t[0]].len = t[1];
-				qinfo[t[0]].bp = [];
-			}
-			if (t.length < 9) continue;
+			if (t.length < 2) continue;
+			query[t[0]] = t[1];
+			if (qinfo[t[0]] == null) qinfo[t[0]] = {};
+			qinfo[t[0]].len = t[1];
+			qinfo[t[0]].bp = [];
+			if (t.length < 9 || t[5] == "*") continue;
 			if (!/\ttp:A:[PI]/.test(line)) continue;
 			if ((m = /\tcg:Z:(\S+)/.exec(line)) == null) continue;
 			var cigar = m[1];
@@ -967,7 +967,9 @@ function paf_stat(args)
 			var t = line.split("\t", 12);
 			var m, rs, cigar = null, is_pri = false, is_sam = false, is_rev = false, tname = null;
 			var atlen = null, aqlen, qs, qe, mapq, ori_qlen;
-			if (t[4] == '+' || t[4] == '-') { // PAF
+			if (t.length < 2) continue;
+			if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
+				if (t[4] == '*') continue; // unmapped
 				if (!/\ts2:i:\d+/.test(line)) {
 					++n_2nd;
 					continue;
