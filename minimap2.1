@@ -1,4 +1,4 @@
-.TH minimap2 1 "5 Feburary 2019" "minimap2-2.15-dirty (r913)" "Bioinformatics tools"
+.TH minimap2 1 "27 Feburary 2019" "minimap2-2.15-dirty (r917)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -232,12 +232,18 @@ Honor option
 and disable a heurstic to save unmapped subsequences.
 .TP
 .BI --max-chain-skip \ INT
-A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
+A heuristics that stops chaining early [25]. Minimap2 uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
 option makes minimap2 exits the inner loop if it repeatedly sees seeds already
 on chains. Set
 .I INT
 to a large number to switch off this heurstics.
+.TP
+.BI --max-chain-iter \ INT
+Check up to
+.I INT
+partial chains during chaining [5000]. This is a heuristic to avoid quadratic
+time complexity in the worst case.
 .TP
 .B --no-long-join
 Disable the long gap patching heuristic. When this option is applied, the

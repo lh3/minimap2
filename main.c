@@ -62,6 +62,7 @@ static ko_longopt_t long_options[] = {
 	{ "hard-mask-level",ko_no_argument,       336 },
 	{ "cap-sw-mem",     ko_required_argument, 337 },
 	{ "max-qlen",       ko_required_argument, 338 },
+	{ "max-chain-iter", ko_required_argument, 339 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -179,6 +180,7 @@ int main(int argc, char *argv[])
 		else if (c == 304) mm_dbg_flag |= MM_DBG_PRINT_QNAME; // --print-qname
 		else if (c == 306) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_SEED, n_threads = 1; // --print-seed
 		else if (c == 307) opt.max_chain_skip = atoi(o.arg); // --max-chain-skip
+		else if (c == 339) opt.max_chain_iter = atoi(o.arg); // --max-chain-iter
 		else if (c == 308) opt.min_ksw_len = atoi(o.arg); // --min-dp-len
 		else if (c == 309) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
 		else if (c == 310) opt.flag |= MM_F_SPLICE; // --splice
