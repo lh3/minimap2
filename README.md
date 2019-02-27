@@ -9,8 +9,8 @@ cd minimap2 && make
 # long sequences against a reference genome
 ./minimap2 -a test/MT-human.fa test/MT-orang.fa > test.sam
 # create an index first and then map
-./minimap2 -d MT-human.mmi test/MT-human.fa
-./minimap2 -a MT-human.mmi test/MT-orang.fa > test.sam
+./minimap2 -x map-ont -d MT-human-ont.mmi test/MT-human.fa
+./minimap2 -a MT-human-ont.mmi test/MT-orang.fa > test.sam
 # use presets (no test data)
 ./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio genomic reads
 ./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam         # Oxford Nanopore genomic reads
