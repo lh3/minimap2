@@ -1,3 +1,52 @@
+Release 2.16-r922 (28 February 2019)
+------------------------------------
+
+This release is 50% faster for mapping ultra-long nanopore reads at comparable
+accuracy. For short-read mapping, long-read overlapping and ordinary long-read
+mapping, the performance and accuracy remain similar. This speedup is achieved
+with a new heuristic to limit the number of chaining iterations (#324). Users
+can disable the heuristic by increasing a new option `--max-chain-iter` to a
+huge number.
+
+Other changes to minimap2:
+
+ * Implemented option `--paf-no-hit` to output unmapped query sequences in PAF.
+   The strand and reference name columns are both `*` at an unmapped line. The
+   hidden option is available in earlier minimap2 but had a different 2-column
+   output format instead of PAF.
+
+ * Fixed a bug that leads to wrongly calculated `de` tags when ambiguous bases
+   are involved (#309). This bug only affects v2.15.
+
+ * Fixed a bug when parsing command-line option `--splice` (#344). This bug was
+   introduced in v2.13.
+
+ * Fixed two division-by-zero cases (#326). They don't affect final alignments
+   because the results of the divisions are not used in both case.
+
+ * Added an option `-o` to output alignments to a specified file. It is still
+   recommended to use UNIX pipes for on-the-fly conversion or compression.
+
+ * Output a new `rl` tag to give the length of query regions harboring
+   repetitive seeds.
+
+Changes to paftool.js:
+
+ * Added a new option to convert the MD tag to the long form of the cs tag.
+
+Changes to mappy:
+
+ * Added the `mappy.Aligner.seq_names` method to return sequence names (#312).
+
+For NA12878 ultra-long reads, this release changes the alignments of <0.1% of
+reads in comparison to v2.15. All these reads have highly fragmented alignments
+and are likely to be problematic anyway. For shorter or well aligned reads,
+this release should produce mostly identical alignments to v2.15.
+
+(2.16: 28 February 2019, r922)
+
+
+
 Release 2.15-r905 (10 January 2019)
 -----------------------------------
 
