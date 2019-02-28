@@ -295,11 +295,17 @@ Honor option
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--max-chain-skip</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
-A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
+A heuristics that stops chaining early [25]. Minimap2 uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
 option makes minimap2 exits the inner loop if it repeatedly sees seeds already
 on chains. Set
 <I>INT</I> to a large number to switch off this heurstics.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--max-chain-iter</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Check up to
+<I>INT</I> partial chains during chaining [5000]. This is a heuristic to avoid quadratic
+time complexity in the worst case.
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--no-long-join</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
@@ -344,6 +350,11 @@ Only map to the reverse complement strand of the reference sequences.
 <B>--heap-sort</B>=<B>no</B>|<B>yes</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 If yes, sort anchors with heap merge, instead of radix sort. Heap merge is
 faster for short reads, but slower for long reads. [no]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--no-pairing</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Treat two reads in a pair as independent reads. The mate related fields in SAM
+are still properly populated.
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=6></A>
@@ -439,6 +450,11 @@ with
 Don&#146;t filter seeds towards the ends of chains before performing base-level
 alignment.
 </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--cap-sw-mem</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Skip alignment if the DP matrix size is above
+<I>NUM</I>. Set 0 to disable [0].
+</TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=7></A>
 
@@ -450,6 +466,11 @@ alignment.
 <B>-a</B> </TD><TD valign=bottom>
 Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
 by default.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-o</B><I> FILE</I> </TD><TD valign=bottom>
+Output alignments to
+<I>FILE</I> [stdout].
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-Q</B> </TD><TD valign=bottom>
@@ -528,6 +549,16 @@ memory.
 <B>--secondary</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Whether to output secondary alignments [yes]
 </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--max-qlen</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Filter out query sequences longer than
+<I>NUM</I>. </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--paf-no-hit</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+In PAF, output unmapped queries; the strand and the reference name fields are
+set to &#145;*&#146;. Warning: some paftools.js commands may not work with such output
+for the moment.
+</TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>--version</B> </TD><TD valign=bottom>
 Print version number to stdout
@@ -575,7 +606,7 @@ Long assembly to reference mapping
 <TR valign=top><TD width=8% nowrap>
 <B>asm20</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w10 -A1 -B6 -O6,26 -E2,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Up to 20% sequence divergence.
+(<B>-k19</B> <B>-w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Up to 20% sequence divergence.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>ava-pb</B> </TD><TD valign=bottom>
@@ -700,6 +731,10 @@ the SAM-like typed key-value format. Minimap2 may output the following tags:
 <TD align=right>cs</TD><TD align=center>Z</TD><TD>Difference string</TD></TR>
 <TR valign=top>
 <TD align=right>dv</TD><TD align=center>f</TD><TD>Approximate per-base sequence divergence</TD></TR>
+<TR valign=top>
+<TD align=right>de</TD><TD align=center>f</TD><TD>Gap-compressed per-base sequence divergence</TD></TR>
+<TR valign=top>
+<TD align=right>rl</TD><TD align=center>i</TD><TD>Length of query regions harboring repetitive seeds</TD></TR>
 </TABLE></div></BLOCKQUOTE>
 <P>
 <P>
@@ -756,4 +791,4 @@ non-SSE2/NEON support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.13 (r850)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>11 October 2018</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.16 (r922)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>28 Feburary 2019</I></TD> </TR></TABLE></div></BODY></HTML>
