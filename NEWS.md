@@ -1,3 +1,88 @@
+Release 2.16-r922 (28 February 2019)
+------------------------------------
+
+This release is 50% faster for mapping ultra-long nanopore reads at comparable
+accuracy. For short-read mapping, long-read overlapping and ordinary long-read
+mapping, the performance and accuracy remain similar. This speedup is achieved
+with a new heuristic to limit the number of chaining iterations (#324). Users
+can disable the heuristic by increasing a new option `--max-chain-iter` to a
+huge number.
+
+Other changes to minimap2:
+
+ * Implemented option `--paf-no-hit` to output unmapped query sequences in PAF.
+   The strand and reference name columns are both `*` at an unmapped line. The
+   hidden option is available in earlier minimap2 but had a different 2-column
+   output format instead of PAF.
+
+ * Fixed a bug that leads to wrongly calculated `de` tags when ambiguous bases
+   are involved (#309). This bug only affects v2.15.
+
+ * Fixed a bug when parsing command-line option `--splice` (#344). This bug was
+   introduced in v2.13.
+
+ * Fixed two division-by-zero cases (#326). They don't affect final alignments
+   because the results of the divisions are not used in both case.
+
+ * Added an option `-o` to output alignments to a specified file. It is still
+   recommended to use UNIX pipes for on-the-fly conversion or compression.
+
+ * Output a new `rl` tag to give the length of query regions harboring
+   repetitive seeds.
+
+Changes to paftool.js:
+
+ * Added a new option to convert the MD tag to the long form of the cs tag.
+
+Changes to mappy:
+
+ * Added the `mappy.Aligner.seq_names` method to return sequence names (#312).
+
+For NA12878 ultra-long reads, this release changes the alignments of <0.1% of
+reads in comparison to v2.15. All these reads have highly fragmented alignments
+and are likely to be problematic anyway. For shorter or well aligned reads,
+this release should produce mostly identical alignments to v2.15.
+
+(2.16: 28 February 2019, r922)
+
+
+
+Release 2.15-r905 (10 January 2019)
+-----------------------------------
+
+Changes to minimap2:
+
+ * Fixed a rare segmentation fault when option -H is in use (#307). This may
+   happen when there are very long homopolymers towards the 5'-end of a read.
+
+ * Fixed wrong CIGARs when option --eqx is used (#266).
+
+ * Fixed a typo in the base encoding table (#264). This should have no
+   practical effect.
+
+ * Fixed a typo in the example code (#265).
+
+ * Improved the C++ compatibility by removing "register" (#261). However,
+   minimap2 still can't be compiled in the pedantic C++ mode (#306).
+
+ * Output a new "de" tag for gap-compressed sequence divergence.
+
+Changes to paftools.js:
+
+ * Added "asmgene" to evaluate the completeness of an assembly by measuring the
+   uniquely mapped single-copy genes. This command learns the idea of BUSCO.
+
+ * Added "vcfpair" to call a phased VCF from phased whole-genome assemblies. An
+   earlier version of this script is used to produce the ground truth for the
+   syndip benchmark [PMID:30013044].
+
+This release produces identical alignment coordinates and CIGARs in comparison
+to v2.14. Users are advised to upgrade due to the several bug fixes.
+
+(2.15: 10 Janurary 2019, r905)
+
+
+
 Release 2.14-r883 (5 November 2018)
 -----------------------------------
 

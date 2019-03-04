@@ -449,6 +449,7 @@ void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int ma
 	int64_t sum_sc = 0;
 	float uniq_ratio;
 	int i;
+	if (n_regs == 0) return;
 	for (i = 0; i < n_regs; ++i)
 		if (regs[i].parent == regs[i].id)
 			sum_sc += regs[i].score;

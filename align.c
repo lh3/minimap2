@@ -613,6 +613,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				if (++l > opt->min_cnt) {
 					l = rs0 - x > qs0 - y? rs0 - x : qs0 - y;
 					rs1 = rs0 - l, qs1 = qs0 - l;
+					if (rs1 < 0) rs1 = 0; // not strictly necessary; better have this guard for explicit
 					break;
 				}
 			}
@@ -626,6 +627,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			l = l < rs? l : rs;
 			rs1 = rs1 > rs - l? rs1 : rs - l;
 			rs0 = rs0 < rs1? rs0 : rs1;
+			rs0 = rs0 < rs? rs0 : rs;
 		} else rs0 = rs, qs0 = qs;
 		// compute re0 and qe0
 		re0 = (int32_t)a[r->as + r->cnt - 1].x + 1;
@@ -665,7 +667,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(re0 > rs0);
 	tseq = (uint8_t*)kmalloc(km, re0 - rs0);
 
-	if (qs > 0 && rs > 0) { // left extension
+	if (qs > 0 && rs > 0) { // left extension; probably the condition can be changed to "qs > qs0 && rs > rs0"
 		qseq = &qseq0[rev][qs0];
 		mm_idx_getseq(mi, rid, rs0, rs, tseq);
 		mm_seq_rev(qs - qs0, qseq);

@@ -9,8 +9,8 @@ cd minimap2 && make
 # long sequences against a reference genome
 ./minimap2 -a test/MT-human.fa test/MT-orang.fa > test.sam
 # create an index first and then map
-./minimap2 -d MT-human.mmi test/MT-human.fa
-./minimap2 -a MT-human.mmi test/MT-orang.fa > test.sam
+./minimap2 -x map-ont -d MT-human-ont.mmi test/MT-human.fa
+./minimap2 -a MT-human-ont.mmi test/MT-orang.fa > test.sam
 # use presets (no test data)
 ./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio genomic reads
 ./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam         # Oxford Nanopore genomic reads
@@ -71,8 +71,8 @@ Detailed evaluations are available from the [minimap2 paper][doi] or the
 Minimap2 is optimized for x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-curl -L https://github.com/lh3/minimap2/releases/download/v2.14/minimap2-2.14_x64-linux.tar.bz2 | tar -jxvf -
-./minimap2-2.14_x64-linux/minimap2
+curl -L https://github.com/lh3/minimap2/releases/download/v2.16/minimap2-2.16_x64-linux.tar.bz2 | tar -jxvf -
+./minimap2-2.16_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
@@ -324,7 +324,7 @@ There is not a specific mailing list for the time being.
 If you use minimap2 in your work, please cite:
 
 > Li, H. (2018). Minimap2: pairwise alignment for nucleotide sequences.
-> Bioinformatics. [doi:10.1093/bioinformatics/bty191][doi]
+> *Bioinformatics*, **34**:3094-3100. [doi:10.1093/bioinformatics/bty191][doi]
 
 ## <a name="dguide"></a>Developers' Guide
 

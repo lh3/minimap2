@@ -13,10 +13,11 @@ cdef extern from "minimap.h":
 		int seed
 		int sdust_thres
 		int flag
+		int max_qlen
 		int bw
 		int max_gap, max_gap_ref
 		int max_frag_len
-		int max_chain_skip
+		int max_chain_skip, max_chain_iter
 		int min_cnt
 		int min_chain_score
 		float mask_level
@@ -24,7 +25,7 @@ cdef extern from "minimap.h":
 		int best_n
 		int max_join_long, max_join_short
 		int min_join_flank_sc
-		float min_join_flank_ratio;
+		float min_join_flank_ratio
 		int a, b, q, e, q2, e2
 		int sc_ambi
 		int noncan

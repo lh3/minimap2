@@ -1,4 +1,4 @@
-.TH minimap2 1 "12 December 2018" "minimap2-2.14-dirty (r894)" "Bioinformatics tools"
+.TH minimap2 1 "28 Feburary 2019" "minimap2-2.16 (r922)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -232,12 +232,18 @@ Honor option
 and disable a heurstic to save unmapped subsequences.
 .TP
 .BI --max-chain-skip \ INT
-A heuristics that stops chaining early [50]. Minimap2 uses dynamic programming
+A heuristics that stops chaining early [25]. Minimap2 uses dynamic programming
 for chaining. The time complexity is quadratic in the number of seeds. This
 option makes minimap2 exits the inner loop if it repeatedly sees seeds already
 on chains. Set
 .I INT
 to a large number to switch off this heurstics.
+.TP
+.BI --max-chain-iter \ INT
+Check up to
+.I INT
+partial chains during chaining [5000]. This is a heuristic to avoid quadratic
+time complexity in the worst case.
 .TP
 .B --no-long-join
 Disable the long gap patching heuristic. When this option is applied, the
@@ -384,6 +390,11 @@ Set 0 to disable [0].
 Generate CIGAR and output alignments in the SAM format. Minimap2 outputs in PAF
 by default.
 .TP
+.BI -o \ FILE
+Output alignments to
+.I FILE
+[stdout].
+.TP
 .B -Q
 Ignore base quality in the input file.
 .TP
@@ -463,7 +474,9 @@ Filter out query sequences longer than
 .IR NUM .
 .TP
 .B --paf-no-hit
-In PAF, output query name and length for an unmapped sequence.
+In PAF, output unmapped queries; the strand and the reference name fields are
+set to `*'. Warning: some paftools.js commands may not work with such output
+for the moment.
 .TP
 .B --version
 Print version number to stdout
@@ -612,6 +625,7 @@ cg	Z	CIGAR string (only in PAF)
 cs	Z	Difference string
 dv	f	Approximate per-base sequence divergence
 de	f	Gap-compressed per-base sequence divergence
+rl	i	Length of query regions harboring repetitive seeds
 .TE
 
 .PP
