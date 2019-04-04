@@ -460,17 +460,17 @@ void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 		int tlen = 0;
 		if (this_rid >= 0 && r_next) {
 			if (this_rid == r_next->rid) {
-				int this_pos5 = r && r->rev? r->re - 1 : this_pos;
-				int next_pos5 = r_next->rev? r_next->re - 1 : r_next->rs;
-				tlen = next_pos5 - this_pos5;
+				if (r) {
+					int this_pos5 = r->rev? r->re - 1 : this_pos;
+					int next_pos5 = r_next->rev? r_next->re - 1 : r_next->rs;
+					tlen = next_pos5 - this_pos5;
+				}
 				mm_sprintf_lite(s, "\t=\t");
 			} else mm_sprintf_lite(s, "\t%s\t", mi->seq[r_next->rid].name);
 			mm_sprintf_lite(s, "%d\t", r_next->rs + 1);
 		} else if (r_next) { // && this_rid < 0
 			mm_sprintf_lite(s, "\t%s\t%d\t", mi->seq[r_next->rid].name, r_next->rs + 1);
 		} else if (this_rid >= 0) { // && r_next == NULL
-			int this_pos5 = this_rev? r->re - 1 : this_pos; // this_rev is only true when r != NULL
-			tlen = this_pos - this_pos5; // next_pos5 will be this_pos
 			mm_sprintf_lite(s, "\t=\t%d\t", this_pos + 1); // next segment will take r's coordinate
 		} else mm_sprintf_lite(s, "\t*\t0\t"); // neither has coordinates
 		if (tlen > 0) ++tlen;
