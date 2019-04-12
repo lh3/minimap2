@@ -33,8 +33,9 @@
 #define MM_F_COPY_COMMENT  0x2000000
 #define MM_F_EQX           0x4000000 // use =/X instead of M
 #define MM_F_PAF_NO_HIT    0x8000000 // output unmapped reads to PAF
-#define MM_F_NO_END_FLT    0x10000000
-#define MM_F_HARD_MLEVEL   0x20000000
+#define MM_F_SAM_HIT_ONLY  0x10000000 // output only mapped reads to SAM
+#define MM_F_NO_END_FLT    0x20000000
+#define MM_F_HARD_MLEVEL   0x40000000
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2

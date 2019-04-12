@@ -63,6 +63,7 @@ static ko_longopt_t long_options[] = {
 	{ "cap-sw-mem",     ko_required_argument, 337 },
 	{ "max-qlen",       ko_required_argument, 338 },
 	{ "max-chain-iter", ko_required_argument, 339 },
+    { "sam-hit-only",   ko_no_argument,       340 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -204,6 +205,7 @@ int main(int argc, char *argv[])
 		else if (c == 336) opt.flag |= MM_F_HARD_MLEVEL; // --hard-mask-level
 		else if (c == 337) opt.max_sw_mat = mm_parse_num(o.arg); // --cap-sw-mat
 		else if (c == 338) opt.max_qlen = mm_parse_num(o.arg); // --max-qlen
+        else if (c == 340) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary
