@@ -113,29 +113,54 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	if (flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) {
 		int semi_cost = flag&KSW_EZ_SPLICE_FLANK? -noncan/2 : 0; // GTr or yAG is worth 0.5 bit; see PMID:18688272
 		memset(donor, -noncan, tlen_ * 16);
-		for (t = 0; t < tlen - 4; ++t) {
-			int can_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG
-			if ((flag & KSW_EZ_SPLICE_FOR) && target[t+1] == 2 && target[t+2] == 3) can_type = 1; // GTr...
-			if ((flag & KSW_EZ_SPLICE_REV) && target[t+1] == 1 && target[t+2] == 3) can_type = 1; // CTr...
-			if (can_type && (target[t+3] == 0 || target[t+3] == 2)) can_type = 2;
-			if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
-		}
-		if (junc)
-			for (t = 0; t < tlen - 1; ++t)
-				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&2)))
-					((int8_t*)donor)[t] += junc_bonus;
 		memset(acceptor, -noncan, tlen_ * 16);
-		for (t = 2; t < tlen; ++t) {
-			int can_type = 0;
-			if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 0 && target[t] == 2) can_type = 1; // ...yAG
-			if ((flag & KSW_EZ_SPLICE_REV) && target[t-1] == 0 && target[t] == 1) can_type = 1; // ...yAC
-			if (can_type && (target[t-2] == 1 || target[t-2] == 3)) can_type = 2;
-			if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
+		if (!(flag & KSW_EZ_REV_CIGAR)) {
+			for (t = 0; t < tlen - 4; ++t) {
+				int can_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG
+				if ((flag & KSW_EZ_SPLICE_FOR) && target[t+1] == 2 && target[t+2] == 3) can_type = 1; // GTr...
+				if ((flag & KSW_EZ_SPLICE_REV) && target[t+1] == 1 && target[t+2] == 3) can_type = 1; // CTr...
+				if (can_type && (target[t+3] == 0 || target[t+3] == 2)) can_type = 2;
+				if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
+			}
+			if (junc)
+				for (t = 0; t < tlen - 1; ++t)
+					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&8)))
+						((int8_t*)donor)[t] += junc_bonus;
+			for (t = 2; t < tlen; ++t) {
+				int can_type = 0;
+				if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 0 && target[t] == 2) can_type = 1; // ...yAG
+				if ((flag & KSW_EZ_SPLICE_REV) && target[t-1] == 0 && target[t] == 1) can_type = 1; // ...yAC
+				if (can_type && (target[t-2] == 1 || target[t-2] == 3)) can_type = 2;
+				if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
+			}
+			if (junc)
+				for (t = 0; t < tlen; ++t)
+					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&4)))
+						((int8_t*)acceptor)[t] += junc_bonus;
+		} else {
+			for (t = 0; t < tlen - 4; ++t) {
+				int can_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG
+				if ((flag & KSW_EZ_SPLICE_FOR) && target[t+1] == 2 && target[t+2] == 0) can_type = 1; // GAy...
+				if ((flag & KSW_EZ_SPLICE_REV) && target[t+1] == 1 && target[t+2] == 0) can_type = 1; // CAy...
+				if (can_type && (target[t+3] == 1 || target[t+3] == 3)) can_type = 2;
+				if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
+			}
+			if (junc)
+				for (t = 0; t < tlen - 1; ++t)
+					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&4)))
+						((int8_t*)donor)[t] += junc_bonus;
+			for (t = 2; t < tlen; ++t) {
+				int can_type = 0;
+				if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 3 && target[t] == 2) can_type = 1; // ...rTG
+				if ((flag & KSW_EZ_SPLICE_REV) && target[t-1] == 3 && target[t] == 1) can_type = 1; // ...rTC
+				if (can_type && (target[t-2] == 0 || target[t-2] == 2)) can_type = 2;
+				if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
+			}
+			if (junc)
+				for (t = 0; t < tlen; ++t)
+					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&8)))
+						((int8_t*)acceptor)[t] += junc_bonus;
 		}
-		if (junc)
-			for (t = 0; t < tlen; ++t)
-				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&1)))
-					((int8_t*)acceptor)[t] += junc_bonus;
 	}
 
 	for (r = 0, last_st = last_en = -1; r < qlen + tlen - 1; ++r) {

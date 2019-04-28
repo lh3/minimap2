@@ -689,11 +689,10 @@ int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uin
 	}
 	for (i = left; i < r->n; ++i) {
 		if (st <= r->a[i].st && en >= r->a[i].en && r->a[i].strand != 0) {
-			//fprintf(stderr, "[2] %d\t%d\t%c\n", r->a[i].st, r->a[i].en, r->a[i].strand > 0? '+' : r->a[i].strand < 0? '-' : '.');
 			if (r->a[i].strand > 0) {
-				s[r->a[i].st] |= 1, s[r->a[i].en - 1] |= 2;
+				s[r->a[i].st - st] |= 1, s[r->a[i].en - 1 - st] |= 2;
 			} else {
-				s[r->a[i].st] |= 2, s[r->a[i].en - 1] |= 1;
+				s[r->a[i].st - st] |= 8, s[r->a[i].en - 1 - st] |= 4;
 			}
 		}
 	}
