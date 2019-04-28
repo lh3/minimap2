@@ -364,6 +364,17 @@ on SIRV data, please add
 .B --splice-flank=no
 to the command line.
 .TP
+.BR --junc-bed \ FILE
+BED file consisting of annotated introns and their strands. With this option,
+minimap2 prefers splicing in annotations.
+.I FILE
+can be generated with `paftools.js gff2bed -j ann.gtf' [].
+.TP
+.BR --junc-bonus \ INT
+Score bonus for a splice donor or acceptor found in annotation (effective with
+.BR --junc-bed )
+[0].
+.TP
 .BI --end-seed-pen \ INT
 Drop a terminal anchor if
 .IR s <log( g )+ INT ,
@@ -507,7 +518,7 @@ is determined by the sequencing error mode.
 .B asm5
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200
+.B -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 -N50
 .BR --min-occ-floor=100 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
@@ -515,14 +526,14 @@ divergence. Only use this preset if the average divergence is far below 5%.
 .B asm10
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200
+.B -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 -N50
 .BR --min-occ-floor=100 ).
 Up to 10% sequence divergence.
 .TP
 .B asm20
 Long assembly to reference mapping
 .RB ( -k19
-.B -w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200
+.B -w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200 -N50
 .BR --min-occ-floor=100 ).
 Up to 20% sequence divergence.
 .TP
@@ -544,7 +555,7 @@ is that this preset is not using HPC minimizers.
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub
+.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9
 .BR --splice-flank=yes ).
 In the splice mode, 1) long deletions are taken as introns and represented as
 the
