@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.16-r922';
+var paftools_version = '2.16-dirty-r928';
 
 /*****************************
  ***** Library functions *****
@@ -1469,15 +1469,21 @@ function paf_view(args)
 
 function paf_gff2bed(args)
 {
-	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false;
-	while ((c = getopt(args, "u:sg")) != null) {
+	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false, print_junc = false;
+	while ((c = getopt(args, "u:sgj")) != null) {
 		if (c == 'u') fn_ucsc_fai = getopt.arg;
 		else if (c == 's') is_short = true;
 		else if (c == 'g') keep_gff = true;
+		else if (c == 'j') print_junc = true;
 	}
 
 	if (getopt.ind == args.length) {
-		print("Usage: paftools.js gff2bed [-g] [-u ucsc-genome.fa.fai] <in.gff>");
+		print("Usage: paftools.js gff2bed [options] <in.gff>");
+		print("Options:");
+		print("  -j       Output junction BED");
+		print("  -s       Print names in the short form");
+		print("  -u FILE  hg38.fa.fai for chr name conversion");
+		print("  -g       Output GFF (used with -u)");
 		exit(1);
 	}
 
@@ -1509,11 +1515,16 @@ function paf_gff2bed(args)
 		'misc_RNA':'0,192,0'
 	};
 
-	function print_bed12(exons, cds_st, cds_en, is_short)
+	function print_bed12(exons, cds_st, cds_en, is_short, print_junc)
 	{
 		if (exons.length == 0) return;
 		var name = is_short? exons[0][7] + "|" + exons[0][5] : exons[0].slice(4, 7).join("|");
 		var a = exons.sort(function(a,b) {return a[1]-b[1]});
+		if (print_junc) {
+		for (var i = 1; i < a.length; ++i)
+			print(a[i][0], a[i-1][2], a[i][1], name, 1000, a[i][3]);
+			return;
+		}
 		var sizes = [], starts = [], st, en;
 		st = a[0][1];
 		en = a[a.length - 1][2];
@@ -1566,7 +1577,7 @@ function paf_gff2bed(args)
 		if (type == "" && biotype != "") type = biotype;
 		if (id == null) throw Error("No transcript_id");
 		if (id != last_id) {
-			print_bed12(exons, cds_st, cds_en, is_short);
+			print_bed12(exons, cds_st, cds_en, is_short, print_junc);
 			exons = [], cds_st = 1<<30, cds_en = 0;
 			last_id = id;
 		}
@@ -1584,7 +1595,7 @@ function paf_gff2bed(args)
 		}
 	}
 	if (last_id != null)
-		print_bed12(exons, cds_st, cds_en, is_short);
+		print_bed12(exons, cds_st, cds_en, is_short, print_junc);
 
 	file.close();
 	buf.destroy();
