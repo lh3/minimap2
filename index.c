@@ -31,6 +31,16 @@ typedef struct mm_idx_bucket_s {
 	void *h;     // hash table indexing _p_ and minimizers appearing once
 } mm_idx_bucket_t;
 
+typedef struct {
+	int32_t st, en, max; // max is not used for now
+	int32_t score:30, strand:2;
+} mm_idx_intv1_t;
+
+typedef struct mm_idx_intv_s {
+	int32_t n, m;
+	mm_idx_intv1_t *a;
+} mm_idx_intv_t;
+
 mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 {
 	mm_idx_t *mi;
@@ -54,6 +64,11 @@ void mm_idx_destroy(mm_idx_t *mi)
 			free(mi->B[i].a.a);
 			kh_destroy(idx, (idxhash_t*)mi->B[i].h);
 		}
+	}
+	if (mi->I) {
+		for (i = 0; i < mi->n_seq; ++i)
+			free(mi->I[i].a);
+		free(mi->I);
 	}
 	if (!mi->km) {
 		for (i = 0; i < mi->n_seq; ++i)
@@ -592,16 +607,6 @@ int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases
 #include "kseq.h"
 KSTREAM_DECLARE(gzFile, gzread)
 
-typedef struct {
-	int32_t st, en, max; // max is not used for now
-	int32_t score:30, strand:2;
-} mm_idx_intv1_t;
-
-typedef struct mm_idx_intv_s {
-	int32_t n, m;
-	mm_idx_intv1_t *a;
-} mm_idx_intv_t;
-
 #define sort_key_bed(a) ((a).st)
 KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
 
@@ -648,10 +653,11 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn)
 		r = &I[id];
 		if (r->n == r->m) {
 			r->m = r->m? r->m + (r->m>>1) : 16;
-			r->a = (mm_idx_intv1_t*)realloc(r->a, sizeof(*r->a));
+			r->a = (mm_idx_intv1_t*)realloc(r->a, sizeof(*r->a) * r->m);
 		}
 		r->a[r->n++] = t;
 	}
+	free(str.s);
 	ks_destroy(ks);
 	gzclose(fp);
 	return I;
@@ -663,9 +669,9 @@ int mm_idx_bed_read(mm_idx_t *mi, const char *fn)
 	if (mi->h == 0) mm_idx_index_name(mi);
 	mi->I = mm_idx_read_bed(mi, fn);
 	if (mi->I == 0) return -1;
-	for (i = 0; i < mi->n_seq; ++i)
+	for (i = 0; i < mi->n_seq; ++i) // TODO: eliminate redundant intervals
 		radix_sort_bed(mi->I[i].a, mi->I[i].a + mi->I[i].n);
-	return mi->I? 0 : -1;
+	return 0;
 }
 
 int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uint8_t *s)
@@ -683,6 +689,7 @@ int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uin
 	}
 	for (i = left; i < r->n; ++i) {
 		if (st <= r->a[i].st && en >= r->a[i].en && r->a[i].strand != 0) {
+			//fprintf(stderr, "[2] %d\t%d\t%c\n", r->a[i].st, r->a[i].en, r->a[i].strand > 0? '+' : r->a[i].strand < 0? '-' : '.');
 			if (r->a[i].strand > 0) {
 				s[r->a[i].st] |= 1, s[r->a[i].en - 1] |= 2;
 			} else {
