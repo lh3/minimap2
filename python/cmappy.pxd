@@ -29,6 +29,7 @@ cdef extern from "minimap.h":
 		int a, b, q, e, q2, e2
 		int sc_ambi
 		int noncan
+		int junc_bonus
 		int zdrop, zdrop_inv
 		int end_bonus
 		int min_dp_max

@@ -128,6 +128,7 @@ typedef struct {
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
 	int sc_ambi; // score when one or both bases are "N"
 	int noncan;      // cost of non-canonical splicing sites
+	int junc_bonus;
 	int zdrop, zdrop_inv;   // break alignment if alignment score drops too fast along the diagonal
 	int end_bonus;
 	int min_dp_max;  // drop an alignment if the score of the max scoring segment is below this threshold
@@ -367,7 +368,7 @@ int mm_idx_name2id(const mm_idx_t *mi, const char *name);
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 
 int mm_idx_bed_read(mm_idx_t *mi, const char *fn);
-int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, int32_t strand, int8_t *s);
+int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uint8_t *s);
 
 // deprecated APIs for backward compatibility
 void mm_mapopt_init(mm_mapopt_t *opt);

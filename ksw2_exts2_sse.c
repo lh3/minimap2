@@ -17,14 +17,14 @@
 #ifdef KSW_CPU_DISPATCH
 #ifdef __SSE4_1__
 void ksw_exts2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
-				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int flag, ksw_extz_t *ez)
+				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int8_t junc_bonus, int flag, const uint8_t *junc, ksw_extz_t *ez)
 #else
 void ksw_exts2_sse2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
-				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int flag, ksw_extz_t *ez)
+				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int8_t junc_bonus, int flag, const uint8_t *junc, ksw_extz_t *ez)
 #endif
 #else
 void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
-				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int flag, ksw_extz_t *ez)
+				   int8_t q, int8_t e, int8_t q2, int8_t noncan, int zdrop, int8_t junc_bonus, int flag, const uint8_t *junc, ksw_extz_t *ez)
 #endif // ~KSW_CPU_DISPATCH
 {
 #define __dp_code_block1 \
@@ -120,6 +120,10 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			if (can_type && (target[t+3] == 0 || target[t+3] == 2)) can_type = 2;
 			if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
 		}
+		if (junc)
+			for (t = 0; t < tlen - 1; ++t)
+				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&2)))
+					((int8_t*)donor)[t] += junc_bonus;
 		memset(acceptor, -noncan, tlen_ * 16);
 		for (t = 2; t < tlen; ++t) {
 			int can_type = 0;
@@ -128,6 +132,10 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			if (can_type && (target[t-2] == 1 || target[t-2] == 3)) can_type = 2;
 			if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
 		}
+		if (junc)
+			for (t = 0; t < tlen; ++t)
+				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&1)))
+					((int8_t*)acceptor)[t] += junc_bonus;
 	}
 
 	for (r = 0, last_st = last_en = -1; r < qlen + tlen - 1; ++r) {

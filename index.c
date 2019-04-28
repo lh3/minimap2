@@ -668,7 +668,7 @@ int mm_idx_bed_read(mm_idx_t *mi, const char *fn)
 	return mi->I? 0 : -1;
 }
 
-int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, int32_t strand, int8_t *s)
+int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uint8_t *s)
 {
 	int32_t i, left, right;
 	mm_idx_intv_t *r;
@@ -682,7 +682,7 @@ int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, int
 		else left = mid + 1;
 	}
 	for (i = left; i < r->n; ++i) {
-		if (st <= r->a[i].st && en >= r->a[i].en && r->a[i].strand != 0 && strand * r->a[i].strand >= 0) {
+		if (st <= r->a[i].st && en >= r->a[i].en && r->a[i].strand != 0) {
 			if (r->a[i].strand > 0) {
 				s[r->a[i].st] |= 1, s[r->a[i].en - 1] |= 2;
 			} else {

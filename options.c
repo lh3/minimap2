@@ -126,6 +126,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = 200000;
 		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
 		mo->noncan = 9;
+		mo->junc_bonus = 9;
 		mo->zdrop = 200, mo->zdrop_inv = 100; // because mo->a is halved
 	} else return -1;
 	return 0;
