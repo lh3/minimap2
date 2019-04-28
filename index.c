@@ -585,3 +585,110 @@ int mm_idx_reader_eof(const mm_idx_reader_t *r) // TODO: in extremely rare cases
 {
 	return r->is_idx? (feof(r->fp.idx) || ftell(r->fp.idx) == r->idx_size) : mm_bseq_eof(r->fp.seq);
 }
+
+#include <ctype.h>
+#include <zlib.h>
+#include "ksort.h"
+#include "kseq.h"
+KSTREAM_DECLARE(gzFile, gzread)
+
+typedef struct {
+	int32_t st, en, max; // max is not used for now
+	int32_t score:30, strand:2;
+} mm_idx_intv1_t;
+
+typedef struct mm_idx_intv_s {
+	int32_t n, m;
+	mm_idx_intv1_t *a;
+} mm_idx_intv_t;
+
+#define sort_key_bed(a) ((a).st)
+KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
+
+mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn)
+{
+	gzFile fp;
+	kstream_t *ks;
+	kstring_t str = {0,0,0};
+	mm_idx_intv_t *I;
+
+	fp = fn && strcmp(fn, "-")? gzopen(fn, "r") : gzdopen(fileno(stdin), "r");
+	if (fp == 0) return 0;
+	I = (mm_idx_intv_t*)calloc(mi->n_seq, sizeof(*I));
+	ks = ks_init(fp);
+	while (ks_getuntil(ks, KS_SEP_LINE, &str, 0) >= 0) {
+		mm_idx_intv_t *r;
+		mm_idx_intv1_t t = {-1,-1,-1,-1,0};
+		char *p, *q;
+		int32_t i, id = -1;
+		for (p = q = str.s, i = 0;; ++p) {
+			if (*p == 0 || isspace(*p)) {
+				int32_t c = *p;
+				*p = 0;
+				if (i == 0) { // chr
+					id = mm_idx_name2id(mi, q);
+					if (id < 0) break; // unknown name; TODO: throw a warning
+				} else if (i == 1) { // start
+					t.st = atol(q); // TODO: watch out integer overflow!
+					if (t.st < 0) break;
+				} else if (i == 2) { // end
+					t.en = atol(q);
+					if (t.en < 0) break;
+				} else if (i == 3) { // name; do nothing
+				} else if (i == 4) { // BED score
+					t.score = atol(q);
+				} else if (i == 5) { // strand
+					t.strand = *q == '+'? 1 : *q == '-'? -1 : 0;
+				} else break;
+				if (c == 0) break;
+				++i, q = p + 1;
+			}
+		}
+		if (id < 0 || t.st < 0 || t.st >= t.en) continue;
+		r = &I[id];
+		if (r->n == r->m) {
+			r->m = r->m? r->m + (r->m>>1) : 16;
+			r->a = (mm_idx_intv1_t*)realloc(r->a, sizeof(*r->a));
+		}
+		r->a[r->n++] = t;
+	}
+	ks_destroy(ks);
+	gzclose(fp);
+	return I;
+}
+
+int mm_idx_bed_read(mm_idx_t *mi, const char *fn)
+{
+	int32_t i;
+	if (mi->h == 0) mm_idx_index_name(mi);
+	mi->I = mm_idx_read_bed(mi, fn);
+	if (mi->I == 0) return -1;
+	for (i = 0; i < mi->n_seq; ++i)
+		radix_sort_bed(mi->I[i].a, mi->I[i].a + mi->I[i].n);
+	return mi->I? 0 : -1;
+}
+
+int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, int32_t strand, int8_t *s)
+{
+	int32_t i, left, right;
+	mm_idx_intv_t *r;
+	memset(s, 0, en - st);
+	if (mi->I == 0 || ctg < 0 || ctg >= mi->n_seq) return -1;
+	r = &mi->I[ctg];
+	left = 0, right = r->n;
+	while (right > left) {
+		int32_t mid = left + ((right - left) >> 1);
+		if (r->a[mid].st >= st) right = mid;
+		else left = mid + 1;
+	}
+	for (i = left; i < r->n; ++i) {
+		if (st <= r->a[i].st && en >= r->a[i].en && r->a[i].strand != 0 && strand * r->a[i].strand >= 0) {
+			if (r->a[i].strand > 0) {
+				s[r->a[i].st] |= 1, s[r->a[i].en - 1] |= 2;
+			} else {
+				s[r->a[i].st] |= 2, s[r->a[i].en - 1] |= 1;
+			}
+		}
+	}
+	return left;
+}
