@@ -6,7 +6,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.16-r933-dirty"
+#define MM_VERSION "2.16-r934-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -366,7 +366,7 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
-		if (junc_bed) mm_idx_bed_read(mi, junc_bed);
+		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i)
 				mm_map_file(mi, argv[i], &opt, n_threads);

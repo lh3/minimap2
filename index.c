@@ -610,7 +610,7 @@ KSTREAM_DECLARE(gzFile, gzread)
 #define sort_key_bed(a) ((a).st)
 KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
 
-mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn)
+mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn, int read_junc)
 {
 	gzFile fp;
 	kstream_t *ks;
@@ -624,8 +624,8 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn)
 	while (ks_getuntil(ks, KS_SEP_LINE, &str, 0) >= 0) {
 		mm_idx_intv_t *r;
 		mm_idx_intv1_t t = {-1,-1,-1,-1,0};
-		char *p, *q;
-		int32_t i, id = -1;
+		char *p, *q, *bl, *bs;
+		int32_t i, id = -1, n_blk = 0;
 		for (p = q = str.s, i = 0;; ++p) {
 			if (*p == 0 || isspace(*p)) {
 				int32_t c = *p;
@@ -639,23 +639,49 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn)
 				} else if (i == 2) { // end
 					t.en = atol(q);
 					if (t.en < 0) break;
-				} else if (i == 3) { // name; do nothing
 				} else if (i == 4) { // BED score
 					t.score = atol(q);
 				} else if (i == 5) { // strand
 					t.strand = *q == '+'? 1 : *q == '-'? -1 : 0;
-				} else break;
+				} else if (i == 9) {
+					if (!isdigit(*q)) break;
+					n_blk = atol(q);
+				} else if (i == 10) {
+					bl = q;
+				} else if (i == 11) {
+					bs = q;
+					break;
+				}
 				if (c == 0) break;
 				++i, q = p + 1;
 			}
 		}
 		if (id < 0 || t.st < 0 || t.st >= t.en) continue;
 		r = &I[id];
-		if (r->n == r->m) {
-			r->m = r->m? r->m + (r->m>>1) : 16;
-			r->a = (mm_idx_intv1_t*)realloc(r->a, sizeof(*r->a) * r->m);
+		if (i >= 11 && read_junc) { // BED12
+			int32_t st, sz, en;
+			st = strtol(bs, &bs, 10); ++bs;
+			sz = strtol(bl, &bl, 10); ++bl;
+			en = t.st + st + sz;
+			for (i = 1; i < n_blk; ++i) {
+				mm_idx_intv1_t s = t;
+				if (r->n == r->m) {
+					r->m = r->m? r->m + (r->m>>1) : 16;
+					r->a = (mm_idx_intv1_t*)realloc(r->a, sizeof(*r->a) * r->m);
+				}
+				st = strtol(bs, &bs, 10); ++bs;
+				sz = strtol(bl, &bl, 10); ++bl;
+				s.st = en, s.en = t.st + st;
+				en = t.st + st + sz;
+				if (s.en > s.st) r->a[r->n++] = s;
+			}
+		} else {
+			if (r->n == r->m) {
+				r->m = r->m? r->m + (r->m>>1) : 16;
+				r->a = (mm_idx_intv1_t*)realloc(r->a, sizeof(*r->a) * r->m);
+			}
+			r->a[r->n++] = t;
 		}
-		r->a[r->n++] = t;
 	}
 	free(str.s);
 	ks_destroy(ks);
@@ -663,11 +689,11 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn)
 	return I;
 }
 
-int mm_idx_bed_read(mm_idx_t *mi, const char *fn)
+int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
 {
 	int32_t i;
 	if (mi->h == 0) mm_idx_index_name(mi);
-	mi->I = mm_idx_read_bed(mi, fn);
+	mi->I = mm_idx_read_bed(mi, fn, read_junc);
 	if (mi->I == 0) return -1;
 	for (i = 0; i < mi->n_seq; ++i) // TODO: eliminate redundant intervals
 		radix_sort_bed(mi->I[i].a, mi->I[i].a + mi->I[i].n);

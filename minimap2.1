@@ -1,4 +1,4 @@
-.TH minimap2 1 "28 Feburary 2019" "minimap2-2.16-dirty (r933)" "Bioinformatics tools"
+.TH minimap2 1 "28 Feburary 2019" "minimap2-2.16-dirty (r934)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -365,10 +365,10 @@ on SIRV data, please add
 to the command line.
 .TP
 .BR --junc-bed \ FILE
-BED file consisting of annotated introns and their strands. With this option,
-minimap2 prefers splicing in annotations.
-.I FILE
-can be generated with `paftools.js gff2bed -j ann.gtf' [].
+Gene annotations in the BED12 format (aka 12-column BED), or intron positions
+in 5-column BED. With this option, minimap2 prefers splicing in annotations.
+BED12 file can be converted from GTF/GFF3 with `paftools.js gff2bed anno.gtf'
+[].
 .TP
 .BR --junc-bonus \ INT
 Score bonus for a splice donor or acceptor found in annotation (effective with

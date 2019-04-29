@@ -367,7 +367,7 @@ int mm_idx_index_name(mm_idx_t *mi);
 int mm_idx_name2id(const mm_idx_t *mi, const char *name);
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 
-int mm_idx_bed_read(mm_idx_t *mi, const char *fn);
+int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc);
 int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uint8_t *s);
 
 // deprecated APIs for backward compatibility
