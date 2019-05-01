@@ -37,6 +37,14 @@
 #define KS_SEP_LINE  2 // line separator: "\n" (Unix) or "\r\n" (Windows)
 #define KS_SEP_MAX   2
 
+#ifndef klib_unused
+#if (defined __clang__ && __clang_major__ >= 3) || (defined __GNUC__ && __GNUC__ >= 3)
+#define klib_unused __attribute__ ((__unused__))
+#else
+#define klib_unused
+#endif
+#endif /* klib_unused */
+
 #define __KS_TYPE(type_t) \
 	typedef struct __kstream_t { \
 		int begin, end; \
@@ -64,7 +72,7 @@
 	}
 
 #define __KS_INLINED(__read) \
-	static inline int ks_getc(kstream_t *ks) \
+	static inline klib_unused int ks_getc(kstream_t *ks) \
 	{ \
 		if (ks->is_eof && ks->begin >= ks->end) return -1; \
 		if (ks->begin >= ks->end) { \
