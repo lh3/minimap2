@@ -65,6 +65,7 @@ static ko_longopt_t long_options[] = {
 	{ "max-chain-iter", ko_required_argument, 339 },
 	{ "junc-bed",       ko_required_argument, 340 },
 	{ "junc-bonus",     ko_required_argument, 341 },
+	{ "sam-hit-only",   ko_no_argument,       342 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -207,6 +208,7 @@ int main(int argc, char *argv[])
 		else if (c == 337) opt.max_sw_mat = mm_parse_num(o.arg); // --cap-sw-mat
 		else if (c == 338) opt.max_qlen = mm_parse_num(o.arg); // --max-qlen
 		else if (c == 340) junc_bed = o.arg; // --junc-bed
+		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary

@@ -1,4 +1,4 @@
-.TH minimap2 1 "28 Feburary 2019" "minimap2-2.16-dirty (r934)" "Bioinformatics tools"
+.TH minimap2 1 "30 April 2019" "minimap2-2.16-dirty (r938)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -488,6 +488,9 @@ Filter out query sequences longer than
 In PAF, output unmapped queries; the strand and the reference name fields are
 set to `*'. Warning: some paftools.js commands may not work with such output
 for the moment.
+.TP
+.B --sam-hit-only
+In SAM, don't output unmapped reads.
 .TP
 .B --version
 Print version number to stdout
