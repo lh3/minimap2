@@ -142,7 +142,7 @@ cdef class Aligner:
 			if fn_idx_out is None:
 				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
 			else:
-				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, fn_idx_out)
+				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, str.encode(fn_idx_out))
 			if r is not NULL:
 				self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
 				cmappy.mm_idx_reader_close(r)
