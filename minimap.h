@@ -104,9 +104,9 @@ typedef struct {
 } mm_idxopt_t;
 
 typedef struct {
+	int64_t flag;    // see MM_F_* macros
 	int seed;
 	int sdust_thres; // score threshold for SDUST; 0 to disable
-	int flag;        // see MM_F_* macros
 
 	int max_qlen;    // max query length
 

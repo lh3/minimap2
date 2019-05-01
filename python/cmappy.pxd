@@ -10,9 +10,9 @@ cdef extern from "minimap.h":
 		uint64_t batch_size
 
 	ctypedef struct mm_mapopt_t:
+		int64_t flag
 		int seed
 		int sdust_thres
-		int flag
 		int max_qlen
 		int bw
 		int max_gap, max_gap_ref
