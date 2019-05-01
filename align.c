@@ -123,6 +123,25 @@ static void mm_fix_cigar(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq,
 		}
 	}
 	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
+	for (k = 0; k < p->n_cigar - 2; ++k) { // fix CIGAR like 5I6D7I
+		if ((p->cigar[k]&0xf) > 0 && (p->cigar[k]&0xf) + (p->cigar[k+1]&0xf) == 3) {
+			uint32_t l, s[3] = {0,0,0};
+			for (l = k; l < p->n_cigar; ++l) { // count number of adjacent I and D
+				uint32_t op = p->cigar[l]&0xf;
+				if (op == 1 || op == 2 || p->cigar[l]>>4 == 0)
+					s[op] += p->cigar[l] >> 4;
+				else break;
+			}
+			if (s[1] > 0 && s[2] > 0 && l - k > 2) { // turn to a single I and a single D
+				p->cigar[k]   = s[1]<<4|1;
+				p->cigar[k+1] = s[2]<<4|2;
+				for (k += 2; k < l; ++k)
+					p->cigar[k] &= 0xf;
+				to_shrink = 1;
+			}
+			k = l;
+		}
+	}
 	if (to_shrink) { // squeeze out zero-length operations
 		int32_t l = 0;
 		for (k = 0; k < p->n_cigar; ++k) // squeeze out zero-length operations
