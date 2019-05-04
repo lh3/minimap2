@@ -18,7 +18,7 @@ cd minimap2 && make
 ./minimap2 -ax sr ref.fa read1.fa read2.fa > aln.sam      # short genomic paired-end reads
 ./minimap2 -ax splice ref.fa rna-reads.fa > aln.sam       # spliced long reads (strand unknown)
 ./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore Direct RNA-seq
-./minimap2 -ax splice -uf -C5 ref.fa query.fa > aln.sam   # Final PacBio Iso-seq or traditional cDNA
+./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # Final PacBio Iso-seq or traditional cDNA
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
 ./minimap2 -x ava-ont reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
@@ -139,7 +139,7 @@ Nanopore reads.
 #### <a name="map-long-splice"></a>Map long mRNA/cDNA reads
 
 ```sh
-minimap2 -ax splice -uf -C5 ref.fa iso-seq.fq > aln.sam      # PacBio Iso-seq/traditional cDNA
+minimap2 -ax splice:hq -uf ref.fa iso-seq.fq > aln.sam       # PacBio Iso-seq/traditional cDNA
 minimap2 -ax splice ref.fa nanopore-cdna.fa > aln.sam        # Nanopore 2D cDNA-seq
 minimap2 -ax splice -uf -k14 ref.fa direct-rna.fq > aln.sam  # Nanopore Direct RNA-seq
 minimap2 -ax splice --splice-flank=no SIRV.fa SIRV-seq.fa    # mapping against SIRV control
