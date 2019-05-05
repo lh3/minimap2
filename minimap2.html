@@ -61,7 +61,7 @@ p {
     text-align: justify;
 }
 </style>
-<TITLE>minimap2.1</TITLE>
+<TITLE>Manual Page - minimap2(1)</TITLE>
 </HEAD>
 <BODY bgcolor=#F0F0F0 text=#000000 link=#0000ff vlink=#C000C0 alink=#ff0000><div id="wrap"><A NAME=top></A>
 <CENTER>
@@ -437,6 +437,18 @@ on SIRV data, please add
 <B>--splice-flank=no</B> to the command line.
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<B>--junc-bed</B> FILE </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Gene annotations in the BED12 format (aka 12-column BED), or intron positions
+in 5-column BED. With this option, minimap2 prefers splicing in annotations.
+BED12 file can be converted from GTF/GFF3 with &#145;paftools.js gff2bed anno.gtf&#146;
+[].
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--junc-bonus</B> INT </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Score bonus for a splice donor or acceptor found in annotation (effective with
+<B>--junc-bed</B>) [0].
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <B>--end-seed-pen</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Drop a terminal anchor if
 <I>s</I>&lt;log(<I>g</I>)+<I>INT</I>, where
@@ -559,6 +571,10 @@ In PAF, output unmapped queries; the strand and the reference name fields are
 set to &#145;*&#146;. Warning: some paftools.js commands may not work with such output
 for the moment.
 </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--sam-hit-only</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+In SAM, don&#146;t output unmapped reads.
+</TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>--version</B> </TD><TD valign=bottom>
 Print version number to stdout
@@ -595,18 +611,18 @@ is determined by the sequencing error mode.
 <TR valign=top><TD width=8% nowrap>
 <B>asm5</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
+(<B>-k19</B> <B>-w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 -N50</B> <B>--min-occ-floor=100</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>asm10</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Up to 10% sequence divergence.
+(<B>-k19</B> <B>-w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 -N50</B> <B>--min-occ-floor=100</B>). Up to 10% sequence divergence.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>asm20</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200</B> <B>--min-occ-floor=100</B>). Up to 20% sequence divergence.
+(<B>-k19</B> <B>-w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200 -N50</B> <B>--min-occ-floor=100</B>). Up to 20% sequence divergence.
 </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>ava-pb</B> </TD><TD valign=bottom>
@@ -621,12 +637,16 @@ Oxford Nanopore all-vs-all overlap mapping
 <TR valign=top><TD width=8% nowrap>
 <B>splice</B> </TD><TD valign=bottom>
 Long-read spliced alignment
-(<B>-k15</B> <B>-w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub</B> <B>--splice-flank=yes</B>). In the splice mode, 1) long deletions are taken as introns and represented as
+(<B>-k15</B> <B>-w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9</B> <B>--splice-flank=yes</B>). In the splice mode, 1) long deletions are taken as introns and represented as
 the
 &#145;<B>N</B>&#146; CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
 costs are different during chaining; 4) the computation of the
 &#145;<B>ms</B>&#146; tag ignores introns to demote hits to pseudogenes.
 </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>splice:hq</B> </TD></TR><TR valign=top><TD width=8%>&nbsp;</TD><TD>
+Long-read splice alignment for PacBio CCS reads
+(<B>-xsplice</B> <B>-C5 -O6,24</B> <B>-B4</B>). </TD></TR>
 <TR valign=top><TD width=8% nowrap>
 <B>sr</B> </TD><TD valign=bottom>
 Short single-end reads without splicing
@@ -791,4 +811,4 @@ non-SSE2/NEON support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.16 (r922)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>28 Feburary 2019</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.17 (r941)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>4 May 2019</I></TD> </TR></TABLE></div></BODY></HTML>
