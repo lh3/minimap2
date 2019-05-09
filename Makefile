@@ -99,7 +99,7 @@ build-arch:
 		docker build --rm -t $(PROG):$(ARCH) --build-arg ARCH=$(ARCH) .
 
 arch: build-arch
-		docker run --rm -t -v $(CWD):/build $(PROG):$(ARCH) make
+		docker run --rm -t -v $(CWD):/build $(PROG):$(ARCH) make $(ARGS)
 
 login-arch: build-arch
 		docker run --rm -it -v $(CWD):/build $(PROG):$(ARCH)

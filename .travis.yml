@@ -6,6 +6,12 @@ matrix:
     - language: c
       compiler: clang
       script: make
+    - name: armhf
+      language: c
+      script: make qemu arch ARCH=armhf ARGS="arm_neon=1"
+    - name: arm64
+      language: c
+      script: make qemu arch ARCH=arm64 ARGS="arm_neon=1 aarch64=1"
     - name: ppc64el
       language: c
       script: make qemu arch ARCH=ppc64el
@@ -21,3 +27,6 @@ matrix:
       python: "3.6"
       before_install: pip install cython
       script: python setup.py build_ext
+  allow_failures:
+    - name: ppc64el
+  fast_finish: true
