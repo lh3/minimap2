@@ -6,6 +6,9 @@ matrix:
     - language: c
       compiler: clang
       script: make
+    - name: ppc64el
+      language: c
+      script: make qemu arch ARCH=ppc64el
     - language: python
       python: "2.7"
       before_install: pip install cython

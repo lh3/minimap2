@@ -5,6 +5,7 @@ OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o chain
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
+CWD =		$(shell pwd)
 
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
@@ -90,6 +91,18 @@ clean:
 
 depend:
 		(LC_ALL=C; export LC_ALL; makedepend -Y -- $(CFLAGS) $(CPPFLAGS) -- *.c)
+
+qemu:
+		docker run --rm --privileged multiarch/qemu-user-static:register --reset
+
+build-arch:
+		docker build --rm -t $(PROG):$(ARCH) --build-arg ARCH=$(ARCH) .
+
+arch: build-arch
+		docker run --rm -t -v $(CWD):/build $(PROG):$(ARCH) make
+
+login-arch: build-arch
+		docker run --rm -it -v $(CWD):/build $(PROG):$(ARCH)
 
 # DO NOT DELETE
 
