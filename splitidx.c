@@ -19,9 +19,9 @@ FILE *mm_split_init(const char *prefix, const mm_idx_t *mi)
 	mm_err_fwrite(&k, 4, 1, fp);
 	mm_err_fwrite(&mi->n_seq, 4, 1, fp);
 	for (i = 0; i < mi->n_seq; ++i) {
-		uint8_t l;
+		uint32_t l;
 		l = strlen(mi->seq[i].name);
-		mm_err_fwrite(&l, 1, 1, fp);
+		mm_err_fwrite(&l, 1, 4, fp);
 		mm_err_fwrite(mi->seq[i].name, 1, l, fp);
 		mm_err_fwrite(&mi->seq[i].len, 4, 1, fp);
 	}
@@ -60,8 +60,8 @@ mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint3
 	for (i = j = 0; i < n_splits; ++i) {
 		uint32_t k;
 		for (k = 0; k < n_seq_part[i]; ++k, ++j) {
-			uint8_t l;
-			mm_err_fread(&l, 1, 1, fp[i]);
+			uint32_t l;
+			mm_err_fread(&l, 1, 4, fp[i]);
 			mi->seq[j].name = (char*)calloc(l + 1, 1);
 			mm_err_fread(mi->seq[j].name, 1, l, fp[i]);
 			mm_err_fread(&mi->seq[j].len, 4, 1, fp[i]);
