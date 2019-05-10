@@ -1,0 +1,12 @@
+# language: c does not work on aarch32.
+# https://github.com/Shippable/support/issues/4773
+language: none
+runtime:
+  - nodePool: shippable_shared_aarch32
+    build:
+      ci:
+        - make arm_neon=1
+  - nodePool: shippable_shared_aarch64
+    build:
+      ci:
+        - make arm_neon=1 aarch64=1
