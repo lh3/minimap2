@@ -1,3 +1,31 @@
+Release 2.17-r941 (4 May 2019)
+------------------------------
+
+Changes since the last release:
+
+ * Fixed flawed CIGARs like `5I6D7I` (#392).
+
+ * Bugfix: TLEN should be 0 when either end is unmapped (#373 and #365).
+
+ * Bugfix: mappy is unable to write index (#372).
+
+ * Added option `--junc-bed` to load known gene annotations in the BED12
+   format. Minimap2 prefers annotated junctions over novel junctions (#197 and
+   #348). GTF can be converted to BED12 with `paftools.js gff2bed`.
+
+ * Added option `--sam-hit-only` to suppress unmapped hits in SAM (#377).
+
+ * Added preset `splice:hq` for high-quality CCS or mRNA sequences. It applies
+   better scoring and improves the sensitivity to small exons. This preset may
+   introduce false small introns, but the overall accuracy should be higher.
+
+This version produces nearly identical alignments to v2.16, except for CIGARs
+affected by the bug mentioned above.
+
+(2.17: 5 May 2019, r941)
+
+
+
 Release 2.16-r922 (28 February 2019)
 ------------------------------------
 
