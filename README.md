@@ -315,9 +315,10 @@ highlighted in bold. The description may help to tune minimap2 parameters.
 ### <a name="help"></a>Getting help
 
 Manpage [minimap2.1][manpage] provides detailed description of minimap2
-command line options and optional tags. If you encounter bugs or have further
-questions or requests, you can raise an issue at the [issue page][issue].
-There is not a specific mailing list for the time being.
+command line options and optional tags. The [FAQ](FAQ.md) page answers several
+frequently asked questions. If you encounter bugs or have further questions or
+requests, you can raise an issue at the [issue page][issue].  There is not a
+specific mailing list for the time being.
 
 ### <a name="cite"></a>Citing minimap2
 
