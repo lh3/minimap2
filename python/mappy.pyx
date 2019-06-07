@@ -113,6 +113,7 @@ cdef class Aligner:
 	cdef cmappy.mm_mapopt_t map_opt
 
 	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None):
+		self._idx = NULL
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
 			cmappy.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
@@ -170,6 +171,7 @@ cdef class Aligner:
 		cdef void *km
 		cdef cmappy.mm_mapopt_t map_opt
 
+		if self._idx == NULL: return
 		map_opt = self.map_opt
 		if max_frag_len is not None: map_opt.max_frag_len = max_frag_len
 		if extra_flags is not None: map_opt.flag |= extra_flags
@@ -206,7 +208,9 @@ cdef class Aligner:
 
 	def seq(self, str name, int start=0, int end=0x7fffffff):
 		cdef int l
-		cdef char *s = cmappy.mappy_fetch_seq(self._idx, name.encode(), start, end, &l)
+		cdef char *s
+		if self._idx == NULL: return
+		s = cmappy.mappy_fetch_seq(self._idx, name.encode(), start, end, &l)
 		if l == 0: return None
 		r = s[:l] if isinstance(s, str) else s[:l].decode()
 		free(s)
@@ -224,6 +228,7 @@ cdef class Aligner:
 	@property
 	def seq_names(self):
 		cdef char *p
+		if self._idx == NULL: return
 		sn = []
 		for i in range(self._idx.n_seq):
 			p = self._idx.seq[i].name
