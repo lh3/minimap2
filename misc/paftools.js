@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.17-r941';
+var paftools_version = '2.17-r949-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -1509,6 +1509,7 @@ function paf_gff2bed(args)
 
 	var colors = {
 		'protein_coding':'0,128,255',
+		'mRNA':'0,128,255',
 		'lincRNA':'0,192,0',
 		'snRNA':'0,192,0',
 		'miRNA':'0,192,0',
@@ -1541,8 +1542,8 @@ function paf_gff2bed(args)
 		print(a[0][0], st, en, name, 1000, a[0][3], cds_st, cds_en, color, a.length, sizes.join(",") + ",", starts.join(",") + ",");
 	}
 
-	var re_gtf = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name) "([^"]+)";/g;
-	var re_gff3 = /(transcript_id|transcript_type|transcript_biotype|gene_name|transcript_name)=([^;]+)/g;
+	var re_gtf = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name) "([^"]+)";/g;
+	var re_gff3 = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name)=([^;]+)/g;
 	var buf = new Bytes();
 	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 
@@ -1559,19 +1560,19 @@ function paf_gff2bed(args)
 		if (t[2] != "CDS" && t[2] != "exon") continue;
 		t[3] = parseInt(t[3]) - 1;
 		t[4] = parseInt(t[4]);
-		var id = null, type = "", gname = "N/A", biotype = "", m, tname = "N/A";
+		var id = null, type = "", name = "N/A", biotype = "", m, tname = "N/A";
 		while ((m = re_gtf.exec(t[8])) != null) {
 			if (m[1] == "transcript_id") id = m[2];
 			else if (m[1] == "transcript_type") type = m[2];
-			else if (m[1] == "transcript_biotype") biotype = m[2];
-			else if (m[1] == "gene_name") name = m[2];
+			else if (m[1] == "transcript_biotype" || m[1] == "gbkey") biotype = m[2];
+			else if (m[1] == "gene_name" || m[1] == "gene_id") name = m[2];
 			else if (m[1] == "transcript_name") tname = m[2];
 		}
 		while ((m = re_gff3.exec(t[8])) != null) {
 			if (m[1] == "transcript_id") id = m[2];
 			else if (m[1] == "transcript_type") type = m[2];
-			else if (m[1] == "transcript_biotype") biotype = m[2];
-			else if (m[1] == "gene_name") name = m[2];
+			else if (m[1] == "transcript_biotype" || m[1] == "gbkey") biotype = m[2];
+			else if (m[1] == "gene_name" || m[1] == "gene_id") name = m[2];
 			else if (m[1] == "transcript_name") tname = m[2];
 		}
 		if (type == "" && biotype != "") type = biotype;
