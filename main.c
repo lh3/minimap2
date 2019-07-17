@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
@@ -172,7 +173,7 @@ int main(int argc, char *argv[])
 		else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
-					fprintf(stderr, "[ERROR]\033[1;31m failed to write the output to file '%s'\033[0m\n", o.arg);
+					fprintf(stderr, "[ERROR]\033[1;31m failed to write the output to file '%s'\033[0m: %s\n", o.arg, strerror(errno));
 					exit(1);
 				}
 			}
@@ -337,7 +338,7 @@ int main(int argc, char *argv[])
 	}
 	idx_rdr = mm_idx_reader_open(argv[o.ind], &ipt, fnw);
 	if (idx_rdr == 0) {
-		fprintf(stderr, "[ERROR] failed to open file '%s'\n", argv[o.ind]);
+		fprintf(stderr, "[ERROR] failed to open file '%s': %s\n", argv[o.ind], strerror(errno));
 		return 1;
 	}
 	if (!idx_rdr->is_idx && fnw == 0 && argc - o.ind < 2) {
@@ -384,7 +385,7 @@ int main(int argc, char *argv[])
 		mm_split_merge(argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_parts);
 
 	if (fflush(stdout) == EOF) {
-		fprintf(stderr, "[ERROR] failed to write the results\n");
+		perror("[ERROR] failed to write the results");
 		exit(EXIT_FAILURE);
 	}
 
