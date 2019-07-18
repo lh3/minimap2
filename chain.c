@@ -155,8 +155,8 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		memcpy(&a[k], &b[w[i].y>>32], n * sizeof(mm128_t));
 		k += n;
 	}
-	memcpy(u, u2, n_u * 8);
-	memcpy(b, a, k * sizeof(mm128_t)); // write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
+	if (n_u) memcpy(u, u2, n_u * 8);
+	if (k) memcpy(b, a, k * sizeof(mm128_t)); // write _a_ to _b_ and deallocate _a_ because _a_ is oversized, sometimes a lot
 	kfree(km, a); kfree(km, w); kfree(km, u2);
 	return b;
 }
