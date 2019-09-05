@@ -227,7 +227,7 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 		r->id = i;
 		if (r->parent == MM_PARENT_TMP_PRI)
 			r->parent = i;
-		else if (r->parent >= 0 && tmp[r->parent] >= 0)
+		else if (r->parent >= 0 && r->parent < n_tmp && tmp[r->parent] >= 0)
 			r->parent = tmp[r->parent];
 		else r->parent = MM_PARENT_UNSET;
 	}
