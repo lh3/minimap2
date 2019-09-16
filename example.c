@@ -35,6 +35,8 @@ int main(int argc, char *argv[])
 	while ((mi = mm_idx_reader_read(r, n_threads)) != 0) { // traverse each part of the index
 		mm_mapopt_update(&mopt, mi); // this sets the maximum minimizer occurrence; TODO: set a better default in mm_mapopt_init()!
 		mm_tbuf_t *tbuf = mm_tbuf_init(); // thread buffer; for multi-threading, allocate one tbuf for each thread
+		gzrewind(f);
+		kseq_rewind(ks);
 		while (kseq_read(ks) >= 0) { // each kseq_read() call reads one query sequence
 			mm_reg1_t *reg;
 			int j, i, n_reg;
