@@ -22,6 +22,16 @@ else				#if aarch64 is defined
 endif
 endif
 
+ifneq ($(asan),)
+	CFLAGS+=-fsanitize=address
+	LIBS+=-fsanitize=address
+endif
+
+ifneq ($(tsan),)
+	CFLAGS+=-fsanitize=thread
+	LIBS+=-fsanitize=thread
+endif
+
 .PHONY:all extra clean depend
 .SUFFIXES:.c .o
 
