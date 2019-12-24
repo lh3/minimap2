@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <limits.h>
 #include "mmpriv.h"
 
 void mm_idxopt_init(mm_idxopt_t *opt)
@@ -8,6 +9,7 @@ void mm_idxopt_init(mm_idxopt_t *opt)
 	opt->bucket_bits = 14;
 	opt->mini_batch_size = 50000000;
 	opt->batch_size = 4000000000ULL;
+	opt->min_occ = 0, opt->max_occ = INT_MAX;
 }
 
 void mm_mapopt_init(mm_mapopt_t *opt)

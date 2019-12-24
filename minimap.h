@@ -101,6 +101,7 @@ typedef struct {
 typedef struct {
 	short k, w, flag, bucket_bits;
 	int mini_batch_size;
+	int min_occ, max_occ;
 	uint64_t batch_size;
 } mm_idxopt_t;
 

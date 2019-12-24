@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <limits.h>
 #include <assert.h>
 #if defined(WIN32) || defined(_WIN32)
 #include <io.h> // for open(2)
@@ -188,12 +189,18 @@ int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
  * Sort and generate hash tables *
  *********************************/
 
+typedef struct {
+	mm_idx_t *mi;
+	int min_occ, max_occ;
+} idx_post_t;
+
 static void worker_post(void *g, long i, int tid)
 {
 	int n, n_keys;
 	size_t j, start_a, start_p;
 	idxhash_t *h;
-	mm_idx_t *mi = (mm_idx_t*)g;
+	idx_post_t *o = (idx_post_t*)g;
+	mm_idx_t *mi = o->mi;
 	mm_idx_bucket_t *b = &mi->B[i];
 	if (b->a.n == 0) return;
 
@@ -203,8 +210,10 @@ static void worker_post(void *g, long i, int tid)
 	// count and preallocate
 	for (j = 1, n = 1, n_keys = 0, b->n = 0; j <= b->a.n; ++j) {
 		if (j == b->a.n || b->a.a[j].x>>8 != b->a.a[j-1].x>>8) {
-			++n_keys;
-			if (n > 1) b->n += n;
+			if (n >= o->min_occ && n <= o->max_occ) {
+				++n_keys;
+				if (n > 1) b->n += n;
+			}
 			n = 1;
 		} else ++n;
 	}
@@ -218,18 +227,20 @@ static void worker_post(void *g, long i, int tid)
 			khint_t itr;
 			int absent;
 			mm128_t *p = &b->a.a[j-1];
-			itr = kh_put(idx, h, p->x>>8>>mi->b<<1, &absent);
-			assert(absent && j == start_a + n);
-			if (n == 1) {
-				kh_key(h, itr) |= 1;
-				kh_val(h, itr) = p->y;
-			} else {
-				int k;
-				for (k = 0; k < n; ++k)
-					b->p[start_p + k] = b->a.a[start_a + k].y;
-				radix_sort_64(&b->p[start_p], &b->p[start_p + n]); // sort by position; needed as in-place radix_sort_128x() is not stable
-				kh_val(h, itr) = (uint64_t)start_p<<32 | n;
-				start_p += n;
+			if (n >= o->min_occ && n <= o->max_occ) {
+				itr = kh_put(idx, h, p->x>>8>>mi->b<<1, &absent);
+				assert(absent && j == start_a + n);
+				if (n == 1) {
+					kh_key(h, itr) |= 1;
+					kh_val(h, itr) = p->y;
+				} else {
+					int k;
+					for (k = 0; k < n; ++k)
+						b->p[start_p + k] = b->a.a[start_a + k].y;
+					radix_sort_64(&b->p[start_p], &b->p[start_p + n]); // sort by position; needed as in-place radix_sort_128x() is not stable
+					kh_val(h, itr) = (uint64_t)start_p<<32 | n;
+					start_p += n;
+				}
 			}
 			start_a = j, n = 1;
 		} else ++n;
@@ -242,9 +253,12 @@ static void worker_post(void *g, long i, int tid)
 	b->a.n = b->a.m = 0, b->a.a = 0;
 }
  
-static void mm_idx_post(mm_idx_t *mi, int n_threads)
+static void mm_idx_post(mm_idx_t *mi, int n_threads, int min_occ, int max_occ)
 {
-	kt_for(n_threads, worker_post, mi, 1<<mi->b);
+	idx_post_t t;
+	if (max_occ <= 0 || max_occ < min_occ) max_occ = INT_MAX;
+	t.mi = mi, t.min_occ = min_occ, t.max_occ = max_occ;
+	kt_for(n_threads, worker_post, &t, 1<<mi->b);
 }
 
 /******************
@@ -350,7 +364,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
     return 0;
 }
 
-mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini_batch_size, int n_threads, uint64_t batch_size)
+mm_idx_t *mm_idx_gen2(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini_batch_size, int n_threads, uint64_t batch_size, int min_occ, int max_occ)
 {
 	pipeline_t pl;
 	if (fp == 0 || mm_bseq_eof(fp)) return 0;
@@ -364,11 +378,16 @@ mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] collected minimizers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 
-	mm_idx_post(pl.mi, n_threads);
+	mm_idx_post(pl.mi, n_threads, min_occ, max_occ);
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] sorted minimizers\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0));
 
 	return pl.mi;
+}
+
+mm_idx_t *mm_idx_gen(mm_bseq_file_t *fp, int w, int k, int b, int flag, int mini_batch_size, int n_threads, uint64_t batch_size)
+{
+	return mm_idx_gen2(fp, w, k, b, flag, mini_batch_size, n_threads, batch_size, 0, INT_MAX);
 }
 
 mm_idx_t *mm_idx_build(const char *fn, int w, int k, int flag, int n_threads) // a simpler interface; deprecated
@@ -427,7 +446,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 		}
 	}
 	free(a.a);
-	mm_idx_post(mi, 1);
+	mm_idx_post(mi, 1, 0, 0);
 	return mi;
 }
 
@@ -588,7 +607,7 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || (mi->flag&MM_I_HPC) != (r->opt.flag&MM_I_HPC)))
 			fprintf(stderr, "[WARNING]\033[1;31m Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\033[0m\n");
 	} else
-		mi = mm_idx_gen(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.flag, r->opt.mini_batch_size, n_threads, r->opt.batch_size);
+		mi = mm_idx_gen2(r->fp.seq, r->opt.w, r->opt.k, r->opt.bucket_bits, r->opt.flag, r->opt.mini_batch_size, n_threads, r->opt.batch_size, r->opt.min_occ, r->opt.max_occ);
 	if (mi) {
 		if (r->fp_out) mm_idx_dump(r->fp_out, mi);
 		mi->index = r->n_parts++;
