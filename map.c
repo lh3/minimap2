@@ -351,6 +351,15 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	chain_post(opt, max_chain_gap_ref, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
 	if (!is_sr) mm_est_err(mi, qlen_sum, n_regs0, regs0, a, n_mini_pos, mini_pos);
+	if (!is_sr && n_segs == 1) {
+		for (i = j = 0; i < n_regs0; ++i) {
+			mm_reg1_t *r = &regs0[i];
+			if (r->div > opt->flt_max_dv) continue;
+			if (r->blen < opt->flt_min_blen) continue;
+			regs0[j++] = regs0[i];
+		}
+		n_regs0 = j;
+	}
 
 	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], &n_regs0, regs0, a);

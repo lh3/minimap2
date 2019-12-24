@@ -119,6 +119,9 @@ typedef struct {
 	int min_cnt;         // min number of minimizers on each chain
 	int min_chain_score; // min chaining score
 
+	float flt_max_dv;
+	int flt_min_blen;
+
 	float mask_level;
 	float pri_ratio;
 	int best_n;      // top best_n chains are subjected to DP alignment
