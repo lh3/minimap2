@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.17-r962-dirty"
+#define MM_VERSION "2.17-r963-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -209,6 +209,7 @@ int main(int argc, char *argv[])
 		else if (c == 337) opt.max_sw_mat = mm_parse_num(o.arg); // --cap-sw-mat
 		else if (c == 338) opt.max_qlen = mm_parse_num(o.arg); // --max-qlen
 		else if (c == 340) junc_bed = o.arg; // --junc-bed
+		else if (c == 341) opt.junc_bonus = atoi(o.arg); // --junc-bonus
 		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
