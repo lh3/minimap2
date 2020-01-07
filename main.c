@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.17-r961-dirty"
+#define MM_VERSION "2.17-r962-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -356,12 +356,18 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
+			int ret;
 			if (mm_idx_reader_eof(idx_rdr)) {
-				mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
+				ret = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 			} else {
-				mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
+				ret = mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
 				if (opt.split_prefix == 0 && mm_verbose >= 2)
 					fprintf(stderr, "[WARNING]\033[1;31m For a multi-part index, no @SQ lines will be outputted. Please use --split-prefix.\033[0m\n");
+			}
+			if (ret != 0) {
+				mm_idx_destroy(mi);
+				mm_idx_reader_close(idx_rdr);
+				return 1;
 			}
 		}
 		if (mm_verbose >= 3)
