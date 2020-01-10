@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <errno.h>
 #include "kthread.h"
 #include "kvec.h"
 #include "kalloc.h"
@@ -622,7 +623,7 @@ static mm_bseq_file_t **open_bseqs(int n, const char **fn)
 	for (i = 0; i < n; ++i) {
 		if ((fp[i] = mm_bseq_open(fn[i])) == 0) {
 			if (mm_verbose >= 1)
-				fprintf(stderr, "ERROR: failed to open file '%s'\n", fn[i]);
+				fprintf(stderr, "ERROR: failed to open file '%s': %s\n", fn[i], strerror(errno));
 			for (j = 0; j < i; ++j)
 				mm_bseq_close(fp[j]);
 			free(fp);
