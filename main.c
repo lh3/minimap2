@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.17-r966-dirty"
+#define MM_VERSION "2.17-r967-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -361,7 +361,10 @@ int main(int argc, char *argv[])
 		}
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
 			if (mm_idx_reader_eof(idx_rdr)) {
-				ret = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
+				if (opt.split_prefix == 0)
+					ret = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
+				else
+					ret = mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
 			} else {
 				ret = mm_write_sam_hdr(0, rg, MM_VERSION, argc, argv);
 				if (opt.split_prefix == 0 && mm_verbose >= 2)
