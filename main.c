@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.17-r965-dirty"
+#define MM_VERSION "2.17-r966-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -352,6 +352,7 @@ int main(int argc, char *argv[])
 	if (opt.best_n == 0 && (opt.flag&MM_F_CIGAR) && mm_verbose >= 2)
 		fprintf(stderr, "[WARNING]\033[1;31m `-N 0' reduces alignment accuracy. Please use --secondary=no to suppress secondary alignments.\033[0m\n");
 	while ((mi = mm_idx_reader_read(idx_rdr, n_threads)) != 0) {
+		int ret;
 		if ((opt.flag & MM_F_CIGAR) && (mi->flag & MM_I_NO_SEQ)) {
 			fprintf(stderr, "[ERROR] the prebuilt index doesn't contain sequences.\n");
 			mm_idx_destroy(mi);
@@ -359,7 +360,6 @@ int main(int argc, char *argv[])
 			return 1;
 		}
 		if ((opt.flag & MM_F_OUT_SAM) && idx_rdr->n_parts == 1) {
-			int ret;
 			if (mm_idx_reader_eof(idx_rdr)) {
 				ret = mm_write_sam_hdr(mi, rg, MM_VERSION, argc, argv);
 			} else {
@@ -380,12 +380,18 @@ int main(int argc, char *argv[])
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
-			for (i = o.ind + 1; i < argc; ++i)
-				mm_map_file(mi, argv[i], &opt, n_threads);
+			for (i = o.ind + 1; i < argc; ++i) {
+				ret = mm_map_file(mi, argv[i], &opt, n_threads);
+				if (ret < 0) break;
+			}
 		} else {
-			mm_map_file_frag(mi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads);
+			ret = mm_map_file_frag(mi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads);
 		}
 		mm_idx_destroy(mi);
+		if (ret < 0) {
+			fprintf(stderr, "ERROR: failed to map the query file\n");
+			exit(EXIT_FAILURE);
+		}
 	}
 	n_parts = idx_rdr->n_parts;
 	mm_idx_reader_close(idx_rdr);
