@@ -100,7 +100,7 @@ typedef struct {
 // indexing and mapping options
 typedef struct {
 	short k, w, flag, bucket_bits;
-	int mini_batch_size;
+	int64_t mini_batch_size;
 	uint64_t batch_size;
 } mm_idxopt_t;
 
@@ -144,7 +144,7 @@ typedef struct {
 	int32_t min_mid_occ;
 	int32_t mid_occ;     // ignore seeds with occurrences above this threshold
 	int32_t max_occ;
-	int mini_batch_size; // size of a batch of query bases to process in parallel
+	int64_t mini_batch_size; // size of a batch of query bases to process in parallel
 	int64_t max_sw_mat;
 
 	const char *split_prefix;

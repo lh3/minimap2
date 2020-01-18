@@ -77,7 +77,7 @@ static inline void kseq2bseq(kseq_t *ks, mm_bseq1_t *s, int with_qual, int with_
 	s->l_seq = ks->seq.l;
 }
 
-mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int with_comment, int frag_mode, int *n_)
+mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual, int with_comment, int frag_mode, int *n_)
 {
 	int64_t size = 0;
 	int ret;
@@ -116,17 +116,17 @@ mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int
 	return a.a;
 }
 
-mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int frag_mode, int *n_)
+mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual, int frag_mode, int *n_)
 {
 	return mm_bseq_read3(fp, chunk_size, with_qual, 0, frag_mode, n_);
 }
 
-mm_bseq1_t *mm_bseq_read(mm_bseq_file_t *fp, int chunk_size, int with_qual, int *n_)
+mm_bseq1_t *mm_bseq_read(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual, int *n_)
 {
 	return mm_bseq_read2(fp, chunk_size, with_qual, 0, n_);
 }
 
-mm_bseq1_t *mm_bseq_read_frag2(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int with_comment, int *n_)
+mm_bseq1_t *mm_bseq_read_frag2(int n_fp, mm_bseq_file_t **fp, int64_t chunk_size, int with_qual, int with_comment, int *n_)
 {
 	int i;
 	int64_t size = 0;
@@ -156,7 +156,7 @@ mm_bseq1_t *mm_bseq_read_frag2(int n_fp, mm_bseq_file_t **fp, int chunk_size, in
 	return a.a;
 }
 
-mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int *n_)
+mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int64_t chunk_size, int with_qual, int *n_)
 {
 	return mm_bseq_read_frag2(n_fp, fp, chunk_size, with_qual, 0, n_);
 }

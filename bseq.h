@@ -18,11 +18,11 @@ typedef struct {
 
 mm_bseq_file_t *mm_bseq_open(const char *fn);
 void mm_bseq_close(mm_bseq_file_t *fp);
-mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int chunk_size, int with_qual, int with_comment, int frag_mode, int *n_);
-mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int chunk_size, int with_qual, int frag_mode, int *n_);
-mm_bseq1_t *mm_bseq_read(mm_bseq_file_t *fp, int chunk_size, int with_qual, int *n_);
-mm_bseq1_t *mm_bseq_read_frag2(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int with_comment, int *n_);
-mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int chunk_size, int with_qual, int *n_);
+mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual, int with_comment, int frag_mode, int *n_);
+mm_bseq1_t *mm_bseq_read2(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual, int frag_mode, int *n_);
+mm_bseq1_t *mm_bseq_read(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual, int *n_);
+mm_bseq1_t *mm_bseq_read_frag2(int n_fp, mm_bseq_file_t **fp, int64_t chunk_size, int with_qual, int with_comment, int *n_);
+mm_bseq1_t *mm_bseq_read_frag(int n_fp, mm_bseq_file_t **fp, int64_t chunk_size, int with_qual, int *n_);
 int mm_bseq_eof(mm_bseq_file_t *fp);
 
 extern unsigned char seq_nt4_table[256];

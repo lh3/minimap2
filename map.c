@@ -399,7 +399,8 @@ mm_reg1_t *mm_map(const mm_idx_t *mi, int qlen, const char *seq, int *n_regs, mm
  **************************/
 
 typedef struct {
-	int mini_batch_size, n_processed, n_threads, n_fp;
+	int n_processed, n_threads, n_fp;
+	int64_t mini_batch_size;
 	const mm_mapopt_t *opt;
 	mm_bseq_file_t **fp;
 	const mm_idx_t *mi;

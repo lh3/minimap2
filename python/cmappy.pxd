@@ -6,7 +6,7 @@ cdef extern from "minimap.h":
 	#
 	ctypedef struct mm_idxopt_t:
 		short k, w, flag, bucket_bits
-		int mini_batch_size
+		int64_t mini_batch_size
 		uint64_t batch_size
 
 	ctypedef struct mm_mapopt_t:
@@ -42,7 +42,7 @@ cdef extern from "minimap.h":
 		int32_t min_mid_occ
 		int32_t mid_occ
 		int32_t max_occ
-		int mini_batch_size
+		int64_t mini_batch_size
 		int64_t max_sw_mat
 		const char *split_prefix
 
