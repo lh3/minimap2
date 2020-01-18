@@ -24,6 +24,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
+	opt->chain_gap_scale = 1.0f;
 
 	opt->mask_level = 0.5f;
 	opt->pri_ratio = 0.8f;

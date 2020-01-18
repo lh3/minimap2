@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.17-r963-dirty"
+#define MM_VERSION "2.17-r965-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -67,6 +67,7 @@ static ko_longopt_t long_options[] = {
 	{ "junc-bed",       ko_required_argument, 340 },
 	{ "junc-bonus",     ko_required_argument, 341 },
 	{ "sam-hit-only",   ko_no_argument,       342 },
+	{ "chain-gap-scale",ko_required_argument, 343 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -211,6 +212,7 @@ int main(int argc, char *argv[])
 		else if (c == 340) junc_bed = o.arg; // --junc-bed
 		else if (c == 341) opt.junc_bonus = atoi(o.arg); // --junc-bonus
 		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
+		else if (c == 343) opt.chain_gap_scale = atof(o.arg); // --chain-gap-scale
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary

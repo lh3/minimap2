@@ -20,6 +20,7 @@ cdef extern from "minimap.h":
 		int max_chain_skip, max_chain_iter
 		int min_cnt
 		int min_chain_score
+		float chain_gap_scale
 		float mask_level
 		float pri_ratio
 		int best_n

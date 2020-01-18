@@ -19,7 +19,7 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
-mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
+mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float gap_scale, int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *f, *p, *t, *v, n_u, n_v;
 	int64_t i, j, st = 0;
@@ -52,7 +52,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		if (i - st > max_iter) st = i - max_iter;
 		for (j = i - 1; j >= st; --j) {
 			int64_t dr = ri - a[j].x;
-			int32_t dq = qi - (int32_t)a[j].y, dd, sc, log_dd;
+			int32_t dq = qi - (int32_t)a[j].y, dd, sc, log_dd, gap_cost;
 			int32_t sidj = (a[j].y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
 			if ((sidi == sidj && dr == 0) || dq <= 0) continue; // don't skip if an anchor is used by multiple segments; see below
 			if ((sidi == sidj && dq > max_dist_y) || dq > max_dist_x) continue;
@@ -62,14 +62,16 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 			min_d = dq < dr? dq : dr;
 			sc = min_d > q_span? q_span : dq < dr? dq : dr;
 			log_dd = dd? ilog2_32(dd) : 0;
+			gap_cost = 0;
 			if (is_cdna || sidi != sidj) {
 				int c_log, c_lin;
 				c_lin = (int)(dd * .01 * avg_qspan);
 				c_log = log_dd;
 				if (sidi != sidj && dr == 0) ++sc; // possibly due to overlapping paired ends; give a minor bonus
-				else if (dr > dq || sidi != sidj) sc -= c_lin < c_log? c_lin : c_log;
-				else sc -= c_lin + (c_log>>1);
-			} else sc -= (int)(dd * .01 * avg_qspan) + (log_dd>>1);
+				else if (dr > dq || sidi != sidj) gap_cost = c_lin < c_log? c_lin : c_log;
+				else gap_cost = c_lin + (c_log>>1);
+			} else gap_cost = (int)(dd * .01 * avg_qspan) + (log_dd>>1);
+			sc -= (int)((double)gap_cost * gap_scale + .499);
 			sc += f[j];
 			if (sc > max_f) {
 				max_f = sc, max_j = j;
