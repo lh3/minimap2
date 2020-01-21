@@ -73,16 +73,17 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a);
 
 mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a);
+void mm_mark_alt(const mm_idx_t *mi, int n, mm_reg1_t *r);
 void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a);
 void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs);
 int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a);
 int mm_set_sam_pri(int n, mm_reg1_t *r);
-void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level);
+void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level, float alt_diff_frac);
 void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_, mm_reg1_t *r);
 void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int max_gap_ref, int min_diff, int best_n, int n_segs, const int *qlens, int *n_, mm_reg1_t *r);
 void mm_filter_regs(const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs);
 void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs, mm128_t *a);
-void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r);
+void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r, float alt_diff_frac);
 void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr);
 
 void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, const uint64_t *mini_pos);

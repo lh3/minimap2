@@ -249,7 +249,7 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_idx_t *mi, void *km, int qlen, int n_segs, const int *qlens, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
-		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL);
+		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_diff_frac);
 		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, max_chain_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
 		if (!(opt->flag & (MM_F_SPLICE|MM_F_SR|MM_F_NO_LJOIN))) // long join not working well without primary chains
@@ -262,7 +262,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	if (!(opt->flag & MM_F_CIGAR)) return regs;
 	regs = mm_align_skeleton(km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
 	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
-		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL);
+		mm_set_parent(km, opt->mask_level, *n_regs, regs, opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_diff_frac);
 		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
 		mm_set_sam_pri(*n_regs, regs);
 	}
@@ -342,6 +342,10 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	b->rep_len = rep_len;
 
 	regs0 = mm_gen_regs(b->km, hash, qlen_sum, n_regs0, u, a);
+	if (mi->n_alt) {
+		mm_mark_alt(mi, n_regs0, regs0);
+		mm_hit_sort(b->km, &n_regs0, regs0, opt->alt_diff_frac); // this step can be merged into mm_gen_regs(); will do if this shows up in profile
+	}
 
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED)
 		for (j = 0; j < n_regs0; ++j)
@@ -361,7 +365,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		seg = mm_seg_gen(b->km, hash, n_segs, qlens, n_regs0, regs0, n_regs, regs, a); // split fragment chain to separate segment chains
 		free(regs0);
 		for (i = 0; i < n_segs; ++i) {
-			mm_set_parent(b->km, opt->mask_level, n_regs[i], regs[i], opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL); // update mm_reg1_t::parent
+			mm_set_parent(b->km, opt->mask_level, n_regs[i], regs[i], opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_diff_frac); // update mm_reg1_t::parent
 			regs[i] = align_regs(opt, mi, b->km, qlens[i], seqs[i], &n_regs[i], regs[i], seg[i].a);
 			mm_set_mapq(b->km, n_regs[i], regs[i], opt->min_chain_score, opt->a, rep_len, is_sr);
 		}
@@ -504,8 +508,8 @@ static void merge_hits(step_t *s)
 					}
 				}
 			}
-			mm_hit_sort(km, &s->n_reg[k], s->reg[k]);
-			mm_set_parent(km, opt->mask_level, s->n_reg[k], s->reg[k], opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL);
+			mm_hit_sort(km, &s->n_reg[k], s->reg[k], opt->alt_diff_frac);
+			mm_set_parent(km, opt->mask_level, s->n_reg[k], s->reg[k], opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_diff_frac);
 			if (!(opt->flag & MM_F_ALL_CHAINS)) {
 				mm_select_sub(km, opt->pri_ratio, s->p->mi->k*2, opt->best_n, &s->n_reg[k], s->reg[k]);
 				mm_set_sam_pri(s->n_reg[k], s->reg[k]);

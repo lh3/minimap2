@@ -87,6 +87,22 @@ mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, 
 	return r;
 }
 
+void mm_mark_alt(const mm_idx_t *mi, int n, mm_reg1_t *r)
+{
+	int i;
+	if (mi->n_alt == 0) return;
+	for (i = 0; i < n; ++i)
+		if (mi->seq[r[i].rid].is_alt)
+			r[i].is_alt = 1;
+}
+
+static inline int mm_alt_score(int score, float alt_diff_frac)
+{
+	if (score < 0) return score;
+	score = (int)(score * (1.0 - alt_diff_frac) + .499);
+	return score > 0? score : 1;
+}
+
 void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 {
 	if (n <= 0 || n >= r->cnt) return;
@@ -106,7 +122,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r->split |= 1, r2->split |= 2;
 }
 
-void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level) // and compute mm_reg1_t::subsc
+void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level, float alt_diff_frac) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
 	uint64_t *cov;
@@ -147,12 +163,15 @@ skip_uncov:
 			max = ej - sj > ei - si? ej - sj : ei - si;
 			ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si); // overlap length; TODO: this can be simplified
 			if ((float)ol / min - (float)uncov_len / max > mask_level) {
-				int cnt_sub = 0;
+				int cnt_sub = 0, sci = ri->score;
 				ri->parent = rp->parent;
-				rp->subsc = rp->subsc > ri->score? rp->subsc : ri->score;
+				if (!rp->is_alt && ri->is_alt) sci = mm_alt_score(sci, alt_diff_frac);
+				rp->subsc = rp->subsc > sci? rp->subsc : sci;
 				if (ri->cnt >= rp->cnt) cnt_sub = 1;
 				if (rp->p && ri->p && (rp->rid != ri->rid || rp->rs != ri->rs || rp->re != ri->re || ol != min)) { // the last condition excludes identical hits after DP
-					rp->p->dp_max2 = rp->p->dp_max2 > ri->p->dp_max? rp->p->dp_max2 : ri->p->dp_max;
+					sci = ri->p->dp_max;
+					if (!rp->is_alt && ri->is_alt) sci = mm_alt_score(sci, alt_diff_frac);
+					rp->p->dp_max2 = rp->p->dp_max2 > sci? rp->p->dp_max2 : sci;
 					if (rp->p->dp_max - ri->p->dp_max <= sub_diff) cnt_sub = 1;
 				}
 				if (cnt_sub) ++rp->n_sub;
@@ -166,7 +185,7 @@ set_parent_test:
 	kfree(km, w);
 }
 
-void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r)
+void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r, float alt_diff_frac)
 {
 	int32_t i, n_aux, n = *n_regs, has_cigar = 0, no_cigar = 0;
 	mm128_t *aux;
@@ -177,13 +196,11 @@ void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r)
 	t = (mm_reg1_t*)kmalloc(km, n * sizeof(mm_reg1_t));
 	for (i = n_aux = 0; i < n; ++i) {
 		if (r[i].inv || r[i].cnt > 0) { // squeeze out elements with cnt==0 (soft deleted)
-			if (r[i].p) {
-				aux[n_aux].x = (uint64_t)r[i].p->dp_max << 32 | r[i].hash;
-				has_cigar = 1;
-			} else {
-				aux[n_aux].x = (uint64_t)r[i].score << 32 | r[i].hash;
-				no_cigar = 1;
-			}
+			int score;
+			if (r[i].p) score = r[i].p->dp_max, has_cigar = 1;
+			else score = r[i].score, no_cigar = 1;
+			if (r[i].is_alt) score = mm_alt_score(score, alt_diff_frac);
+			aux[n_aux].x = (uint64_t)score << 32 | r[i].hash;
 			aux[n_aux++].y = i;
 		} else if (r[i].p) {
 			free(r[i].p);

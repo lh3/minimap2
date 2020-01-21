@@ -68,6 +68,8 @@ static ko_longopt_t long_options[] = {
 	{ "junc-bonus",     ko_required_argument, 341 },
 	{ "sam-hit-only",   ko_no_argument,       342 },
 	{ "chain-gap-scale",ko_required_argument, 343 },
+	{ "alt",            ko_required_argument, 344 },
+	{ "alt-diff",       ko_required_argument, 345 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -110,7 +112,7 @@ int main(int argc, char *argv[])
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, n_parts, old_best_n = -1;
-	char *fnw = 0, *rg = 0, *junc_bed = 0, *s;
+	char *fnw = 0, *rg = 0, *junc_bed = 0, *s, *alt_list = 0;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
@@ -213,6 +215,8 @@ int main(int argc, char *argv[])
 		else if (c == 341) opt.junc_bonus = atoi(o.arg); // --junc-bonus
 		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
 		else if (c == 343) opt.chain_gap_scale = atof(o.arg); // --chain-gap-scale
+		else if (c == 344) alt_list = o.arg; // --alt
+		else if (c == 345) opt.alt_diff_frac = atof(o.arg); // --alt-diff
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary
@@ -382,6 +386,7 @@ int main(int argc, char *argv[])
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
+		if (alt_list) mm_idx_alt_read(mi, alt_list);
 		ret = 0;
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i) {

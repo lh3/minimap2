@@ -58,12 +58,14 @@ typedef struct {
 	char *name;      // name of the db sequence
 	uint64_t offset; // offset in mm_idx_t::S
 	uint32_t len;    // length
+	uint32_t is_alt;
 } mm_idx_seq_t;
 
 typedef struct {
 	int32_t b, w, k, flag;
 	uint32_t n_seq;            // number of reference sequences
 	int32_t index;
+	int32_t n_alt;
 	mm_idx_seq_t *seq;         // sequence name, length and offset
 	uint32_t *S;               // 4-bit packed sequence
 	struct mm_idx_bucket_s *B; // index (hidden)
@@ -91,7 +93,7 @@ typedef struct {
 	int32_t mlen, blen;     // seeded exact match length; seeded alignment block length
 	int32_t n_sub;          // number of suboptimal mappings
 	int32_t score0;         // initial chaining score (before chain merging/spliting)
-	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, seg_id:8, split_inv:1, dummy:7;
+	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, seg_id:8, split_inv:1, is_alt:1, dummy:6;
 	uint32_t hash;
 	float div;
 	mm_extra_t *p;
@@ -126,6 +128,8 @@ typedef struct {
 	int max_join_long, max_join_short;
 	int min_join_flank_sc;
 	float min_join_flank_ratio;
+
+	float alt_diff_frac;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
 	int sc_ambi; // score when one or both bases are "N"
@@ -369,6 +373,7 @@ int mm_idx_index_name(mm_idx_t *mi);
 int mm_idx_name2id(const mm_idx_t *mi, const char *name);
 int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 
+int mm_idx_alt_read(mm_idx_t *mi, const char *fn);
 int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc);
 int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uint8_t *s);
 
