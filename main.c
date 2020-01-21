@@ -69,7 +69,7 @@ static ko_longopt_t long_options[] = {
 	{ "sam-hit-only",   ko_no_argument,       342 },
 	{ "chain-gap-scale",ko_required_argument, 343 },
 	{ "alt",            ko_required_argument, 344 },
-	{ "alt-diff",       ko_required_argument, 345 },
+	{ "alt-drop",       ko_required_argument, 345 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -216,7 +216,7 @@ int main(int argc, char *argv[])
 		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
 		else if (c == 343) opt.chain_gap_scale = atof(o.arg); // --chain-gap-scale
 		else if (c == 344) alt_list = o.arg; // --alt
-		else if (c == 345) opt.alt_diff_frac = atof(o.arg); // --alt-diff
+		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary

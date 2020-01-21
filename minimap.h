@@ -129,7 +129,7 @@ typedef struct {
 	int min_join_flank_sc;
 	float min_join_flank_ratio;
 
-	float alt_diff_frac;
+	float alt_drop;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
 	int sc_ambi; // score when one or both bases are "N"

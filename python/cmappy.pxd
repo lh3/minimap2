@@ -27,7 +27,7 @@ cdef extern from "minimap.h":
 		int max_join_long, max_join_short
 		int min_join_flank_sc
 		float min_join_flank_ratio
-		float alt_diff_frac
+		float alt_drop
 		int a, b, q, e, q2, e2
 		int sc_ambi
 		int noncan
