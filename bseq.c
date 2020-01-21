@@ -99,7 +99,7 @@ mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual,
 		size += s->l_seq;
 		if (size >= chunk_size) {
 			if (frag_mode && a.a[a.n-1].l_seq < CHECK_PAIR_THRES) {
-				while (kseq_read(ks) >= 0) {
+				while ((ret = kseq_read(ks)) >= 0) {
 					kseq2bseq(ks, &fp->s, with_qual, with_comment);
 					if (mm_qname_same(fp->s.name, a.a[a.n-1].name)) {
 						kv_push(mm_bseq1_t, 0, a, fp->s);
@@ -110,8 +110,10 @@ mm_bseq1_t *mm_bseq_read3(mm_bseq_file_t *fp, int64_t chunk_size, int with_qual,
 			break;
 		}
 	}
-	if (ret < -1)
-		fprintf(stderr, "[WARNING]\033[1;31m wrong FASTA/FASTQ record. Continue anyway.\033[0m\n");
+	if (ret < -1) {
+		if (a.n) fprintf(stderr, "[WARNING]\033[1;31m failed to parse the FASTA/FASTQ record next to '%s'. Continue anyway.\033[0m\n", a.a[a.n-1].name);
+		else fprintf(stderr, "[WARNING]\033[1;31m failed to parse the first FASTA/FASTQ record. Continue anyway.\033[0m\n");
+	}
 	*n_ = a.n;
 	return a.a;
 }
