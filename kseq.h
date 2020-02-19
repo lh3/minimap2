@@ -89,7 +89,7 @@
 #ifndef KSTRING_T
 #define KSTRING_T kstring_t
 typedef struct __kstring_t {
-	unsigned l, m;
+	size_t l, m;
 	char *s;
 } kstring_t;
 #endif
