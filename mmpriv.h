@@ -4,6 +4,7 @@
 #include <assert.h>
 #include "minimap.h"
 #include "bseq.h"
+#include "kseq.h"
 
 #define MM_PARENT_UNSET   (-1)
 #define MM_PARENT_TMP_PRI (-2)
@@ -33,14 +34,6 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
-
-#ifndef KSTRING_T
-#define KSTRING_T kstring_t
-typedef struct __kstring_t {
-	unsigned l, m;
-	char *s;
-} kstring_t;
 #endif
 
 typedef struct {
