@@ -516,13 +516,13 @@ mm_idx_t *mm_idx_load(FILE *fp)
 	for (i = 0; i < mi->n_seq; ++i) {
 		uint8_t l;
 		mm_idx_seq_t *s = &mi->seq[i];
-		fread(&l, 1, 1, fp);
+        if (fread(&l, 1, 1, fp) ==  0) { free(mi->seq); free(mi); return 0; }
 		if (l) {
 			s->name = (char*)kmalloc(mi->km, l + 1);
 			fread(s->name, 1, l, fp);
 			s->name[l] = 0;
 		}
-		fread(&s->len, 4, 1, fp);
+		if (fread(&s->len, 4, 1, fp) ==  0) { free(mi->seq); free(mi); return 0; }
 		s->offset = sum_len;
 		s->is_alt = 0;
 		sum_len += s->len;
@@ -532,17 +532,17 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		uint32_t j, size;
 		khint_t k;
 		idxhash_t *h;
-		fread(&b->n, 4, 1, fp);
+		if (fread(&b->n, 4, 1, fp) ==  0) { free(mi->seq); free(mi); return 0; }
 		b->p = (uint64_t*)malloc(b->n * 8);
-		fread(b->p, 8, b->n, fp);
-		fread(&size, 4, 1, fp);
+		if (fread(b->p, 8, b->n, fp) ==  0) { free(mi->seq); free(mi); return 0; }
+		if (fread(&size, 4, 1, fp) ==  0) { free(mi->seq); free(mi); return 0; }
 		if (size == 0) continue;
 		b->h = h = kh_init(idx);
 		kh_resize(idx, h, size);
 		for (j = 0; j < size; ++j) {
 			uint64_t x[2];
 			int absent;
-			fread(x, 8, 2, fp);
+			if (fread(x, 8, 2, fp) ==  0) { free(mi->seq); free(mi); return 0; }
 			k = kh_put(idx, h, x[0], &absent);
 			assert(absent);
 			kh_val(h, k) = x[1];
@@ -550,7 +550,7 @@ mm_idx_t *mm_idx_load(FILE *fp)
 	}
 	if (!(mi->flag & MM_I_NO_SEQ)) {
 		mi->S = (uint32_t*)malloc((sum_len + 7) / 8 * 4);
-		fread(mi->S, 4, (sum_len + 7) / 8, fp);
+		if (fread(mi->S, 4, (sum_len + 7) / 8, fp) ==  0) { free(mi->seq); free(mi); return 0; }
 	}
 	return mi;
 }
