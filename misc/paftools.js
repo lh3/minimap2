@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.17-r949-dirty';
+var paftools_version = '2.17-r975-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -688,11 +688,9 @@ function paf_asmstat(args)
 			qinfo[t[0]].bp = [];
 			if (t.length < 9 || t[5] == "*") continue;
 			if (!/\ttp:A:[PI]/.test(line)) continue;
-			if ((m = /\tcg:Z:(\S+)/.exec(line)) == null) continue;
-			var cigar = m[1];
-			if ((m = /\tNM:i:(\d+)/.exec(line)) == null) continue;
-			var NM = parseInt(m[1]);
-			var diff = compute_diff(cigar, NM);
+			var cigar = (m = /\tcg:Z:(\S+)/.exec(line)) != null? m[1] : null;
+			var NM = (m = /\tNM:i:(\d+)/.exec(line)) != null? parseInt(m[1]) : null;
+			var diff = cigar != null && NM != null? compute_diff(cigar, NM) : 0;
 			t[2] = parseInt(t[2]);
 			t[3] = parseInt(t[3]);
 			t[7] = parseInt(t[7]);
