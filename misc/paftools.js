@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.17-r975-dirty';
+var paftools_version = '2.17-r979-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -898,7 +898,7 @@ function paf_asmgene(args)
 		if (auto_only && /^(chr)?[XY]$/.test(refpos[g][2])) continue;
 		for (var i = 0; i < n_fn; ++i) {
 			if (gene[g][i] == null) {
-				rst[4][i]++;
+				rst[5][i]++;
 				if (print_err) print('M', header[i], refpos[g].join("\t"));
 			} else if (gene[g][i][0] == 1) rst[0][i]++;
 			else if (gene[g][i][0] > 1) {
