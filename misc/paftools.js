@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.17-r979-dirty';
+var paftools_version = '2.17-r980-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -640,6 +640,23 @@ function paf_asmstat(args)
 		}
 	}
 
+	function AUN(lens, tot) {
+		lens.sort(function(a,b) { return b - a; });
+		if (tot == null) {
+			tot = 0;
+			for (var k = 0; k < lens.length; ++k)
+				tot += lens[k];
+		}
+		var x = 0, y = 0;
+		for (var k = 0; k < lens.length; ++k) {
+			var l = x + lens[k] <= tot? lens[k] : tot - x;
+			x += lens[k];
+			y += l * (l / tot);
+			if (x >= tot) break;
+		}
+		return y.toFixed(0);
+	}
+
 	function count_bp(bp, min_blen, min_gap) {
 		var n_bp = 0;
 		for (var k = 0; k < bp.length; ++k)
@@ -660,7 +677,7 @@ function paf_asmstat(args)
 		return (NM - n_gaps + n_gapo) / (n_M + n_gapo);
 	}
 
-	var labels = ['Length', 'l_cov', 'Rcov', 'Rdup', 'Qcov', 'NG75', 'NG50', 'NGA50', '#breaks', 'bp(' + min_seg_len + ',0)', 'bp(' + min_seg_len + ',10k)'];
+	var labels = ['Length', 'l_cov', 'Rcov', 'Rdup', 'Qcov', 'NG75', 'NG50', 'NGA50', 'AUNGA', '#breaks', 'bp(' + min_seg_len + ',0)', 'bp(' + min_seg_len + ',10k)'];
 	var rst = [];
 	for (var i = 0; i < labels.length; ++i)
 		rst[i] = [];
@@ -763,10 +780,13 @@ function paf_asmstat(args)
 		// compute NGA50
 		rst[7][i] = N50(qblock_len, ref_len, 0.5);
 
+		// compute AUNGA
+		rst[8][i] = AUN(qblock_len, ref_len);
+
 		// compute break points
-		rst[8][i] = n_breaks;
-		rst[9][i] = count_bp(bp, 500, 0);
-		rst[10][i] = count_bp(bp, 500, 10000);
+		rst[9][i] = n_breaks;
+		rst[10][i] = count_bp(bp, 500, 0);
+		rst[11][i] = count_bp(bp, 500, 10000);
 
 		// nb-plot; NOT USED
 		/*
