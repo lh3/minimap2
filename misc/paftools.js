@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.17-r981-dirty';
+var paftools_version = '2.17-r982-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -941,13 +941,15 @@ function paf_asmgene(args)
 		}
 	}
 	for (var g in gene) { // count multi-copy genes
-		if (gene[g][0] == null || gene[g][0][0] == 1) continue;
+		if (gene[g][0] == null || gene[g][0][0] <= 1) continue;
 		if (gene_nr[g] == null) continue;
 		if (auto_only && /^(chr)?[XY]$/.test(refpos[g][2])) continue;
 		for (var i = 0; i < n_fn; ++i) {
+			if (gene[g][i] != null) rst[7][i] += gene[g][i][0];
 			if (gene[g][i] != null && gene[g][i][0] > 1) {
 				rst[6][i]++;
-				rst[7][i] += gene[g][i][0];
+			} else if (print_err) {
+				print('d', header[i], gene[g][0][0], refpos[g].join("\t"));
 			}
 		}
 	}
