@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.17-r980-dirty';
+var paftools_version = '2.17-r981-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -905,14 +905,14 @@ function paf_asmgene(args)
 	gene_nr[gene_list[last][0]] = 1;
 
 	// count and print
-	var col1 = ["full_sgl", "full_dup", "frag", "part50+", "part10+", "part10-"];
+	var col1 = ["full_sgl", "full_dup", "frag", "part50+", "part10+", "part10-", "dup_cnt", "dup_sum"];
 	var rst = [];
 	for (var k = 0; k < col1.length; ++k) {
 		rst[k] = [];
 		for (var i = 0; i < n_fn; ++i)
 			rst[k][i] = 0;
 	}
-	for (var g in gene) {
+	for (var g in gene) { // count single-copy genes
 		if (gene[g][0] == null || gene[g][0][0] != 1) continue;
 		if (gene_nr[g] == null) continue;
 		if (auto_only && /^(chr)?[XY]$/.test(refpos[g][2])) continue;
@@ -920,8 +920,9 @@ function paf_asmgene(args)
 			if (gene[g][i] == null) {
 				rst[5][i]++;
 				if (print_err) print('M', header[i], refpos[g].join("\t"));
-			} else if (gene[g][i][0] == 1) rst[0][i]++;
-			else if (gene[g][i][0] > 1) {
+			} else if (gene[g][i][0] == 1) {
+				rst[0][i]++;
+			} else if (gene[g][i][0] > 1) {
 				rst[1][i]++;
 				if (print_err) print('D', header[i], refpos[g].join("\t"));
 			} else if (gene[g][i][1] >= opt.min_cov) {
@@ -936,6 +937,17 @@ function paf_asmgene(args)
 			} else {
 				rst[5][i]++;
 				if (print_err) print('0', header[i], refpos[g].join("\t")); // TODO: reduce code duplicates...
+			}
+		}
+	}
+	for (var g in gene) { // count multi-copy genes
+		if (gene[g][0] == null || gene[g][0][0] == 1) continue;
+		if (gene_nr[g] == null) continue;
+		if (auto_only && /^(chr)?[XY]$/.test(refpos[g][2])) continue;
+		for (var i = 0; i < n_fn; ++i) {
+			if (gene[g][i] != null && gene[g][i][0] > 1) {
+				rst[6][i]++;
+				rst[7][i] += gene[g][i][0];
 			}
 		}
 	}
