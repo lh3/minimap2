@@ -1,7 +1,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <emmintrin.h>
+//#include <emmintrin.h>
+#include <x86/sse2.h>
 #include "ksw2.h"
 
 #ifdef __GNUC__

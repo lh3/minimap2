@@ -3,14 +3,16 @@
 #include "ksw2.h"
 
 #ifdef __SSE2__
-#include <emmintrin.h>
+//#include <emmintrin.h>
+#include <x86/sse2.h>
 
 #ifdef KSW_SSE2_ONLY
 #undef __SSE4_1__
 #endif
 
 #ifdef __SSE4_1__
-#include <smmintrin.h>
+//#include <smmintrin.h>
+#include <x86/sse4.1.h>
 #endif
 
 #ifdef KSW_CPU_DISPATCH
