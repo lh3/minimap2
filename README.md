@@ -82,6 +82,10 @@ to disable SSE4 code, which will make minimap2 slightly slower.
 Minimap2 also works with ARM CPUs supporting the NEON instruction sets. To
 compile for 32 bit ARM architectures (such as ARMv7), use `make arm_neon=1`. To compile for for 64 bit ARM architectures (such as ARMv8), use `make arm_neon=1 aarch64=1`.
 
+Minimap2 can use [SIMD Everywhere (SIMDe)](https://github.com/nemequ/simde) library for porting implementation
+to the different SIMD instruction sets. To compile using SIMDe, use `make simde=1`. To compile for ARM CPUs, add `simde=1` to the commands given above.
+SIMDe also enables non-SIMD implementation using `make no_simd=1`.
+
 ### <a name="general"></a>General usage
 
 Without any options, minimap2 takes a reference database and a query sequence
