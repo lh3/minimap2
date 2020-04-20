@@ -1,10 +1,11 @@
-CFLAGS=		-g -Wall -O2 -Wc++-compat  #-Wextra
+CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
 CPPFLAGS=	-DHAVE_KALLOC
-INCLUDES=   -Ilib/simde/simde
+INCLUDES=
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o chain.o align.o hit.o map.o format.o pe.o esterr.o splitidx.o 
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
+
 
 ifeq ($(no_simd),) # if no_simd is not defined
 ifeq ($(arm_neon),) # if arm_neon is not defined
@@ -16,6 +17,9 @@ else                # if sse2only is defined
 endif
 else				# if arm_neon is defined
 	OBJS+=ksw2_ll_sse.o ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
+ifeq ($(simde),)	# arm_neon without SIMDe -> use sse2neon
+	INCLUDES+=-Isse2neon
+endif
 ifeq ($(aarch64),)	#if aarch64 is not defined
 	CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
 else				#if aarch64 is defined
@@ -24,6 +28,12 @@ endif
 endif
 else
 	OBJS+=ksw2_ll_nosimd.o ksw2_extz2_nosimd.o ksw2_extd2_nosimd.o ksw2_exts2_nosimd.o
+	simde=1			# no_simd can be used only with SIMDe
+endif
+
+ifneq ($(simde),) # if simde is defined
+	CFLAGS+=-DSIMDE_ENABLE_NATIVE_ALIASES -DUSE_SIMDE
+	INCLUDES+=-Ilib/simde
 endif
 
 ifneq ($(asan),)
@@ -85,31 +95,32 @@ ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
 		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
 # NEON-specific targets on ARM
+
 ksw2_ll_neon.o:ksw2_ll_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) -DSIMDE_ENABLE_NATIVE_ALIASES $(CPPFLAGS) $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $< -o $@
 
 ksw2_extz2_neon.o:ksw2_extz2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_ENABLE_NATIVE_ALIASES $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
 
 ksw2_extd2_neon.o:ksw2_extd2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_ENABLE_NATIVE_ALIASES $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
 
 ksw2_exts2_neon.o:ksw2_exts2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_ENABLE_NATIVE_ALIASES $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
 
 # no-SIMD version
 
 ksw2_ll_nosimd.o:ksw2_ll_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DSIMDE_ENABLE_NATIVE_ALIASES -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
 
 ksw2_extz2_nosimd.o:ksw2_extz2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_ENABLE_NATIVE_ALIASES -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
 
 ksw2_extd2_nosimd.o:ksw2_extd2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_ENABLE_NATIVE_ALIASES -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
 
 ksw2_exts2_nosimd.o:ksw2_exts2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_ENABLE_NATIVE_ALIASES  -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ -DSIMDE_NO_NATIVE $(INCLUDES) $< -o $@
 
 # other non-file targets
 

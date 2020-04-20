@@ -4,16 +4,22 @@
 #include "ksw2.h"
 
 #ifdef __SSE2__
-//#include <emmintrin.h>
-#include <x86/sse2.h>
+#ifndef USE_SIMDE
+#include <emmintrin.h>
+#else
+#include <simde/x86/sse2.h>
+#endif
 
 #ifdef KSW_SSE2_ONLY
 #undef __SSE4_1__
 #endif
 
 #ifdef __SSE4_1__
-//#include <smmintrin.h>
-#include <x86/sse4.1.h>
+#ifndef USE_SIMDE
+#include <smmintrin.h>
+#else
+#include <simde/x86/sse4.1.h>
+#endif
 #endif
 
 #ifdef KSW_CPU_DISPATCH
