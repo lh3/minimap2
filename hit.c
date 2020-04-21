@@ -20,14 +20,14 @@ static inline void mm_cal_fuzzy_len(mm_reg1_t *r, const mm128_t *a)
 	}
 }
 
-static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a)
+static inline void mm_reg_set_coor(mm_reg1_t *r, int32_t qlen, const mm128_t *a, int is_qstrand)
 { // NB: r->as and r->cnt MUST BE set correctly for this function to work
 	int32_t k = r->as, q_span = (int32_t)(a[k].y>>32&0xff);
 	r->rev = a[k].x>>63;
 	r->rid = a[k].x<<1>>33;
 	r->rs = (int32_t)a[k].x + 1 > q_span? (int32_t)a[k].x + 1 - q_span : 0; // NB: target span may be shorter, so this test is necessary
 	r->re = (int32_t)a[k + r->cnt - 1].x + 1;
-	if (!r->rev) {
+	if (!r->rev || is_qstrand) {
 		r->qs = (int32_t)a[k].y + 1 - q_span;
 		r->qe = (int32_t)a[k + r->cnt - 1].y + 1;
 	} else {
@@ -49,7 +49,7 @@ static inline uint64_t hash64(uint64_t key)
 	return key;
 }
 
-mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a) // convert chains to hits
+mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a, int is_qstrand) // convert chains to hits
 {
 	mm128_t *z, tmp;
 	mm_reg1_t *r;
@@ -81,7 +81,7 @@ mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, 
 		ri->cnt = (int32_t)z[i].y;
 		ri->as = z[i].y >> 32;
 		ri->div = -1.0f;
-		mm_reg_set_coor(ri, qlen, a);
+		mm_reg_set_coor(ri, qlen, a, is_qstrand);
 	}
 	kfree(km, z);
 	return r;
@@ -103,7 +103,7 @@ static inline int mm_alt_score(int score, float alt_diff_frac)
 	return score > 0? score : 1;
 }
 
-void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
+void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a, int is_qstrand)
 {
 	if (n <= 0 || n >= r->cnt) return;
 	*r2 = *r;
@@ -115,10 +115,10 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r2->score = (int32_t)(r->score * ((float)r2->cnt / r->cnt) + .499);
 	r2->as = r->as + n;
 	if (r->parent == r->id) r2->parent = MM_PARENT_TMP_PRI;
-	mm_reg_set_coor(r2, qlen, a);
+	mm_reg_set_coor(r2, qlen, a, is_qstrand);
 	r->cnt -= r2->cnt;
 	r->score -= r2->score;
-	mm_reg_set_coor(r, qlen, a);
+	mm_reg_set_coor(r, qlen, a, is_qstrand);
 	r->split |= 1, r2->split |= 2;
 }
 
@@ -350,7 +350,7 @@ void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_r
 		// all conditions satisfied; join
 		a[r1->as].y |= MM_SEED_LONG_JOIN;
 		r0->cnt += r1->cnt, r0->score += r1->score;
-		mm_reg_set_coor(r0, qlen, a);
+		mm_reg_set_coor(r0, qlen, a, opt->flag&MM_F_QSTRAND);
 		r1->cnt = 0;
 		r1->parent = r0->id;
 		++n_drop;
@@ -416,7 +416,7 @@ mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int 
 		}
 	}
 	for (s = 0; s < n_segs; ++s) {
-		regs[s] = mm_gen_regs(km, hash, qlens[s], seg[s].n_u, seg[s].u, seg[s].a);
+		regs[s] = mm_gen_regs(km, hash, qlens[s], seg[s].n_u, seg[s].u, seg[s].a, 0);
 		n_regs[s] = seg[s].n_u;
 		for (i = 0; i < n_regs[s]; ++i) {
 			regs[s][i].seg_split = 1;

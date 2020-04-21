@@ -217,7 +217,7 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
 }
 
-static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD, int write_tag)
+static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD, int write_tag, int is_qstrand)
 {
 	extern unsigned char seq_nt4_table[256];
 	int i;
@@ -227,14 +227,20 @@ static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_
 	qseq = (uint8_t*)kmalloc(km, r->qe - r->qs);
 	tseq = (uint8_t*)kmalloc(km, r->re - r->rs);
 	tmp = (char*)kmalloc(km, r->re - r->rs > r->qe - r->qs? r->re - r->rs + 1 : r->qe - r->qs + 1);
-	mm_idx_getseq(mi, r->rid, r->rs, r->re, tseq);
-	if (!r->rev) {
+	if (is_qstrand) {
+		mm_idx_getseq2(mi, r->rev, r->rid, r->rs, r->re, tseq);
 		for (i = r->qs; i < r->qe; ++i)
 			qseq[i - r->qs] = seq_nt4_table[(uint8_t)t->seq[i]];
 	} else {
-		for (i = r->qs; i < r->qe; ++i) {
-			uint8_t c = seq_nt4_table[(uint8_t)t->seq[i]];
-			qseq[r->qe - i - 1] = c >= 4? 4 : 3 - c;
+		mm_idx_getseq(mi, r->rid, r->rs, r->re, tseq);
+		if (!r->rev) {
+			for (i = r->qs; i < r->qe; ++i)
+				qseq[i - r->qs] = seq_nt4_table[(uint8_t)t->seq[i]];
+		} else {
+			for (i = r->qs; i < r->qe; ++i) {
+				uint8_t c = seq_nt4_table[(uint8_t)t->seq[i]];
+				qseq[r->qe - i - 1] = c >= 4? 4 : 3 - c;
+			}
 		}
 	}
 	if (is_MD) write_MD_core(s, tseq, qseq, r, tmp, write_tag);
@@ -242,14 +248,14 @@ static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_
 	kfree(km, qseq); kfree(km, tseq); kfree(km, tmp);
 }
 
-int mm_gen_cs_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int is_MD, int no_iden)
+int mm_gen_cs_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int is_MD, int no_iden, int is_qstrand)
 {
 	mm_bseq1_t t;
 	kstring_t str;
 	str.s = *buf, str.l = 0, str.m = *max_len;
 	t.l_seq = strlen(seq);
 	t.seq = (char*)seq;
-	write_cs_or_MD(km, &str, mi, &t, r, no_iden, is_MD, 0);
+	write_cs_or_MD(km, &str, mi, &t, r, no_iden, is_MD, 0, is_qstrand);
 	*max_len = str.m;
 	*buf = str.s;
 	return str.l;
@@ -257,12 +263,12 @@ int mm_gen_cs_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, cons
 
 int mm_gen_cs(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int no_iden)
 {
-	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 0, no_iden);
+	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 0, no_iden, 0);
 }
 
 int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq)
 {
-	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 1, 0);
+	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 1, 0, 0);
 }
 
 double mm_event_identity(const mm_reg1_t *r)
@@ -316,7 +322,11 @@ void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const 
 	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
 	if (mi->seq[r->rid].name) mm_sprintf_lite(s, "%s", mi->seq[r->rid].name);
 	else mm_sprintf_lite(s, "%d", r->rid);
-	mm_sprintf_lite(s, "\t%d\t%d\t%d", mi->seq[r->rid].len, r->rs, r->re);
+	mm_sprintf_lite(s, "\t%d", mi->seq[r->rid].len);
+	if (opt_flag & MM_F_QSTRAND)
+		mm_sprintf_lite(s, "\t%d\t%d", mi->seq[r->rid].len - r->re, mi->seq[r->rid].len - r->rs);
+	else
+		mm_sprintf_lite(s, "\t%d\t%d", r->rs, r->re);
 	mm_sprintf_lite(s, "\t%d\t%d", r->mlen, r->blen);
 	mm_sprintf_lite(s, "\t%d", r->mapq);
 	write_tags(s, r);
@@ -328,7 +338,7 @@ void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const 
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDNSHP=XB"[r->p->cigar[k]&0xf]);
 	}
 	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
-		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1);
+		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1, opt_flag&MM_F_QSTRAND);
 	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
 		mm_sprintf_lite(s, "\t%s", t->comment);
 }
@@ -535,7 +545,7 @@ void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 			}
 		}
 		if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
-			write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1);
+			write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1, 0);
 		if (cigar_in_tag)
 			write_sam_cigar(s, flag, 1, t->l_seq, r, opt_flag);
 	}

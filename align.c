@@ -533,8 +533,13 @@ static int mm_seed_ext_score(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	re = re + ext_len < (int32_t)mi->seq[rid].len? re + ext_len : mi->seq[rid].len;
 	qe = qe + ext_len < qlen? qe + ext_len : qlen;
 	tseq = (uint8_t*)kmalloc(km, re - rs);
-	mm_idx_getseq(mi, rid, rs, re, tseq);
-	qseq = qseq0[a->x>>63] + qs;
+	if (opt->flag & MM_F_QSTRAND) {
+		qseq = qseq0[0] + qs;
+		mm_idx_getseq2(mi, a->x>>63, rid, rs, re, tseq);
+	} else {
+		qseq = qseq0[a->x>>63] + qs;
+		mm_idx_getseq(mi, rid, rs, re, tseq);
+	}
 	qp = ksw_ll_qinit(km, 2, qe - qs, qseq, 5, mat);
 	score = ksw_ll_i16(qp, re - rs, tseq, opt->q, opt->e, &q_off, &t_off);
 	kfree(km, tseq);
@@ -688,8 +693,13 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	junc = (uint8_t*)kmalloc(km, re0 - rs0);
 
 	if (qs > 0 && rs > 0) { // left extension; probably the condition can be changed to "qs > qs0 && rs > rs0"
-		qseq = &qseq0[rev][qs0];
-		mm_idx_getseq(mi, rid, rs0, rs, tseq);
+		if (opt->flag & MM_F_QSTRAND) {
+			qseq = &qseq0[0][qs0];
+			mm_idx_getseq2(mi, rev, rid, rs0, rs, tseq);
+		} else {
+			qseq = &qseq0[rev][qs0];
+			mm_idx_getseq(mi, rid, rs0, rs, tseq);
+		}
 		mm_idx_bed_junc(mi, rid, rs0, rs, junc);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
@@ -718,8 +728,13 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			if (a[as1+i].y & MM_SEED_LONG_JOIN)
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
 			// perform alignment
-			qseq = &qseq0[rev][qs];
-			mm_idx_getseq(mi, rid, rs, re, tseq);
+			if (opt->flag & MM_F_QSTRAND) {
+				qseq = &qseq0[0][qs];
+				mm_idx_getseq2(mi, rev, rid, rs, re, tseq);
+			} else {
+				qseq = &qseq0[rev][qs];
+				mm_idx_getseq(mi, rid, rs, re, tseq);
+			}
 			mm_idx_bed_junc(mi, rid, rs, re, junc);
 			if (is_sr) { // perform ungapped alignment
 				assert(qe - qs == re - rs);
@@ -748,7 +763,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
 				if (cnt1 - (j + 1) >= opt->min_cnt) {
-					mm_split_reg(r, r2, as1 + j + 1 - r->as, qlen, a);
+					mm_split_reg(r, r2, as1 + j + 1 - r->as, qlen, a, opt->flag&MM_F_QSTRAND);
 					if (zdrop_code == 2) r2->split_inv = 1;
 				}
 				break;
@@ -758,8 +773,13 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	}
 
 	if (!dropped && qe < qe0 && re < re0) { // right extension
-		qseq = &qseq0[rev][qe];
-		mm_idx_getseq(mi, rid, re, re0, tseq);
+		if (opt->flag & MM_F_QSTRAND) {
+			qseq = &qseq0[0][qe];
+			mm_idx_getseq2(mi, rev, rid, re, re0, tseq);
+		} else {
+			qseq = &qseq0[rev][qe];
+			mm_idx_getseq(mi, rid, re, re0, tseq);
+		}
 		mm_idx_bed_junc(mi, rid, re, re0, junc);
 		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, junc, mat, bw, opt->end_bonus, opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
 		if (ez->n_cigar > 0) {
@@ -772,13 +792,19 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(qe1 <= qlen);
 
 	r->rs = rs1, r->re = re1;
-	if (rev) r->qs = qlen - qe1, r->qe = qlen - qs1;
-	else r->qs = qs1, r->qe = qe1;
+	if (!rev || (opt->flag & MM_F_QSTRAND)) r->qs = qs1, r->qe = qe1;
+	else r->qs = qlen - qe1, r->qe = qlen - qs1;
 
 	assert(re1 - rs1 <= re0 - rs0);
 	if (r->p) {
-		mm_idx_getseq(mi, rid, rs1, re1, tseq);
-		mm_update_extra(r, &qseq0[r->rev][qs1], tseq, mat, opt->q, opt->e, opt->flag & MM_F_EQX);
+		if (opt->flag & MM_F_QSTRAND) {
+			mm_idx_getseq2(mi, r->rev, rid, rs1, re1, tseq);
+			qseq = &qseq0[0][qs1];
+		} else {
+			mm_idx_getseq(mi, rid, rs1, re1, tseq);
+			qseq = &qseq0[r->rev][qs1];
+		}
+		mm_update_extra(r, qseq, tseq, mat, opt->q, opt->e, opt->flag & MM_F_EQX);
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
@@ -788,7 +814,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 }
 
 static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], const mm_reg1_t *r1, const mm_reg1_t *r2, mm_reg1_t *r_inv, ksw_extz_t *ez)
-{
+{ // NB: this doesn't work with the qstrand mode
 	int tl, ql, score, ret = 0, q_off, t_off;
 	uint8_t *tseq, *qseq;
 	int8_t mat[25];
@@ -897,7 +923,7 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 				regs[i].p->trans_strand = opt->flag&MM_F_SPLICE_FOR? 1 : 2;
 		}
 		if (r2.cnt > 0) regs = mm_insert_reg(&r2, i, &n_regs, regs);
-		if (i > 0 && regs[i].split_inv) {
+		if (i > 0 && regs[i].split_inv && !(opt->flag & MM_F_NO_INV)) {
 			if (mm_align1_inv(km, opt, mi, qlen, qseq0, &regs[i-1], &regs[i], &r2, &ez)) {
 				regs = mm_insert_reg(&r2, i, &n_regs, regs);
 				++i; // skip the inserted INV alignment

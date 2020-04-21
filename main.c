@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.17-r974-dirty"
+#define MM_VERSION "2.17-r985-qs-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -70,6 +70,7 @@ static ko_longopt_t long_options[] = {
 	{ "chain-gap-scale",ko_required_argument, 343 },
 	{ "alt",            ko_required_argument, 344 },
 	{ "alt-drop",       ko_required_argument, 345 },
+	{ "qstrand",        ko_no_argument,       346 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -217,6 +218,7 @@ int main(int argc, char *argv[])
 		else if (c == 343) opt.chain_gap_scale = atof(o.arg); // --chain-gap-scale
 		else if (c == 344) alt_list = o.arg; // --alt
 		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
+		else if (c == 346) opt.flag |= MM_F_QSTRAND | MM_F_NO_INV; // --qstrand
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary

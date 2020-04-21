@@ -191,5 +191,10 @@ int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 			fprintf(stderr, "[ERROR]\033[1;31m -X/-P and --secondary=no can't be applied at the same time\033[0m\n");
 		return -5;
 	}
+	if ((mo->flag & MM_F_QSTRAND) && ((mo->flag & (MM_F_OUT_SAM|MM_F_SPLICE|MM_F_FRAG_MODE)) || (io->flag & MM_I_HPC))) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m --qstrand doesn't work with -a, -H, --frag or --splice\033[0m\n");
+		return -5;
+	}
 	return 0;
 }

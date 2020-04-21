@@ -232,9 +232,13 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 			if ((r[k]&1) == (q->q_pos&1)) { // forward strand
 				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
 				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
-			} else { // reverse strand
+			} else if (!(opt->flag & MM_F_QSTRAND)) { // reverse strand and not in the query-strand mode
 				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
 				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+			} else { // reverse strand; query-strand
+				int32_t len = mi->seq[r[k]>>32].len;
+				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | (len - (rpos + 1 - q->q_span) - 1); // coordinate only accurate for non-HPC seeds
+				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
 			}
 			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
 			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
@@ -341,7 +345,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	b->frag_gap = max_chain_gap_ref;
 	b->rep_len = rep_len;
 
-	regs0 = mm_gen_regs(b->km, hash, qlen_sum, n_regs0, u, a);
+	regs0 = mm_gen_regs(b->km, hash, qlen_sum, n_regs0, u, a, opt->flag&MM_F_QSTRAND);
 	if (mi->n_alt) {
 		mm_mark_alt(mi, n_regs0, regs0);
 		mm_hit_sort(b->km, &n_regs0, regs0, opt->alt_drop); // this step can be merged into mm_gen_regs(); will do if this shows up in profile
