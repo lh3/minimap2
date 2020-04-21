@@ -16,7 +16,7 @@ else                # if sse2only is defined
 	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
 endif
 else				# if arm_neon is defined
-	OBJS+=ksw2_ll_sse.o ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
+	OBJS+=ksw2_ll_neon.o ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
 ifeq ($(simde),)	# arm_neon without SIMDe -> use sse2neon
 	INCLUDES+=-Isse2neon
 endif
