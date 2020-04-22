@@ -3,10 +3,10 @@
 #include "ksw2.h"
 
 #ifdef __SSE2__
-#ifndef USE_SIMDE
-#include <emmintrin.h>
-#else
+#ifdef USE_SIMDE
 #include <simde/x86/sse2.h>
+#else
+#include <emmintrin.h>
 #endif
 
 #ifdef KSW_SSE2_ONLY
@@ -14,10 +14,10 @@
 #endif
 
 #ifdef __SSE4_1__
-#ifndef USE_SIMDE
-#include <smmintrin.h>
-#else
+#ifdef USE_SIMDE
 #include <simde/x86/sse4.1.h>
+#else
+#include <smmintrin.h>
 #endif
 #endif
 
