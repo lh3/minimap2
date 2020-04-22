@@ -323,7 +323,7 @@ void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const 
 	if (mi->seq[r->rid].name) mm_sprintf_lite(s, "%s", mi->seq[r->rid].name);
 	else mm_sprintf_lite(s, "%d", r->rid);
 	mm_sprintf_lite(s, "\t%d", mi->seq[r->rid].len);
-	if (opt_flag & MM_F_QSTRAND)
+	if ((opt_flag & MM_F_QSTRAND) && r->rev)
 		mm_sprintf_lite(s, "\t%d\t%d", mi->seq[r->rid].len - r->re, mi->seq[r->rid].len - r->rs);
 	else
 		mm_sprintf_lite(s, "\t%d\t%d", r->rs, r->re);
