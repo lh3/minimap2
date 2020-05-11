@@ -6,6 +6,7 @@ OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o chain
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
+SSE4=
 
 
 ifneq ($(arm_neon),) # if arm_neon is defined
@@ -14,6 +15,10 @@ ifeq ($(aarch64),)   #if aarch64 is not defined
 else                 #if aarch64 is defined
 	CFLAGS+=-D_FILE_OFFSET_BITS=64 -fsigned-char
 endif
+endif
+
+ifeq ($(sse2only),) #if sse2only is not defined
+        SSE4+=-D__SSE4_1__
 endif
 
 ifneq ($(asan),)
@@ -49,16 +54,16 @@ sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h ketopt.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< kalloc.o -o $@ -lz
 
 ksw2_ll_simde.o:ksw2_ll_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) -msse2 $(CPPFLAGS) $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) -D__SSE2__ $(CPPFLAGS) $(INCLUDES) $< -o $@
 
 ksw2_extz2_simde.o:ksw2_extz2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) -D__SSE2__ $(SSE4) $(CPPFLAGS) $(INCLUDES) $< -o $@
 
 ksw2_extd2_simde.o:ksw2_extd2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) -D__SSE2__ $(SSE4) $(CPPFLAGS) $(INCLUDES) $< -o $@
 
 ksw2_exts2_simde.o:ksw2_exts2_sse.c ksw2.h kalloc.h
-		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) $(INCLUDES) $< -o $@
+		$(CC) -c $(CFLAGS) -D__SSE2__ $(SSE4) $(CPPFLAGS) $(INCLUDES) $< -o $@
 
 # other non-file targets
 

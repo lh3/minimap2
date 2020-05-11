@@ -10,6 +10,10 @@ matrix:
       language: c
       compiler: gcc
       script: make arm_neon=1 aarch64=1
+    - arch: arm64
+      language: c
+      compiler: gcc
+      script: make -f Makefile.simde arm_neon=1 aarch64=1
     - language: python
       python: "2.7"
       before_install: pip install cython
