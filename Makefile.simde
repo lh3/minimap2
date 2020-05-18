@@ -6,7 +6,7 @@ OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o chain
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
-SSE4=	
+SSE4=
 
 
 ifneq ($(arm_neon),) # if arm_neon is defined
