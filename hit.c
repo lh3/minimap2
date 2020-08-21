@@ -122,7 +122,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a)
 	r->split |= 1, r2->split |= 2;
 }
 
-void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level, float alt_diff_frac) // and compute mm_reg1_t::subsc
+void mm_set_parent(void *km, float mask_level, int mask_len, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level, float alt_diff_frac) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
 	uint64_t *cov;
@@ -162,7 +162,7 @@ skip_uncov:
 			min = ej - sj < ei - si? ej - sj : ei - si;
 			max = ej - sj > ei - si? ej - sj : ei - si;
 			ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si); // overlap length; TODO: this can be simplified
-			if ((float)ol / min - (float)uncov_len / max > mask_level) {
+			if ((float)ol / min - (float)uncov_len / max > mask_level && uncov_len <= mask_len) { // then this is a secondary hit
 				int cnt_sub = 0, sci = ri->score;
 				ri->parent = rp->parent;
 				if (!rp->is_alt && ri->is_alt) sci = mm_alt_score(sci, alt_diff_frac);

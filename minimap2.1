@@ -237,7 +237,14 @@ or more of the shorter chain [0.5]
 .B --hard-mask-level
 Honor option
 .B -M
-and disable a heurstic to save unmapped subsequences.
+and disable a heurstic to save unmapped subsequences and disables
+.BR --mask-len .
+.TP
+.BI --mask-len \ NUM
+Keep an alignment if dropping it leaves an unaligned region on query longer than
+.IR INT
+[inf]. Effective without
+.BR --hard-mask-level .
 .TP
 .BI --max-chain-skip \ INT
 A heuristics that stops chaining early [25]. Minimap2 uses dynamic programming

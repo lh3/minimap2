@@ -22,6 +22,7 @@ cdef extern from "minimap.h":
 		int min_chain_score
 		float chain_gap_scale
 		float mask_level
+		int mask_len
 		float pri_ratio
 		int best_n
 		int max_join_long, max_join_short

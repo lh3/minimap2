@@ -122,6 +122,7 @@ typedef struct {
 	float chain_gap_scale;
 
 	float mask_level;
+	int mask_len;
 	float pri_ratio;
 	int best_n;      // top best_n chains are subjected to DP alignment
 

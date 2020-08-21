@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <limits.h>
 #include "mmpriv.h"
 
 void mm_idxopt_init(mm_idxopt_t *opt)
@@ -27,6 +28,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->chain_gap_scale = 1.0f;
 
 	opt->mask_level = 0.5f;
+	opt->mask_len = INT_MAX;
 	opt->pri_ratio = 0.8f;
 	opt->best_n = 5;
 
