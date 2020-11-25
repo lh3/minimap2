@@ -71,6 +71,7 @@ static ko_longopt_t long_options[] = {
 	{ "alt",            ko_required_argument, 344 },
 	{ "alt-drop",       ko_required_argument, 345 },
 	{ "mask-len",       ko_required_argument, 346 },
+	{ "secondary-seq",  ko_no_argument,       347 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -219,6 +220,7 @@ int main(int argc, char *argv[])
 		else if (c == 344) alt_list = o.arg; // --alt
 		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
 		else if (c == 346) opt.mask_len = mm_parse_num(o.arg); // --mask-len
+		else if (c == 347) opt.flag |= MM_F_SECONDARY_SEQ; // --secondary-seq
 		else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary
