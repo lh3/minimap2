@@ -371,7 +371,6 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 		clip_len[0] = r->rev? qlen - r->qe : r->qs;
 		clip_len[1] = r->rev? r->qs : qlen - r->qe;
 		if (in_tag) {
-			//int clip_char = (sam_flag&0x800) && !(opt_flag&MM_F_SOFTCLIP)? 5 : 4;
 			int clip_char = ((sam_flag&0x800 || (sam_flag&0x100 && opt_flag&MM_F_SECONDARY_SEQ)) &&
 							 !(opt_flag&MM_F_SOFTCLIP)) ? 5 : 4;
 			mm_sprintf_lite(s, "\tCG:B:I");
@@ -380,7 +379,6 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 				mm_sprintf_lite(s, ",%u", r->p->cigar[k]);
 			if (clip_len[1]) mm_sprintf_lite(s, ",%u", clip_len[1]<<4|clip_char);
 		} else {
-			//int clip_char = (sam_flag&0x800) && !(opt_flag&MM_F_SOFTCLIP)? 'H' : 'S';
 			int clip_char = ((sam_flag&0x800 || (sam_flag&0x100 && opt_flag&MM_F_SECONDARY_SEQ)) &&
 							 !(opt_flag&MM_F_SOFTCLIP)) ? 'H' : 'S';
 			assert(clip_len[0] < qlen && clip_len[1] < qlen);
