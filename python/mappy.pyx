@@ -112,7 +112,7 @@ cdef class Aligner:
 	cdef cmappy.mm_idxopt_t idx_opt
 	cdef cmappy.mm_mapopt_t map_opt
 
-	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None):
+	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None, max_gap = None, max_join_long = None, max_join_short = None, min_join_flank_sc = None, min_join_flank_ratio = None, zdrop = None, zdrop_inv = None, end_bonus = None):
 		self._idx = NULL
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
@@ -136,6 +136,15 @@ cdef class Aligner:
 				self.map_opt.q2, self.map_opt.e2 = scoring[4], scoring[5]
 				if len(scoring) >= 7:
 					self.map_opt.sc_ambi = scoring[6]
+
+		if max_gap is not None: self.map_opt.max_gap = max_gap
+		if max_join_long is not None: self.map_opt.max_join_long = max_join_long
+		if max_join_short is not None: self.map_opt.max_join_short = max_join_short
+		if min_join_flank_sc is not None: self.map_opt.min_join_flank_sc = min_join_flank_sc
+		if min_join_flank_ratio is not None: self.map_opt.min_join_flank_ratio = min_join_flank_ratio
+		if zdrop is not None: self.map_opt.zdrop = zdrop
+		if zdrop_inv is not None: self.map_opt.zdrop_inv = zdrop_inv
+		if end_bonus is not None: self.map_opt.end_bonus = end_bonus
 
 		cdef cmappy.mm_idx_reader_t *r;
 
