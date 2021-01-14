@@ -2512,6 +2512,71 @@ function paf_ov_eval(args)
 	print((100 * (1 - n_missing / n_ovlp)).toFixed(2) + "% sensitivity");
 }
 
+function paf_vcfstat(args)
+{
+	var c, ts = { "AG":1, "GA":1, "CT":1, "TC":1 };
+	while ((c = getopt(args, "")) != null) {
+	}
+	var buf = new Bytes();
+	var file = args.length == getopt.ind? new File() : new File(args[getopt.ind]);
+	var x = { sub:0, ts:0, tv:0, ins:0, del:0, ins1:0, del1:0, ins2:0, del2:0, ins50:0, del50:0, ins1k:0, del1k:0, ins7k:0, del7k:0, insinf:0, delinf:0 };
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (t[0][0] == '#') continue;
+		var alt = t[4].split(",");
+		var ref = t[3];
+		for (var i = 0; i < alt.length; ++i) {
+			var a = alt[i];
+			if (a[0] == '<' || a[1] == '>') continue;
+			var l = ref.length < a.length? ref.length : a.length;
+			for (var j = 0; j < l; ++j) {
+				if (ref[j] != a[j]) {
+					++x.sub;
+					if (ts[ref[j] + a[j]]) ++x.ts;
+					else ++x.tv;
+				}
+			}
+			var d = a.length - ref.length;
+			if (d > 0) {
+				++x.ins;
+				if (d == 1) ++x.ins1;
+				else if (d == 2) ++x.ins2;
+				else if (d < 50) ++x.ins50;
+				else if (d < 1000) ++x.ins1k;
+				else if (d < 7000) ++x.ins7k;
+				else ++x.insinf;
+			} else if (d < 0) {
+				d = -d;
+				++x.del;
+				if (d == 1) ++x.del1;
+				else if (d == 2) ++x.del2;
+				else if (d < 50) ++x.del50;
+				else if (d < 1000) ++x.del1k;
+				else if (d < 7000) ++x.del7k;
+				else ++x.delinf;
+			}
+		}
+	}
+	file.close();
+	buf.destroy();
+	print("# substitutions: " + x.sub);
+	print("ts/tv: " + (x.ts / x.tv).toFixed(3));
+	print("# insertions: " + x.ins);
+	print("# 1bp insertions: " + x.ins1);
+	print("# 2bp insertions: " + x.ins2);
+	print("# [3,50) insertions: " + x.ins50);
+	print("# [50,1000) insertions: " + x.ins1k);
+	print("# [1000,7000) insertions: " + x.ins7k);
+	print("# >=7000 insertions: " + x.insinf);
+	print("# deletions: " + x.del);
+	print("# 1bp deletions: " + x.del1);
+	print("# 2bp deletions: " + x.del2);
+	print("# [3,50) deletions: " + x.del50);
+	print("# [50,1000) deletions: " + x.del1k);
+	print("# [1000,7000) deletions: " + x.del7k);
+	print("# >=7000 deletions: " + x.delinf);
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -2533,6 +2598,7 @@ function main(args)
 		print("  liftover   simplistic liftOver");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("  bedcov     compute the number of bases covered");
+		print("  vcfstat    VCF statistics");
 		print("  version    print paftools.js version");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
@@ -2561,6 +2627,7 @@ function main(args)
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
 	else if (cmd == 'junceval') paf_junceval(args);
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
+	else if (cmd == 'vcfstat') paf_vcfstat(args);
 	else if (cmd == 'version') print(paftools_version);
 	else throw Error("unrecognized command: " + cmd);
 }
