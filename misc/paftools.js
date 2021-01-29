@@ -962,12 +962,13 @@ function paf_asmgene(args)
 
 function paf_stat(args)
 {
-	var c, gap_out_len = null;
-	while ((c = getopt(args, "l:")) != null)
+	var c, gap_out_len = null, count_err = false;
+	while ((c = getopt(args, "cl:")) != null)
 		if (c == 'l') gap_out_len = parseInt(getopt.arg);
+		else if (c == 'c') count_err = true;
 
 	if (getopt.ind == args.length) {
-		print("Usage: paftools.js stat [-l gapOutLen] <in.sam>|<in.paf>");
+		print("Usage: paftools.js stat [-c] [-l gapOutLen] <in.sam>|<in.paf>");
 		exit(1);
 	}
 
@@ -998,7 +999,7 @@ function paf_stat(args)
 		if (line.charAt(0) != '@') {
 			var t = line.split("\t", 12);
 			var m, rs, cigar = null, is_pri = false, is_sam = false, is_rev = false, tname = null;
-			var atlen = null, aqlen, qs, qe, mapq, ori_qlen;
+			var atlen = null, aqlen, qs, qe, mapq, ori_qlen, NM = null;
 			if (t.length < 2) continue;
 			if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
 				if (t[4] == '*') continue; // unmapped
@@ -1006,6 +1007,8 @@ function paf_stat(args)
 					++n_2nd;
 					continue;
 				}
+				if ((m = /\tNM:i:(\d+)/.exec(line)) != null)
+					NM = parseInt(m[1]);
 				if ((m = /\tcg:Z:(\S+)/.exec(line)) != null)
 					cigar = m[1];
 				if (cigar == null) {
@@ -1027,6 +1030,8 @@ function paf_stat(args)
 					++n_2nd;
 					continue;
 				}
+				if ((m = /\tNM:i:(\d+)/.exec(line)) != null)
+					NM = parseInt(m[1]);
 				cigar = t[5];
 				tname = t[2];
 				rs = parseInt(t[3]) - 1;
@@ -1045,11 +1050,13 @@ function paf_stat(args)
 				++n_seq, last = t[0];
 			}
 			var M = 0, tl = 0, ql = 0, clip = [0, 0], n_cigar = 0, sclip = 0;
+			var n_gapo = 0, n_gap_all = 0, l_match = 0;
 			while ((m = re.exec(cigar)) != null) {
 				var l = parseInt(m[1]);
 				++n_cigar;
 				if (m[2] == 'M' || m[2] == '=' || m[2] == 'X') {
 					tl += l, ql += l, M += l;
+					l_match += l;
 				} else if (m[2] == 'I' || m[2] == 'D') {
 					var type;
 					if (l < 50) type = 0;
@@ -1062,6 +1069,7 @@ function paf_stat(args)
 					else tl += l, ++n_gap[1][type];
 					if (gap_out_len != null && l >= gap_out_len)
 						print(t[0], ql, is_rev? '-' : '+', tname, rs + tl, m[2], l);
+					++n_gapo, n_gap_all += l;
 				} else if (m[2] == 'N') {
 					tl += l;
 				} else if (m[2] == 'S') {
@@ -1079,6 +1087,12 @@ function paf_stat(args)
 				qs = clip[is_rev? 1 : 0], qe = qs + ql;
 				ori_qlen = clip[0] + ql + clip[1];
 			}
+			if (count_err && NM != null) {
+				var n_mm = NM - n_gap_all;
+				if (n_mm < 0) warn("WARNING: NM is smaller than the number of gaps at line " + lineno);
+				if (n_mm < 0) n_mm = 0;
+				print(t[0], ori_qlen, t[11], ori_qlen - (qe - qs), NM, l_match + n_gap_all, n_mm + n_gapo, l_match + n_gapo);
+			}
 			regs.push([qs, qe]);
 			last_qlen = ori_qlen;
 		}
@@ -1091,7 +1105,7 @@ function paf_stat(args)
 	file.close();
 	buf.destroy();
 
-	if (gap_out_len == null) {
+	if (gap_out_len == null && !count_err) {
 		print("Number of mapped sequences: " + n_seq);
 		print("Number of primary alignments: " + n_pri);
 		print("Number of secondary alignments: " + n_2nd);
