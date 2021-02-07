@@ -2591,6 +2591,113 @@ function paf_vcfstat(args)
 	print("# >=7000 deletions: " + x.delinf);
 }
 
+function paf_parseNum(s) {
+	var m, x = null;
+	if ((m = /^(\d*\.?\d*)([mMgGkK]?)/.exec(s)) != null) {
+		x = parseFloat(m[1]);
+		if (m[2] == 'k' || m[2] == 'K') x *= 1000;
+		else if (m[2] == 'm' || m[2] == 'M') x *= 1000000;
+		else if (m[2] == 'g' || m[2] == 'G') x *= 1000000000;
+	}
+	return Math.floor(x + .499);
+}
+
+function paf_misjoin(args)
+{
+	var c, min_seg_len = 1000000, max_gap = 1000000, fn_cen = null, show_long = false;
+	var n_diff = [0, 0], n_gap = [0, 0], n_inv = [0, 0], n_inv_end = [0, 0];
+	while ((c = getopt(args, "l:g:c:p")) != null) {
+		if (c == 'l') min_seg_len = paf_parseNum(getopt.arg);
+		else if (c == 'g') max_gap = paf_parseNum(getopt.arg);
+		else if (c == 'c') fn_cen = getopt.arg;
+		else if (c == 'p') show_long = true;
+	}
+	if (args.length == getopt.ind) {
+		print("Usage: paftools.js misjoin [options] <in.paf>");
+		print("Options:");
+		print("  -c FILE   BED for centromeres []");
+		print("  -l NUM    min alignment block length [1m]");
+		print("  -g NUM    max gap size [1m]");
+		print("  -p        output long alignment blocks for debugging");
+		return;
+	}
+	var cen = {};
+	var file, buf = new Bytes();
+	if (fn_cen != null) {
+		file = new File(fn_cen);
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			if (cen[t[0]] == null) cen[t[0]] = [];
+			cen[t[0]].push([parseInt(t[1]), parseInt(t[2])]);
+		}
+		file.close();
+	}
+
+	function test_cen(cen, chr, st, en) {
+		var b = cen[chr];
+		if (b == null) return false;
+		for (var j = 0; j < b.length; ++j)
+			if (b[j][0] < en && b[j][1] > st)
+				return true;
+		return false;
+	}
+
+	function process(a) {
+		var k = 0;
+		for (var i = 0; i < a.length; ++i) {
+			for (var j = 1; j <= 3;  ++j) a[i][j] = parseInt(a[i][j]);
+			for (var j = 6; j <= 11; ++j) a[i][j] = parseInt(a[i][j]);
+			if (a[i][10] >= min_seg_len) a[k++] = a[i];
+		}
+		a.length = k;
+		if (a.length == 1) return;
+		a = a.sort(function(x,y){return x[2]-y[2]});
+		if (show_long) for (var i = 0; i < a.length; ++i) print(a[i].join("\t"));
+		for (var i = 1; i < a.length; ++i) {
+			var ov = [false, false];
+			ov[0] = test_cen(cen, a[i-1][5], a[i-1][7], a[i-1][8]);
+			ov[1] = test_cen(cen, a[i][5], a[i][7], a[i][8]);
+			if (a[i-1][5] != a[i][5]) { // different chr
+				if (ov[0] || ov[1]) ++n_diff[1];
+				++n_diff[0];
+			} else if (a[i-1][4] == a[i][4]) { // a gap
+				var dq = a[i][2] - a[i-1][3];
+				var dr = a[i][4] == '+'? a[i][7] - a[i-1][8] : a[i-1][7] - a[i][8];
+				var gap = dr > dq? dr - dq : dq - dr;
+				if (gap > max_gap) {
+					if (ov[0] || ov[1]) ++n_gap[1];
+					++n_gap[0];
+				}
+			} else if (i + 1 < a.length && a[i+1][4] == a[i-1][4]) { // bracketed inversion
+				if (ov[0] || ov[1]) ++n_inv[1];
+				++n_inv[0];
+				++i;
+			} else { // hanging inversion
+				if (ov[0] || ov[1]) ++n_inv_end[1];
+				++n_inv_end[0];
+			}
+		}
+	}
+
+	file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+	var a = [];
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		if (a.length > 0 && a[0][0] != t[0]) {
+			process(a);
+			a.length = 0;
+		}
+		a.push(t);
+	}
+	if (a.length > 0) process(a);
+	file.close();
+	buf.destroy();
+	print("# inter-chromosomal misjoins: " + n_diff.join(","));
+	print("# intra-chromosomal gaps: " + n_gap.join(","));
+	print("# candidate inversions in the middle: " + n_inv.join(","));
+	print("# candidate inversions at contig ends: " + n_inv_end.join(","));
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -2608,7 +2715,8 @@ function main(args)
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  asmstat    collect basic assembly information");
-		print("  asmgene    evaluate gene completeness (EXPERIMENTAL)");
+		print("  asmgene    evaluate gene completeness");
+		print("  misjoin    evaluate large-scale misjoins");
 		print("  liftover   simplistic liftOver");
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("  bedcov     compute the number of bases covered");
@@ -2632,6 +2740,7 @@ function main(args)
 	else if (cmd == 'stat') paf_stat(args);
 	else if (cmd == 'asmstat') paf_asmstat(args);
 	else if (cmd == 'asmgene') paf_asmgene(args);
+	else if (cmd == 'misjoin') paf_misjoin(args);
 	else if (cmd == 'liftover' || cmd == 'liftOver') paf_liftover(args);
 	else if (cmd == 'vcfpair') paf_vcfpair(args);
 	else if (cmd == 'call') paf_call(args);
