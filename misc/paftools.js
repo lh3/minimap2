@@ -2604,13 +2604,14 @@ function paf_parseNum(s) {
 
 function paf_misjoin(args)
 {
-	var c, min_seg_len = 1000000, max_gap = 1000000, fn_cen = null, show_long = false;
+	var c, min_seg_len = 1000000, max_gap = 1000000, fn_cen = null, show_long = false, show_err = false;
 	var n_diff = [0, 0], n_gap = [0, 0], n_inv = [0, 0], n_inv_end = [0, 0];
-	while ((c = getopt(args, "l:g:c:p")) != null) {
+	while ((c = getopt(args, "l:g:c:pe")) != null) {
 		if (c == 'l') min_seg_len = paf_parseNum(getopt.arg);
 		else if (c == 'g') max_gap = paf_parseNum(getopt.arg);
 		else if (c == 'c') fn_cen = getopt.arg;
 		else if (c == 'p') show_long = true;
+		else if (c == 'e') show_err = true;
 	}
 	if (args.length == getopt.ind) {
 		print("Usage: paftools.js misjoin [options] <in.paf>");
@@ -2618,6 +2619,7 @@ function paf_misjoin(args)
 		print("  -c FILE   BED for centromeres []");
 		print("  -l NUM    min alignment block length [1m]");
 		print("  -g NUM    max gap size [1m]");
+		print("  -e        output misjoins not involving centromeres");
 		print("  -p        output long alignment blocks for debugging");
 		return;
 	}
@@ -2659,6 +2661,10 @@ function paf_misjoin(args)
 			ov[1] = test_cen(cen, a[i][5], a[i][7], a[i][8]);
 			if (a[i-1][5] != a[i][5]) { // different chr
 				if (ov[0] || ov[1]) ++n_diff[1];
+				else if (show_err) {
+					print("J", a[i-1].slice(0, 12).join("\t"));
+					print("J", a[i].slice(0, 12).join("\t"));
+				}
 				++n_diff[0];
 			} else if (a[i-1][4] == a[i][4]) { // a gap
 				var dq = a[i][2] - a[i-1][3];
@@ -2670,6 +2676,11 @@ function paf_misjoin(args)
 				}
 			} else if (i + 1 < a.length && a[i+1][4] == a[i-1][4]) { // bracketed inversion
 				if (ov[0] || ov[1]) ++n_inv[1];
+				else if (show_err) {
+					print("M", a[i-1].slice(0, 12).join("\t"));
+					print("M", a[i].slice(0, 12).join("\t"));
+					print("M", a[i+1].slice(0, 12).join("\t"));
+				}
 				++n_inv[0];
 				++i;
 			} else { // hanging inversion
