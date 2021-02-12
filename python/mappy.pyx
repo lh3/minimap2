@@ -171,12 +171,12 @@ cdef class Aligner:
 		cdef void *km
 		cdef cmappy.mm_mapopt_t map_opt
 
-		if self._idx == NULL: return
+		if self._idx is NULL: return None
+
 		map_opt = self.map_opt
 		if max_frag_len is not None: map_opt.max_frag_len = max_frag_len
 		if extra_flags is not None: map_opt.flag |= extra_flags
 
-		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
 		km = cmappy.mm_tbuf_get_km(b._b)
