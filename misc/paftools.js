@@ -2709,6 +2709,115 @@ function paf_misjoin(args)
 	print("# candidate inversions at contig ends: " + n_inv_end.join(","));
 }
 
+function paf_sveval(args)
+{
+	var c, min_flt = 30, min_size = 50, max_size = 10000, win_size = 500, print_err = false;
+	while ((c = getopt(args, "f:i:x:w:e")) != null) {
+		if (c == 'f') min_flt = paf_parseNum(getopt.arg);
+		else if (c == 'i') min_size = paf_parseNum(getopt.arg);
+		else if (c == 'x') max_size = paf_parseNum(getopt.arg);
+		else if (c == 'w') win_size = paf_parseNum(getopt.arg);
+		else if (c == 'e') print_err = true;
+	}
+	if (args.length - getopt.ind < 3) {
+		print("Usage: paftools.js sveval [options] <conf.bed> <base.vcf> <call.vcf>");
+		print("Options:");
+		print("  -f INT     min length to discard [" + min_flt + "]");
+		print("  -i INT     min SV length [" + min_size + "]");
+		print("  -x INT     max SV length [" + max_size + "]");
+		print("  -w INT     fuzzy windown size [" + win_size + "]");
+		print("  -e         print errors");
+		return;
+	}
+
+	function read_bed(fn) {
+		var buf = new Bytes();
+		var file = new File(fn);
+		var bed = {};
+		while (file.readline(buf) >= 0) {
+			var t = buf.toString().split("\t");
+			if (bed[t[0]] == null) bed[t[0]] = [];
+			bed[t[0]].push([parseInt(t[1]), parseInt(t[2])]);
+		}
+		file.close();
+		buf.destroy();
+		for (var x in bed) {
+			Interval.sort(bed[x]);
+			Interval.merge(bed[x]);
+			Interval.index_end(bed[x]);
+		}
+		return bed;
+	}
+
+	var bed = read_bed(args[getopt.ind]);
+
+	function read_vcf(fn, bed) {
+		var buf = new Bytes();
+		var file = new File(fn);
+		var v = {};
+		while (file.readline(buf) >= 0) {
+			var m, t = buf.toString().split("\t");
+			if (t[0][0] == '#') continue;
+			if (bed[t[0]] == null) continue;
+			if (t[4] == '<INV>' || t[4] == '<INVDUP>') continue; // no inversion
+			var st = parseInt(t[1]) - 1, en = st + t[3].length;
+			if ((m = /((;END)|(^END))=(\d+)/.exec(t[7])) != null)
+				en = parseInt(m[4]);
+			if (Interval.find_ovlp(bed[t[0]], st, en).length == 0) continue;
+			// determine svlen
+			var s = t[4].split(","), max_del = 0, max_ins = 0;
+			for (var i = 0; i < s.length; ++i) {
+				var l = s[i].length - t[3].length;
+				if (l > 0)
+					max_ins = max_ins > l? max_ins : l;
+				else if (l < 0)
+					max_del = max_del > -l? max_del : -l;
+			}
+			if (max_ins < min_flt && max_del < min_flt) continue;
+			var svlen = max_ins > max_del? max_ins : -max_del;
+			if ((m = /((;SVLEN)|(^SVLEN))=(\d+)/.exec(t[7])) != null)
+				svlen = parseInt(m[4]);
+			var abslen = svlen > 0? svlen : -svlen;
+			if (abslen < min_flt || abslen > max_size) continue;
+			// insert
+			if (v[t[0]] == null) v[t[0]] = [];
+			v[t[0]].push([st, en, svlen, abslen]);
+		}
+		file.close();
+		buf.destroy();
+		for (var x in v) {
+			Interval.sort(v[x]);
+			Interval.index_end(v[x]);
+		}
+		return v;
+	}
+
+	function compare_vcf(v0, v1, label) {
+		var m = 0, n = 0;
+		for (var x in v1) {
+			var a1 = v1[x], a0 = v0[x];
+			for (var i = 0; i < a1.length; ++i) {
+				if (a1[i][3] < min_size) continue;
+				++n;
+				if (a0 == null) continue;
+				var st = a1[i][0] > win_size? a1[i][0] - win_size : 0;
+				b = Interval.find_ovlp(a0, st, a1[i][1] + win_size);
+				if (b.length > 0) ++m;
+				else if (print_err) print(label, x, a1[i].slice(0, 3).join("\t"));
+			}
+		}
+		return [n, m];
+	}
+
+	var v_base = read_vcf(args[getopt.ind+1], bed);
+	var v_call = read_vcf(args[getopt.ind+2], bed);
+	var fn = compare_vcf(v_call, v_base, 'FN');
+	var fp = compare_vcf(v_base, v_call, 'FP');
+	print('SN', fn[0], fn[1], (fn[1] / fn[0]).toFixed(6));
+	print('PC', fp[0], fp[1], (fp[1] / fp[0]).toFixed(6));
+	print('F1', ((fn[1] / fn[0] + fp[1] / fp[0]) / 2).toFixed(6));
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -2732,6 +2841,7 @@ function main(args)
 		print("  call       call variants from asm-to-ref alignment with the cs tag");
 		print("  bedcov     compute the number of bases covered");
 		print("  vcfstat    VCF statistics");
+		print("  sveval     compare two SV callsets in VCF");
 		print("  version    print paftools.js version");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
@@ -2762,6 +2872,7 @@ function main(args)
 	else if (cmd == 'junceval') paf_junceval(args);
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
 	else if (cmd == 'vcfstat') paf_vcfstat(args);
+	else if (cmd == 'sveval') paf_sveval(args);
 	else if (cmd == 'version') print(paftools_version);
 	else throw Error("unrecognized command: " + cmd);
 }
