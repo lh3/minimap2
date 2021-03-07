@@ -19,6 +19,7 @@ cd minimap2 && make
 ./minimap2 -ax splice ref.fa rna-reads.fa > aln.sam       # spliced long reads (strand unknown)
 ./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore Direct RNA-seq
 ./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # Final PacBio Iso-seq or traditional cDNA
+./minimap2 -ax splice --junc-bed anno.bed12 ref.fa query.fa > aln.sam  # prioritize on annotated junctions
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
 ./minimap2 -x ava-ont reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
@@ -184,6 +185,19 @@ reduces the accuracy when aligning against the widely used SIRV control data.
 This is because SIRV does not honor the evolutionarily conservative splicing
 signal. If you are studying SIRV, you may apply `--splice-flank=no` to let
 minimap2 only model GT..AG, ignoring the additional base.
+
+Since v2.17, minimap2 can optionally take annotated genes as input and
+prioritize on annotated splice junctions. To use this feature, you can 
+```sh
+paftools.js gff2bed anno.gff > anno.bed
+minimap2 -ax splice --junc-bed anno.bed ref.fa query.fa > aln.sam
+```
+Here, `anno.gff` is the gene annotation in the GTF or GFF3 format (`gff2bed`
+automatically tests the format). The output of `gff2bed` is in the 12-column
+BED format, or the BED12 format. With the `--junc-bed` option, minimap2 adds a
+bonus score (tuned by `--junc-bonus`) if an aligned junction matches a junction
+in the annotation. Option `--junc-bed` also takes 5-column BED, including the
+strand field. In this case, each line indicates an oriented junction.
 
 #### <a name="long-overlap"></a>Find overlaps between long reads
 
