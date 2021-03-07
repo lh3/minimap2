@@ -2711,17 +2711,19 @@ function paf_misjoin(args)
 
 function paf_sveval(args)
 {
-	var c, min_flt = 30, min_size = 50, max_size = 10000, win_size = 500, print_err = false;
-	while ((c = getopt(args, "f:i:x:w:e")) != null) {
+	var c, min_flt = 30, min_size = 50, max_size = 10000, win_size = 500, print_err = false, bed_fn = null;
+	while ((c = getopt(args, "f:i:x:w:er:")) != null) {
 		if (c == 'f') min_flt = paf_parseNum(getopt.arg);
 		else if (c == 'i') min_size = paf_parseNum(getopt.arg);
 		else if (c == 'x') max_size = paf_parseNum(getopt.arg);
 		else if (c == 'w') win_size = paf_parseNum(getopt.arg);
+		else if (c == 'r') bed_fn = getopt.arg;
 		else if (c == 'e') print_err = true;
 	}
-	if (args.length - getopt.ind < 3) {
-		print("Usage: paftools.js sveval [options] <conf.bed> <base.vcf> <call.vcf>");
+	if (args.length - getopt.ind < 2) {
+		print("Usage: paftools.js sveval [options] <base.vcf> <call.vcf>");
 		print("Options:");
+		print("  -r FILE    confident region in BED []");
 		print("  -f INT     min length to discard [" + min_flt + "]");
 		print("  -i INT     min SV length [" + min_size + "]");
 		print("  -x INT     max SV length [" + max_size + "]");
@@ -2749,7 +2751,7 @@ function paf_sveval(args)
 		return bed;
 	}
 
-	var bed = read_bed(args[getopt.ind]);
+	var bed = bed_fn != null? read_bed(bed_fn) : null;
 
 	function read_vcf(fn, bed) {
 		var buf = new Bytes();
@@ -2758,12 +2760,13 @@ function paf_sveval(args)
 		while (file.readline(buf) >= 0) {
 			var m, t = buf.toString().split("\t");
 			if (t[0][0] == '#') continue;
-			if (bed[t[0]] == null) continue;
+			if (bed != null && bed[t[0]] == null) continue;
 			if (t[4] == '<INV>' || t[4] == '<INVDUP>') continue; // no inversion
+			if (/[\[\]]/.test(t[4])) continue; // no break points
 			var st = parseInt(t[1]) - 1, en = st + t[3].length;
 			if ((m = /((;END)|(^END))=(\d+)/.exec(t[7])) != null)
 				en = parseInt(m[4]);
-			if (Interval.find_ovlp(bed[t[0]], st, en).length == 0) continue;
+			if (bed != null && Interval.find_ovlp(bed[t[0]], st, en).length == 0) continue;
 			// determine svlen
 			var s = t[4].split(","), max_del = 0, max_ins = 0;
 			for (var i = 0; i < s.length; ++i) {
@@ -2809,8 +2812,8 @@ function paf_sveval(args)
 		return [n, m];
 	}
 
-	var v_base = read_vcf(args[getopt.ind+1], bed);
-	var v_call = read_vcf(args[getopt.ind+2], bed);
+	var v_base = read_vcf(args[getopt.ind+0], bed);
+	var v_call = read_vcf(args[getopt.ind+1], bed);
 	var fn = compare_vcf(v_call, v_base, 'FN');
 	var fp = compare_vcf(v_base, v_call, 'FP');
 	print('SN', fn[0], fn[1], (fn[1] / fn[0]).toFixed(6));
