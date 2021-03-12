@@ -2604,12 +2604,13 @@ function paf_parseNum(s) {
 
 function paf_misjoin(args)
 {
-	var c, min_seg_len = 1000000, max_gap = 1000000, fn_cen = null, show_long = false, show_err = false;
+	var c, min_seg_len = 1000000, max_gap = 1000000, fn_cen = null, show_long = false, show_err = false, cen_ratio = 0.5;
 	var n_diff = [0, 0], n_gap = [0, 0], n_inv = [0, 0], n_inv_end = [0, 0];
-	while ((c = getopt(args, "l:g:c:pe")) != null) {
+	while ((c = getopt(args, "l:g:c:per:")) != null) {
 		if (c == 'l') min_seg_len = paf_parseNum(getopt.arg);
 		else if (c == 'g') max_gap = paf_parseNum(getopt.arg);
 		else if (c == 'c') fn_cen = getopt.arg;
+		else if (c == 'r') cen_ratio = parseFloat(getopt.arg);
 		else if (c == 'p') show_long = true;
 		else if (c == 'e') show_err = true;
 	}
@@ -2617,6 +2618,7 @@ function paf_misjoin(args)
 		print("Usage: paftools.js misjoin [options] <in.paf>");
 		print("Options:");
 		print("  -c FILE   BED for centromeres []");
+		print("  -r FLOAT  count a centromeric event if overlap ratio > FLOAT [" + cen_ratio + "]");
 		print("  -l NUM    min alignment block length [1m]");
 		print("  -g NUM    max gap size [1m]");
 		print("  -e        output misjoins not involving centromeres");
@@ -2636,12 +2638,15 @@ function paf_misjoin(args)
 	}
 
 	function test_cen(cen, chr, st, en) {
-		var b = cen[chr];
+		var b = cen[chr], len = 0;
 		if (b == null) return false;
 		for (var j = 0; j < b.length; ++j)
-			if (b[j][0] < en && b[j][1] > st)
-				return true;
-		return false;
+			if (b[j][0] < en && b[j][1] > st) {
+				var s = b[j][0] > st? b[j][0] : st;
+				var e = b[j][1] < en? b[j][1] : en;
+				len += e - s;
+			}
+		return len < (en - st) * cen_ratio? false : true;
 	}
 
 	function process(a) {
@@ -2672,6 +2677,10 @@ function paf_misjoin(args)
 				var gap = dr > dq? dr - dq : dq - dr;
 				if (gap > max_gap) {
 					if (ov[0] || ov[1]) ++n_gap[1];
+					else if (show_err) {
+						print("G", a[i-1].slice(0, 12).join("\t"));
+						print("G", a[i].slice(0, 12).join("\t"));
+					}
 					++n_gap[0];
 				}
 			} else if (i + 1 < a.length && a[i+1][4] == a[i-1][4]) { // bracketed inversion
