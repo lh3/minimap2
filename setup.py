@@ -4,16 +4,6 @@ except ImportError:
 	from distutils.core import setup
 	from distutils.extension import Extension
 
-cmdclass = {}
-
-try:
-	from Cython.Build import build_ext
-except ImportError: # without Cython
-	module_src = 'python/mappy.c'
-else: # with Cython
-	module_src = 'python/mappy.pyx'
-	cmdclass['build_ext'] = build_ext
-
 import sys, platform
 
 sys.path.append('python')
@@ -42,8 +32,8 @@ setup(
 	license = 'MIT',
 	keywords = 'sequence-alignment',
 	scripts = ['python/minimap2.py'],
-    ext_modules = [Extension('mappy',
-		sources = [module_src, 'align.c', 'bseq.c', 'chain.c', 'format.c', 'hit.c', 'index.c', 'pe.c', 'options.c',
+        ext_modules = [Extension('mappy',
+		sources = ['python/mappy.pyx', 'align.c', 'bseq.c', 'chain.c', 'format.c', 'hit.c', 'index.c', 'pe.c', 'options.c',
 				   'ksw2_extd2_sse.c', 'ksw2_exts2_sse.c', 'ksw2_extz2_sse.c', 'ksw2_ll_sse.c',
 				   'kalloc.c', 'kthread.c', 'map.c', 'misc.c', 'sdust.c', 'sketch.c', 'esterr.c', 'splitidx.c'],
 		depends = ['minimap.h', 'bseq.h', 'kalloc.h', 'kdq.h', 'khash.h', 'kseq.h', 'ksort.h',
@@ -62,4 +52,4 @@ setup(
 		'Programming Language :: Python :: 3',
 		'Intended Audience :: Science/Research',
 		'Topic :: Scientific/Engineering :: Bio-Informatics'],
-	cmdclass = cmdclass)
+        setup_requires=["cython"])
