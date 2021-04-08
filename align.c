@@ -38,8 +38,8 @@ static inline void update_max_zdrop(int32_t score, int i, int j, int32_t *max, i
 		int z = *max - score - diff * e;
 		if (z > *max_zdrop) {
 			*max_zdrop = z;
-			pos[0][0] = *max_i, pos[0][1] = i + 1;
-			pos[1][0] = *max_j, pos[1][1] = j + 1;
+			pos[0][0] = *max_i, pos[0][1] = i;
+			pos[1][0] = *max_j, pos[1][1] = j;
 		}
 	} else *max = score, *max_i = i, *max_j = j;
 }
