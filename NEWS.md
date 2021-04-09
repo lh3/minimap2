@@ -74,7 +74,7 @@ Changes to paftools.js:
 
 Although given the many bug fixes and minor improvements, the core algorithm
 stays the same. This version of minimap2 produces nearly identical alignments
-to v2.17 except corner cases.
+to v2.17 except very rare corner cases.
 
 Now unimap is recommended over minimap2 for aligning long contigs against a
 reference genome. It often takes less wall-clock time and is much more
