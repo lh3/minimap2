@@ -26,6 +26,10 @@ cd minimap2 && make
 # man page for detailed command line options
 man ./minimap2.1
 ```
+[Unimap][unimap] is recommended for aligning long contigs against a reference
+genome. It often takes less wall-clock time and is much more sensitive to long
+insertions and deletions.
+
 ## Table of Contents
 
 - [Getting Started](#started)
@@ -398,3 +402,4 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 [manpage-cs]: https://lh3.github.io/minimap2/minimap2.html#10
 [doi]: https://doi.org/10.1093/bioinformatics/bty191
 [smide]: https://github.com/nemequ/simde
+[unimap]: https://github.com/lh3/unimap
