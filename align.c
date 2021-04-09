@@ -333,7 +333,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		int i;
 		fprintf(stderr, "score=%d, cigar=", ez->score);
 		for (i = 0; i < ez->n_cigar; ++i)
-			fprintf(stderr, "%d%c", ez->cigar[i]>>4, "MIDN"[ez->cigar[i]&0xf]);
+			fprintf(stderr, "%d%c", ez->cigar[i]>>4, MM_CIGAR_STR[ez->cigar[i]&0xf]);
 		fprintf(stderr, "\n");
 	}
 }
