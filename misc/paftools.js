@@ -1419,7 +1419,7 @@ function paf_view(args)
 
 	var s_ref = new Bytes(), s_qry = new Bytes(), s_mid = new Bytes(); // these are used to show padded alignment
 	var re_cs = /([:=\-\+\*])(\d+|[A-Za-z]+)/g;
-	var re_cg = /(\d+)([MIDNSH])/g;
+	var re_cg = /(\d+)([MIDNSHP=X])/g;
 
 	var buf = new Bytes();
 	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
@@ -1899,7 +1899,7 @@ function paf_splice2bed(args)
 		a.length = 0;
 	}
 
-	var re = /(\d+)([MIDNSH])/g;
+	var re = /(\d+)([MIDNSHP=X])/g;
 	var c, fmt = "bed", fn_name_conv = null, keep_multi = false;
 	while ((c = getopt(args, "f:n:m")) != null) {
 		if (c == 'f') fmt = getopt.arg;
@@ -2369,7 +2369,7 @@ function paf_junceval(args)
 
 	file = getopt.ind+1 >= args.length || args[getopt.ind+1] == '-'? new File() : new File(args[getopt.ind+1]);
 	var last_qname = null;
-	var re_cigar = /(\d+)([MIDNSHX=])/g;
+	var re_cigar = /(\d+)([MIDNSHP=X])/g;
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
 		var ctg_name = null, cigar = null, pos = null, qname = t[0];

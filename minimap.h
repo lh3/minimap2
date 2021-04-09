@@ -46,6 +46,8 @@
 
 #define MM_MAX_SEG       255
 
+#define MM_CIGAR_STR  "MIDNSHP=XB"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
