@@ -189,6 +189,15 @@ the index. Indexing options are fixed in the index file. When an index file is
 provided as the target sequences, options
 <B>-H</B>, <B>-k</B>, <B>-w</B>, <B>-I</B> will be effectively overridden by the options stored in the index file.
 </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--alt</B><I> FILE</I> </TD><TD valign=bottom>
+List of ALT contigs [null]
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--alt-drop</B><I> FLOAT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Drop ALT hits by
+<I>FLOAT</I> fraction when ranking and computing mapping quality [0.15]
+</TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=5></A>
 
@@ -291,8 +300,13 @@ Mark as secondary a chain that overlaps with a better chain by
 <TR valign=top><TD colspan=2>
 <B>--hard-mask-level</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Honor option
-<B>-M</B> and disable a heurstic to save unmapped subsequences.
-</TD></TR>
+<B>-M</B> and disable a heurstic to save unmapped subsequences and disables
+<B>--mask-len</B>. </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--mask-len</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Keep an alignment if dropping it leaves an unaligned region on query longer than
+<I>INT</I> [inf]. Effective without
+<B>--hard-mask-level</B>. </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--max-chain-skip</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 A heuristics that stops chaining early [25]. Minimap2 uses dynamic programming
@@ -306,6 +320,10 @@ on chains. Set
 Check up to
 <I>INT</I> partial chains during chaining [5000]. This is a heuristic to avoid quadratic
 time complexity in the worst case.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--chain-gap-scale</B><I> FLOAT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Scale of gap cost during chaining [1.0]
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--no-long-join</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
@@ -446,7 +464,7 @@ BED12 file can be converted from GTF/GFF3 with &#145;paftools.js gff2bed anno.gt
 <TR valign=top><TD colspan=2>
 <B>--junc-bonus</B> INT </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Score bonus for a splice donor or acceptor found in annotation (effective with
-<B>--junc-bed</B>) [0].
+<B>--junc-bed</B>) [9].
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--end-seed-pen</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
@@ -740,6 +758,8 @@ the SAM-like typed key-value format. Minimap2 may output the following tags:
 <TR valign=top>
 <TD align=right>AS</TD><TD align=center>i</TD><TD>DP alignment score</TD></TR>
 <TR valign=top>
+<TD align=right>SA</TD><TD align=center>Z</TD><TD>List of other supplementary alignments</TD></TR>
+<TR valign=top>
 <TD align=right>ms</TD><TD align=center>i</TD><TD>DP score of the max scoring segment in the alignment</TD></TR>
 <TR valign=top>
 <TD align=right>nn</TD><TD align=center>i</TD><TD>Number of ambiguous bases in the alignment</TD></TR>
@@ -811,4 +831,4 @@ non-SSE2/NEON support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.17 (r941)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>4 May 2019</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.18 (r1015)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>9 April 2021</I></TD> </TR></TABLE></div></BODY></HTML>
