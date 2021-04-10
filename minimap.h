@@ -46,6 +46,16 @@
 
 #define MM_MAX_SEG       255
 
+#define MM_CIGAR_MATCH      0
+#define MM_CIGAR_INS        1
+#define MM_CIGAR_DEL        2
+#define MM_CIGAR_N_SKIP     3
+#define MM_CIGAR_SOFTCLIP   4
+#define MM_CIGAR_HARDCLIP   5
+#define MM_CIGAR_PADDING    6
+#define MM_CIGAR_EQ_MATCH   7
+#define MM_CIGAR_X_MISMATCH 8
+
 #define MM_CIGAR_STR  "MIDNSHP=XB"
 
 #ifdef __cplusplus
