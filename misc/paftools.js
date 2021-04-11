@@ -2741,14 +2741,15 @@ function _paf_get_alen(t)
 
 function paf_sveval(args)
 {
-	var c, min_flt = 30, min_size = 50, max_size = 100000, win_size = 500, print_err = false, bed_fn = null;
-	while ((c = getopt(args, "f:i:x:w:er:")) != null) {
+	var c, min_flt = 30, min_size = 50, max_size = 100000, win_size = 500, print_err = false, print_match = false, bed_fn = null;
+	while ((c = getopt(args, "f:i:x:w:er:p")) != null) {
 		if (c == 'f') min_flt = paf_parseNum(getopt.arg);
 		else if (c == 'i') min_size = paf_parseNum(getopt.arg);
 		else if (c == 'x') max_size = paf_parseNum(getopt.arg);
 		else if (c == 'w') win_size = paf_parseNum(getopt.arg);
 		else if (c == 'r') bed_fn = getopt.arg;
 		else if (c == 'e') print_err = true;
+		else if (c == 'p') print_match = true;
 	}
 	if (args.length - getopt.ind < 2) {
 		print("Usage: paftools.js sveval [options] <base.vcf> <call.vcf>");
@@ -2794,15 +2795,18 @@ function paf_sveval(args)
 			if (t[4] == '<INV>' || t[4] == '<INVDUP>') continue; // no inversion
 			if (/[\[\]]/.test(t[4])) continue; // no break points
 			var st = parseInt(t[1]) - 1, en = st + t[3].length;
+			// parse svlen
+			var b = _paf_get_alen(t), svlen = b[0];
+			var abslen = svlen == null? 0 : svlen > 0? svlen : -svlen;
+			if (abslen < min_flt || abslen > max_size) continue;
+			// update end
 			if ((m = /(^|;)END=(\d+)/.exec(t[7])) != null)
 				en = parseInt(m[2]);
+			else if (svlen != null && svlen < 0)
+				en = st + (-svlen);
 			if (en < st) en = st;
 			if (st == en) --st, ++en;
 			if (bed != null && Interval.find_ovlp(bed[t[0]], st, en).length == 0) continue;
-			// parse svlen
-			var b = _paf_get_alen(t), svlen = b[0];
-			var abslen = svlen > 0? svlen : -svlen;
-			if (abslen < min_flt || abslen > max_size) continue;
 			// insert
 			if (v[t[0]] == null) v[t[0]] = [];
 			v[t[0]].push([st, en, svlen, abslen]);
@@ -2827,9 +2831,12 @@ function paf_sveval(args)
 				var st = a1[i][0] > win_size? a1[i][0] - win_size : 0;
 				b = Interval.find_ovlp(a0, st, a1[i][1] + win_size);
 				var match = false;
-				for (var j = 0; j < b.length; ++j)
+				for (var j = 0; j < b.length; ++j) {
 					if (b[j][2] * a1[i][2] > 0)
 						match = true;
+					if (print_match)
+						print("MA", x, a1[i].slice(0, 3).join("\t"), b[j].slice(0, 3).join("\t"));
+				}
 				if (match) ++m;
 				else if (print_err) print(label, x, a1[i].slice(0, 3).join("\t"));
 			}
