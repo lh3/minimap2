@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.18-r1015';
+var paftools_version = '2.18-r1018-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2718,9 +2718,30 @@ function paf_misjoin(args)
 	print("# candidate inversions at contig ends: " + n_inv_end.join(","));
 }
 
+function _paf_get_alen(t)
+{
+	var svlen = null, alen = null;
+	if ((m = /(^|;)SVLEN=(-?\d+)/.exec(t[7])) != null)
+		svlen = parseInt(m[2]);
+	var s = t[4].split(",");
+	var min_abs_diff = 1<<30, max_abs_diff = 0;
+	if (svlen != null && svlen != 0)
+		alen = svlen, min_abs_diff = max_abs_diff = svlen > 0? svlen : -svlen;
+	var rlen = t[3].length;
+	for (var i = 0; i < s.length; ++i) {
+		if (/^<\S+>$/.test(s[i])) continue;
+		var diff = s[i].length - rlen;
+		var abs_diff = diff > 0? diff : -diff;
+		min_abs_diff = min_abs_diff < abs_diff? min_abs_diff : abs_diff;
+		if (max_abs_diff < abs_diff)
+			max_abs_diff = abs_diff, alen = diff;
+	}
+	return [alen, min_abs_diff, max_abs_diff];
+}
+
 function paf_sveval(args)
 {
-	var c, min_flt = 30, min_size = 50, max_size = 10000, win_size = 500, print_err = false, bed_fn = null;
+	var c, min_flt = 30, min_size = 50, max_size = 100000, win_size = 500, print_err = false, bed_fn = null;
 	while ((c = getopt(args, "f:i:x:w:er:")) != null) {
 		if (c == 'f') min_flt = paf_parseNum(getopt.arg);
 		else if (c == 'i') min_size = paf_parseNum(getopt.arg);
@@ -2773,22 +2794,13 @@ function paf_sveval(args)
 			if (t[4] == '<INV>' || t[4] == '<INVDUP>') continue; // no inversion
 			if (/[\[\]]/.test(t[4])) continue; // no break points
 			var st = parseInt(t[1]) - 1, en = st + t[3].length;
-			if ((m = /((;END)|(^END))=(\d+)/.exec(t[7])) != null)
-				en = parseInt(m[4]);
+			if ((m = /(^|;)END=(\d+)/.exec(t[7])) != null)
+				en = parseInt(m[2]);
+			if (en < st) en = st;
+			if (st == en) --st, ++en;
 			if (bed != null && Interval.find_ovlp(bed[t[0]], st, en).length == 0) continue;
-			// determine svlen
-			var s = t[4].split(","), max_del = 0, max_ins = 0;
-			for (var i = 0; i < s.length; ++i) {
-				var l = s[i].length - t[3].length;
-				if (l > 0)
-					max_ins = max_ins > l? max_ins : l;
-				else if (l < 0)
-					max_del = max_del > -l? max_del : -l;
-			}
-			if (max_ins < min_flt && max_del < min_flt) continue;
-			var svlen = max_ins > max_del? max_ins : -max_del;
-			if ((m = /((;SVLEN)|(^SVLEN))=(\d+)/.exec(t[7])) != null)
-				svlen = parseInt(m[4]);
+			// parse svlen
+			var b = _paf_get_alen(t), svlen = b[0];
 			var abslen = svlen > 0? svlen : -svlen;
 			if (abslen < min_flt || abslen > max_size) continue;
 			// insert
@@ -2828,6 +2840,44 @@ function paf_sveval(args)
 	print('SN', fn[0], fn[1], (fn[1] / fn[0]).toFixed(6));
 	print('PC', fp[0], fp[1], (fp[1] / fp[0]).toFixed(6));
 	print('F1', ((fn[1] / fn[0] + fp[1] / fp[0]) / 2).toFixed(6));
+}
+
+function paf_vcfsel(args)
+{
+	var c, min_l = 0, max_l = 1<<30;
+	while ((c = getopt(args, "l:L:")) != null) {
+		if (c == 'l') min_l = parseInt(getopt.arg);
+		else if (c == 'L') max_l = parseInt(getopt.arg);
+	}
+
+	var buf = new Bytes();
+	if (getopt.ind == args.length) {
+		print("Usage: paftools.js vcfsel [options] <in.vcf>");
+		return 1;
+	}
+	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var m, line = buf.toString();
+		if (line[0] == '#') {
+			print(line);
+			continue;
+		}
+		var t = line.split("\t");
+		var st = parseInt(t[1]), en = st + t[3].length - 1;
+		if ((m = /(^|;)END=(\d+)/.exec(t[7])) != null)
+			en = parseInt(m[2]);
+		if (en < st) {
+			warn("END is smaller than POS: " + en + " < " + st);
+			en = st;
+		}
+		var b = _paf_get_alen(t);
+		var alen = b[0], min_abs_diff = b[1], max_abs_diff = b[2];
+		if (max_abs_diff < min_l || min_abs_diff > max_l)
+			continue;
+		print(line);
+	}
+	file.close();
+	buf.destroy();
 }
 
 /*************************
@@ -2885,6 +2935,7 @@ function main(args)
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
 	else if (cmd == 'vcfstat') paf_vcfstat(args);
 	else if (cmd == 'sveval') paf_sveval(args);
+	else if (cmd == 'vcfsel') paf_vcfsel(args);
 	else if (cmd == 'version') print(paftools_version);
 	else throw Error("unrecognized command: " + cmd);
 }
