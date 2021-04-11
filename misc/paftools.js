@@ -2828,8 +2828,9 @@ function paf_sveval(args)
 				if (a1[i][3] < min_size) continue;
 				++n;
 				if (a0 == null) continue;
-				var st = a1[i][0] > win_size? a1[i][0] - win_size : 0;
-				b = Interval.find_ovlp(a0, st, a1[i][1] + win_size);
+				var ws = win_size + (a1[i][3]>>1);
+				var st = a1[i][0] > ws? a1[i][0] - ws : 0;
+				b = Interval.find_ovlp(a0, st, a1[i][1] + ws);
 				var match = false;
 				for (var j = 0; j < b.length; ++j) {
 					if (b[j][2] * a1[i][2] > 0)
