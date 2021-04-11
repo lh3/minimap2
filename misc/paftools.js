@@ -2826,7 +2826,11 @@ function paf_sveval(args)
 				if (a0 == null) continue;
 				var st = a1[i][0] > win_size? a1[i][0] - win_size : 0;
 				b = Interval.find_ovlp(a0, st, a1[i][1] + win_size);
-				if (b.length > 0) ++m;
+				var match = false;
+				for (var j = 0; j < b.length; ++j)
+					if (b[j][2] * a1[i][2] > 0)
+						match = true;
+				if (match) ++m;
 				else if (print_err) print(label, x, a1[i].slice(0, 3).join("\t"));
 			}
 		}
