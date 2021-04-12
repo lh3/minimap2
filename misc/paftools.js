@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.18-r1018-dirty';
+var paftools_version = '2.18-r1022-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2742,11 +2742,13 @@ function _paf_get_alen(t)
 function paf_sveval(args)
 {
 	var c, min_flt = 30, min_size = 50, max_size = 100000, win_size = 500, print_err = false, print_match = false, bed_fn = null;
-	while ((c = getopt(args, "f:i:x:w:er:p")) != null) {
+	var len_diff_ratio = 0.5;
+	while ((c = getopt(args, "f:i:x:w:er:pd:")) != null) {
 		if (c == 'f') min_flt = paf_parseNum(getopt.arg);
 		else if (c == 'i') min_size = paf_parseNum(getopt.arg);
 		else if (c == 'x') max_size = paf_parseNum(getopt.arg);
 		else if (c == 'w') win_size = paf_parseNum(getopt.arg);
+		else if (c == 'd') len_diff_ratio = parseFloat(getopt.arg);
 		else if (c == 'r') bed_fn = getopt.arg;
 		else if (c == 'e') print_err = true;
 		else if (c == 'p') print_match = true;
@@ -2759,6 +2761,7 @@ function paf_sveval(args)
 		print("  -i INT     min SV length [" + min_size + "]");
 		print("  -x INT     max SV length [" + max_size + "]");
 		print("  -w INT     fuzzy windown size [" + win_size + "]");
+		print("  -d FLOAT   max allele diff if there is a single allele in the window [" + len_diff_ratio + "]");
 		print("  -e         print errors");
 		return;
 	}
@@ -2831,15 +2834,35 @@ function paf_sveval(args)
 				var ws = win_size + (a1[i][3]>>1);
 				var st = a1[i][0] > ws? a1[i][0] - ws : 0;
 				b = Interval.find_ovlp(a0, st, a1[i][1] + ws);
-				var match = false;
+				var n_ins = 0, n_del = 0, sv_del = null, sv_ins = null;
 				for (var j = 0; j < b.length; ++j) {
-					if (b[j][2] * a1[i][2] > 0)
-						match = true;
+					if (b[j][2] < 0) ++n_del, sv_del = -b[j][2];
+					else if (b[j][2] > 0) ++n_ins, sv_ins = b[j][2];
 					if (print_match)
 						print("MA", x, a1[i].slice(0, 3).join("\t"), b[j].slice(0, 3).join("\t"));
 				}
+				var match = false;
+				if (a1[i][2] > 0) { // insertion
+					if (n_ins == 1) {
+						var diff = sv_ins - a1[i][3];
+						if (diff < 0) diff = -diff;
+						if (diff < min_size || diff / a1[i][3] < len_diff_ratio)
+							match = true;
+					} else if (n_ins > 1) match = true; // multiple insertions; ambiguous
+				} else if (a1[i][2] < 0) {
+					if (n_del == 1) { // deletion
+						var diff = sv_del - a1[i][3];
+						if (diff < 0) diff = -diff;
+						if (diff < min_size || diff / a1[i][3] < len_diff_ratio)
+							match = true;
+					} else if (n_del > 1) match = true; // multiple deletions; ambiguous
+				}
 				if (match) ++m;
-				else if (print_err) print(label, x, a1[i].slice(0, 3).join("\t"));
+				else if (print_err) {
+					if ((a1[i][2] > 0 && n_ins > 0) || (a1[i][2] < 0 && n_del > 0))
+						print("MM", x, a1[i].slice(0, 3).join("\t"));
+					print(label, x, a1[i].slice(0, 3).join("\t"));
+				}
 			}
 		}
 		return [n, m];
