@@ -80,41 +80,6 @@ static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t 
 #define heap_lt(a, b) ((a).x > (b).x)
 KSORT_INIT(heap, mm128_t, heap_lt)
 
-static mm_seed_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos)
-{
-	int rep_st = 0, rep_en = 0, n_m;
-	size_t i;
-	mm_seed_t *m;
-	*n_mini_pos = 0;
-	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
-	m = (mm_seed_t*)kmalloc(km, mv->n * sizeof(mm_seed_t));
-	for (i = 0, n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
-		const uint64_t *cr;
-		mm128_t *p = &mv->a[i];
-		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
-		int t;
-		cr = mm_idx_get(mi, p->x>>8, &t);
-		if (t >= max_occ) {
-			int en = (q_pos >> 1) + 1, st = en - q_span;
-			if (st > rep_en) {
-				*rep_len += rep_en - rep_st;
-				rep_st = st, rep_en = en;
-			} else rep_en = en;
-		} else {
-			mm_seed_t *q = &m[n_m++];
-			q->q_pos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
-			q->is_tandem = 0;
-			if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) q->is_tandem = 1;
-			if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) q->is_tandem = 1;
-			*n_a += q->n;
-			(*mini_pos)[(*n_mini_pos)++] = (uint64_t)q_span<<32 | q_pos>>1;
-		}
-	}
-	*rep_len += rep_en - rep_st;
-	*_n_m = n_m;
-	return m;
-}
-
 static inline int skip_seed(int flag, uint64_t r, const mm_seed_t *q, const char *qname, int qlen, const mm_idx_t *mi, int *is_self)
 {
 	*is_self = 0;
@@ -147,7 +112,7 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 	mm_seed_t *m;
 	mm128_t *a, *heap;
 
-	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
+	m = mm_collect_matches(km, &n_m, qlen, max_occ, opt->max_max_occ, opt->occ_dist, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
 
 	heap = (mm128_t*)kmalloc(km, n_m * sizeof(mm128_t));
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
@@ -211,7 +176,7 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 	int i, n_m;
 	mm_seed_t *m;
 	mm128_t *a;
-	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
+	m = mm_collect_matches(km, &n_m, qlen, max_occ, opt->max_max_occ, opt->occ_dist, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
 	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mm_seed_t *q = &m[i];
