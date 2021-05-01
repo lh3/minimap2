@@ -12,7 +12,7 @@ cd minimap2 && make
 ./minimap2 -x map-ont -d MT-human-ont.mmi test/MT-human.fa
 ./minimap2 -a MT-human-ont.mmi test/MT-orang.fa > test.sam
 # use presets (no test data)
-./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio genomic reads
+./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio CLR genomic reads
 ./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam         # Oxford Nanopore genomic reads
 ./minimap2 -ax map-hifi ref.fa pacbio-ccs.fq.gz > aln.sam # PacBio HiFi/CCS genomic reads
 ./minimap2 -ax sr ref.fa read1.fa read2.fa > aln.sam      # short genomic paired-end reads
@@ -139,13 +139,13 @@ parameters at the same time. The default setting is the same as `map-ont`.
 #### <a name="map-long-genomic"></a>Map long noisy genomic reads
 
 ```sh
-minimap2 -ax map-pb  ref.fa pacbio-reads.fq > aln.sam   # for PacBio subreads
+minimap2 -ax map-pb  ref.fa pacbio-reads.fq > aln.sam   # for PacBio CLR reads
 minimap2 -ax map-ont ref.fa ont-reads.fq > aln.sam      # for Oxford Nanopore reads
 ```
 The difference between `map-pb` and `map-ont` is that `map-pb` uses
 homopolymer-compressed (HPC) minimizers as seeds, while `map-ont` uses ordinary
 minimizers as seeds. Emperical evaluation suggests HPC minimizers improve
-performance and sensitivity when aligning PacBio reads, but hurt when aligning
+performance and sensitivity when aligning PacBio CLR reads, but hurt when aligning
 Nanopore reads.
 
 #### <a name="map-long-splice"></a>Map long mRNA/cDNA reads
@@ -206,7 +206,7 @@ strand field. In this case, each line indicates an oriented junction.
 #### <a name="long-overlap"></a>Find overlaps between long reads
 
 ```sh
-minimap2 -x ava-pb  reads.fq reads.fq > ovlp.paf    # PacBio read overlap
+minimap2 -x ava-pb  reads.fq reads.fq > ovlp.paf    # PacBio CLR read overlap
 minimap2 -x ava-ont reads.fq reads.fq > ovlp.paf    # Oxford Nanopore read overlap
 ```
 Similarly, `ava-pb` uses HPC minimizers while `ava-ont` uses ordinary
