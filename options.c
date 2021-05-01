@@ -91,10 +91,11 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag |= MM_I_HPC, io->k = 19;
 	} else if (strcmp(preset, "map-ont") == 0) {
 		io->flag = 0, io->k = 15;
-	} else if (strcmp(preset, "hifi") == 0 || strcmp(preset, "ccs") == 0) {
+	} else if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
-		mo->occ_dist = 100;
+		mo->max_gap = 10000;
+		mo->occ_dist = 500;
 		mo->min_mid_occ = 100;
 		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "asm5") == 0) {

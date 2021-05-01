@@ -523,7 +523,7 @@ Available
 .I STR
 are:
 .RS
-.TP 8
+.TP 9
 .B map-pb
 PacBio/Oxford Nanopore read to reference mapping
 .RB ( -Hk19 )
@@ -535,6 +535,12 @@ For PacBio reads, HPC minimizers consistently leads to faster performance and
 more sensitive results in comparison to normal minimizers. For Oxford Nanopore
 data, normal minimizers are better, though not much. The effectiveness of HPC
 is determined by the sequencing error mode.
+.TP
+.B map-hifi
+PacBio HiFi reads to reference mapping
+.RB ( -k19
+.B -w10 -A1 -B4 -O6,26 -E2,1 -s200 -e100 -g10k
+.BR --min-occ-floor=100 ).
 .TP
 .B asm5
 Long assembly to reference mapping
