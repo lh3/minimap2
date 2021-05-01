@@ -26,7 +26,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
 	opt->chain_gap_scale = 1.0f;
-	opt->max_max_occ = 5000;
+	opt->max_max_occ = 4095;
 	opt->occ_dist = 0;
 
 	opt->mask_level = 0.5f;
@@ -91,6 +91,12 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag |= MM_I_HPC, io->k = 19;
 	} else if (strcmp(preset, "map-ont") == 0) {
 		io->flag = 0, io->k = 15;
+	} else if (strcmp(preset, "hifi") == 0 || strcmp(preset, "ccs") == 0) {
+		io->flag = 0, io->k = 19, io->w = 19;
+		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
+		mo->occ_dist = 100;
+		mo->min_mid_occ = 100;
+		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "asm5") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;

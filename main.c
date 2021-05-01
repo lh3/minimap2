@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.18-r1025-dirty"
+#define MM_VERSION "2.18-r1026-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
