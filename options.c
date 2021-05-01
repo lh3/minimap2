@@ -16,6 +16,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	memset(opt, 0, sizeof(mm_mapopt_t));
 	opt->seed = 11;
 	opt->mid_occ_frac = 2e-4f;
+	opt->max_mid_occ = 1000000000;
 	opt->sdust_thres = 0; // no SDUST masking
 
 	opt->min_cnt = 3;
@@ -63,6 +64,8 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 		opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
 	if (opt->mid_occ < opt->min_mid_occ)
 		opt->mid_occ = opt->min_mid_occ;
+	if (opt->max_mid_occ > opt->min_mid_occ && opt->mid_occ > opt->max_mid_occ)
+		opt->mid_occ = opt->max_mid_occ;
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
 }
@@ -96,7 +99,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 		mo->max_gap = 10000;
 		mo->occ_dist = 500;
-		mo->min_mid_occ = 100;
+		mo->min_mid_occ = 100, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
 	} else if (strcmp(preset, "asm5") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;

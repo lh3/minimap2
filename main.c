@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.18-r1027-dirty"
+#define MM_VERSION "2.18-r1028-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -108,7 +108,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -248,6 +248,9 @@ int main(int argc, char *argv[])
 		} else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
+		} else if (c == 'U') {
+			opt.min_mid_occ = strtol(o.arg, &s, 10);
+			if (*s == ',') opt.max_mid_occ = strtol(s + 1, &s, 10);
 		} else if (c == 'f') {
 			double x;
 			char *p;
