@@ -2,7 +2,7 @@ CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o \
-			chain.o lchain.o align.o hit.o seed.o map.o format.o pe.o esterr.o splitidx.o \
+			lchain.o align.o hit.o seed.o map.o format.o pe.o esterr.o splitidx.o \
 			ksw2_ll_sse.o
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
@@ -107,7 +107,6 @@ depend:
 
 align.o: minimap.h mmpriv.h bseq.h kseq.h ksw2.h kalloc.h
 bseq.o: bseq.h kvec.h kalloc.h kseq.h
-chain.o: minimap.h mmpriv.h bseq.h kseq.h kalloc.h
 esterr.o: mmpriv.h minimap.h bseq.h kseq.h
 example.o: minimap.h kseq.h
 format.o: kalloc.h mmpriv.h minimap.h bseq.h kseq.h
@@ -129,6 +128,5 @@ options.o: mmpriv.h minimap.h bseq.h kseq.h
 pe.o: mmpriv.h minimap.h bseq.h kseq.h kvec.h kalloc.h ksort.h
 sdust.o: kalloc.h kdq.h kvec.h sdust.h
 seed.o: mmpriv.h minimap.h bseq.h kseq.h kalloc.h ksort.h
-self-chain.o: minimap.h kseq.h
 sketch.o: kvec.h kalloc.h mmpriv.h minimap.h bseq.h kseq.h
 splitidx.o: mmpriv.h minimap.h bseq.h kseq.h
