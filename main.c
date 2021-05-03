@@ -71,6 +71,7 @@ static ko_longopt_t long_options[] = {
 	{ "alt",            ko_required_argument, 344 },
 	{ "alt-drop",       ko_required_argument, 345 },
 	{ "mask-len",       ko_required_argument, 346 },
+	{ "rmq",            ko_optional_argument, 347 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -241,6 +242,8 @@ int main(int argc, char *argv[])
 			yes_or_no(&opt, MM_F_HEAP_SORT, o.longidx, o.arg, 1);
 		} else if (c == 326) { // --dual
 			yes_or_no(&opt, MM_F_NO_DUAL, o.longidx, o.arg, 0);
+		} else if (c == 347) { // --rmq
+			yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)

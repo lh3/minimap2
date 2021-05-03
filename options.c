@@ -22,13 +22,15 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
 	opt->bw = 500;
-	opt->max_gap = 5000;
+	opt->max_gap = 10000;
 	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
+	opt->rmq_inner_dist = 1000;
+	opt->rmq_size_cap = 100000;
 	opt->chain_gap_scale = 1.0f;
 	opt->max_max_occ = 4095;
-	opt->occ_dist = 0;
+	opt->occ_dist = 500;
 
 	opt->mask_level = 0.5f;
 	opt->mask_len = INT_MAX;
@@ -51,6 +53,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->anchor_ext_len = 20, opt->anchor_ext_shift = 6;
 	opt->max_clip_ratio = 1.0f;
 	opt->mini_batch_size = 500000000;
+	opt->max_sw_mat = 100000000;
 
 	opt->pe_ori = 0; // FF
 	opt->pe_bonus = 33;
@@ -81,19 +84,18 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	if (preset == 0) {
 		mm_idxopt_init(io);
 		mm_mapopt_init(mo);
+	} else if (strcmp(preset, "map-ont") == 0) { // this is the same as the default
 	} else if (strcmp(preset, "ava-ont") == 0) {
 		io->flag = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
 		mo->bw = 2000;
+	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
+		io->flag |= MM_I_HPC, io->k = 19;
 	} else if (strcmp(preset, "ava-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19, io->w = 5;
 		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
-	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
-		io->flag |= MM_I_HPC, io->k = 19;
-	} else if (strcmp(preset, "map-ont") == 0) {
-		io->flag = 0, io->k = 15;
 	} else if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
@@ -101,24 +103,21 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->occ_dist = 500;
 		mo->min_mid_occ = 100, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
-	} else if (strcmp(preset, "asm5") == 0) {
+	} else if (strncmp(preset, "asm", 3) == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
-		mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
-		mo->min_mid_occ = 100;
+		mo->bw = 100000;
+		mo->flag |= MM_F_RMQ | MM_F_NO_LJOIN;
+		mo->min_mid_occ = 100, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
-	} else if (strcmp(preset, "asm10") == 0) {
-		io->flag = 0, io->k = 19, io->w = 19;
-		mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
-		mo->min_mid_occ = 100;
-		mo->min_dp_max = 200;
-		mo->best_n = 50;
-	} else if (strcmp(preset, "asm20") == 0) {
-		io->flag = 0, io->k = 19, io->w = 10;
-		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
-		mo->min_mid_occ = 100;
-		mo->min_dp_max = 200;
-		mo->best_n = 50;
+		if (strcmp(preset, "asm5") == 0) {
+			mo->a = 1, mo->b = 19, mo->q = 39, mo->q2 = 81, mo->e = 3, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
+		} else if (strcmp(preset, "asm10") == 0) {
+			mo->a = 1, mo->b = 9, mo->q = 16, mo->q2 = 41, mo->e = 2, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
+		} else if (strcmp(preset, "asm20") == 0) {
+			mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1, mo->zdrop = mo->zdrop_inv = 200;
+			io->w = 10;
+		} else return -1;
 	} else if (strcmp(preset, "short") == 0 || strcmp(preset, "sr") == 0) {
 		io->flag = 0, io->k = 21, io->w = 11;
 		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS | MM_F_HEAP_SORT;
@@ -140,6 +139,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	} else if (strncmp(preset, "splice", 6) == 0 || strcmp(preset, "cdna") == 0) {
 		io->flag = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV | MM_F_SPLICE_FLANK;
+		mo->max_sw_mat = 0;
 		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = 200000;
 		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
 		mo->noncan = 9;
@@ -153,6 +153,11 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 
 int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 {
+	if ((mo->flag & MM_F_RMQ) && (mo->flag & (MM_F_SR|MM_F_SPLICE))) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m --rmq doesn't work with --sr or --splice\033[0m\n");
+		return -7;
+	}
 	if (mo->split_prefix && (mo->flag & (MM_F_OUT_CS|MM_F_OUT_MD))) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m --cs or --MD doesn't work with --split-prefix\033[0m\n");

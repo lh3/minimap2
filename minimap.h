@@ -36,6 +36,7 @@
 #define MM_F_NO_END_FLT    0x10000000
 #define MM_F_HARD_MLEVEL   0x20000000
 #define MM_F_SAM_HIT_ONLY  0x40000000
+#define MM_F_RMQ           0x80000000LL
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
@@ -120,6 +121,7 @@ typedef struct {
 	int min_cnt;         // min number of minimizers on each chain
 	int min_chain_score; // min chaining score
 	float chain_gap_scale;
+	int rmq_size_cap, rmq_inner_dist;
 
 	float mask_level;
 	int mask_len;
