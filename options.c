@@ -16,7 +16,8 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	memset(opt, 0, sizeof(mm_mapopt_t));
 	opt->seed = 11;
 	opt->mid_occ_frac = 2e-4f;
-	opt->max_mid_occ = 1000000000;
+	opt->min_mid_occ = 10;
+	opt->max_mid_occ = 1000000;
 	opt->sdust_thres = 0; // no SDUST masking
 
 	opt->min_cnt = 3;
@@ -63,12 +64,13 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 {
 	if ((opt->flag & MM_F_SPLICE_FOR) || (opt->flag & MM_F_SPLICE_REV))
 		opt->flag |= MM_F_SPLICE;
-	if (opt->mid_occ <= 0)
+	if (opt->mid_occ <= 0) {
 		opt->mid_occ = mm_idx_cal_max_occ(mi, opt->mid_occ_frac);
-	if (opt->mid_occ < opt->min_mid_occ)
-		opt->mid_occ = opt->min_mid_occ;
-	if (opt->max_mid_occ > opt->min_mid_occ && opt->mid_occ > opt->max_mid_occ)
-		opt->mid_occ = opt->max_mid_occ;
+		if (opt->mid_occ < opt->min_mid_occ)
+			opt->mid_occ = opt->min_mid_occ;
+		if (opt->max_mid_occ > opt->min_mid_occ && opt->mid_occ > opt->max_mid_occ)
+			opt->mid_occ = opt->max_mid_occ;
+	}
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
 }
@@ -88,26 +90,27 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	} else if (strcmp(preset, "ava-ont") == 0) {
 		io->flag = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
-		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
+		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_chain_skip = 25;
 		mo->bw = 2000;
+		mo->occ_dist = 0;
 	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19;
 	} else if (strcmp(preset, "ava-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19, io->w = 5;
 		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
-		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_gap = 10000, mo->max_chain_skip = 25;
+		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_chain_skip = 25;
+		mo->occ_dist = 0;
 	} else if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
-		mo->max_gap = 10000;
 		mo->occ_dist = 500;
-		mo->min_mid_occ = 100, mo->max_mid_occ = 500;
+		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
 	} else if (strncmp(preset, "asm", 3) == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->bw = 100000;
 		mo->flag |= MM_F_RMQ | MM_F_NO_LJOIN;
-		mo->min_mid_occ = 100, mo->max_mid_occ = 500;
+		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
 		if (strcmp(preset, "asm5") == 0) {

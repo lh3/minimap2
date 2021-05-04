@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.18-r1028-dirty"
+#define MM_VERSION "2.18-r1034-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -339,7 +339,8 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see minimap2.1 for details) []\n");
-		fprintf(fp_help, "                 - map-pb/map-ont - PacBio/Nanopore vs reference mapping\n");
+		fprintf(fp_help, "                 - map-pb/map-ont - PacBio CLR/Nanopore vs reference mapping\n");
+		fprintf(fp_help, "                 - map-hifi - PacBio HiFi reads vs reference mapping\n");
 		fprintf(fp_help, "                 - ava-pb/ava-ont - PacBio/Nanopore read overlap\n");
 		fprintf(fp_help, "                 - asm5/asm10/asm20 - asm-to-ref mapping, for ~0.1/1/5%% sequence divergence\n");
 		fprintf(fp_help, "                 - splice/splice:hq - long-read/Pacbio-CCS spliced alignment\n");
