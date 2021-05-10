@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches:
+    - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+
+    steps:
+    - name: Checkout minimap2
+      uses: actions/checkout@v2
+
+    - name: Compile with ${{ matrix.compiler }}
+      run:  make CC=${{ matrix.compiler }}
