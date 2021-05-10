@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.18-r1034-dirty"
+#define MM_VERSION "2.18-r1035-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -397,6 +397,7 @@ int main(int argc, char *argv[])
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
 		if (alt_list) mm_idx_alt_read(mi, alt_list);
+		if (argc - (o.ind + 1) == 0) continue; // no query files
 		ret = 0;
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i) {
