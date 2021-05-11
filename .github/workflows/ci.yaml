@@ -19,3 +19,20 @@ jobs:
 
     - name: Compile with ${{ matrix.compiler }}
       run:  make CC=${{ matrix.compiler }}
+
+  ubuntu_arm:
+    name: ubuntu arm
+    runs-on: ubuntu-latest
+    steps:
+    - run: docker run --rm --privileged multiarch/qemu-user-static:register --reset
+    - uses: docker://multiarch/ubuntu-core:arm64-bionic
+      with:
+        args: 'uname -a'
+    - uses: actions/checkout@v1
+    - uses: docker://multiarch/ubuntu-core:arm64-bionic
+      with:
+        args: >
+          bash -c "apt-get update &&
+          apt-get install -y zlib1g-dev gcc make &&
+          ldd --version && gcc --version &&
+          make arm_neon=1 aarch64=1
