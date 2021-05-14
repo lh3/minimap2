@@ -144,7 +144,7 @@ properties:
 * **mlen**: length of the matching bases in the alignment, excluding ambiguous
   base matches.
 
-* **NM**: number of mismatches, gaps and ambiguous poistions in the alignment
+* **NM**: number of mismatches, gaps and ambiguous positions in the alignment
 
 * **trans_strand**: transcript strand. +1 if on the forward strand; -1 if on the
   reverse strand; 0 if unknown
