@@ -275,7 +275,7 @@ CGATCGATAAATAGAGTAG---GAATAGCA
 CGATCG---AATAGAGTAGGTCGAATtGCA
 ```
 is represented as `:6-ata:10+gtc:4*at:3`, where `:[0-9]+` represents an
-identical block, `-ata` represents a deltion, `+gtc` an insertion and `*at`
+identical block, `-ata` represents a deletion, `+gtc` an insertion and `*at`
 indicates reference base `a` is substituted with a query base `t`. It is
 similar to the `MD` SAM tag but is standalone and easier to parse.
 
