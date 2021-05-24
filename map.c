@@ -273,10 +273,10 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	if (opt->flag & MM_F_RMQ) {
 		a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
-						  opt->chain_gap_scale * 0.2f, 0.0f, n_a, a, &n_regs0, &u, b->km);
+						  opt->chain_gap_scale * 0.01 * mi->k, 0.0f, n_a, a, &n_regs0, &u, b->km);
 	} else {
 		a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
-						 opt->chain_gap_scale * 0.2f, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
+						 opt->chain_gap_scale * 0.01 * mi->k, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 	}
 
 	if (opt->max_occ > opt->mid_occ && rep_len > 0 && !(opt->flag & MM_F_RMQ)) {
@@ -300,7 +300,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			if (opt->flag & MM_F_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			else a = collect_seed_hits(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
-							 opt->chain_gap_scale * 0.2f, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
+							 opt->chain_gap_scale * 0.01 * mi->k, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
 	}
 	b->frag_gap = max_chain_gap_ref;
