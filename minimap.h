@@ -122,6 +122,8 @@ typedef struct {
 	int min_chain_score; // min chaining score
 	float chain_gap_scale;
 	int rmq_size_cap, rmq_inner_dist;
+	int rmq_rescue_size;
+	float rmq_rescue_ratio;
 
 	float mask_level;
 	int mask_len;

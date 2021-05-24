@@ -300,9 +300,9 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
 							 opt->chain_gap_scale * 0.01 * mi->k, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
-	} else if (opt->bw_long > opt->bw && !(opt->flag & (MM_F_RMQ|MM_F_NO_LJOIN)) && n_segs == 1 && n_regs0 > 1) {
+	} else if (opt->bw_long > opt->bw && (opt->flag & (MM_F_RMQ|MM_F_NO_LJOIN)) == 0 && n_segs == 1 && n_regs0 > 1) {
 		int32_t st = (int32_t)a[0].y, en = (int32_t)a[(int32_t)u[0] - 1].y;
-		if (qlen_sum - (en - st) > 1000 || en - st > qlen_sum * .1) {
+		if (qlen_sum - (en - st) > opt->rmq_rescue_size || en - st > qlen_sum * opt->rmq_rescue_ratio) {
 			int32_t i;
 			for (i = 0, n_a = 0; i < n_regs0; ++i) n_a += (int32_t)u[i];
 			kfree(b->km, u);
