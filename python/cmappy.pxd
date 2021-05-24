@@ -13,7 +13,9 @@ cdef extern from "minimap.h":
 		int64_t flag
 		int seed
 		int sdust_thres
+
 		int max_qlen
+
 		int bw
 		int max_gap, max_gap_ref
 		int max_frag_len
@@ -21,14 +23,19 @@ cdef extern from "minimap.h":
 		int min_cnt
 		int min_chain_score
 		float chain_gap_scale
+		int rmq_size_cap, rmq_inner_dist
+
 		float mask_level
 		int mask_len
 		float pri_ratio
 		int best_n
+
 		int max_join_long, max_join_short
 		int min_join_flank_sc
 		float min_join_flank_ratio
+
 		float alt_drop
+
 		int a, b, q, e, q2, e2
 		int sc_ambi
 		int noncan
@@ -39,13 +46,16 @@ cdef extern from "minimap.h":
 		int min_ksw_len
 		int anchor_ext_len, anchor_ext_shift
 		float max_clip_ratio
+
 		int pe_ori, pe_bonus
+
 		float mid_occ_frac
 		int32_t min_mid_occ
 		int32_t mid_occ
 		int32_t max_occ
 		int64_t mini_batch_size
 		int64_t max_sw_mat
+
 		const char *split_prefix
 
 	int mm_set_opt(char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
