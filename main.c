@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.18-r1048-dirty"
+#define MM_VERSION "2.18-r1049-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -205,7 +205,6 @@ int main(int argc, char *argv[])
 		else if (c == 327) opt.max_clip_ratio = atof(o.arg); // --max-clip-ratio
 		else if (c == 328) opt.min_mid_occ = atoi(o.arg); // --min-occ-floor
 		else if (c == 329) opt.flag |= MM_F_OUT_MD; // --MD
-		else if (c == 330) opt.min_join_flank_ratio = atof(o.arg); // --lj-min-ratio
 		else if (c == 331) opt.sc_ambi = atoi(o.arg); // --score-N
 		else if (c == 332) opt.flag |= MM_F_EQX; // --eqx
 		else if (c == 333) opt.flag |= MM_F_PAF_NO_HIT; // --paf-no-hit
@@ -221,7 +220,9 @@ int main(int argc, char *argv[])
 		else if (c == 344) alt_list = o.arg; // --alt
 		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
 		else if (c == 346) opt.mask_len = mm_parse_num(o.arg); // --mask-len
-		else if (c == 314) { // --frag
+		else if (c == 330) {
+			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
+		} else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary
 			yes_or_no(&opt, MM_F_NO_PRINT_2ND, o.longidx, o.arg, 0);

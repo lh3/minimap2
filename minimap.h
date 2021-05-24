@@ -128,10 +128,6 @@ typedef struct {
 	float pri_ratio;
 	int best_n;      // top best_n chains are subjected to DP alignment
 
-	int max_join_long, max_join_short;
-	int min_join_flank_sc;
-	float min_join_flank_ratio;
-
 	float alt_drop;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
