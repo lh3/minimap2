@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.18-r1049-dirty"
+#define MM_VERSION "2.18-r1050-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -83,15 +83,21 @@ static ko_longopt_t long_options[] = {
 	{ 0, 0, 0 }
 };
 
-static inline int64_t mm_parse_num(const char *str)
+static inline int64_t mm_parse_num2(const char *str, char **q)
 {
 	double x;
 	char *p;
 	x = strtod(str, &p);
-	if (*p == 'G' || *p == 'g') x *= 1e9;
-	else if (*p == 'M' || *p == 'm') x *= 1e6;
-	else if (*p == 'K' || *p == 'k') x *= 1e3;
+	if (*p == 'G' || *p == 'g') x *= 1e9, ++p;
+	else if (*p == 'M' || *p == 'm') x *= 1e6, ++p;
+	else if (*p == 'K' || *p == 'k') x *= 1e3, ++p;
+	if (q) *q = p;
 	return (int64_t)(x + .499);
+}
+
+static inline int64_t mm_parse_num(const char *str)
+{
+	return mm_parse_num2(str, 0);
 }
 
 static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const char *arg, int yes_to_set)
@@ -145,7 +151,6 @@ int main(int argc, char *argv[])
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 'H') ipt.flag |= MM_I_HPC;
 		else if (c == 'd') fnw = o.arg; // the above are indexing related options, except -I
-		else if (c == 'r') opt.bw = (int)mm_parse_num(o.arg);
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'v') mm_verbose = atoi(o.arg);
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(o.arg);
@@ -252,6 +257,9 @@ int main(int argc, char *argv[])
 		} else if (c == 'V') {
 			puts(MM_VERSION);
 			return 0;
+		} else if (c == 'r') {
+			opt.bw = (int)mm_parse_num2(o.arg, &s);
+			if (*s == ',') opt.bw_long = (int)mm_parse_num2(s + 1, &s);
 		} else if (c == 'U') {
 			opt.min_mid_occ = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.max_mid_occ = strtol(s + 1, &s, 10);
