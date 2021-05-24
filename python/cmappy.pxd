@@ -16,7 +16,7 @@ cdef extern from "minimap.h":
 
 		int max_qlen
 
-		int bw
+		int bw, bw_long
 		int max_gap, max_gap_ref
 		int max_frag_len
 		int max_chain_skip, max_chain_iter

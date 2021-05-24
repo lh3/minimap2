@@ -22,14 +22,14 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
-	opt->bw = 500;
+	opt->bw = 500, opt->bw_long = 20000;
 	opt->max_gap = 10000;
 	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
 	opt->rmq_inner_dist = 1000;
 	opt->rmq_size_cap = 100000;
-	opt->chain_gap_scale = 1.0f;
+	opt->chain_gap_scale = 0.8f;
 	opt->max_max_occ = 4095;
 	opt->occ_dist = 500;
 
@@ -91,7 +91,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_chain_skip = 25;
-		mo->bw = 2000;
+		mo->bw = mo->bw_long = 2000;
 		mo->occ_dist = 0;
 	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19;
@@ -99,6 +99,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag |= MM_I_HPC, io->k = 19, io->w = 5;
 		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_chain_skip = 25;
+		mo->bw_long = mo->bw;
 		mo->occ_dist = 0;
 	} else if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
@@ -108,7 +109,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_dp_max = 200;
 	} else if (strncmp(preset, "asm", 3) == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
-		mo->bw = 100000;
+		mo->bw = mo->bw_long = 100000;
 		mo->flag |= MM_F_RMQ | MM_F_NO_LJOIN;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
@@ -130,7 +131,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->end_bonus = 10;
 		mo->max_frag_len = 800;
 		mo->max_gap = 100;
-		mo->bw = 100;
+		mo->bw = mo->bw_long = 100;
 		mo->pri_ratio = 0.5f;
 		mo->min_cnt = 2;
 		mo->min_chain_score = 25;
@@ -143,7 +144,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV | MM_F_SPLICE_FLANK;
 		mo->max_sw_mat = 0;
-		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = 200000;
+		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = mo->bw_long = 200000;
 		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
 		mo->noncan = 9;
 		mo->junc_bonus = 9;

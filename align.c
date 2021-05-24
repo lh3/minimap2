@@ -567,7 +567,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE);
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
 	uint8_t *tseq, *qseq, *junc;
-	int32_t i, l, bw, dropped = 0, extra_flag = 0, rs0, re0, qs0, qe0;
+	int32_t i, l, bw, bw_long, dropped = 0, extra_flag = 0, rs0, re0, qs0, qe0;
 	int32_t rs, re, qs, qe;
 	int32_t rs1, qs1, re1, qe1;
 	int8_t mat[25];
@@ -578,6 +578,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	if (r->cnt == 0) return;
 	ksw_gen_simple_mat(5, mat, opt->a, opt->b, opt->sc_ambi);
 	bw = (int)(opt->bw * 1.5 + 1.);
+	bw_long = (int)(opt->bw_long * 1.5 + 1.);
+	if (bw_long < bw) bw_long = bw;
 
 	if (is_sr && !(mi->flag & MM_I_HPC)) {
 		mm_max_stretch(r, a, &as1, &cnt1);
@@ -714,7 +716,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		} else mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
 		re1 = re, qe1 = qe;
 		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || (qe - qs >= opt->min_ksw_len && re - rs >= opt->min_ksw_len)) {
-			int j, bw1 = bw, zdrop_code;
+			int j, bw1 = bw_long, zdrop_code;
 			if (a[as1+i].y & MM_SEED_LONG_JOIN)
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
 			// perform alignment

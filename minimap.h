@@ -114,7 +114,7 @@ typedef struct {
 
 	int max_qlen;    // max query length
 
-	int bw;          // bandwidth
+	int bw, bw_long; // bandwidth
 	int max_gap, max_gap_ref; // break a chain if there are no minimizers in a max_gap window
 	int max_frag_len;
 	int max_chain_skip, max_chain_iter;
