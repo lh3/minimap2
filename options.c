@@ -23,7 +23,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
 	opt->bw = 500, opt->bw_long = 20000;
-	opt->max_gap = 10000;
+	opt->max_gap = 5000;
 	opt->max_gap_ref = -1;
 	opt->max_chain_skip = 25;
 	opt->max_chain_iter = 5000;
@@ -100,6 +100,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->occ_dist = 0;
 	} else if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
+		mo->max_gap = 10000;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 		mo->occ_dist = 500;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
@@ -107,6 +108,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	} else if (strncmp(preset, "asm", 3) == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->bw = mo->bw_long = 100000;
+		mo->max_gap = 10000;
 		mo->flag |= MM_F_RMQ | MM_F_NO_LJOIN;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
