@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.18-r1022-dirty';
+var paftools_version = '2.18-r1053-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2372,25 +2372,40 @@ function paf_junceval(args)
 	var re_cigar = /(\d+)([MIDNSHX=])/g;
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
+		var ctg_name = null, cigar = null, pos = null, qname = t[0];
 
 		if (t[0].charAt(0) == '@') continue;
-		if (chr_only && !/^(chr)?([0-9]+|X|Y)$/.test(t[2])) continue;
-		var flag = parseInt(t[1]);
-		if (flag&0x100) continue;
-		if (first_only && last_qname == t[0]) continue;
-		if (t[2] == '*') {
+		if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
+			ctg_name = t[5], pos = parseInt(t[7]);
+			var type = 'P';
+			for (i = 12; i < t.length; ++i) {
+				if ((m = /^(tp:A|cg:Z):(\S+)/.exec(t[i])) != null) {
+					if (m[1] == 'tp:A') type = m[2];
+					else cigar = m[2];
+				}
+			}
+			if (type == 'S') continue; // secondary
+		} else { // SAM
+			ctg_name = t[2], pos = parseInt(t[3]) - 1, cigar = t[5];
+			var flag = parseInt(t[1]);
+			if (flag&0x100) continue; // secondary
+		}
+
+		if (chr_only && !/^(chr)?([0-9]+|X|Y)$/.test(ctg_name)) continue;
+		if (first_only && last_qname == qname) continue;
+		if (ctg_name == '*') { // unmapped
 			++n_unmapped;
 			continue;
 		} else {
 			++n_pri;
-			if (last_qname != t[0]) {
+			if (last_qname != qname) {
 				++n_mapped;
-				last_qname = t[0];
+				last_qname = qname;
 			}
 		}
 
-		var pos = parseInt(t[3]) - 1, intron = [];
-		while ((m = re_cigar.exec(t[5])) != null) {
+		var intron = [];
+		while ((m = re_cigar.exec(cigar)) != null) {
 			var len = parseInt(m[1]), op = m[2];
 			if (op == 'N') {
 				intron.push([pos, pos + len]);
@@ -2403,7 +2418,7 @@ function paf_junceval(args)
 		}
 		n_splice += intron.length;
 
-		var chr = anno[t[2]];
+		var chr = anno[ctg_name];
 		if (chr != null) {
 			for (var i = 0; i < intron.length; ++i) {
 				var o = Interval.find_ovlp(chr, intron[i][0], intron[i][1]);
@@ -2427,12 +2442,12 @@ function paf_junceval(args)
 							x += '(' + o[j][0] + "," + o[j][1] + ')';
 						}
 						x += ']';
-						print(type, t[0], i+1, t[2], intron[i][0], intron[i][1], x);
+						print(type, qname, i+1, ctg_name, intron[i][0], intron[i][1], x);
 					}
 				} else {
 					++n_splice_novel;
 					if (print_ovlp)
-						print('N', t[0], i+1, t[2], intron[i][0], intron[i][1]);
+						print('N',  qname, i+1, ctg_name, intron[i][0], intron[i][1]);
 				}
 			}
 		} else {
