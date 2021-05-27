@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.19-r1057"
+#define MM_VERSION "2.19-r1059-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -296,6 +296,8 @@ int main(int argc, char *argv[])
 	}
 	if (!fnw && !(opt.flag&MM_F_CIGAR))
 		ipt.flag |= MM_I_NO_SEQ;
+	if (opt.bw < opt.bw_long && (opt.flag&MM_F_RMQ))
+		opt.bw = opt.bw_long;
 	if (mm_check_opt(&ipt, &opt) < 0)
 		return 1;
 	if (opt.best_n == 0) {
