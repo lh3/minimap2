@@ -1,4 +1,4 @@
-Release 2.19-r1055 (26 May 2021)
+Release 2.19-r1057 (26 May 2021)
 --------------------------------
 
 This release includes a few important improvements backported from unimap:
@@ -33,7 +33,7 @@ unimap for contig alignment. Unimap will remain an experimental project and is
 no longer recommended over minimap2. Sorry for reverting the recommendation in
 short time.
 
-(2.20: 26 May 2021, r1055)
+(2.20: 26 May 2021, r1057)
 
 
 

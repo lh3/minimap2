@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.19-r1055"
+#define MM_VERSION "2.19-r1057"
 
 #ifdef __linux__
 #include <sys/resource.h>
