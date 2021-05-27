@@ -1,3 +1,42 @@
+Release 2.19-r1055 (26 May 2021)
+--------------------------------
+
+This release includes a few important improvements backported from unimap:
+
+ * Improvement: more contiguous alignment through long INDELs. This is enabled
+   by the minigraph chaining algorithm. All `asm*` presets now use the new
+   algorithm. They can find INDELs up to 100kb and may be faster for
+   chromosome-long contigs. The default mode and `map*` presets use this
+   algorithm to replace the long-join heuristic.
+
+ * Improvement: better alignment in highly repetitive regions by rescuing
+   high-occurrence seeds. If the distance between two adjacent seeds is too
+   large, attempt to choose a fraction of high-occurrence seeds in-between.
+   Minimap2 now produces fewer clippings and alignment break points in long
+   satellite regions.
+
+ * Improvement: allow to specify an interval of k-mer occurrences with `-U`.
+   For repeat-rich genomes, the automatic k-mer occurrence threshold determined
+   by `-f` may be too large and makes alignment impractically slow. The new
+   option protects against such cases. Enabled for `asm*` and `map-hifi`.
+
+ * New feature: added the `map-hifi` preset for maping PacBio High-Fidelity
+   (HiFi) reads.
+
+ * Change to the default: apply `--cap-sw-mem=100m` for genomic alignment.
+
+ * Bugfix: minimap2 could not generate an index file with `-xsr` (#734).
+
+This release represents the most signficant algorithmic change since v2.1 in
+2017. With features backported from unimap, minimap2 now has similar power to
+unimap for contig alignment. Unimap will remain an experimental project and is
+no longer recommended over minimap2. Sorry for reverting the recommendation in
+short time.
+
+(2.20: 26 May 2021, r1055)
+
+
+
 Release 2.18-r1015 (9 April 2021)
 ---------------------------------
 
