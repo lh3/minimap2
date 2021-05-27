@@ -1,3 +1,15 @@
+Release 2.20-r1061 (27 May 2021)
+--------------------------------
+
+This release fixed a bug in the Python module and improves the command-line
+compatibiliity with v2.18. In v2.19, if `-r` is specified with an `asm*` preset,
+users would get alignments more fragmented than v2.18. This could be an issue
+for existing pipelines specifying `-r`. This release resolves this issue.
+
+(2.20: 27 May 2021, r1061)
+
+
+
 Release 2.19-r1057 (26 May 2021)
 --------------------------------
 
@@ -33,7 +45,7 @@ unimap for contig alignment. Unimap will remain an experimental project and is
 no longer recommended over minimap2. Sorry for reverting the recommendation in
 short time.
 
-(2.20: 26 May 2021, r1057)
+(2.19: 26 May 2021, r1057)
 
 
 

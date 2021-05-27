@@ -75,7 +75,7 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 void mm_mapopt_max_intron_len(mm_mapopt_t *opt, int max_intron_len)
 {
 	if ((opt->flag & MM_F_SPLICE) && max_intron_len > 0)
-		opt->max_gap_ref = opt->bw = max_intron_len;
+		opt->max_gap_ref = opt->bw = opt->bw_long = max_intron_len;
 }
 
 int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
@@ -109,7 +109,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->bw = mo->bw_long = 100000;
 		mo->max_gap = 10000;
-		mo->flag |= MM_F_RMQ | MM_F_NO_LJOIN;
+		mo->flag |= MM_F_RMQ;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
 		mo->best_n = 50;
