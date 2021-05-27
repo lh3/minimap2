@@ -165,9 +165,12 @@ Stop chain enlongation if there are no minimizers within
 .IR NUM -bp
 [10k].
 .TP
-.BI -r \ NUM
-Bandwidth used in chaining and DP-based alignment [500,20k]. This option
-approximately controls the maximum gap size.
+.BI -r \ NUM1 [, NUM2 ]
+Bandwidth for chaining and base alignment [500,20k].
+.I NUM1
+is used for initial chaining and alignment extension;
+.I NUM2
+for RMQ-based re-chaining and closing gaps in alignments.
 .TP
 .BI -n \ INT
 Discard chains consisting of

@@ -156,6 +156,11 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 
 int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 {
+	if (mo->bw > mo->bw_long) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m with '-rNUM1,NUM2', NUM1 (%d) can't be larger than NUM2 (%d)\033[0m\n", mo->bw, mo->bw_long);
+		return -8;
+	}
 	if ((mo->flag & MM_F_RMQ) && (mo->flag & (MM_F_SR|MM_F_SPLICE))) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m --rmq doesn't work with --sr or --splice\033[0m\n");
