@@ -33,7 +33,7 @@ setup(
 	keywords = 'sequence-alignment',
 	scripts = ['python/minimap2.py'],
 	ext_modules = [Extension('mappy',
-		sources = ['python/mappy.pyx', 'align.c', 'bseq.c', 'lchain.c', 'format.c', 'hit.c', 'index.c', 'pe.c', 'options.c',
+		sources = ['python/mappy.pyx', 'align.c', 'bseq.c', 'lchain.c', 'seed.c', 'format.c', 'hit.c', 'index.c', 'pe.c', 'options.c',
 				   'ksw2_extd2_sse.c', 'ksw2_exts2_sse.c', 'ksw2_extz2_sse.c', 'ksw2_ll_sse.c',
 				   'kalloc.c', 'kthread.c', 'map.c', 'misc.c', 'sdust.c', 'sketch.c', 'esterr.c', 'splitidx.c'],
 		depends = ['minimap.h', 'bseq.h', 'kalloc.h', 'kdq.h', 'khash.h', 'kseq.h', 'ksort.h',
