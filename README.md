@@ -96,7 +96,7 @@ with the ARM related command lines given above.
 
 Without any options, minimap2 takes a reference database and a query sequence
 file as input and produce approximate mapping, without base-level alignment
-(i.e. no CIGAR), in the [PAF format][paf]:
+(i.e. coordinates are only approximate and no CIGAR in output), in the [PAF format][paf]:
 ```sh
 minimap2 ref.fa query.fq > approx-mapping.paf
 ```
