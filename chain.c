@@ -1,10 +1,39 @@
+/* The MIT License
+
+Copyright (c) 2018-     Dana-Farber Cancer Institute
+              2017-2018 Broad Institute, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+Modified Copyright (C) 2021 Intel Corporation
+   Contacts: Saurabh Kalikar <saurabh.kalikar@intel.com>; 
+	Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>; 
+	Chirag Jain <chirag@iisc.ac.in>; Heng Li <hli@jimmy.harvard.edu>
+*/
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
 #include "minimap.h"
 #include "mmpriv.h"
 #include "kalloc.h"
-
+#include "parallel_chaining_32_bit.h"
 static const char LogTable256[256] = {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
 	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -19,9 +48,11 @@ static inline int ilog2_32(uint32_t v)
 	return (t = v>>8) ? 8 + LogTable256[t] : LogTable256[v];
 }
 
+
 mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float gap_scale, int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
-	int32_t k, *f, *p, *t, *v, n_u, n_v;
+	int32_t k, *p, *t, *v, n_u, n_v;
+	uint32_t *f;
 	int64_t i, j, st = 0;
 	uint64_t *u, *u2, sum_qspan = 0;
 	float avg_qspan;
@@ -32,11 +63,33 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		kfree(km, a);
 		return 0;
 	}
-	f = (int32_t*)kmalloc(km, n * 4);
+	f = (uint32_t*)kmalloc(km, n * 4);
 	p = (int32_t*)kmalloc(km, n * 4);
 	t = (int32_t*)kmalloc(km, n * 4);
 	v = (int32_t*)kmalloc(km, n * 4);
 	memset(t, 0, n * 4);
+#if VECTORIZED_CHAINING
+	anchor_t* anchors = (anchor_t*)malloc(n* sizeof(anchor_t));
+	for (i = 0; i < n; ++i) {
+		uint64_t ri = a[i].x;
+		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
+		anchors[i].r = ri;
+		anchors[i].q = qi;
+		anchors[i].l = q_span;
+	}
+	num_bits_t *anchor_r, *anchor_q, *anchor_l;
+	create_SoA_Anchors_32_bit(anchors, n, anchor_r, anchor_q, anchor_l);
+	dp_chain obj(max_dist_x, max_dist_y, bw, max_skip, max_iter, gap_scale, is_cdna, n_segs);
+
+	obj.mm_dp_vectorized(n, &anchors[0], anchor_r, anchor_q, anchor_l, f, p, v, max_dist_x, max_dist_y, NULL, NULL);	
+
+	// -16 is due to extra padding at the start of arrays
+	anchor_r -= 16; anchor_q -= 16; anchor_l -= 16;
+	free(anchor_r); 
+	free(anchor_q); 
+	free(anchor_l);
+	free(anchors);
+#else
 
 	for (i = 0; i < n; ++i) sum_qspan += a[i].y>>32&0xff;
 	avg_qspan = (float)sum_qspan / n;
@@ -85,7 +138,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 	}
-
+#endif
 	// find the ending positions of chains
 	memset(t, 0, n * 4);
 	for (i = 0; i < n; ++i)

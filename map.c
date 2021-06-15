@@ -1,3 +1,32 @@
+/* The MIT License
+
+Copyright (c) 2018-     Dana-Farber Cancer Institute
+              2017-2018 Broad Institute, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+Modified Copyright (C) 2021 Intel Corporation
+   Contacts: Saurabh Kalikar <saurabh.kalikar@intel.com>; 
+	Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>; 
+	Chirag Jain <chirag@iisc.ac.in>; Heng Li <hli@jimmy.harvard.edu>
+*/
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -9,6 +38,17 @@
 #include "mmpriv.h"
 #include "bseq.h"
 #include "khash.h"
+#include <x86intrin.h>
+
+#ifdef LISA_HASH
+#include "lisa_hash.h"
+extern lisa_hash<uint64_t, uint64_t> *lh;
+#endif
+
+#ifdef MANUAL_PROFILING
+extern uint64_t num_reads, minimizer_hit_time, dp_chaining_time, alignment_time;
+#endif
+
 
 struct mm_tbuf_s {
 	void *km;
@@ -87,6 +127,77 @@ typedef struct {
 	const uint64_t *cr;
 } mm_match_t;
 
+
+#ifdef LISA_HASH
+static mm_match_t *collect_matches_lisa_hash(void *km, int *_n_m, int max_occ, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos)
+{
+	uint64_t** cr_batch = (uint64_t**) malloc((mv->n)*sizeof(uint64_t*));
+	int* t_batch = (int*)malloc((mv->n)*sizeof(int));
+	uint64_t* minimizers = (uint64_t*) malloc((mv->n)*sizeof(uint64_t));
+	int64_t* lisa_pos = (int64_t*) malloc((max(32, (int)mv->n))* sizeof(int64_t));
+	
+	int rep_st = 0, rep_en = 0, n_m;
+	size_t i;
+	mm_match_t *m;
+	*n_mini_pos = 0;
+	*mini_pos = (uint64_t*)kmalloc(km, mv->n * sizeof(uint64_t));
+	m = (mm_match_t*)kmalloc(km, mv->n * sizeof(mm_match_t));
+	
+	for (i = 0; i < mv->n; i++) {
+		mm128_t *p = &mv->a[i];
+		minimizers[i] = p->x>>8;
+	}
+	
+	lh->mm_idx_get_batched(minimizers, mv->n, lisa_pos, cr_batch, t_batch); 
+	for (i = 0, n_m = 0, *rep_len = 0, *n_a = 0; i < mv->n; ++i) {
+		const uint64_t *cr;
+		mm128_t *p = &mv->a[i];
+		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
+		int t;
+		cr = cr_batch[i]; t = t_batch[i];
+/*Correctness check for lisa_hash*/
+#ifdef LISA_HASH_ASSERT	
+		int t_minimap2_original;
+		const uint64_t *cr_minimap2_hash = mm_idx_get(mi, p->x>>8, &t);
+		cr_minimap2_hash = mm_idx_get(mi, p->x>>8, &t_minimap2_original);
+		assert(t == t_minimap2_original);	
+#endif
+		if (t >= max_occ) {
+
+			int en = (q_pos >> 1) + 1, st = en - q_span;
+			if (st > rep_en) {
+				*rep_len += rep_en - rep_st;
+				rep_st = st, rep_en = en;
+			} else rep_en = en;
+		} else {
+#ifdef LISA_HASH_ASSERT
+			//Correctness assertion
+			for(int itr = 0; itr < t; itr++){
+				assert((cr[itr] == cr_minimap2_hash[itr]));
+			}
+#endif	
+			mm_match_t *q = &m[n_m++];
+			q->q_pos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
+			q->is_tandem = 0;
+			if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) q->is_tandem = 1;
+			if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) q->is_tandem = 1;
+			*n_a += q->n;
+			(*mini_pos)[(*n_mini_pos)++] = (uint64_t)q_span<<32 | q_pos>>1;
+		}
+	}
+
+	free(cr_batch);
+	free(t_batch);
+	free(minimizers);
+	free(lisa_pos);
+
+	*rep_len += rep_en - rep_st;
+	*_n_m = n_m;
+	return m;
+}
+#endif
+
+
 static mm_match_t *collect_matches(void *km, int *_n_m, int max_occ, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos)
 {
 	int rep_st = 0, rep_en = 0, n_m;
@@ -144,6 +255,51 @@ static inline int skip_seed(int flag, uint64_t r, const mm_match_t *q, const cha
 		}
 	}
 	return 0;
+}
+
+
+static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
+								  int *n_mini_pos, uint64_t **mini_pos)
+{
+	int i, n_m;
+	mm_match_t *m;
+	mm128_t *a;
+#ifndef LISA_HASH
+	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
+#else
+	m = collect_matches_lisa_hash(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
+#endif
+	uint64_t mapping_count = 0;
+	mapping_count = 0;
+
+	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
+	for (i = 0, *n_a = 0; i < n_m; ++i) {
+		
+		mm_match_t *q = &m[i];
+		const uint64_t *r = q->cr;
+		uint32_t k;
+		for (k = 0; k < q->n; ++k) {
+			uint64_t r_k = r[k];
+			int32_t is_self, rpos = (uint32_t)r_k >> 1;
+			mm128_t *p;
+			if (skip_seed(opt->flag, r_k, q, qname, qlen, mi, &is_self)) continue;
+			p = &a[(*n_a)++];
+			if ((r_k&1) == (q->q_pos&1)) { // forward strand
+				p->x = (r_k & 0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
+			} else { // reverse strand
+				p->x = 1ULL<<63 | (r_k & 0xffffffff00000000ULL) | rpos;
+				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
+			}
+			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
+			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
+			if (is_self) p->y |= MM_SEED_SELF;
+		}
+	}
+	
+	kfree(km, m);
+	radix_sort_128x(a, a + (*n_a));
+	return a;
 }
 
 static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
@@ -212,40 +368,6 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 	return a;
 }
 
-static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
-								  int *n_mini_pos, uint64_t **mini_pos)
-{
-	int i, n_m;
-	mm_match_t *m;
-	mm128_t *a;
-	m = collect_matches(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
-	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
-	for (i = 0, *n_a = 0; i < n_m; ++i) {
-		mm_match_t *q = &m[i];
-		const uint64_t *r = q->cr;
-		uint32_t k;
-		for (k = 0; k < q->n; ++k) {
-			int32_t is_self, rpos = (uint32_t)r[k] >> 1;
-			mm128_t *p;
-			if (skip_seed(opt->flag, r[k], q, qname, qlen, mi, &is_self)) continue;
-			p = &a[(*n_a)++];
-			if ((r[k]&1) == (q->q_pos&1)) { // forward strand
-				p->x = (r[k]&0xffffffff00000000ULL) | rpos;
-				p->y = (uint64_t)q->q_span << 32 | q->q_pos >> 1;
-			} else { // reverse strand
-				p->x = 1ULL<<63 | (r[k]&0xffffffff00000000ULL) | rpos;
-				p->y = (uint64_t)q->q_span << 32 | (qlen - ((q->q_pos>>1) + 1 - q->q_span) - 1);
-			}
-			p->y |= (uint64_t)q->seg_id << MM_SEED_SEG_SHIFT;
-			if (q->is_tandem) p->y |= MM_SEED_TANDEM;
-			if (is_self) p->y |= MM_SEED_SELF;
-		}
-	}
-	kfree(km, m);
-	radix_sort_128x(a, a + (*n_a));
-	return a;
-}
-
 static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_idx_t *mi, void *km, int qlen, int n_segs, const int *qlens, int *n_regs, mm_reg1_t *regs, mm128_t *a)
 {
 	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
@@ -271,6 +393,11 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 
 void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
+	
+#ifdef MANUAL_PROFILING
+	num_reads++;
+#endif
+
 	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
 	uint32_t hash;
@@ -293,8 +420,18 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	collect_minimizers(b->km, opt, mi, n_segs, qlens, seqs, &mv);
 	if (opt->flag & MM_F_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
-	else a = collect_seed_hits(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
+	else {
 
+#ifdef MANUAL_PROFILING
+		uint64_t mm_hit_start = __rdtsc();
+#endif
+
+		a = collect_seed_hits(b->km, opt, opt->mid_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
+
+#ifdef MANUAL_PROFILING
+		minimizer_hit_time += (__rdtsc() - mm_hit_start);
+#endif
+	}
 	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
 		fprintf(stderr, "RS\t%d\n", rep_len);
 		for (i = 0; i < n_a; ++i)
@@ -312,8 +449,15 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		max_chain_gap_ref = opt->max_frag_len - qlen_sum;
 		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
 	} else max_chain_gap_ref = opt->max_gap;
-
+#ifdef MANUAL_PROFILING
+	uint64_t dp_start = __rdtsc();
+#endif
 	a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score, opt->chain_gap_scale, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
+
+
+#ifdef MANUAL_PROFILING
+	dp_chaining_time += (__rdtsc() - dp_start);
+#endif
 
 	if (opt->max_occ > opt->mid_occ && rep_len > 0) {
 		int rechain = 0;
@@ -335,6 +479,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			kfree(b->km, mini_pos);
 			if (opt->flag & MM_F_HEAP_SORT) a = collect_seed_hits_heap(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
 			else a = collect_seed_hits(b->km, opt, opt->max_occ, mi, qname, &mv, qlen_sum, &n_a, &rep_len, &n_mini_pos, &mini_pos);
+
 			a = mm_chain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score, opt->chain_gap_scale, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 		}
 	}
@@ -430,6 +575,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	int qlens[MM_MAX_SEG], j, off = s->seg_off[i], pe_ori = s->p->opt->pe_ori;
 	const char *qseqs[MM_MAX_SEG];
 	mm_tbuf_t *b = s->buf[tid];
+
 	assert(s->n_seg[i] <= MM_MAX_SEG);
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[off].name, tid, s->seq[off].l_seq);
@@ -561,6 +707,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
 		return in;
     } else if (step == 2) { // step 2: output
+
 		void *km = 0;
         step_t *s = (step_t*)in;
 		const mm_idx_t *mi = p->mi;
@@ -569,6 +716,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (k = 0; k < s->n_frag; ++k) {
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
+#ifndef DISABLE_OUTPUT
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
 				if (p->opt->split_prefix && p->n_parts == 0) { // then write to temporary files
@@ -603,6 +751,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 					mm_err_puts(p->str.s);
 				}
 			}
+#endif
 			for (i = seg_st; i < seg_en; ++i) {
 				for (j = 0; j < s->n_reg[i]; ++j) free(s->reg[i][j].p);
 				free(s->reg[i]);
