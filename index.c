@@ -1,4 +1,37 @@
+/* The MIT License
+
+Copyright (c) 2018-     Dana-Farber Cancer Institute
+              2017-2018 Broad Institute, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+Modified Copyright (C) 2021 Intel Corporation
+   Contacts: Saurabh Kalikar <saurabh.kalikar@intel.com>; 
+	Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>; 
+	Chirag Jain <chirag@iisc.ac.in>; Heng Li <hli@jimmy.harvard.edu>
+*/
 #include <stdlib.h>
+#include<map>
+#include <vector>
+#include <fstream>
+using namespace std;
 #include <assert.h>
 #if defined(WIN32) || defined(_WIN32)
 #include <io.h> // for open(2)
@@ -53,6 +86,37 @@ mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 	return mi;
 }
 
+
+void mm_idx_destroy_mm_hash(mm_idx_t *mi)
+{
+	uint32_t i;
+	if (mi == 0) return;
+	if (mi->h) kh_destroy(str, (khash_t(str)*)mi->h);
+	if (mi->B) {
+		for (i = 0; i < 1U<<mi->b; ++i) {
+			free(mi->B[i].p);
+			free(mi->B[i].a.a);
+			kh_destroy(idx, (idxhash_t*)mi->B[i].h);
+		}
+	}
+}
+void mm_idx_destroy_seq(mm_idx_t *mi)
+{
+	uint32_t i;
+	if (mi->I) {
+		for (i = 0; i < mi->n_seq; ++i)
+			free(mi->I[i].a);
+		free(mi->I);
+	}
+	if (!mi->km) {
+		for (i = 0; i < mi->n_seq; ++i)
+			free(mi->seq[i].name);
+		free(mi->seq);
+	} else km_destroy(mi->km);
+	free(mi->B); free(mi->S); free(mi);
+}
+
+
 void mm_idx_destroy(mm_idx_t *mi)
 {
 	uint32_t i;
@@ -96,6 +160,81 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 		return &b->p[kh_val(h, k)>>32];
 	}
 }
+
+//Output minimap2's hash table entries 
+void mm_idx_dump_hash(const char* f_name, const mm_idx_t *mi)  
+{
+	std::map<uint64_t, vector<uint64_t>> m;
+
+	ofstream f(f_name);
+	fprintf(stderr, "Building sorted key-val map");
+
+	uint32_t i,j;
+	uint64_t num_values = 0;
+	for (i = 0; i < 1U<<mi->b; ++i) {
+		
+		
+		//fprintf(stderr, "BucketID %lu \n", i);
+		idxhash_t *h = (idxhash_t*)mi->B[i].h;
+		khint_t k;
+		if (h == 0) continue;
+		for (k = 0; k < kh_end(h); ++k){
+			if (kh_exist(h, k)) {
+				uint64_t key = kh_key(h, k), bucket_id = i;
+				key = key>>1;
+				
+				key = key<<mi->b | bucket_id;
+				
+				if(kh_key(h, k)&1)
+				{
+					//print key value
+					//fprintf(stderr, "%llu %llu %llu\n", key, kh_val(h, k), 0);
+					m[key].push_back(kh_val(h, k));
+				}
+				else
+				{	// print key
+					uint32_t n = (uint32_t)kh_val(h, k);
+					//fprintf(stderr, "%llu %llu %llu ", key, kh_val(h, k), n);
+					// for 0 to lsb 32 val
+					//  print b->p[msb 32 of val]
+					for(j = 0; j < n; j++)
+					{
+						//fprintf(stderr, "%llu ", mi->B[i].p[(kh_val(h, k)>>32) + j]);
+						m[key].push_back(mi->B[i].p[(kh_val(h, k)>>32) + j]);
+					}
+				}
+			}
+		}
+	}
+	fprintf(stderr, "Storing hash to %s \n", f_name);
+	vector<uint64_t> key_list;
+	key_list.push_back(m.size());	
+	for(auto k : m){
+		key_list.push_back(k.first);
+		f<<k.first << " "<<k.second.size()<<endl;
+		for(int j = 0; j < k.second.size(); j++){
+			f<<k.second[j]<<" ";
+			num_values++;
+		}
+		f<<endl;
+	}
+	f.close();	
+	string size_file_name = (string) f_name + "_size";
+	ofstream size_f(size_file_name);
+	size_f<<m.size()<<" "<<num_values;
+	size_f.close();
+
+	string prefix = (string)f_name + "_keys";	
+	string keys_bin_file_name = prefix + ".uint64";		
+	ofstream wf(keys_bin_file_name, ios::out | ios::binary);
+	wf.write((char*)&key_list[0], (key_list.size())*sizeof(uint64_t));		
+	wf.close();	
+
+	key_list.clear();
+	m.clear();
+
+}
+
 
 void mm_idx_stat(const mm_idx_t *mi)
 {

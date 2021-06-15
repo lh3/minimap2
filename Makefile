@@ -1,14 +1,44 @@
-CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
-CPPFLAGS=	-DHAVE_KALLOC
-INCLUDES=
+CFLAGS=		-Wall -O2 -Wc++-compat #-Wextra
+CPPFLAGS=	-DHAVE_KALLOC -march=native
+
+OPT_FLAGS= -DVECTORIZED_CHAINING -DALIGN_AVX  
+ 
+ifeq ($(lhash), 1)	
+	OPT_FLAGS+=	-DLISA_HASH -DUINT64 -DVECTORIZE 
+endif
+
+
+ifeq ($(manual_profile), 1)
+	CPPFLAGS+= -DMANUAL_PROFILING 
+endif
+
+ifeq ($(arch), avx512)
+	CPPFLAGS+= -xCORE-AVX512
+endif
+
+ifeq ($(disable_output), 1)
+	CPPFLAGS+= -DDISABLE_OUTPUT
+endif
+
+ifeq ($(no_opt),)
+	CPPFLAGS+= $(OPT_FLAGS)
+endif
+
+INCLUDES=	-I./ext/TAL/src/LISA-hash -I./ext/TAL/src/dynamic-programming 
+
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o chain.o align.o hit.o map.o format.o pe.o esterr.o splitidx.o ksw2_ll_sse.o
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
-LIBS=		-lm -lz -lpthread
+LIBS=		-lm -lz -lpthread 
+
+CC=$(CXX)
+ifeq ($(CC), g++)
+	CC=g++ -std=c++11
+endif
 
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
-	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
+	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o ksw2_extd2_avx.o
 else                # if sse2only is defined
 	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
 endif

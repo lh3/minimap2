@@ -1,3 +1,6 @@
 [submodule "lib/simde"]
 	path = lib/simde
 	url = https://github.com/nemequ/simde.git
+[submodule "ext/TAL"]
+	path = ext/TAL
+	url = https://github.com/IntelLabs/Trans-Omics-Acceleration-Library.git

@@ -1,13 +1,54 @@
+/* The MIT License
+
+Copyright (c) 2018-     Dana-Farber Cancer Institute
+              2017-2018 Broad Institute, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+Modified Copyright (C) 2021 Intel Corporation
+   Contacts: Saurabh Kalikar <saurabh.kalikar@intel.com>; 
+	Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>; 
+	Chirag Jain <chirag@iisc.ac.in>; Heng Li <hli@jimmy.harvard.edu>
+*/
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <string>
 #include <errno.h>
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
 #include "ketopt.h"
+#include <x86intrin.h>
 
 #define MM_VERSION "2.18-r1015"
+using namespace std;
+
+#ifdef MANUAL_PROFILING
+uint64_t num_reads = 0, minimizer_hit_time = 0, dp_chaining_time = 0, alignment_time = 0;
+#endif
+
+#ifdef LISA_HASH
+#include "lisa_hash.h"
+lisa_hash<uint64_t, uint64_t> *lh;
+#endif
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -108,11 +149,12 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:Z:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, n_parts, old_best_n = -1;
+	uint64_t total_time = 0;
 	char *fnw = 0, *rg = 0, *junc_bed = 0, *s, *alt_list = 0;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
@@ -122,9 +164,11 @@ int main(int argc, char *argv[])
 	liftrlimit();
 	mm_realtime0 = realtime();
 	mm_set_opt(0, &ipt, &opt);
+	string preset_arg = "";
 
 	while ((c = ketopt(&o, argc, argv, 1, opt_str, long_options)) >= 0) { // test command line options and apply option -x/preset first
 		if (c == 'x') {
+			preset_arg +=  (string) o.arg;
 			if (mm_set_opt(o.arg, &ipt, &opt) < 0) {
 				fprintf(stderr, "[ERROR] unknown preset '%s'\n", o.arg);
 				return 1;
@@ -141,6 +185,7 @@ int main(int argc, char *argv[])
 
 	while ((c = ketopt(&o, argc, argv, 1, opt_str, long_options)) >= 0) {
 		if (c == 'w') ipt.w = atoi(o.arg);
+        	else if (c == 'Z') opt.L_hash = atoi(o.arg);
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 'H') ipt.flag |= MM_I_HPC;
 		else if (c == 'd') fnw = o.arg; // the above are indexing related options, except -I
@@ -345,7 +390,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR] incorrect input: in the sr mode, please specify no more than two query files.\n");
 		return 1;
 	}
+	
+	preset_arg = (string)argv[o.ind] + "_" + preset_arg + "_minimizers_key_value_sorted";
+
+
 	idx_rdr = mm_idx_reader_open(argv[o.ind], &ipt, fnw);
+	total_time =  __rdtsc();
 	if (idx_rdr == 0) {
 		fprintf(stderr, "[ERROR] failed to open file '%s': %s\n", argv[o.ind], strerror(errno));
 		return 1;
@@ -387,9 +437,23 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
+		if(opt.L_hash == 1) {
+			fprintf(stderr, "Generating lisa-hash..\n"); 
+			mm_idx_dump_hash(preset_arg.c_str(), mi); 
+			fprintf(stderr, "Lisa-hash saving done.. \n");
+			exit(0); 
+		}
 		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
 		if (alt_list) mm_idx_alt_read(mi, alt_list);
 		ret = 0;
+#ifdef LISA_HASH
+	fprintf(stderr, "Using LISA_HASH..\n");
+	mm_idx_destroy_mm_hash(mi);
+	char* prefix;
+	lh = new lisa_hash<uint64_t, uint64_t>(preset_arg, prefix);
+	fprintf(stderr, "Loading done.\n");
+	total_time =  __rdtsc();
+#endif
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i) {
 				ret = mm_map_file(mi, argv[i], &opt, n_threads);
@@ -398,11 +462,15 @@ int main(int argc, char *argv[])
 		} else {
 			ret = mm_map_file_frag(mi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads);
 		}
-		mm_idx_destroy(mi);
 		if (ret < 0) {
 			fprintf(stderr, "ERROR: failed to map the query file\n");
 			exit(EXIT_FAILURE);
 		}
+#ifdef LISA_HASH
+		mm_idx_destroy_seq(mi);
+#else
+		mm_idx_destroy(mi);
+#endif
 	}
 	n_parts = idx_rdr->n_parts;
 	mm_idx_reader_close(idx_rdr);
@@ -422,5 +490,13 @@ int main(int argc, char *argv[])
 			fprintf(stderr, " %s", argv[i]);
 		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec; Peak RSS: %.3f GB\n", __func__, realtime() - mm_realtime0, cputime(), peakrss() / 1024.0 / 1024.0 / 1024.0);
 	}
-	return 0;
+
+#ifdef MANUAL_PROFILING
+		fprintf(stderr, "\n Number of reads = %lld Minimizer hit time = %lld dp_chaining time = %lld alignment time = %lld total time = %lld \n", num_reads, minimizer_hit_time, dp_chaining_time, alignment_time, __rdtsc() - total_time);
+#endif
+	fprintf(stderr, "Total ticks: %lld \n",__rdtsc() - total_time);
+#ifdef LISA_HASH
+	delete lh;
+#endif	
+return 0;
 }

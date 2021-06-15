@@ -1,3 +1,32 @@
+## mm2-fast
+### Introduction
+mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all three major modules of minimap2: Seeding, Chaining, and Alignment, achieving upto 3.5x speedup over minimap2. 
+mm2-fast is a drop-in replacement of minimap2, providing the same functionality with the exact same output.
+In the current version, all the modules are optimized using **AVX-512** vectorization. For non-AVX-512 machines, mm2-fast runs as minimap2 code.
+
+### Usage
+```sh
+git clone --recursive https://github.com/lh3/minimap2.git -b fast-contrib mm2-fast   
+cd mm2-fast
+
+# Compile and run mm2-fast (without seeding module optimizations).
+make clean && make  
+./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam         
+
+# Compile and run mm2-fast (with all three optimized modules)
+1. Build learned hash table index for optimized seeding module   
+   Pre-requisite: Install "Rust" and add path to .bashrc file. For Rust installation, visit https://rustup.rs/   
+               ./build_rmi.sh ref.fa map-ont               ##takes two arguments: 1. path-to-reference-seq-file 2. preset    
+
+2. Compile and run  
+make clean && make lhash=1
+./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam
+    
+# Compile with all optimizations disabled (runs as minimap2)
+make clean && make no_opt=1
+```
+The original README content of minimap2 follows.
+
 [![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download)](https://github.com/lh3/minimap2/releases)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimap2.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minimap2)
 [![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)

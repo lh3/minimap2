@@ -1,3 +1,32 @@
+/* The MIT License
+
+Copyright (c) 2018-     Dana-Farber Cancer Institute
+              2017-2018 Broad Institute, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+Modified Copyright (C) 2021 Intel Corporation
+   Contacts: Saurabh Kalikar <saurabh.kalikar@intel.com>; 
+	Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>; 
+	Chirag Jain <chirag@iisc.ac.in>; Heng Li <hli@jimmy.harvard.edu>
+*/
 #ifndef MINIMAP2_H
 #define MINIMAP2_H
 
@@ -153,6 +182,8 @@ typedef struct {
 	int64_t max_sw_mat;
 
 	const char *split_prefix;
+    	// Store minimizer hash to a file as key and list of values
+    	int L_hash;
 } mm_mapopt_t;
 
 // index reader
@@ -268,6 +299,14 @@ mm_idx_t *mm_idx_load(FILE *fp);
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
 
 /**
+ * Store hash table from minimap2 index into a file
+ * @param f_name     File name for output file
+ * @param mi 	     minimap2 index 	
+ */
+void mm_idx_dump_hash(const char* f_name, const mm_idx_t *mi);
+
+
+/**
  * Create an index from strings in memory
  *
  * @param w            minimizer window size
@@ -295,6 +334,21 @@ void mm_idx_stat(const mm_idx_t *idx);
  * @param r          minimap2 index
  */
 void mm_idx_destroy(mm_idx_t *mi);
+
+/**
+ * Destroy/deallocate an hash table index
+ *
+ * @param r          minimap2 index
+ */
+void mm_idx_destroy_mm_hash(mm_idx_t *mi);
+
+/**
+ * Destroy/deallocate target sequences
+ *
+ * @param r          minimap2 index
+ */
+void mm_idx_destroy_seq(mm_idx_t *mi);
+
 
 /**
  * Initialize a thread-local buffer for mapping
