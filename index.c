@@ -167,7 +167,7 @@ void mm_idx_dump_hash(const char* f_name, const mm_idx_t *mi)
 	std::map<uint64_t, vector<uint64_t>> m;
 
 	ofstream f(f_name);
-	fprintf(stderr, "Building sorted key-val map");
+	fprintf(stderr, "Building sorted key-val map\n");
 
 	uint32_t i,j;
 	uint64_t num_values = 0;
