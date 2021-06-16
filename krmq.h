@@ -247,7 +247,7 @@ int main(void) {
 		unsigned char dir[KRMQ_MAX_DEPTH]; \
 		int i, d = 0, cmp; \
 		unsigned cnt = 0; \
-		fake.__head.p[0] = *root_, fake.__head.p[1] = 0; \
+		fake = **root_, fake.__head.p[0] = *root_, fake.__head.p[1] = 0; \
 		if (cnt_) *cnt_ = 0; \
 		if (x) { \
 			for (cmp = -1, p = &fake; cmp; cmp = __cmp(x, p)) { \
