@@ -12,6 +12,6 @@ full_path=`readlink -f $kv_file`
 
 cd ./ext/TAL
 make lisa_hash
-./build-lisa-hash-index $kv_file
+./build-lisa-hash-index $full_path
 
 rm ../../temp_read.fastq
