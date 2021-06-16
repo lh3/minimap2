@@ -46,7 +46,7 @@ void mm_seed_select(int32_t n, mm_seed_t *a, int len, int max_occ, int max_max_o
 				int32_t pe = i == n? len : (uint32_t)a[i].q_pos>>1;
 				int32_t j, k, st = last0 + 1, en = i;
 				int32_t max_high_occ = (int32_t)((double)(pe - ps) / dist + .499);
-				//fprintf(stderr, "Y\t%d\t%d\n", ps, pe);
+				if (max_high_occ == 0) goto next_intv;
 				if (max_high_occ > MAX_MAX_HIGH_OCC)
 					max_high_occ = MAX_MAX_HIGH_OCC;
 				for (j = st, k = 0; j < en && k < max_high_occ; ++j, ++k)
@@ -64,7 +64,7 @@ void mm_seed_select(int32_t n, mm_seed_t *a, int len, int max_occ, int max_max_o
 					if (a[j].n > max_max_occ)
 						a[j].flt = 1;
 			}
-			last0 = i;
+next_intv:	last0 = i;
 		}
 	}
 }
