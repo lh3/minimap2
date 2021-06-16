@@ -5,7 +5,6 @@ make clean && make no_opt=1
 touch temp_read.fastq
 ./minimap2  -ax $2 $1 temp_read.fastq -Z 1 >/dev/null      
 
-
 kv_file=$1"_"$2"_minimizers_key_value_sorted"  
 
 full_path=`readlink -f $kv_file`
