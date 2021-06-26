@@ -216,20 +216,27 @@ ignore minimizers occuring more than
 <B>-xsr</B> mode, which sets the threshold for a second round of seeding.
 </TD></TR>
 <TR valign=top><TD colspan=2>
-<B>--min-occ-floor</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
-Force minimap2 to always use k-mers occurring
-<I>INT</I> times or less [0]. In effect, the max occurrence threshold is set to
-the
-max{<I>INT</I>, <B>-f</B>}. </TD></TR>
-<TR valign=top><TD width=10% nowrap>
-<B>-g</B><I> INT</I> </TD><TD valign=bottom>
-Stop chain enlongation if there are no minimizers within
-<I>INT</I>-bp [10000].
+<B>-U</B><I> INT1</I><B>[,</B><I>INT2</I><B>]</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Lower and upper bounds of k-mer occurrences [10,1000000]. The final k-mer occurrence threshold is
+max{<I>INT1</I>, min{<I>INT2</I>, <B>-f</B>}}. This option prevents excessively small or large
+<B>-f</B> estimated from the input reference. It deprecates
+<B>--min-occ-floor</B> in earlier versions of minimap2.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
-<B>-r</B><I> INT</I> </TD><TD valign=bottom>
-Bandwidth used in chaining and DP-based alignment [500]. This option
-approximately controls the maximum gap size.
+<B>-e</B><I> INT</I> </TD><TD valign=bottom>
+Sample a high-frequency minimizer every
+<I>INT</I> basepairs [500].
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-g</B><I> NUM</I> </TD><TD valign=bottom>
+Stop chain enlongation if there are no minimizers within
+<I>NUM</I>-bp [10k].
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>-r</B><I> NUM1</I><B>[,</B><I>NUM2</I><B>]</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Bandwidth for chaining and base alignment [500,20k].
+<I>NUM1</I> is used for initial chaining and alignment extension;
+<I>NUM2</I> for RMQ-based re-chaining and closing gaps in alignments.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-n</B><I> INT</I> </TD><TD valign=bottom>
@@ -298,6 +305,11 @@ Mark as secondary a chain that overlaps with a better chain by
 <I>FLOAT</I> or more of the shorter chain [0.5]
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<B>--rmq</B>=<B>no</B>|<B>yes</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Use the minigraph chaining algorithm [no]. The minigraph algorithm is better
+for aligning contigs through long INDELs.
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <B>--hard-mask-level</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Honor option
 <B>-M</B> and disable a heurstic to save unmapped subsequences and disables
@@ -330,11 +342,6 @@ Scale of gap cost during chaining [1.0]
 Disable the long gap patching heuristic. When this option is applied, the
 maximum alignment gap is mostly controlled by
 <B>-r</B>. </TD></TR>
-<TR valign=top><TD colspan=2>
-<B>--lj-min-ratio</B><I> FLOAT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
-Fraction of query sequence length required to bridge a long gap [0.5]. A
-smaller value helps to recover longer gaps, at the cost of more false gaps.
-</TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>--splice</B> </TD><TD valign=bottom>
 Enable the splice alignment mode.
@@ -483,7 +490,7 @@ alignment.
 <TR valign=top><TD colspan=2>
 <B>--cap-sw-mem</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Skip alignment if the DP matrix size is above
-<I>NUM</I>. Set 0 to disable [0].
+<I>NUM</I>. Set 0 to disable [100m].
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=7></A>
@@ -614,61 +621,60 @@ values set by
 <TABLE width=100% cellpadding=3><!-- tsb: Preset []. This option applies multiple options at the same time. It should be
  -->
 <TR></TR><TR></TR>
-<TR valign=top><TD width=8% nowrap>
-<B>map-pb</B> </TD><TD valign=bottom>
-PacBio/Oxford Nanopore read to reference mapping
-(<B>-Hk19</B>) </TD></TR>
-<TR valign=top><TD width=8% nowrap>
+<TR valign=top><TD width=10% nowrap>
 <B>map-ont</B> </TD><TD valign=bottom>
-Slightly more sensitive for Oxford Nanopore to reference mapping
-(<B>-k15</B>). For PacBio reads, HPC minimizers consistently leads to faster performance and
-more sensitive results in comparison to normal minimizers. For Oxford Nanopore
-data, normal minimizers are better, though not much. The effectiveness of HPC
-is determined by the sequencing error mode.
+Align noisy long reads of ~10% error rate to a reference genome. This is the
+default mode.
 </TD></TR>
-<TR valign=top><TD width=8% nowrap>
+<TR valign=top><TD width=10% nowrap>
+<B>map-hifi</B> </TD><TD valign=bottom>
+Align PacBio high-fidelity (HiFi) reads to a reference genome
+(<B>-k19</B> <B>-w19 -U50,500 -g10k -A1 -B4 -O6,26 -E2,1</B> <B>-s200</B>). </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>map-pb</B> </TD><TD valign=bottom>
+Align older PacBio continuous long (CLR) reads to a reference genome
+(<B>-Hk19</B>). </TD></TR>
+<TR valign=top><TD width=10% nowrap>
 <B>asm5</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 -N50</B> <B>--min-occ-floor=100</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
+(<B>-k19</B> <B>-w19 -U50,500 --rmq -r100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200</B> <B>-N50</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
 </TD></TR>
-<TR valign=top><TD width=8% nowrap>
+<TR valign=top><TD width=10% nowrap>
 <B>asm10</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 -N50</B> <B>--min-occ-floor=100</B>). Up to 10% sequence divergence.
+(<B>-k19</B> <B>-w19 -U50,500 --rmq -r100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200</B> <B>-N50</B>). Up to 10% sequence divergence.
 </TD></TR>
-<TR valign=top><TD width=8% nowrap>
+<TR valign=top><TD width=10% nowrap>
 <B>asm20</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200 -N50</B> <B>--min-occ-floor=100</B>). Up to 20% sequence divergence.
+(<B>-k19</B> <B>-w10 -U50,500 --rmq -r100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200</B> <B>-N50</B>). Up to 20% sequence divergence.
 </TD></TR>
-<TR valign=top><TD width=8% nowrap>
-<B>ava-pb</B> </TD><TD valign=bottom>
-PacBio all-vs-all overlap mapping
-(<B>-Hk19</B> <B>-Xw5 -m100 -g10000 --max-chain-skip</B> <B>25</B>). </TD></TR>
-<TR valign=top><TD width=8% nowrap>
-<B>ava-ont</B> </TD><TD valign=bottom>
-Oxford Nanopore all-vs-all overlap mapping
-(<B>-k15</B> <B>-Xw5 -m100 -g10000 -r2000 --max-chain-skip</B> <B>25</B>). Similarly, the major difference from
-<B>ava-pb</B> is that this preset is not using HPC minimizers.
-</TD></TR>
-<TR valign=top><TD width=8% nowrap>
+<TR valign=top><TD width=10% nowrap>
 <B>splice</B> </TD><TD valign=bottom>
 Long-read spliced alignment
-(<B>-k15</B> <B>-w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9</B> <B>--splice-flank=yes</B>). In the splice mode, 1) long deletions are taken as introns and represented as
+(<B>-k15</B> <B>-w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0</B> <B>--splice-flank=yes</B>). In the splice mode, 1) long deletions are taken as introns and represented as
 the
 &#145;<B>N</B>&#146; CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
 costs are different during chaining; 4) the computation of the
 &#145;<B>ms</B>&#146; tag ignores introns to demote hits to pseudogenes.
 </TD></TR>
-<TR valign=top><TD colspan=2>
-<B>splice:hq</B> </TD></TR><TR valign=top><TD width=8%>&nbsp;</TD><TD>
+<TR valign=top><TD width=10% nowrap>
+<B>splice:hq</B> </TD><TD valign=bottom>
 Long-read splice alignment for PacBio CCS reads
 (<B>-xsplice</B> <B>-C5 -O6,24</B> <B>-B4</B>). </TD></TR>
-<TR valign=top><TD width=8% nowrap>
+<TR valign=top><TD width=10% nowrap>
 <B>sr</B> </TD><TD valign=bottom>
 Short single-end reads without splicing
 (<B>-k21</B> <B>-w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20</B> <B>-s40 -g200 -2K50m --heap-sort=yes</B> <B>--secondary=no</B>). </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>ava-pb</B> </TD><TD valign=bottom>
+PacBio CLR all-vs-all overlap mapping
+(<B>-Hk19</B> <B>-Xw5 -e0</B> <B>-m100</B>). </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>ava-ont</B> </TD><TD valign=bottom>
+Oxford Nanopore all-vs-all overlap mapping
+(<B>-k15</B> <B>-Xw5 -e0 -m100</B> <B>-r2k</B>). </TD></TR>
 <TR></TR></TABLE></TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=9></A>
@@ -831,4 +837,4 @@ non-SSE2/NEON support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.18 (r1015)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>9 April 2021</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.20 (r1061)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>27 May 2021</I></TD> </TR></TABLE></div></BODY></HTML>
