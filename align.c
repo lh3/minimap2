@@ -367,8 +367,8 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 #ifdef ALIGN_AVX
 #ifdef __AVX512BW__
             	ksw_extd2_avx512(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
-#else
-		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
+#elif __AVX2__
+		ksw_extd2_avx2(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
 #endif
 #else
 		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
