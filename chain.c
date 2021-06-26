@@ -68,7 +68,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	t = (int32_t*)kmalloc(km, n * 4);
 	v = (int32_t*)kmalloc(km, n * 4);
 	memset(t, 0, n * 4);
-#if VECTORIZED_CHAINING
+#if VECTORIZED_CHAINING && (__AVX512BW__ || __AVX2__)
 	anchor_t* anchors = (anchor_t*)malloc(n* sizeof(anchor_t));
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
