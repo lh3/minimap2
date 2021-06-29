@@ -2,7 +2,7 @@
 ### Introduction
 mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all three major modules of minimap2: Seeding, Chaining, and Alignment, achieving upto 3.5x speedup over minimap2. 
 mm2-fast is a drop-in replacement of minimap2, providing the same functionality with the exact same output.
-In the current version, all the modules are optimized using **AVX-512** vectorization. For non-AVX-512 machines, mm2-fast runs as minimap2 code.
+In the current version, all the modules are optimized using **AVX2** and **AVX-512** vectorization. For non-AVX-512 machines, mm2-fast runs as minimap2 code.
 
 ### Usage
 ```sh
