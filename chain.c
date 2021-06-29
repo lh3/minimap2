@@ -69,6 +69,10 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	v = (int32_t*)kmalloc(km, n * 4);
 	memset(t, 0, n * 4);
 #if VECTORIZED_CHAINING && (__AVX512BW__ || __AVX2__)
+	/* Allocation for debugging 
+	f_avx = (uint32_t*)kmalloc(km, n * 4);
+	p_avx = (int32_t*)kmalloc(km, n * 4);
+	*/
 	anchor_t* anchors = (anchor_t*)malloc(n* sizeof(anchor_t));
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
@@ -79,8 +83,8 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	}
 	num_bits_t *anchor_r, *anchor_q, *anchor_l;
 	create_SoA_Anchors_32_bit(anchors, n, anchor_r, anchor_q, anchor_l);
-	dp_chain obj(max_dist_x, max_dist_y, bw, max_skip, max_iter, gap_scale, is_cdna, n_segs);
 
+	dp_chain obj(max_dist_x, max_dist_y, bw, max_skip, max_iter, gap_scale, is_cdna, n_segs);
 	obj.mm_dp_vectorized(n, &anchors[0], anchor_r, anchor_q, anchor_l, f, p, v, max_dist_x, max_dist_y, NULL, NULL);	
 
 	// -16 is due to extra padding at the start of arrays
@@ -138,6 +142,45 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 	}
+	
+	#if 0
+	for (i = 0; i < n; ++i) {
+		assert(f[i] == f_avx[i] && p[i] == p_avx[i]);
+	
+		//if(! (f[i] == f_avx[i] && p[i] == p_avx[i]))
+		{
+			#if 0
+			fprintf(stderr, "mm2-score:\n");
+			for (int itt = 0; itt < n; ++itt) {
+				fprintf(stderr, "%ld %ld \n", f[itt], p[itt]);
+			}
+			fprintf(stderr, "mm2-simd-score:\n");
+			for (int itt = 0; itt < n; ++itt) {
+				fprintf(stderr, "%ld %ld \n", f_avx[itt], p_avx[itt]);
+			}
+			fprintf(stderr, "anchors:\n");
+			fprintf(stderr, "%lld\n", n);
+			for (int itt = 0; itt < n; ++itt) {
+				uint64_t ri = a[itt].x;
+				int32_t qi = (int32_t)a[itt].y, q_span = a[itt].y>>32&0xff; // NB: only 8 bits of span is used!!!
+				fprintf(stderr, "%llu %ld %ld\n", ri, qi, q_span);
+			}
+			//exit(0);
+			#endif
+		}
+	
+	}
+	#if 0
+	fprintf(stderr, "%llu\n", n);
+	for (int itt = 0; itt < n; ++itt) {
+		uint64_t ri = a[itt].x;
+		int32_t qi = (int32_t)a[itt].y, q_span = a[itt].y>>32&0xff; // NB: only 8 bits of span is used!!!
+		fprintf(stderr, "%llu %ld %ld\n", ri, qi, q_span);
+	}
+
+	#endif
+	kfree(km, f_avx); kfree(km, p_avx);
+	#endif
 #endif
 	// find the ending positions of chains
 	memset(t, 0, n * 4);
