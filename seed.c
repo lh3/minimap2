@@ -46,25 +46,26 @@ void mm_seed_select(int32_t n, mm_seed_t *a, int len, int max_occ, int max_max_o
 				int32_t pe = i == n? len : (uint32_t)a[i].q_pos>>1;
 				int32_t j, k, st = last0 + 1, en = i;
 				int32_t max_high_occ = (int32_t)((double)(pe - ps) / dist + .499);
-				if (max_high_occ == 0) goto next_intv;
-				if (max_high_occ > MAX_MAX_HIGH_OCC)
-					max_high_occ = MAX_MAX_HIGH_OCC;
-				for (j = st, k = 0; j < en && k < max_high_occ; ++j, ++k)
-					b[k] = (uint64_t)a[j].n<<32 | j;
-				ks_heapmake_uint64_t(k, b); // initialize the binomial heap
-				for (; j < en; ++j) { // if there are more, choose top max_high_occ
-					if (a[j].n < (int32_t)(b[0]>>32)) { // then update the heap
-						b[0] = (uint64_t)a[j].n<<32 | j;
-						ks_heapdown_uint64_t(0, k, b);
+				if (max_high_occ > 0) {
+					if (max_high_occ > MAX_MAX_HIGH_OCC)
+						max_high_occ = MAX_MAX_HIGH_OCC;
+					for (j = st, k = 0; j < en && k < max_high_occ; ++j, ++k)
+						b[k] = (uint64_t)a[j].n<<32 | j;
+					ks_heapmake_uint64_t(k, b); // initialize the binomial heap
+					for (; j < en; ++j) { // if there are more, choose top max_high_occ
+						if (a[j].n < (int32_t)(b[0]>>32)) { // then update the heap
+							b[0] = (uint64_t)a[j].n<<32 | j;
+							ks_heapdown_uint64_t(0, k, b);
+						}
 					}
+					for (j = 0; j < k; ++j) a[(uint32_t)b[j]].flt = 1;
 				}
-				for (j = 0; j < k; ++j) a[(uint32_t)b[j]].flt = 1;
 				for (j = st; j < en; ++j) a[j].flt ^= 1;
 				for (j = st; j < en; ++j)
 					if (a[j].n > max_max_occ)
 						a[j].flt = 1;
 			}
-next_intv:	last0 = i;
+			last0 = i;
 		}
 	}
 }
