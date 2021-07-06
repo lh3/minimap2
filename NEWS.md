@@ -1,3 +1,14 @@
+Release 2.21-r1071 (6 July 2021)
+--------------------------------
+
+This release fixed a regression in short-read mapping introduced in v2.19
+(#776). It also fixed invalid comparisons of uninitialized variables, though
+these are harmless (#752). Long-read alignment should be identical to v2.20.
+
+(2.21: 6 July 2021)
+
+
+
 Release 2.20-r1061 (27 May 2021)
 --------------------------------
 
