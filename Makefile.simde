@@ -1,7 +1,7 @@
 CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
 CPPFLAGS=	-DHAVE_KALLOC -DUSE_SIMDE -DSIMDE_ENABLE_NATIVE_ALIASES
 INCLUDES=	-Ilib/simde
-OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o chain.o align.o hit.o map.o format.o pe.o esterr.o splitidx.o \
+OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o lchain.o align.o hit.o map.o format.o pe.o seed.o esterr.o splitidx.o \
 			ksw2_extz2_simde.o ksw2_extd2_simde.o ksw2_exts2_simde.o ksw2_ll_simde.o
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
