@@ -118,7 +118,6 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 static int split_merge_cmd(int argc, char *argv[], mm_mapopt_t* opt) {
 	int n_query_fn = 0, n_intermediate_fn = 0;
 	char **query_fn = argv, **intermediate_fn = 0;
-	fprintf(stderr, "%d %s\n", argc, argv[0]);
 	for (; n_query_fn < argc && strcmp(argv[n_query_fn], "."); ++n_query_fn);
 	if (n_query_fn < argc - 1) {
 		n_intermediate_fn = argc - n_query_fn - 1;
@@ -379,7 +378,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (split_merge) {
-		return split_merge_cmd(argc - (o.ind + 1), &argv[o.ind + 1], &opt);
+		return split_merge_cmd(argc - o.ind, &argv[o.ind], &opt);
 	}
 	if (opt.split_map && opt.split_prefix) {
 		fprintf(stderr, "[ERROR] specify at most one of --split-prefix or --split-map\n");
