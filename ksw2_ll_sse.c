@@ -1,8 +1,13 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <emmintrin.h>
 #include "ksw2.h"
+
+#ifdef USE_SIMDE
+#include <simde/x86/sse2.h>
+#else
+#include <emmintrin.h>
+#endif
 
 #ifdef __GNUC__
 #define LIKELY(x) __builtin_expect((x),1)

@@ -144,8 +144,8 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	if (write_tag) mm_sprintf_lite(s, "\tcs:Z:");
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
-		assert((op >= 0 && op <= 3) || op == 7 || op == 8);
-		if (op == 0 || op == 7 || op == 8) { // match
+		assert((op >= MM_CIGAR_MATCH && op <= MM_CIGAR_N_SKIP) || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH);
+		if (op == MM_CIGAR_MATCH || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH) {
 			int l_tmp = 0;
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
@@ -166,12 +166,12 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 				} else mm_sprintf_lite(s, ":%d", l_tmp);
 			}
 			q_off += len, t_off += len;
-		} else if (op == 1) { // insertion to ref
+		} else if (op == MM_CIGAR_INS) {
 			for (j = 0, tmp[len] = 0; j < len; ++j)
 				tmp[j] = "acgtn"[qseq[q_off + j]];
 			mm_sprintf_lite(s, "+%s", tmp);
 			q_off += len;
-		} else if (op == 2) { // deletion from ref
+		} else if (op == MM_CIGAR_DEL) {
 			for (j = 0, tmp[len] = 0; j < len; ++j)
 				tmp[j] = "acgtn"[tseq[t_off + j]];
 			mm_sprintf_lite(s, "-%s", tmp);
@@ -192,8 +192,8 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	if (write_tag) mm_sprintf_lite(s, "\tMD:Z:");
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
-		assert((op >= 0 && op <= 3) || op == 7 || op == 8);
-		if (op == 0 || op == 7 || op == 8) { // match
+		assert((op >= MM_CIGAR_MATCH && op <= MM_CIGAR_N_SKIP) || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH);
+		if (op == MM_CIGAR_MATCH || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH) {
 			for (j = 0; j < len; ++j) {
 				if (qseq[q_off + j] != tseq[t_off + j]) {
 					mm_sprintf_lite(s, "%d%c", l_MD, "ACGTN"[tseq[t_off + j]]);
@@ -201,15 +201,15 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 				} else ++l_MD;
 			}
 			q_off += len, t_off += len;
-		} else if (op == 1) { // insertion to ref
+		} else if (op == MM_CIGAR_INS) {
 			q_off += len;
-		} else if (op == 2) { // deletion from ref
+		} else if (op == MM_CIGAR_DEL) {
 			for (j = 0, tmp[len] = 0; j < len; ++j)
 				tmp[j] = "ACGTN"[tseq[t_off + j]];
 			mm_sprintf_lite(s, "%d^%s", l_MD, tmp);
 			l_MD = 0;
 			t_off += len;
-		} else if (op == 3) { // reference skip
+		} else if (op == MM_CIGAR_N_SKIP) {
 			t_off += len;
 		}
 	}
@@ -277,7 +277,7 @@ double mm_event_identity(const mm_reg1_t *r)
 	if (r->p == 0) return -1.0f;
 	for (i = 0; i < r->p->n_cigar; ++i) {
 		int32_t op = r->p->cigar[i] & 0xf, len = r->p->cigar[i] >> 4;
-		if (op == 1 || op == 2)
+		if (op == MM_CIGAR_INS || op == MM_CIGAR_DEL)
 			++n_gapo, n_gap += len;
 	}
 	return (double)r->mlen / (r->blen + r->p->n_ambi - n_gap + n_gapo);
@@ -335,7 +335,7 @@ void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const 
 		uint32_t k;
 		mm_sprintf_lite(s, "\tcg:Z:");
 		for (k = 0; k < r->p->n_cigar; ++k)
-			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDNSHP=XB"[r->p->cigar[k]&0xf]);
+			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, MM_CIGAR_STR[r->p->cigar[k]&0xf]);
 	}
 	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
 		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1, opt_flag&MM_F_QSTRAND);
@@ -392,7 +392,7 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 			assert(clip_len[0] < qlen && clip_len[1] < qlen);
 			if (clip_len[0]) mm_sprintf_lite(s, "%d%c", clip_len[0], clip_char);
 			for (k = 0; k < r->p->n_cigar; ++k)
-				mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, "MIDNSHP=XB"[r->p->cigar[k]&0xf]);
+				mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, MM_CIGAR_STR[r->p->cigar[k]&0xf]);
 			if (clip_len[1]) mm_sprintf_lite(s, "%d%c", clip_len[1], clip_char);
 		}
 	}
@@ -402,7 +402,7 @@ void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 {
 	const int max_bam_cigar_op = 65535;
 	int flag, n_regs = n_regss[seg_idx], cigar_in_tag = 0;
-	int this_rid = -1, this_pos = -1, this_rev = 0;
+	int this_rid = -1, this_pos = -1;
 	const mm_reg1_t *regs = regss[seg_idx], *r_prev = NULL, *r_next;
 	const mm_reg1_t *r = n_regs > 0 && reg_idx < n_regs && reg_idx >= 0? &regs[reg_idx] : NULL;
 
@@ -451,7 +451,7 @@ void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 			mm_sprintf_lite(s, "\t%s\t%d\t0\t*", mi->seq[this_rid].name, this_pos+1);
 		} else mm_sprintf_lite(s, "\t*\t0\t0\t*");
 	} else {
-		this_rid = r->rid, this_pos = r->rs, this_rev = r->rev;
+		this_rid = r->rid, this_pos = r->rs;
 		mm_sprintf_lite(s, "\t%s\t%d\t%d\t", mi->seq[r->rid].name, r->rs+1, r->mapq);
 		if ((opt_flag & MM_F_LONG_CIGAR) && r->p && r->p->n_cigar > max_bam_cigar_op - 2) {
 			int n_cigar = r->p->n_cigar;

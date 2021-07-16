@@ -122,7 +122,7 @@ void mm_split_reg(mm_reg1_t *r, mm_reg1_t *r2, int n, int qlen, mm128_t *a, int 
 	r->split |= 1, r2->split |= 2;
 }
 
-void mm_set_parent(void *km, float mask_level, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level, float alt_diff_frac) // and compute mm_reg1_t::subsc
+void mm_set_parent(void *km, float mask_level, int mask_len, int n, mm_reg1_t *r, int sub_diff, int hard_mask_level, float alt_diff_frac) // and compute mm_reg1_t::subsc
 {
 	int i, j, k, *w;
 	uint64_t *cov;
@@ -162,7 +162,7 @@ skip_uncov:
 			min = ej - sj < ei - si? ej - sj : ei - si;
 			max = ej - sj > ei - si? ej - sj : ei - si;
 			ol = si < sj? (ei < sj? 0 : ei < ej? ei - sj : ej - sj) : (ej < si? 0 : ej < ei? ej - si : ei - si); // overlap length; TODO: this can be simplified
-			if ((float)ol / min - (float)uncov_len / max > mask_level) {
+			if ((float)ol / min - (float)uncov_len / max > mask_level && uncov_len <= mask_len) { // then this is a secondary hit
 				int cnt_sub = 0, sci = ri->score;
 				ri->parent = rp->parent;
 				if (!rp->is_alt && ri->is_alt) sci = mm_alt_score(sci, alt_diff_frac);
@@ -310,64 +310,6 @@ int mm_squeeze_a(void *km, int n_regs, mm_reg1_t *regs, mm128_t *a)
 	}
 	kfree(km, aux);
 	return as;
-}
-
-void mm_join_long(void *km, const mm_mapopt_t *opt, int qlen, int *n_regs_, mm_reg1_t *regs, mm128_t *a)
-{
-	int i, n_aux, n_regs = *n_regs_, n_drop = 0;
-	uint64_t *aux;
-
-	if (n_regs < 2) return; // nothing to join
-	mm_squeeze_a(km, n_regs, regs, a);
-
-	aux = (uint64_t*)kmalloc(km, n_regs * 8);
-	for (i = n_aux = 0; i < n_regs; ++i)
-		if (regs[i].parent == i || regs[i].parent < 0)
-			aux[n_aux++] = (uint64_t)regs[i].as << 32 | i;
-	radix_sort_64(aux, aux + n_aux);
-
-	for (i = n_aux - 1; i >= 1; --i) {
-		mm_reg1_t *r0 = &regs[(int32_t)aux[i-1]], *r1 = &regs[(int32_t)aux[i]];
-		mm128_t *a0e, *a1s;
-		int max_gap, min_gap, sc_thres, min_flank_len;
-
-		// test
-		if (r0->as + r0->cnt != r1->as) continue; // not adjacent in a[]
-		if (r0->rid != r1->rid || r0->rev != r1->rev) continue; // make sure on the same target and strand
-		a0e = &a[r0->as + r0->cnt - 1];
-		a1s = &a[r1->as];
-		if (a1s->x <= a0e->x || (int32_t)a1s->y <= (int32_t)a0e->y) continue; // keep colinearity
-		max_gap = min_gap = (int32_t)a1s->y - (int32_t)a0e->y;
-		max_gap = a0e->x + max_gap > a1s->x? max_gap : a1s->x - a0e->x;
-		min_gap = a0e->x + min_gap < a1s->x? min_gap : a1s->x - a0e->x;
-		if (max_gap > opt->max_join_long || min_gap > opt->max_join_short) continue;
-		sc_thres = (int)((float)opt->min_join_flank_sc / opt->max_join_long * max_gap + .499);
-		if (r0->score < sc_thres || r1->score < sc_thres) continue; // require good flanking chains
-		min_flank_len = (int)(max_gap * opt->min_join_flank_ratio);
-		if (r0->re - r0->rs < min_flank_len || r0->qe - r0->qs < min_flank_len) continue; // require enough flanking length
-		if (r1->re - r1->rs < min_flank_len || r1->qe - r1->qs < min_flank_len) continue;
-
-		// all conditions satisfied; join
-		a[r1->as].y |= MM_SEED_LONG_JOIN;
-		r0->cnt += r1->cnt, r0->score += r1->score;
-		mm_reg_set_coor(r0, qlen, a, opt->flag&MM_F_QSTRAND);
-		r1->cnt = 0;
-		r1->parent = r0->id;
-		++n_drop;
-	}
-	kfree(km, aux);
-
-	if (n_drop > 0) { // then fix the hits hierarchy
-		for (i = 0; i < n_regs; ++i) { // adjust the mm_reg1_t::parent
-			mm_reg1_t *r = &regs[i];
-			if (r->parent >= 0 && r->id != r->parent) { // fix for secondary hits only
-				if (regs[r->parent].parent >= 0 && regs[r->parent].parent != r->parent)
-					r->parent = regs[r->parent].parent;
-			}
-		}
-		mm_filter_regs(opt, qlen, n_regs_, regs);
-		mm_sync_regs(km, *n_regs_, regs);
-	}
 }
 
 mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a)

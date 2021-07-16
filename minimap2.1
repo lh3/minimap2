@@ -1,4 +1,4 @@
-.TH minimap2 1 "4 May 2019" "minimap2-2.17 (r941)" "Bioinformatics tools"
+.TH minimap2 1 "6 July 2021" "minimap2-2.21 (r1071)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -145,22 +145,32 @@ or
 .B -xsr
 mode, which sets the threshold for a second round of seeding.
 .TP
-.BI --min-occ-floor \ INT
-Force minimap2 to always use k-mers occurring
+.BI -U \ INT1 [, INT2 ]
+Lower and upper bounds of k-mer occurrences [10,1000000]. The final k-mer occurrence threshold is
+.RI max{ INT1 ,\ min{ INT2 ,
+.BR -f }}.
+This option prevents excessively small or large
+.B -f
+estimated from the input reference. It deprecates
+.B --min-occ-floor
+in earlier versions of minimap2.
+.TP
+.BI -e \ INT
+Sample a high-frequency minimizer every
 .I INT
-times or less [0]. In effect, the max occurrence threshold is set to
-the
-.RI max{ INT ,
-.BR -f }.
+basepairs [500].
 .TP
-.BI -g \ INT
+.BI -g \ NUM
 Stop chain enlongation if there are no minimizers within
-.IR INT -bp
-[10000].
+.IR NUM -bp
+[10k].
 .TP
-.BI -r \ INT
-Bandwidth used in chaining and DP-based alignment [500]. This option
-approximately controls the maximum gap size.
+.BI -r \ NUM1 [, NUM2 ]
+Bandwidth for chaining and base alignment [500,20k].
+.I NUM1
+is used for initial chaining and alignment extension;
+.I NUM2
+for RMQ-based re-chaining and closing gaps in alignments.
 .TP
 .BI -n \ INT
 Discard chains consisting of
@@ -234,10 +244,21 @@ Mark as secondary a chain that overlaps with a better chain by
 .I FLOAT
 or more of the shorter chain [0.5]
 .TP
+.BR --rmq = no | yes
+Use the minigraph chaining algorithm [no]. The minigraph algorithm is better
+for aligning contigs through long INDELs.
+.TP
 .B --hard-mask-level
 Honor option
 .B -M
-and disable a heurstic to save unmapped subsequences.
+and disable a heurstic to save unmapped subsequences and disables
+.BR --mask-len .
+.TP
+.BI --mask-len \ NUM
+Keep an alignment if dropping it leaves an unaligned region on query longer than
+.IR INT
+[inf]. Effective without
+.BR --hard-mask-level .
 .TP
 .BI --max-chain-skip \ INT
 A heuristics that stops chaining early [25]. Minimap2 uses dynamic programming
@@ -260,10 +281,6 @@ Scale of gap cost during chaining [1.0]
 Disable the long gap patching heuristic. When this option is applied, the
 maximum alignment gap is mostly controlled by
 .BR -r .
-.TP
-.BI --lj-min-ratio \ FLOAT
-Fraction of query sequence length required to bridge a long gap [0.5]. A
-smaller value helps to recover longer gaps, at the cost of more false gaps.
 .TP
 .B --splice
 Enable the splice alignment mode.
@@ -384,7 +401,7 @@ BED12 file can be converted from GTF/GFF3 with `paftools.js gff2bed anno.gtf'
 .BR --junc-bonus \ INT
 Score bonus for a splice donor or acceptor found in annotation (effective with
 .BR --junc-bed )
-[0].
+[9].
 .TP
 .BI --end-seed-pen \ INT
 Drop a terminal anchor if
@@ -405,7 +422,7 @@ alignment.
 .BI --cap-sw-mem \ NUM
 Skip alignment if the DP matrix size is above
 .IR NUM .
-Set 0 to disable [0].
+Set 0 to disable [100m].
 .SS Input/output options
 .TP 10
 .B -a
@@ -516,60 +533,47 @@ Available
 .I STR
 are:
 .RS
-.TP 8
-.B map-pb
-PacBio/Oxford Nanopore read to reference mapping
-.RB ( -Hk19 )
-.TP
+.TP 10
 .B map-ont
-Slightly more sensitive for Oxford Nanopore to reference mapping
-.RB ( -k15 ).
-For PacBio reads, HPC minimizers consistently leads to faster performance and
-more sensitive results in comparison to normal minimizers. For Oxford Nanopore
-data, normal minimizers are better, though not much. The effectiveness of HPC
-is determined by the sequencing error mode.
+Align noisy long reads of ~10% error rate to a reference genome. This is the
+default mode.
+.TP
+.B map-hifi
+Align PacBio high-fidelity (HiFi) reads to a reference genome
+.RB ( -k19
+.B -w19 -U50,500 -g10k -A1 -B4 -O6,26 -E2,1
+.BR -s200 ).
+.TP
+.B map-pb
+Align older PacBio continuous long (CLR) reads to a reference genome
+.RB ( -Hk19 ).
 .TP
 .B asm5
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -A1 -B19 -O39,81 -E3,1 -s200 -z200 -N50
-.BR --min-occ-floor=100 ).
+.B -w19 -U50,500 --rmq -r100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200
+.BR -N50 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
 .TP
 .B asm10
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -A1 -B9 -O16,41 -E2,1 -s200 -z200 -N50
-.BR --min-occ-floor=100 ).
+.B -w19 -U50,500 --rmq -r100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200
+.BR -N50 ).
 Up to 10% sequence divergence.
 .TP
 .B asm20
 Long assembly to reference mapping
 .RB ( -k19
-.B -w10 -A1 -B4 -O6,26 -E2,1 -s200 -z200 -N50
-.BR --min-occ-floor=100 ).
+.B -w10 -U50,500 --rmq -r100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200
+.BR -N50 ).
 Up to 20% sequence divergence.
-.TP
-.B ava-pb
-PacBio all-vs-all overlap mapping
-.RB ( -Hk19
-.B -Xw5 -m100 -g10000 --max-chain-skip
-.BR 25 ).
-.TP
-.B ava-ont
-Oxford Nanopore all-vs-all overlap mapping
-.RB ( -k15
-.B -Xw5 -m100 -g10000 -r2000 --max-chain-skip
-.BR 25 ).
-Similarly, the major difference from
-.B ava-pb
-is that this preset is not using HPC minimizers.
 .TP
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2000 -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9
+.B -w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0
 .BR --splice-flank=yes ).
 In the splice mode, 1) long deletions are taken as introns and represented as
 the
@@ -588,9 +592,21 @@ Long-read splice alignment for PacBio CCS reads
 .B sr
 Short single-end reads without splicing
 .RB ( -k21
-.B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -r50 -p.5 -N20 -f1000,5000 -n2 -m20
-.B -s40 -g200 -2K50m --heap-sort=yes
+.B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -r100 -p.5 -N20 -f1000,5000 -n2 -m20
+.B -s40 -g100 -2K50m --heap-sort=yes
 .BR --secondary=no ).
+.TP
+.B ava-pb
+PacBio CLR all-vs-all overlap mapping
+.RB ( -Hk19
+.B -Xw5 -e0
+.BR -m100 ).
+.TP
+.B ava-ont
+Oxford Nanopore all-vs-all overlap mapping
+.RB ( -k15
+.B -Xw5 -e0 -m100
+.BR -r2k ).
 .RE
 .SS Miscellaneous options
 .TP 10

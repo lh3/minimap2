@@ -1,7 +1,7 @@
 [![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download)](https://github.com/lh3/minimap2/releases)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimap2.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minimap2)
 [![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
-[![Build Status](https://travis-ci.org/lh3/minimap2.svg?branch=master)](https://travis-ci.org/lh3/minimap2)
+[![Build Status](https://github.com/lh3/minimap2/actions/workflows/ci.yaml/badge.svg)](https://github.com/lh3/minimap2/actions)
 ## <a name="started"></a>Getting Started
 ```sh
 git clone https://github.com/lh3/minimap2
@@ -12,19 +12,22 @@ cd minimap2 && make
 ./minimap2 -x map-ont -d MT-human-ont.mmi test/MT-human.fa
 ./minimap2 -a MT-human-ont.mmi test/MT-orang.fa > test.sam
 # use presets (no test data)
-./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio genomic reads
+./minimap2 -ax map-pb ref.fa pacbio.fq.gz > aln.sam       # PacBio CLR genomic reads
 ./minimap2 -ax map-ont ref.fa ont.fq.gz > aln.sam         # Oxford Nanopore genomic reads
-./minimap2 -ax asm20 ref.fa pacbio-ccs.fq.gz > aln.sam    # PacBio CCS genomic reads
+./minimap2 -ax map-hifi ref.fa pacbio-ccs.fq.gz > aln.sam # PacBio HiFi/CCS genomic reads (v2.19 or later)
+./minimap2 -ax asm20 ref.fa pacbio-ccs.fq.gz > aln.sam    # PacBio HiFi/CCS genomic reads (v2.18 or earlier)
 ./minimap2 -ax sr ref.fa read1.fa read2.fa > aln.sam      # short genomic paired-end reads
 ./minimap2 -ax splice ref.fa rna-reads.fa > aln.sam       # spliced long reads (strand unknown)
 ./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore Direct RNA-seq
 ./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # Final PacBio Iso-seq or traditional cDNA
+./minimap2 -ax splice --junc-bed anno.bed12 ref.fa query.fa > aln.sam  # prioritize on annotated junctions
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
 ./minimap2 -x ava-ont reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
 # man page for detailed command line options
 man ./minimap2.1
 ```
+
 ## Table of Contents
 
 - [Getting Started](#started)
@@ -71,8 +74,8 @@ Detailed evaluations are available from the [minimap2 paper][doi] or the
 Minimap2 is optimized for x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-curl -L https://github.com/lh3/minimap2/releases/download/v2.17/minimap2-2.17_x64-linux.tar.bz2 | tar -jxvf -
-./minimap2-2.17_x64-linux/minimap2
+curl -L https://github.com/lh3/minimap2/releases/download/v2.21/minimap2-2.21_x64-linux.tar.bz2 | tar -jxvf -
+./minimap2-2.21_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
@@ -80,13 +83,20 @@ directory to compile. If you see compilation errors, try `make sse2only=1`
 to disable SSE4 code, which will make minimap2 slightly slower.
 
 Minimap2 also works with ARM CPUs supporting the NEON instruction sets. To
-compile for 32 bit ARM architectures (such as ARMv7), use `make arm_neon=1`. To compile for for 64 bit ARM architectures (such as ARMv8), use `make arm_neon=1 aarch64=1`.
+compile for 32 bit ARM architectures (such as ARMv7), use `make arm_neon=1`. To
+compile for for 64 bit ARM architectures (such as ARMv8), use `make arm_neon=1
+aarch64=1`.
+
+Minimap2 can use [SIMD Everywhere (SIMDe)][simde] library for porting
+implementation to the different SIMD instruction sets. To compile using SIMDe,
+use `make -f Makefile.simde`. To compile for ARM CPUs, use `Makefile.simde`
+with the ARM related command lines given above.
 
 ### <a name="general"></a>General usage
 
 Without any options, minimap2 takes a reference database and a query sequence
 file as input and produce approximate mapping, without base-level alignment
-(i.e. no CIGAR), in the [PAF format][paf]:
+(i.e. coordinates are only approximate and no CIGAR in output), in the [PAF format][paf]:
 ```sh
 minimap2 ref.fa query.fq > approx-mapping.paf
 ```
@@ -127,13 +137,13 @@ parameters at the same time. The default setting is the same as `map-ont`.
 #### <a name="map-long-genomic"></a>Map long noisy genomic reads
 
 ```sh
-minimap2 -ax map-pb  ref.fa pacbio-reads.fq > aln.sam   # for PacBio subreads
+minimap2 -ax map-pb  ref.fa pacbio-reads.fq > aln.sam   # for PacBio CLR reads
 minimap2 -ax map-ont ref.fa ont-reads.fq > aln.sam      # for Oxford Nanopore reads
 ```
 The difference between `map-pb` and `map-ont` is that `map-pb` uses
 homopolymer-compressed (HPC) minimizers as seeds, while `map-ont` uses ordinary
 minimizers as seeds. Emperical evaluation suggests HPC minimizers improve
-performance and sensitivity when aligning PacBio reads, but hurt when aligning
+performance and sensitivity when aligning PacBio CLR reads, but hurt when aligning
 Nanopore reads.
 
 #### <a name="map-long-splice"></a>Map long mRNA/cDNA reads
@@ -178,10 +188,23 @@ This is because SIRV does not honor the evolutionarily conservative splicing
 signal. If you are studying SIRV, you may apply `--splice-flank=no` to let
 minimap2 only model GT..AG, ignoring the additional base.
 
+Since v2.17, minimap2 can optionally take annotated genes as input and
+prioritize on annotated splice junctions. To use this feature, you can 
+```sh
+paftools.js gff2bed anno.gff > anno.bed
+minimap2 -ax splice --junc-bed anno.bed ref.fa query.fa > aln.sam
+```
+Here, `anno.gff` is the gene annotation in the GTF or GFF3 format (`gff2bed`
+automatically tests the format). The output of `gff2bed` is in the 12-column
+BED format, or the BED12 format. With the `--junc-bed` option, minimap2 adds a
+bonus score (tuned by `--junc-bonus`) if an aligned junction matches a junction
+in the annotation. Option `--junc-bed` also takes 5-column BED, including the
+strand field. In this case, each line indicates an oriented junction.
+
 #### <a name="long-overlap"></a>Find overlaps between long reads
 
 ```sh
-minimap2 -x ava-pb  reads.fq reads.fq > ovlp.paf    # PacBio read overlap
+minimap2 -x ava-pb  reads.fq reads.fq > ovlp.paf    # PacBio CLR read overlap
 minimap2 -x ava-ont reads.fq reads.fq > ovlp.paf    # Oxford Nanopore read overlap
 ```
 Similarly, `ava-pb` uses HPC minimizers while `ava-ont` uses ordinary
@@ -228,7 +251,7 @@ To avoid this issue, you can add option `-L` at the minimap2 command line.
 This option moves a long CIGAR to the `CG` tag and leaves a fully clipped CIGAR
 at the SAM CIGAR column. Current tools that don't read CIGAR (e.g. merging and
 sorting) still work with such BAM records; tools that read CIGAR will
-effectively ignore these records. It has been decided that future tools will
+effectively ignore these records. It has been decided that future tools
 will seamlessly recognize long-cigar records generated by option `-L`.
 
 **TL;DR**: if you work with ultra-long reads and use tools that only process
@@ -249,7 +272,7 @@ CGATCGATAAATAGAGTAG---GAATAGCA
 CGATCG---AATAGAGTAGGTCGAATtGCA
 ```
 is represented as `:6-ata:10+gtc:4*at:3`, where `:[0-9]+` represents an
-identical block, `-ata` represents a deltion, `+gtc` an insertion and `*at`
+identical block, `-ata` represents a deletion, `+gtc` an insertion and `*at`
 indicates reference base `a` is substituted with a query base `t`. It is
 similar to the `MD` SAM tag but is standalone and easier to parse.
 
@@ -376,3 +399,5 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 [manpage]: https://lh3.github.io/minimap2/minimap2.html
 [manpage-cs]: https://lh3.github.io/minimap2/minimap2.html#10
 [doi]: https://doi.org/10.1093/bioinformatics/bty191
+[smide]: https://github.com/nemequ/simde
+[unimap]: https://github.com/lh3/unimap

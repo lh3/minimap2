@@ -3,7 +3,7 @@ from libc.stdlib cimport free
 cimport cmappy
 import sys
 
-__version__ = '2.17'
+__version__ = '2.21'
 
 cmappy.mm_reset_timer()
 
@@ -82,7 +82,7 @@ cdef class Alignment:
 
 	@property
 	def cigar_str(self):
-		return "".join(map(lambda x: str(x[0]) + 'MIDNSH'[x[1]], self._cigar))
+		return "".join(map(lambda x: str(x[0]) + 'MIDNSHP=XB'[x[1]], self._cigar))
 
 	def __str__(self):
 		if self._strand > 0: strand = '+'

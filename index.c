@@ -676,7 +676,7 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn, int read_junc
 		char *p, *q, *bl, *bs;
 		int32_t i, id = -1, n_blk = 0;
 		for (p = q = str.s, i = 0;; ++p) {
-			if (*p == 0 || isspace(*p)) {
+			if (*p == 0 || *p == '\t') {
 				int32_t c = *p;
 				*p = 0;
 				if (i == 0) { // chr
