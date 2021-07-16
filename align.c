@@ -772,7 +772,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				re1 = rs + (ez->max_t + 1);
 				qe1 = qs + (ez->max_q + 1);
 				if (cnt1 - (j + 1) >= opt->min_cnt) {
-					mm_split_reg(r, r2, as1 + j + 1 - r->as, qlen, a, opt->flag&MM_F_QSTRAND);
+					mm_split_reg(r, r2, as1 + j + 1 - r->as, qlen, a, !!(opt->flag&MM_F_QSTRAND));
 					if (zdrop_code == 2) r2->split_inv = 1;
 				}
 				break;
