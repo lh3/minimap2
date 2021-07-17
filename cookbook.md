@@ -80,12 +80,12 @@ where a `U`-line gives the number of unmapped reads (for SAM input only); a
 5. Accumulative number of mappings
 
 For `paftools.js mapeval` to work, you need to encode the true read positions
-in read names in the right format. For [PBSIM][pbsim] and [mason2][mason2], we
+in read names in the right format. For [pbsim2][pbsim] and [mason2][mason2], we
 provide scripts to generate the right format. Simulated reads in this cookbook
 were created with the following command lines:
 ```sh
-# in PBSIM source code directory:
-src/pbsim ../ecoli_ref.fa --depth 1 --sample-fastq sample/sample.fastq
+# in the pbsim2 source code directory:
+src/pbsim --depth 1 --length-min 5000 --length-mean 20000 --accuracy-mean 0.95 --hmm_model data/R94.model ../ecoli_ref.fa
 paftools.js pbsim2fq ../ecoli_ref.fa.fai sd_0001.maf > ../ecoli_pbsim.fa
 
 # mason2 simulation
@@ -237,7 +237,7 @@ with `-x ava-pb` (99% vs 93% with `-x ava-ont`).
 
 
 
-[pbsim]: https://github.com/pfaucon/PBSIM-PacBio-Simulator
+[pbsim]: https://github.com/yukiteruono/pbsim2
 [mason2]: https://github.com/seqan/seqan/tree/master/apps/mason2
 [paf]: https://github.com/lh3/miniasm/blob/master/PAF.md
 [v2.10]: https://github.com/lh3/minimap2/releases/tag/v2.10
