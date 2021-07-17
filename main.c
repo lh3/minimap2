@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.21-r1074-qs-dirty"
+#define MM_VERSION "2.21-dev-r1076-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -73,6 +73,7 @@ static ko_longopt_t long_options[] = {
 	{ "mask-len",       ko_required_argument, 346 },
 	{ "rmq",            ko_optional_argument, 347 },
 	{ "qstrand",        ko_no_argument,       348 },
+	{ "log-gap",        ko_required_argument, 349 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -101,7 +102,7 @@ static inline int64_t mm_parse_num(const char *str)
 	return mm_parse_num2(str, 0);
 }
 
-static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const char *arg, int yes_to_set)
+static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const char *arg, int yes_to_set)
 {
 	if (yes_to_set) {
 		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag |= flag;
@@ -252,6 +253,8 @@ int main(int argc, char *argv[])
 			yes_or_no(&opt, MM_F_NO_DUAL, o.longidx, o.arg, 0);
 		} else if (c == 347) { // --rmq
 			yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
+		} else if (c == 349) { // --log-gap
+			yes_or_no(&opt, MM_F_NO_LOG_GAP, o.longidx, o.arg, 0);
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)

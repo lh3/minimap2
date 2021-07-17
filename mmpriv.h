@@ -110,6 +110,16 @@ void mm_err_puts(const char *str);
 void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp);
 void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp);
 
+static inline float mg_log2(float x) // NB: this doesn't work when x<2
+{
+	union { float f; uint32_t i; } z = { x };
+	float log_2 = ((z.i >> 23) & 255) - 128;
+	z.i &= ~(255 << 23);
+	z.i += 127 << 23;
+	log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
+	return log_2;
+}
+
 #ifdef __cplusplus
 }
 #endif

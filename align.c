@@ -237,10 +237,11 @@ static void mm_update_cigar_eqx(mm_reg1_t *r, const uint8_t *qseq, const uint8_t
 	r->p = p;
 }
 
-static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e, int is_eqx)
+static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *tseq, const int8_t *mat, int8_t q, int8_t e, int is_eqx, int log_gap)
 {
 	uint32_t k, l;
-	int32_t s = 0, max = 0, qshift, tshift, toff = 0, qoff = 0;
+	int32_t qshift, tshift, toff = 0, qoff = 0;
+	double s = 0.0, max = 0.0;
 	mm_extra_t *p = r->p;
 	if (p == 0) return;
 	mm_fix_cigar(r, qseq, tseq, &qshift, &tshift);
@@ -265,7 +266,8 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 			for (l = 0; l < len; ++l)
 				if (qseq[qoff + l] > 3) ++n_ambi;
 			r->blen += len - n_ambi, p->n_ambi += n_ambi;
-			s -= q + e * len;
+			if (log_gap) s -= q + (double)e * mg_log2(1.0 + len);
+			else s -= q + e * len;
 			if (s < 0) s = 0;
 			qoff += len;
 		} else if (op == MM_CIGAR_DEL) {
@@ -273,14 +275,15 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 			for (l = 0; l < len; ++l)
 				if (tseq[toff + l] > 3) ++n_ambi;
 			r->blen += len - n_ambi, p->n_ambi += n_ambi;
-			s -= q + e * len;
+			if (log_gap) s -= q + (double)e * mg_log2(1.0 + len);
+			else s -= q + e * len;
 			if (s < 0) s = 0;
 			toff += len;
 		} else if (op == MM_CIGAR_N_SKIP) {
 			toff += len;
 		}
 	}
-	p->dp_max = max;
+	p->dp_max = (int32_t)(max + .499);
 	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
 	if (is_eqx) mm_update_cigar_eqx(r, qseq, tseq); // NB: it has to be called here as changes to qseq and tseq are not returned
 }
@@ -813,7 +816,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_idx_getseq(mi, rid, rs1, re1, tseq);
 			qseq = &qseq0[r->rev][qs1];
 		}
-		mm_update_extra(r, qseq, tseq, mat, opt->q, opt->e, opt->flag & MM_F_EQX);
+		mm_update_extra(r, qseq, tseq, mat, opt->q, opt->e, opt->flag & MM_F_EQX, !(opt->flag&MM_F_NO_LOG_GAP));
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
@@ -872,7 +875,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	}
 	r_inv->rs = r1->re + t_off;
 	r_inv->re = r_inv->rs + ez->max_t + 1;
-	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e, opt->flag & MM_F_EQX);
+	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e, opt->flag & MM_F_EQX, !(opt->flag&MM_F_NO_LOG_GAP));
 	ret = 1;
 end_align1_inv:
 	kfree(km, tseq);
