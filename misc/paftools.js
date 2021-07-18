@@ -1475,8 +1475,14 @@ function paf_view(args)
 				warn("WARNING: converting to BLAST-like alignment requires the 'cs' tag, which is absent on line " + lineno);
 				continue;
 			}
+			var n_mm = 0, n_oi = 0, n_od = 0, n_ei = 0, n_ed = 0;
+			while ((m = re_cs.exec(cs)) != null) {
+				if (m[1] == '*') ++n_mm;
+				else if (m[1] == '+') ++n_oi, n_ei += m[2].length;
+				else if (m[1] == '-') ++n_od, n_ed += m[2].length;
+			}
 			line = line.replace(/\tc[sg]:Z:\S+/g, ""); // get rid of cs or cg tags
-			print('>' + line);
+			print('>' + line + "\tmm:i:"+n_mm + "\toi:i:"+n_oi + "\tei:i:"+n_ei + "\tod:i:"+n_od + "\ted:i:"+n_ed);
 			var rs = parseInt(t[7]), qs = t[4] == '+'? parseInt(t[2]) : parseInt(t[3]);
 			var n_blocks = 0;
 			while ((m = re_cs.exec(cs)) != null) {
