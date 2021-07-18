@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.21-dev-r1076-dirty"
+#define MM_VERSION "2.21-dev-r1078-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -73,7 +73,6 @@ static ko_longopt_t long_options[] = {
 	{ "mask-len",       ko_required_argument, 346 },
 	{ "rmq",            ko_optional_argument, 347 },
 	{ "qstrand",        ko_no_argument,       348 },
-	{ "log-gap",        ko_required_argument, 349 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -117,7 +116,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:b:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -183,6 +182,7 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
+		else if (c == 'b') opt.b2 = atoi(o.arg);
 		else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
@@ -253,8 +253,6 @@ int main(int argc, char *argv[])
 			yes_or_no(&opt, MM_F_NO_DUAL, o.longidx, o.arg, 0);
 		} else if (c == 347) { // --rmq
 			yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
-		} else if (c == 349) { // --log-gap
-			yes_or_no(&opt, MM_F_NO_LOG_GAP, o.longidx, o.arg, 0);
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)
@@ -331,9 +329,10 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
 		fprintf(fp_help, "  Alignment:\n");
 		fprintf(fp_help, "    -A INT       matching score [%d]\n", opt.a);
-		fprintf(fp_help, "    -B INT       mismatch penalty [%d]\n", opt.b);
+		fprintf(fp_help, "    -B INT       mismatch penalty (larger value for lower divergence) [%d]\n", opt.b);
 		fprintf(fp_help, "    -O INT[,INT] gap open penalty [%d,%d]\n", opt.q, opt.q2);
 		fprintf(fp_help, "    -E INT[,INT] gap extension penalty; a k-long gap costs min{O1+k*E1,O2+k*E2} [%d,%d]\n", opt.e, opt.e2);
+		fprintf(fp_help, "    -b INT       ranking penalty (independent of A/B/O/E; 0 to disable) [%d]\n", opt.b2);
 		fprintf(fp_help, "    -z INT[,INT] Z-drop score and inversion Z-drop score [%d,%d]\n", opt.zdrop, opt.zdrop_inv);
 		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");

@@ -39,7 +39,6 @@
 #define MM_F_RMQ           (0x80000000LL)
 #define MM_F_QSTRAND       (0x100000000LL)
 #define MM_F_NO_INV        (0x200000000LL)
-#define MM_F_NO_LOG_GAP    (0x400000000LL)
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
@@ -148,6 +147,7 @@ typedef struct {
 	float alt_drop;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
+	int b2; // used for re-ranking hits
 	int sc_ambi; // score when one or both bases are "N"
 	int noncan;      // cost of non-canonical splicing sites
 	int junc_bonus;

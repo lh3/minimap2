@@ -43,6 +43,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->alt_drop = 0.15f;
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
+	opt->b2 = 5;
 	opt->sc_ambi = 1;
 	opt->zdrop = 400, opt->zdrop_inv = 200;
 	opt->end_bonus = -1;
@@ -67,6 +68,11 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 			opt->mid_occ = opt->min_mid_occ;
 		if (opt->max_mid_occ > opt->min_mid_occ && opt->mid_occ > opt->max_mid_occ)
 			opt->mid_occ = opt->max_mid_occ;
+	}
+	if (opt->b2 > 0 && opt->b2 * opt->a < opt->b) {
+		opt->b2 = (int)opt->b / opt->a;
+		if (mm_verbose >= 3)
+			fprintf(stderr, "[M::%s] addjusted the ranking penalty to %d\n", __func__, opt->b2);
 	}
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
@@ -125,7 +131,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag = 0, io->k = 21, io->w = 11;
 		mo->flag |= MM_F_SR | MM_F_FRAG_MODE | MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS | MM_F_HEAP_SORT;
 		mo->pe_ori = 0<<1|1; // FR
-		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 24, mo->e2 = 1;
+		mo->a = 2, mo->b = 8, mo->q = 12, mo->e = 2, mo->q2 = 24, mo->e2 = 1, mo->b2 = 0;
 		mo->zdrop = mo->zdrop_inv = 100;
 		mo->end_bonus = 10;
 		mo->max_frag_len = 800;
@@ -144,7 +150,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV | MM_F_SPLICE_FLANK;
 		mo->max_sw_mat = 0;
 		mo->max_gap = 2000, mo->max_gap_ref = mo->bw = mo->bw_long = 200000;
-		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
+		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0, mo->b2 = 0;
 		mo->noncan = 9;
 		mo->junc_bonus = 9;
 		mo->zdrop = 200, mo->zdrop_inv = 100; // because mo->a is halved

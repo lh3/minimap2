@@ -573,7 +573,7 @@ Up to 20% sequence divergence.
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0
+.B -w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -b0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0
 .BR --splice-flank=yes ).
 In the splice mode, 1) long deletions are taken as introns and represented as
 the
@@ -592,7 +592,7 @@ Long-read splice alignment for PacBio CCS reads
 .B sr
 Short single-end reads without splicing
 .RB ( -k21
-.B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -r100 -p.5 -N20 -f1000,5000 -n2 -m20
+.B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -b0 -r100 -p.5 -N20 -f1000,5000 -n2 -m20
 .B -s40 -g100 -2K50m --heap-sort=yes
 .BR --secondary=no ).
 .TP
