@@ -33,8 +33,6 @@ Modified Copyright (C) 2021 Intel Corporation
 void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
                    int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
 {
-    __m512i ind512_srli = _mm512_set1_epi8(15);
-    __mmask8 msk_srli = 0x0003;
     __m512i bt32_ = _mm512_setr_epi32(0,0,0,0,4,4,4,4,8,8,8,8,12,12,12,12);
     
     int8_t index[64] __attribute((aligned(64)));
@@ -105,7 +103,6 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
         a2= _mm512_sub_epi8(a2, tmp);                                   \
         b2= _mm512_sub_epi8(b2, tmp);
 
-    __mmask64 msk_ar[5] = {0xFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
     __mmask64 msk_ar2[5] = {0xFFFF, 0xFFFF, 0xFFFFFFFF, 0xFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF};
     
     int r, t, qe = q + e, n_col_, *off = 0, *off_end = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc, min_sc, long_thres, long_diff;
@@ -201,9 +198,9 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
         st0 = st, en0 = en;
         int st_new = st / 16 * 16, en_new = (en + 16) / 16 * 16 - 1;
         // int st_new = st / 64 * 64, en_new = (en + 64) / 64 * 64 - 1;
-        int stb = st, enb = en;
+        //int stb = st, enb = en;
         st = st / 64 * 64, en = (en + 64) / 64 * 64 - 1;
-        int stn = stb / 16 * 16, enn = (enb + 16) / 16 * 16 - 1;
+        //int stn = stb / 16 * 16, enn = (enb + 16) / 16 * 16 - 1;
         // set boundary conditions
         if (st_new > 0) {
             if (st_new - 1 >= last_st && st_new - 1 <= last_en) {
@@ -224,7 +221,7 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
         // loop fission: set scores first 
         if (!(flag & KSW_EZ_GENERIC_SC)) {
             for (t = st0; t <= en0; t += 64) {
-                __m512i sq, st, tmp_512, mask_512;
+                __m512i sq, st, tmp_512;
                 __mmask64 tmp, mask;
                 sq = _mm512_loadu_si512((__m512i*)&sf[t]);
                 st = _mm512_loadu_si512((__m512i*)&qrr[t]);
@@ -446,7 +443,6 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
 
                 // __dp_code_block2_pcl;
                 
-                __mmask64 msk;
                 {
                     _mm512_store_si512(&u[t], _mm512_sub_epi8(z, vt1));
                     _mm512_store_si512(&v[t], _mm512_sub_epi8(z, ut));
@@ -551,7 +547,7 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
                 max_H_ = _mm512_set1_epi32(max_H);
                 max_t_ = _mm512_set1_epi32(max_t);
                 for (t = st0; t < en1; t += /*4*/16) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
-                    __m512i H1, tmp, t_;
+                    __m512i H1, t_;
                     __mmask16 tmp_mask;
                     H1 = _mm512_loadu_si512((__m512i*)&H[t]);
                     __m128i t__ = _mm_load_si128((__m128i*) &v8[t]);
@@ -659,6 +655,8 @@ void ksw_extd2_avx512(void *km, int qlen, const uint8_t *query, int tlen, const 
         }
         kfree(km, mem2); kfree(km, off);
     }
+#undef __dp_code_block1_pcl
+#undef __dp_code_block2_pcl
 }
 
 #endif
@@ -692,14 +690,14 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
     
     __m256i shf256a, shf256b, slli256;
     __m256i ind256_slli = _mm256_load_si256((__m256i*) index);
-    __mmask8 mska = 0x00;//0x90
-    __mmask32 mskb = 0x00010000;//0000 0000 0000 0001 0000 0000 0000 0000
-    __mmask32 mskc = 0x1;
+    //__mmask8 mska = 0x00;//0x90
+    //__mmask32 mskb = 0x00010000;//0000 0000 0000 0001 0000 0000 0000 0000
+    //__mmask32 mskc = 0x1;
 	
     __m256i mskb_v = _mm256_set_epi32(0,0,0,255,0,0,0,0);
     __m256i mskc_v = _mm256_set_epi32(0,0,0,0,0,0,0,255);
 
-    __mmask32 mskc_ar[2] = {0x1, 0x10000};
+    //__mmask32 mskc_ar[2] = {0x1, 0x10000};
     __m256i mskc_ar_v[2];// = {0x1, 0x10000};
     mskc_ar_v[0] = _mm256_set_epi32(0,0,0,0,0,0,0,255); 
     mskc_ar_v[1] = _mm256_set_epi32(0,0,0,255,0,0,0,0); 
@@ -760,7 +758,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
         a2= _mm256_sub_epi8(a2, tmp);                                   \
         b2= _mm256_sub_epi8(b2, tmp);
 
-    __mmask32 msk_ar2[3] = {0xFFFF, 0xFFFF, 0xFFFFFFFF};
+    //__mmask32 msk_ar2[3] = {0xFFFF, 0xFFFF, 0xFFFFFFFF};
     __m256i msk_ar2_v[3];
     msk_ar2_v[0] = _mm256_set_epi32(0,0,0,0,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF); 
     msk_ar2_v[1] = _mm256_set_epi32(0,0,0,0,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF); 
@@ -861,9 +859,9 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
         st0 = st, en0 = en;
         int st_new = st / 16 * 16, en_new = (en + 16) / 16 * 16 - 1;
         // int st_new = st / 64 * 64, en_new = (en + 64) / 64 * 64 - 1;
-        int stb = st, enb = en;
+        //int stb = st, enb = en;
         st = st / 32 * 32, en = (en + 32) / 32 * 32 - 1;
-        int stn = stb / 16 * 16, enn = (enb + 16) / 16 * 16 - 1;
+        //int stn = stb / 16 * 16, enn = (enb + 16) / 16 * 16 - 1;
         // set boundary conditions
         if (st_new > 0) {
             if (st_new - 1 >= last_st && st_new - 1 <= last_en) {
@@ -885,7 +883,6 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
         if (!(flag & KSW_EZ_GENERIC_SC)) {
             for (t = st0; t <= en0; t += 32) {
                 __m256i sq, st, tmp_256, mask_256;
-                __mmask32 tmp, mask;
                 sq = _mm256_loadu_si256((__m256i*)&sf[t]);
                 st = _mm256_loadu_si256((__m256i*)&qrr[t]);
 //              mask = (_mm256_cmpeq_epi8_mask(sq, m1_) | _mm256_cmpeq_epi8_mask(st, m1_));
@@ -897,10 +894,8 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 tmp_256 = _mm256_blendv_epi8(tmp_256, sc_N_, mask_256);
                 if (t + 32 > en0)
                 {
-                    __mmask32 msk;
                     int ind = (en0 - t + 16)/16;
                     //assert(ind >= 0 && ind < 3);
-                    msk = msk_ar2[ind];
 		    __m256i msk_v = msk_ar2_v[ind];
 		    __m256i str = (get_mask_store(msk_v, ((int8_t*)s + t), tmp_256));// msk_ar2_v[ind];
 		    //__m256i str =_mm256_and_si256(get_mask_store(msk_v,(int8_t*)s + t), tmp_256);// msk_ar2_v[ind];
@@ -939,9 +934,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 z = _mm256_min_epi8(z, sc_mch_);
                 // __dp_code_block2_pcl; // save u[] and v[]; update a, b, a2 and b2
                 if (t == en_) {
-                    __mmask32 msk;
                     int ind = (en0 - t*32 + 16)/16;//doubt
-                    msk = msk_ar2[ind];
                     // fprintf(stderr, "en0: %d, t: %d, ind: %d, msk: %d\n", en0, t, ind, msk);
                     _mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
                     _mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind], &v[t], _mm256_sub_epi8(z, ut))));
@@ -965,10 +958,10 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 }
                 
                 if (t == en_) {
-                    __mmask32 msk;
+                    //__mmask32 msk;
                     int ind = (en0 - t*32 + 16)/16;//doubt
                     //assert(ind >= 0);
-                    msk = msk_ar2[ind];
+                    //msk = msk_ar2[ind];
                     // fprintf(stderr, "en0: %d, t: %d, ind: %d, msk: %d\n", en0, t, ind, msk);
                     _mm256_storeu_si256(&x[t], (get_mask_store(msk_ar2_v[ind], &x[t], _mm256_sub_epi8(_mm256_max_epi8(a,  zero_), qe_))));
                     _mm256_storeu_si256(&y[t], (get_mask_store(msk_ar2_v[ind],&y[t],  _mm256_sub_epi8(_mm256_max_epi8(b,  zero_), qe_))));
@@ -1047,10 +1040,10 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 z = _mm256_min_epi8(z, sc_mch_);
                 // __dp_code_block2_pcl;                
                 {
-                    __mmask32 msk;
+                    //__mmask32 msk;
                     int ind = (en0 - t*32 + 16)/16;//doubt
                   //  //assert(ind >= 0 && ind < 5);
-                    msk = msk_ar2[ind];
+                    //msk = msk_ar2[ind];
                     
                     _mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
                     _mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind],&v[t], _mm256_sub_epi8(z, ut))));
@@ -1063,9 +1056,9 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 }
                 
                 {
-                    __mmask32 msk;
+                    //__mmask32 msk;
                     int ind = (en0 - t*32 + 16)/16;//doubt
-                    msk = msk_ar2[ind];
+                    //msk = msk_ar2[ind];
 		    __m256i msk_v= msk_ar2_v[ind];
                     off_end[r] -= (2-ind)*16;//doubt
                     
@@ -1116,7 +1109,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
 
                 // __dp_code_block2_pcl;
                 
-                __mmask32 msk;
+                //__mmask32 msk;
                 {
                     _mm256_storeu_si256(&u[t], _mm256_sub_epi8(z, vt1));
                     _mm256_storeu_si256(&v[t], _mm256_sub_epi8(z, ut));
@@ -1172,11 +1165,11 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
 
                 // __dp_code_block2_pcl;
                 
-                __mmask32 msk;
+                //__mmask32 msk;
                 
                     // __mmask64 msk;
                     int ind = (en0 - t*32 + 16)/16;//doubt
-                    msk = msk_ar2[ind];
+                    //msk = msk_ar2[ind];
                     off_end[r] -= (2-ind)*16;//doubt
                     
                     _mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
@@ -1222,7 +1215,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 max_H_ = _mm256_set1_epi32(max_H);
                 max_t_ = _mm256_set1_epi32(max_t);
                 for (t = st0; t < en1; t += /*4*/8) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
-                    __m256i H1, tmp, t_;
+                    __m256i H1, t_;
                     H1 = _mm256_loadu_si256((__m256i*)&H[t]);
                     //__m128i t__ = _mm_load_si128((__m128i*) &v8[t]);
                     //t_ = _mm256_cvtepi8_epi32(t__);
@@ -1232,7 +1225,6 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                     // making it 4 lanes to match accuracy
                    
 			__m256i shfH, shft, max1, max2;
-                        __mmask8 tmp_mask;
                         __m256i tmp_mask_v;
 			t_ = _mm256_set1_epi32(t);
 			t_ = _mm256_add_epi32(t_, bt32_);
@@ -1340,6 +1332,8 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
         }
         kfree(km, mem2); kfree(km, off);
     }
+#undef __dp_code_block1_pcl
+#undef __dp_code_block2_pcl
 }
 
 #endif

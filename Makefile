@@ -38,13 +38,12 @@ ifeq ($(lhash), 1)
 	OPT_FLAGS+=	-DLISA_HASH -DUINT64 -DVECTORIZE 
 endif
 
-
 ifeq ($(manual_profile), 1)
 	CPPFLAGS+= -DMANUAL_PROFILING 
 endif
 
-ifeq ($(arch), avx512)
-	CPPFLAGS+= -xCORE-AVX512
+ifeq ($(use_avx2), 1)
+	OPT_FLAGS+= -DAPPLY_AVX2
 endif
 
 ifeq ($(disable_output), 1)
