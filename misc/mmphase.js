@@ -255,7 +255,7 @@ function process_paf(a, opt, fp_seq, buf, ecb)
 	}
 }
 
-function main(args)
+function mmp_utec(args)
 {
 	var c, opt = { min_rlen:20000, min_blen:10000, min_iden:0.8, min_mlen:5, max_clip_len:500, max_ratio0:0.25, dbg:false };
 	while ((c = getopt(args, "l:b:d:m:c:r:D")) != null) {
@@ -268,7 +268,7 @@ function main(args)
 		else if (c == 'D') opt.dbg = true;
 	}
 	if (args.length - getopt.ind < 2) {
-		print("Usage: utec.js [options] <map-with-cs.paf> <seq.fa>");
+		print("Usage: mmphase.js utec [options] <map-with-cs.paf> <seq.fa>");
 		print("Options:");
 		print("  -l INT    min read length [" + opt.min_rlen + "]");
 		print("  -b INT    min alignment length [" + opt.min_blen + "]");
@@ -300,6 +300,20 @@ function main(args)
 	fp_paf.close();
 	ecb.destroy();
 	buf.destroy();
+}
+
+function main(args)
+{
+	if (args.length == 0) {
+		print("Usage: mmphase.js <command> [arguments]");
+		print("Commands:");
+		print("  utec       unitig-based error correction for Nanopore reads");
+		exit(1);
+	}
+
+	var cmd = args.shift();
+	if (cmd == 'utec') mmp_utec(args);
+	else throw Error("unrecognized command: " + cmd);
 }
 
 var ret = main(arguments)
