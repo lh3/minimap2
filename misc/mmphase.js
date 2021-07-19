@@ -129,7 +129,7 @@ function find_het_sub(ev, a, opt)
 				last0_i = i;
 		} else if (ev[i][2] == 1 && last0_i >= 0 && ev[i][0] < ev[last0_i][1]) {
 			if (ev[last0_i][1] - ev[last0_i][0] >= opt.min_mlen) {
-				if (opt.dbg_ev) print(ev[last0_i].join("\t"), "|", ev[i].join("\t"));
+				if (opt.dbg_ev) print("EV", ev[last0_i].join("\t"), "|", ev[i].join("\t"));
 				var e0 = ev[last0_i], hl = h[e0[3]];
 				if (hl.length == 0 || hl[hl.length-1][0] != e0[0])
 					hl.push([e0[0], e0[1]]);
@@ -144,7 +144,7 @@ function find_het_sub(ev, a, opt)
 			sh += h[i][j][1] - h[i][j][0];
 		for (var j = 0; j < d[i].length; ++j)
 			dh += d[i][j][1];
-		// // [start, end, index, #consistent, lenConsistent, #conflictive, lenConflictive, identity, mlen]
+		// [start, end, index, #consistent, lenConsistent, #conflictive, lenConflictive, identity, mlen]
 		b[i] = [a[i][2], a[i][3], i, h[i].length, sh, d[i].length, dh, a[i][9] / a[i][10], a[i][9]];
 	}
 	return b;
@@ -184,7 +184,7 @@ function flt_utg_for_ec(b, opt)
 	}
 }
 
-function flt_utg_for_bin(b, opt)
+function flt_utg_for_bin(b, opt) // filter out alignments clearly on the wrong phase
 {
 	var k = 0;
 	for (var i = 0; i < b.length; ++i) {
@@ -194,7 +194,7 @@ function flt_utg_for_bin(b, opt)
 	b.length = k;
 }
 
-function ec_core(b, n_a, ev, buf, ecb)
+function ec_core(b, n_a, ev, buf, ecb) // error correction
 {
 	var intv = [];
 	for (var i = 0; i < n_a; ++i)
@@ -277,7 +277,7 @@ function process_paf(a, opt, fp_seq, buf, ecb)
 
 function main(args)
 {
-	var c, opt = { min_rlen:20000, min_blen:10000, min_iden:0.8, min_mlen:5, max_clip_len:500, max_ratio0:0.25, dbg_ev:false };
+	var c, opt = { min_rlen:5000, min_blen:5000, min_iden:0.8, min_mlen:5, max_clip_len:500, max_ratio0:0.25, dbg_ev:false };
 	while ((c = getopt(args, "l:b:d:m:c:r:E")) != null) {
 		if (c == 'l') opt.min_rlen = parseInt(getopt.arg);
 		else if (c == 'b') opt.min_blen = parseInt(getopt.arg);
