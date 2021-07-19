@@ -269,8 +269,6 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 #else
 	m = collect_matches_lisa_hash(km, &n_m, max_occ, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
 #endif
-	uint64_t mapping_count = 0;
-	mapping_count = 0;
 
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
 	for (i = 0, *n_a = 0; i < n_m; ++i) {

@@ -149,6 +149,33 @@ static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const cha
 
 int main(int argc, char *argv[])
 {
+#ifdef LISA_HASH
+	#if VECTORIZE && __AVX512BW__
+		fprintf(stderr, "Using LISA hash with AVX512-vectorized last-mile search.\n");
+	#else
+		fprintf(stderr, "Using LISA hash with sequential last-mile search.\n");
+	#endif	
+#else
+	fprintf(stderr, "Using default hash lookup.\n");
+#endif	
+
+#if defined(VECTORIZED_CHAINING) && defined(__AVX512BW__)
+	fprintf(stderr, "Using AVX512-vectorized chaining.\n");
+#else
+	fprintf(stderr, "Using default chaining.\n");
+#endif
+
+
+#if defined (ALIGN_AVX) && (defined(__AVX512BW__) || (defined(__AVX2__) && defined(APPLY_AVX2)))
+#ifdef __AVX512BW__
+	fprintf(stderr, "Using AVX512-vectorized alignment.\n");
+#elif __AVX2__
+	fprintf(stderr, "Using AVX2-vectorized alignment.\n");
+#endif
+#else
+	fprintf(stderr, "Using default SSE-vectorized alignment.\n");
+#endif
+
 	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:Z:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
@@ -163,6 +190,7 @@ int main(int argc, char *argv[])
 	mm_verbose = 3;
 	liftrlimit();
 	mm_realtime0 = realtime();
+	double mapping_time = realtime();
 	mm_set_opt(0, &ipt, &opt);
 	string preset_arg = "";
 
@@ -453,7 +481,9 @@ int main(int argc, char *argv[])
 	lh = new lisa_hash<uint64_t, uint64_t>(preset_arg, prefix);
 	fprintf(stderr, "Loading done.\n");
 	total_time =  __rdtsc();
+	fprintf(stderr, "\nIndexing Real time: %.3f sec;\n", realtime() - mapping_time);
 #endif
+	mapping_time = realtime();
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i) {
 				ret = mm_map_file(mi, argv[i], &opt, n_threads);
@@ -495,6 +525,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "\n Number of reads = %lld Minimizer hit time = %lld dp_chaining time = %lld alignment time = %lld total time = %lld \n", num_reads, minimizer_hit_time, dp_chaining_time, alignment_time, __rdtsc() - total_time);
 #endif
 	fprintf(stderr, "Total ticks: %lld \n",__rdtsc() - total_time);
+	fprintf(stderr, "\nMapping Real time: %.3f sec;\n", realtime() - mapping_time);
 #ifdef LISA_HASH
 	delete lh;
 #endif	

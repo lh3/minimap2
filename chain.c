@@ -33,7 +33,11 @@ Modified Copyright (C) 2021 Intel Corporation
 #include "minimap.h"
 #include "mmpriv.h"
 #include "kalloc.h"
+
+#if defined(VECTORIZED_CHAINING) && defined(__AVX512BW__)
 #include "parallel_chaining_32_bit.h"
+#endif
+
 static const char LogTable256[256] = {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
 	-1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
@@ -53,9 +57,8 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t k, *p, *t, *v, n_u, n_v;
 	uint32_t *f;
-	int64_t i, j, st = 0;
-	uint64_t *u, *u2, sum_qspan = 0;
-	float avg_qspan;
+	int64_t i, j;
+	uint64_t *u, *u2;
 	mm128_t *b, *w;
 
 	if (_u) *_u = 0, *n_u_ = 0;
@@ -68,7 +71,7 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	t = (int32_t*)kmalloc(km, n * 4);
 	v = (int32_t*)kmalloc(km, n * 4);
 	memset(t, 0, n * 4);
-#if VECTORIZED_CHAINING && (__AVX512BW__ || __AVX2__)
+#if defined(VECTORIZED_CHAINING) && defined(__AVX512BW__)
 	/* Allocation for debugging 
 	f_avx = (uint32_t*)kmalloc(km, n * 4);
 	p_avx = (int32_t*)kmalloc(km, n * 4);
@@ -94,7 +97,9 @@ mm128_t *mm_chain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int m
 	free(anchor_l);
 	free(anchors);
 #else
-
+	int64_t st = 0;
+	uint64_t sum_qspan = 0; 
+	float avg_qspan;
 	for (i = 0; i < n; ++i) sum_qspan += a[i].y>>32&0xff;
 	avg_qspan = (float)sum_qspan / n;
 
