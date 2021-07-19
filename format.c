@@ -271,18 +271,6 @@ int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_r
 	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 1, 0, 0);
 }
 
-double mm_event_identity(const mm_reg1_t *r)
-{
-	int32_t i, n_gapo = 0, n_gap = 0;
-	if (r->p == 0) return -1.0f;
-	for (i = 0; i < r->p->n_cigar; ++i) {
-		int32_t op = r->p->cigar[i] & 0xf, len = r->p->cigar[i] >> 4;
-		if (op == MM_CIGAR_INS || op == MM_CIGAR_DEL)
-			++n_gapo, n_gap += len;
-	}
-	return (double)r->mlen / (r->blen + r->p->n_ambi - n_gap + n_gapo);
-}
-
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 {
 	int type;
