@@ -1,8 +1,19 @@
 ## mm2-fast
 ### Introduction
-mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all three major modules of minimap2: Seeding, Chaining, and Alignment, achieving upto 3.5x speedup over minimap2. 
+mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all three major modules of minimap2: Seeding, Chaining, and Alignment, achieving up to 3.5x speedup over minimap2. 
 mm2-fast is a drop-in replacement of minimap2, providing the same functionality with the exact same output.
-In the current version, all the modules are optimized using **AVX2** and **AVX-512** vectorization. For non-AVX-512 machines, mm2-fast runs as minimap2 code.
+In the current version, all the modules are optimized using **AVX-512** vectorization. For **AVX2** systems, mm2-fast can be run with optimized seeding and AVX2 based vectorized alignment. The chaining module is not optimized for AVX2. The following table shows AVX2/AVX512 compatibility for three modules along with their default settings.
+
+                   +------------+------------+-----------------------------------+	
+                   | AVX512     |  AVX2      |  Default settings                 |
+       +-----------+------------+------------+-----------------------------------+	
+       | Seeding   | Yes        |  Yes       |  AVX512/AVX2: Disabled            |
+       +-----------+------------+------------+-----------------------------------+	
+       | Chaining  | Yes        |  No        |  AVX512: Enabled, AVX2: NA        |
+       +-----------+------------+------------+-----------------------------------+	
+       | Alignment | Yes        |  Yes       |  AVX512: Enabled, AVX2: Disabled  |
+       +-------------------------------------+-----------------------------------+	
+
 
 ### Usage
 ```sh
@@ -24,6 +35,9 @@ make clean && make lhash=1
     
 # Compile with all optimizations disabled (runs as minimap2)
 make clean && make no_opt=1
+
+# Enable optimized seeding and AVX2 based alignment for AVX2 systems (By default, all optimizations are disabled for AVX2 systems)
+make clean && make lhash=1 use_avx2=1
 ```
 The original README content of minimap2 follows.
 
