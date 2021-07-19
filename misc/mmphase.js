@@ -129,7 +129,7 @@ function find_het_sub(ev, a, opt)
 				last0_i = i;
 		} else if (ev[i][2] == 1 && last0_i >= 0 && ev[i][0] < ev[last0_i][1]) {
 			if (ev[last0_i][1] - ev[last0_i][0] >= opt.min_mlen) {
-				//print(ev[last0_i].join("\t"), "|", ev[i].join("\t"));
+				if (opt.dbg_ev) print(ev[last0_i].join("\t"), "|", ev[i].join("\t"));
 				var e0 = ev[last0_i], hl = h[e0[3]];
 				if (hl.length == 0 || hl[hl.length-1][0] != e0[0])
 					hl.push([e0[0], e0[1]]);
@@ -144,18 +144,18 @@ function find_het_sub(ev, a, opt)
 			sh += h[i][j][1] - h[i][j][0];
 		for (var j = 0; j < d[i].length; ++j)
 			dh += d[i][j][1];
-		// // [start, end, index, ?, ?, ?, ?, identity, mlen]
+		// // [start, end, index, #consistent, lenConsistent, #conflictive, lenConflictive, identity, mlen]
 		b[i] = [a[i][2], a[i][3], i, h[i].length, sh, d[i].length, dh, a[i][9] / a[i][10], a[i][9]];
 	}
 	return b;
 }
 
-function flt_utg(b, opt)
+function flt_utg_for_ec(b, opt)
 {
 	var k = 0;
 	for (var i = 0; i < b.length; ++i) {
 		var bi = b[i];
-		if (bi[4] == 0 && bi[6] == 0) b[k++] = bi;
+		if (bi[4] == 0 && bi[6] == 0) b[k++] = bi; // entirely ambiguous
 		else if (bi[6] < (bi[4] + bi[6]) * opt.max_ratio0) b[k++] = bi;
 	}
 	b.length = k;
@@ -182,6 +182,16 @@ function flt_utg(b, opt)
 				b[k++] = b[i];
 		b.length = k;
 	}
+}
+
+function flt_utg_for_bin(b, opt)
+{
+	var k = 0;
+	for (var i = 0; i < b.length; ++i) {
+		var bi = b[i];
+		if (bi[4] + bi[6] == 0 || bi[4] >= (bi[4] + bi[6]) * opt.max_ratio0) b[k++] = bi;
+	}
+	b.length = k;
 }
 
 function ec_core(b, n_a, ev, buf, ecb)
@@ -243,37 +253,39 @@ function process_paf(a, opt, fp_seq, buf, ecb)
 	for (var i = 0; i < a.length; ++i)
 		parse_events(a[i], ev, i, buf);
 	ev.sort(function(x,y) { return x[0]!=y[0]? x[0]-y[0] : x[2]-y[2] });
-	if (opt.dbg)
-		print(">"+name, a[0][1], a.length);
+	if (seq == null) print("SQ", name, a[0][1], a.length);
 	var b = find_het_sub(ev, a, opt);
-	flt_utg(b, opt);
-	if (b.length == 0) return;
-	if (opt.dbg) {
-		for (var i = 0; i < b.length; ++i)
-			print(b[i].join("\t"), a[b[i][2]][5]);
-	}
+	if (opt.ec) flt_utg_for_ec(b, opt);
+	else flt_utg_for_bin(b, opt);
 	if (seq == null) {
+		for (var i = 0; i < b.length; ++i) {
+			var m, ai = a[b[i][2]], score = 0;
+			for (var j = 10; j < ai.length; ++j)
+				if ((m = /^AS:i:(\d+)/.exec(ai[j])) != null)
+					score = m[1];
+			print("TS", b[i][2], b[i][0], b[i][1], ai.slice(5, 9).join("\t"), b[i].slice(3, 7).join("\t"), score);
+		}
+		print("//");
 	} else { // error correction
+		if (b.length == 0) return;
 		buf.set(seq, 0);
 		ec_core(b, a.length, ev, buf, ecb);
-		if (!opt.dbg) {
-			print(">" + name);
-			print(ecb);
-		}
+		print(">" + name);
+		print(ecb);
 	}
 }
 
 function main(args)
 {
-	var c, opt = { min_rlen:20000, min_blen:10000, min_iden:0.8, min_mlen:5, max_clip_len:500, max_ratio0:0.25, dbg:false };
-	while ((c = getopt(args, "l:b:d:m:c:r:D")) != null) {
+	var c, opt = { min_rlen:20000, min_blen:10000, min_iden:0.8, min_mlen:5, max_clip_len:500, max_ratio0:0.25, dbg_ev:false };
+	while ((c = getopt(args, "l:b:d:m:c:r:E")) != null) {
 		if (c == 'l') opt.min_rlen = parseInt(getopt.arg);
 		else if (c == 'b') opt.min_blen = parseInt(getopt.arg);
 		else if (c == 'd') opt.min_iden = parseFloat(getopt.arg);
 		else if (c == 'm') opt.min_slen = parseInt(getopt.arg);
 		else if (c == 'c') opt.max_clip_len = parseInt(getopt.arg);
 		else if (c == 'r') opt.max_ratio0 = parseFloat(getopt.arg);
-		else if (c == 'D') opt.dbg = true;
+		else if (c == 'E') opt.dbg_ev = true;
 	}
 	if (args.length - getopt.ind < 1) {
 		print("Usage: mmphase.js [options] <map-with-cs.paf> [reads.fa]");
@@ -286,6 +298,15 @@ function main(args)
 		print("  -r FLOAT  initial ratio for haplotype filtering [" + opt.max_ratio0 + "]");
 		return 0;
 	}
+
+	opt.ec = args.length - getopt.ind < 2? false : true;
+	if (!opt.ec) {
+		print("CC");
+		print("CC", "SQ  qName  qLen    nHits");
+		print("CC", "TS  index  qStart  qEnd  tName  tLen  tStart  tEnd  nConsistent  lCons  nConflictive  lConf  score");
+		print("CC");
+	}
+
 	var buf = new Bytes(), ecb = new Bytes();
 	var fp_paf = new File(args[getopt.ind]);
 	var fp_seq = args.length - getopt.ind >= 2? new File(args[getopt.ind+1]) : null;
