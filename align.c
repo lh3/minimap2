@@ -953,6 +953,7 @@ static void mm_update_dp_max(int qlen, int n_regs, mm_reg1_t *regs, float frac, 
 		mm_reg1_t *r = &regs[i];
 		if (r->p == 0) continue;
 		r->p->dp_max = mm_recal_max_dp(r, b2, a);
+		if (r->p->dp_max < 0) r->p->dp_max = 0;
 	}
 }
 
@@ -1010,8 +1011,10 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	kfree(km, qseq0[0]);
 	kfree(km, ez.cigar);
 	mm_filter_regs(opt, qlen, n_regs_, regs);
-	if (!(opt->flag&MM_F_SR) && qlen >= opt->rank_min_len)
+	if (!(opt->flag&MM_F_SR) && qlen >= opt->rank_min_len) {
 		mm_update_dp_max(qlen, *n_regs_, regs, opt->rank_frac, opt->a, opt->b);
+		mm_filter_regs(opt, qlen, n_regs_, regs);
+	}
 	mm_hit_sort(km, n_regs_, regs, opt->alt_drop);
 	return regs;
 }
