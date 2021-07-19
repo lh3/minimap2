@@ -96,8 +96,9 @@ function parse_events(t, ev, id, buf)
 	var x = st;
 	while ((m = re.exec(cs)) != null) {
 		var l;
-		if (m[2] != null) {
+		if (m[2] != null) { // an identitcal match ":\d+"
 			l = parseInt(m[2]);
+			// [start, end, type, index, changed_base]
 			ev.push([x, x + l, 0, id]);
 		} else {
 			if (m[4] == '*') {
@@ -143,6 +144,7 @@ function find_het_sub(ev, a, opt)
 			sh += h[i][j][1] - h[i][j][0];
 		for (var j = 0; j < d[i].length; ++j)
 			dh += d[i][j][1];
+		// // [start, end, index, ?, ?, ?, ?, identity, mlen]
 		b[i] = [a[i][2], a[i][3], i, h[i].length, sh, d[i].length, dh, a[i][9] / a[i][10], a[i][9]];
 	}
 	return b;
@@ -222,17 +224,19 @@ function ec_core(b, n_a, ev, buf, ecb)
 function process_paf(a, opt, fp_seq, buf, ecb)
 {
 	if (a.length == 0) return;
-	var len = a[0][1];
+	var len = a[0][1], name = a[0][0], seq = null;
 	if (len < opt.min_rlen) return;
-	var ret;
-	while ((ret = read_fastx(fp_seq, buf, name, seq)) != null)
-		if (ret[0] == a[0][0])
-			break;
-	if (ret == null)
-		throw Error("failed to find sequence for read '" + a[0][0] + "'");
-	var name = ret[0], seq = ret[1], len = a[0][1];
-	if (seq.length != len)
-		throw Error("inconsistent length for read '" + name + "'");
+	if (fp_seq) {
+		var ret;
+		while ((ret = read_fastx(fp_seq, buf)) != null)
+			if (ret[0] == a[0][0])
+				break;
+		if (ret == null)
+			throw Error("failed to find sequence for read '" + a[0][0] + "'");
+		name = ret[0], seq = ret[1];
+		if (seq.length != len)
+			throw Error("inconsistent length for read '" + name + "'");
+	}
 	filter_paf(a, opt);
 	if (a.length == 0) return;
 	var ev = [];
@@ -244,18 +248,22 @@ function process_paf(a, opt, fp_seq, buf, ecb)
 	var b = find_het_sub(ev, a, opt);
 	flt_utg(b, opt);
 	if (b.length == 0) return;
-	buf.set(seq, 0);
-	ec_core(b, a.length, ev, buf, ecb);
 	if (opt.dbg) {
 		for (var i = 0; i < b.length; ++i)
 			print(b[i].join("\t"), a[b[i][2]][5]);
-	} else {
-		print(">" + name);
-		print(ecb);
+	}
+	if (seq == null) {
+	} else { // error correction
+		buf.set(seq, 0);
+		ec_core(b, a.length, ev, buf, ecb);
+		if (!opt.dbg) {
+			print(">" + name);
+			print(ecb);
+		}
 	}
 }
 
-function mmp_utec(args)
+function main(args)
 {
 	var c, opt = { min_rlen:20000, min_blen:10000, min_iden:0.8, min_mlen:5, max_clip_len:500, max_ratio0:0.25, dbg:false };
 	while ((c = getopt(args, "l:b:d:m:c:r:D")) != null) {
@@ -267,8 +275,8 @@ function mmp_utec(args)
 		else if (c == 'r') opt.max_ratio0 = parseFloat(getopt.arg);
 		else if (c == 'D') opt.dbg = true;
 	}
-	if (args.length - getopt.ind < 2) {
-		print("Usage: mmphase.js utec [options] <map-with-cs.paf> <seq.fa>");
+	if (args.length - getopt.ind < 1) {
+		print("Usage: mmphase.js [options] <map-with-cs.paf> [reads.fa]");
 		print("Options:");
 		print("  -l INT    min read length [" + opt.min_rlen + "]");
 		print("  -b INT    min alignment length [" + opt.min_blen + "]");
@@ -280,7 +288,7 @@ function mmp_utec(args)
 	}
 	var buf = new Bytes(), ecb = new Bytes();
 	var fp_paf = new File(args[getopt.ind]);
-	var fp_seq = new File(args[getopt.ind+1]);
+	var fp_seq = args.length - getopt.ind >= 2? new File(args[getopt.ind+1]) : null;
 	var a = [];
 	while (fp_paf.readline(buf) >= 0) {
 		var t = buf.toString().split("\t");
@@ -296,24 +304,10 @@ function mmp_utec(args)
 	}
 	if (a.length >= 0)
 		process_paf(a, opt, fp_seq, buf, ecb);
-	fp_seq.close();
+	if (fp_seq) fp_seq.close();
 	fp_paf.close();
 	ecb.destroy();
 	buf.destroy();
-}
-
-function main(args)
-{
-	if (args.length == 0) {
-		print("Usage: mmphase.js <command> [arguments]");
-		print("Commands:");
-		print("  utec       unitig-based error correction for Nanopore reads");
-		exit(1);
-	}
-
-	var cmd = args.shift();
-	if (cmd == 'utec') mmp_utec(args);
-	else throw Error("unrecognized command: " + cmd);
 }
 
 var ret = main(arguments)
