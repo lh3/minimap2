@@ -14,7 +14,6 @@ In the current version, all the modules are optimized using **AVX-512** vectoriz
        | Alignment | Yes        |  Yes       |  AVX512: Enabled, AVX2: Disabled  |
        +-------------------------------------+-----------------------------------+	
 
-
 ### Usage
 ```sh
 git clone --recursive https://github.com/lh3/minimap2.git -b fast-contrib mm2-fast   
