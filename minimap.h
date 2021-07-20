@@ -168,6 +168,7 @@ typedef struct {
 	int32_t max_occ, max_max_occ, occ_dist;
 	int64_t mini_batch_size; // size of a batch of query bases to process in parallel
 	int64_t max_sw_mat;
+	int64_t cap_kalloc;
 
 	const char *split_prefix;
 } mm_mapopt_t;

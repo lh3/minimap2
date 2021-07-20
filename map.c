@@ -362,7 +362,9 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 			fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
 		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
-		if (kmst.largest > 1U<<28) {
+		if (kmst.largest > 1U<<28 || (opt->cap_kalloc > 0 && kmst.capacity > opt->cap_kalloc)) {
+			if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+				fprintf(stderr, "[W::%s] reset thread-local memory after read %s\n", __func__, qname);
 			km_destroy(b->km);
 			b->km = km_init();
 		}
