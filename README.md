@@ -1,13 +1,13 @@
 ## mm2-fast
 ### Introduction
-mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all three major modules of minimap2: Seeding, Chaining, and Alignment, achieving up to 3.5x speedup over minimap2. 
+mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all the three major modules of minimap2: (a) seeding, (b) chaining, and (c) pairwise alignment, achieving up to 3.5x speedup over minimap2. 
 mm2-fast is a drop-in replacement of minimap2, providing the same functionality with the exact same output.
-In the current version, all the modules are optimized using **AVX-512** vectorization. 
+In the current version, all the modules are optimized using **AVX-512** vectorization. Detailed benchmark results are available in our [preprint](https://doi.org/10.1101/2021.07.21.453294).
 
 ### System requirement
 Operating System: Linux   
-Compiler: g++ (GCC) 9.2.0/icpc version 19.1.3.304   
-Architecture: AVX512   
+mm2-fast was tested using g++ (GCC) 9.2.0 and icpc version 19.1.3.304   
+Architecture: [AVX512](https://en.wikipedia.org/wiki/AVX-512)   
 Memory requirement: ~30GB for human genome   
 
 ### Installation
@@ -18,14 +18,14 @@ cd mm2-fast
 make 
 ```
 
-### Usage/Demo
+### Usage
 The usage of mm2-fast is same as minimap2. Here is an example of mapping ONT reads with test data.
 ```sh
 ./minimap2 -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast_output
 ```
 
 ### Accuracy evaluation
-As mm2-fast is an accelerated version of minimap2-v2.18, the output of mm2-fast can be verified against minimap2-v2.18. Note that, AVX512-based chaining in mm2-fast by default runs with a chaining parameter *max-skip=infinity* for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of *max-skip* parameter. Follow the below steps to verify the accuracy of mm2-fast. 
+As mm2-fast is an accelerated version of minimap2-v2.18, the output of mm2-fast can be verified against minimap2-v2.18. Note that AVX512-based chaining in mm2-fast by default runs with a chaining parameter *max-skip=infinity* for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of *max-skip* parameter. Follow the below steps to verify the accuracy of mm2-fast. 
 ```sh
 git clone https://github.com/lh3/minimap2.git -b v2.18
 cd minimap2 && make
@@ -38,31 +38,32 @@ diff minimap2_output mm2-fast_output > diff_result
 The file diff\_result should show a clean-diff with the difference of 2 lines, i.e., the lines containing the command-line parameters for minimap2 and mm2-fast.
 
 ### Advanced options
-The default compilation using make applies two optimizations: AVX512 vectorized chaining and alignment, and learned-indexes based seeding is disables by default as it requires aditional installations. Learned hash-table uses an external training library that runs on Rust. Following are the steps to enable learned hash table optimization in mm2-fast:
+The default compilation using make applies two optimizations: AVX512 vectorized chaining and alignment, and learned-indexes based seeding is disabled by default as it requires availability of [Rust](https://en.wikipedia.org/wiki/Rust_(programming_language)). This is because the learned hash-table uses an external training library that runs on Rust. Rust is trivial to install, see https://rustup.rs/ and add its path to .bashrc file. Following are the steps to enable learned hash table optimization in mm2-fast:
 ```sh
-# Compile and run mm2-fast optimized seeding (all three optimized modules)
-1. Build learned hash table index for optimized seeding module   
-   Pre-requisite: Install "Rust" and add path to .bashrc file. For Rust installation, visit https://rustup.rs/   
-               ./build_rmi.sh test/MT-human.fa map-ont               ##takes two arguments: 1. path-to-reference-seq-file 2. preset    
+# Start by building learned hash table index for optimized seeding module 
+./build_rmi.sh test/MT-human.fa map-ont               ##takes two arguments: 1. path-to-reference-seq-file 2. preset    
 
-2. Compile and run  
+# Next, compile and run the mapping phase  
 make clean && make lhash=1
 ./minimap2 -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast-lhash_output
-
-# Compile with all optimizations disabled (runs as minimap2)
+```
+To compile mm2-fast with all optimizations turned off and switch back to default minimap2, use the following command during compilation. This could be useful for debugging.
+```sh
 make clean && make no_opt=1
-
-# Enable optimized seeding and AVX2 based alignment for AVX2 systems (By default, all optimizations are disabled for AVX2 systems). Chaining step is not optimized for AVX2.
+```
+mm2-fast includes preliminary support for AVX2 architecture. Currently, chaining step is not optimized for AVX2 but the seeding and alignment steps are available. To try mm2-fast on AVX2 systems, use the following command to compile.
+```sh
 make clean && make lhash=1 use_avx2=1
 ```
 
 ### Future Plans
 The current version of mm2-fast is based on minimap2-v2.18. We are planning to apply our optimizations to minimap2 master branch.
 ### Citations
-"Accelerating long-read analysis on modern CPs"; Saurabh Kalikar, Chirag Jain, Vasimuddin Md, Sanchit Misra; uploaded to bioRxiv - https://www.biorxiv.org/content/10.1101/2021.07.21.453294v1
+["Accelerating long-read analysis on modern CPUs"](https://doi.org/10.1101/2021.07.21.453294); Saurabh Kalikar, Chirag Jain, Vasimuddin Md, Sanchit Misra; BioRxiv 2021
 
-
+---
 The original README content of minimap2 follows.
+
 
 [![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download)](https://github.com/lh3/minimap2/releases)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimap2.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minimap2)
