@@ -336,6 +336,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 
 	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], &n_regs0, regs0, a);
+		regs0 = (mm_reg1_t*)realloc(regs0, sizeof(*regs0) * n_regs0);
 		mm_set_mapq(b->km, n_regs0, regs0, opt->min_chain_score, opt->a, rep_len, is_sr);
 		n_regs[0] = n_regs0, regs[0] = regs0;
 	} else { // multi-segment
