@@ -5,10 +5,10 @@ mm2-fast is a drop-in replacement of minimap2, providing the same functionality 
 In the current version, all the modules are optimized using **AVX-512** vectorization. 
 
 ### System requirement
-Operating System: Linux\\
-Compiler: g++ (GCC) 9.2.0/icpc version 19.1.3.304 \\
-Architecture: AVX512\\
-Memory requirement: ~30GB for human genome\\
+Operating System: Linux   
+Compiler: g++ (GCC) 9.2.0/icpc version 19.1.3.304   
+Architecture: AVX512   
+Memory requirement: ~30GB for human genome   
 
 ### Installation
 Clone the *fast-contrib* branch from minimap2 github page. The source code can be compiled by simple using *make* command.
