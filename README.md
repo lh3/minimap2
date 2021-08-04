@@ -1,13 +1,13 @@
 ## mm2-fast
 ### Introduction
-mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all three major modules of minimap2: Seeding, Chaining, and Alignment, achieving up to 3.5x speedup over minimap2. 
+mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all the three major modules of minimap2: (a) seeding, (b) chaining, and (c) pairwise alignment, achieving up to 3.5x speedup over minimap2. 
 mm2-fast is a drop-in replacement of minimap2, providing the same functionality with the exact same output.
-In the current version, all the modules are optimized using **AVX-512** vectorization. 
+In the current version, all the modules are optimized using **AVX-512** vectorization. Detailed benchmark results are available in our [preprint](https://doi.org/10.1101/2021.07.21.453294).
 
 ### System requirement
 Operating System: Linux   
 Compiler: g++ (GCC) 9.2.0/icpc version 19.1.3.304   
-Architecture: AVX512   
+Architecture: [AVX512](https://en.wikipedia.org/wiki/AVX-512)   
 Memory requirement: ~30GB for human genome   
 
 ### Installation
@@ -59,7 +59,7 @@ make clean && make lhash=1 use_avx2=1
 ### Future Plans
 The current version of mm2-fast is based on minimap2-v2.18. We are planning to apply our optimizations to minimap2 master branch.
 ### Citations
-"Accelerating long-read analysis on modern CPs"; Saurabh Kalikar, Chirag Jain, Vasimuddin Md, Sanchit Misra; uploaded to bioRxiv - https://www.biorxiv.org/content/10.1101/2021.07.21.453294v1
+["Accelerating long-read analysis on modern CPUs"](https://doi.org/10.1101/2021.07.21.453294); Saurabh Kalikar, Chirag Jain, Vasimuddin Md, Sanchit Misra; BioRxiv 2021
 
 
 The original README content of minimap2 follows.
