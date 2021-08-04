@@ -977,7 +977,7 @@ function paf_stat(args)
 	var re = /(\d+)([MIDSHNX=])/g;
 
 	var lineno = 0, n_pri = 0, n_2nd = 0, n_seq = 0, n_cigar_64k = 0, l_tot = 0, l_cov = 0;
-	var n_gap = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]];
+	var n_gap = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]], n_sub = 0;
 
 	function cov_len(regs)
 	{
@@ -999,7 +999,7 @@ function paf_stat(args)
 		if (line.charAt(0) != '@') {
 			var t = line.split("\t", 12);
 			var m, rs, cigar = null, is_pri = false, is_sam = false, is_rev = false, tname = null;
-			var atlen = null, aqlen, qs, qe, mapq, ori_qlen, NM = null;
+			var atlen = null, aqlen, qs, qe, mapq, ori_qlen, NM = null, nn = 0;
 			if (t.length < 2) continue;
 			if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
 				if (t[4] == '*') continue; // unmapped
@@ -1009,6 +1009,8 @@ function paf_stat(args)
 				}
 				if ((m = /\tNM:i:(\d+)/.exec(line)) != null)
 					NM = parseInt(m[1]);
+				if ((m = /\tnn:i:(\d+)/.exec(line)) != null)
+					nn = parseInt(m[1]);
 				if ((m = /\tcg:Z:(\S+)/.exec(line)) != null)
 					cigar = m[1];
 				if (cigar == null) {
@@ -1032,6 +1034,8 @@ function paf_stat(args)
 				}
 				if ((m = /\tNM:i:(\d+)/.exec(line)) != null)
 					NM = parseInt(m[1]);
+				if ((m = /\tnn:i:(\d+)/.exec(line)) != null)
+					nn = parseInt(m[1]);
 				cigar = t[5];
 				tname = t[2];
 				rs = parseInt(t[3]) - 1;
@@ -1078,6 +1082,12 @@ function paf_stat(args)
 					clip[M == 0? 0 : 1] = l;
 				}
 			}
+			if (NM != null) {
+				var tmp = NM - n_gap_all - nn;
+				if (tmp < 0) warn("WARNING: NM is smaller than the number of gaps at line " + lineno);
+				if (tmp < 0) tmp = 0;
+				n_sub += tmp;
+			}
 			if (n_cigar > 65535) ++n_cigar_64k;
 			if (ql + sclip != aqlen)
 				warn("WARNING: aligned query length is inconsistent with CIGAR at line " + lineno + " (" + (ql+sclip) + " != " + aqlen + ")");
@@ -1112,6 +1122,7 @@ function paf_stat(args)
 		print("Number of primary alignments with >65535 CIGAR operations: " + n_cigar_64k);
 		print("Number of bases in mapped sequences: " + l_tot);
 		print("Number of mapped bases: " + l_cov);
+		print("Number of substitutions: " + n_sub);
 		print("Number of insertions in [0,50): " + n_gap[0][0]);
 		print("Number of insertions in [50,100): " + n_gap[0][1]);
 		print("Number of insertions in [100,300): " + n_gap[0][2]);
