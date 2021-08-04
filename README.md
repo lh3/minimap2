@@ -5,13 +5,13 @@ mm2-fast is a drop-in replacement of minimap2, providing the same functionality 
 In the current version, all the modules are optimized using **AVX-512** vectorization. 
 
 ### System requirement
-Operating System: Linux
-Compiler: G++/ICPC -- version
-Architecture: AVX512
-Memory requirement: ~30GB for human genome
+Operating System: Linux\\
+Compiler: g++ (GCC) 9.2.0/icpc version 19.1.3.304 \\
+Architecture: AVX512\\
+Memory requirement: ~30GB for human genome\\
 
 ### Installation
-clone the fast-contrib branch from minimap2 github page. The source code can be compiled by simple using make command.
+Clone the *fast-contrib* branch from minimap2 github page. The source code can be compiled by simple using *make* command.
 ```
 git clone --recursive https://github.com/lh3/minimap2.git -b fast-contrib mm2-fast   
 cd mm2-fast
@@ -25,7 +25,7 @@ The usage of mm2-fast is same as minimap2. Here is an example of mapping ONT rea
 ```
 
 ### Accuracy evaluation
-As mm2-fast is an accelerated version of minimap2-v2.18, the output of mm2-fast can be verified against minimap2-v2.18. Note that, AVX512-based chaining in mm2-fast by default runs with a chaining parameter max-skip=infinity for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of max\_skip parameter. Follow the below steps to verify the accuracy of mm2-fast. 
+As mm2-fast is an accelerated version of minimap2-v2.18, the output of mm2-fast can be verified against minimap2-v2.18. Note that, AVX512-based chaining in mm2-fast by default runs with a chaining parameter *max-skip=infinity* for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of *max-skip* parameter. Follow the below steps to verify the accuracy of mm2-fast. 
 ```sh
 git clone https://github.com/lh3/minimap2.git -b v2.18
 cd minimap2 && make
@@ -57,7 +57,7 @@ make clean && make lhash=1 use_avx2=1
 ```
 
 ### Future Plans
-The current version of mm2-fast is based-on minimap2-v2.18. We are planning to apply our optimizations to minimap2 master branch.
+The current version of mm2-fast is based on minimap2-v2.18. We are planning to apply our optimizations to minimap2 master branch.
 ### Citations
 "Accelerating long-read analysis on modern CPs"; Saurabh Kalikar, Chirag Jain, Vasimuddin Md, Sanchit Misra; uploaded to bioRxiv - https://www.biorxiv.org/content/10.1101/2021.07.21.453294v1
 
