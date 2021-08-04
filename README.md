@@ -6,7 +6,7 @@ In the current version, all the modules are optimized using **AVX-512** vectoriz
 
 ### System requirement
 Operating System: Linux   
-Compiler: g++ (GCC) 9.2.0/icpc version 19.1.3.304   
+mm2-fast was tested using g++ (GCC) 9.2.0 and icpc version 19.1.3.304   
 Architecture: [AVX512](https://en.wikipedia.org/wiki/AVX-512)   
 Memory requirement: ~30GB for human genome   
 
