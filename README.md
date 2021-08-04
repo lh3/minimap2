@@ -21,7 +21,7 @@ make
 ### Usage
 The usage of mm2-fast is same as minimap2. Here is an example of mapping ONT reads with test data.
 ```sh
-./mm2-fast -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast_output
+./minimap2 -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast_output
 ```
 
 ### Accuracy evaluation
