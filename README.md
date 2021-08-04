@@ -18,14 +18,14 @@ cd mm2-fast
 make 
 ```
 
-### Usage/Demo
+### Usage
 The usage of mm2-fast is same as minimap2. Here is an example of mapping ONT reads with test data.
 ```sh
 ./minimap2 -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast_output
 ```
 
 ### Accuracy evaluation
-As mm2-fast is an accelerated version of minimap2-v2.18, the output of mm2-fast can be verified against minimap2-v2.18. Note that, AVX512-based chaining in mm2-fast by default runs with a chaining parameter *max-skip=infinity* for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of *max-skip* parameter. Follow the below steps to verify the accuracy of mm2-fast. 
+As mm2-fast is an accelerated version of minimap2-v2.18, the output of mm2-fast can be verified against minimap2-v2.18. Note that AVX512-based chaining in mm2-fast by default runs with a chaining parameter *max-skip=infinity* for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of *max-skip* parameter. Follow the below steps to verify the accuracy of mm2-fast. 
 ```sh
 git clone https://github.com/lh3/minimap2.git -b v2.18
 cd minimap2 && make
@@ -38,21 +38,23 @@ diff minimap2_output mm2-fast_output > diff_result
 The file diff\_result should show a clean-diff with the difference of 2 lines, i.e., the lines containing the command-line parameters for minimap2 and mm2-fast.
 
 ### Advanced options
-The default compilation using make applies two optimizations: AVX512 vectorized chaining and alignment, and learned-indexes based seeding is disables by default as it requires aditional installations. Learned hash-table uses an external training library that runs on Rust. Following are the steps to enable learned hash table optimization in mm2-fast:
+The default compilation using make applies two optimizations: AVX512 vectorized chaining and alignment, and learned-indexes based seeding is disabled by default as it requires aditional installations. Learned hash-table uses an external training library that runs on [Rust](https://en.wikipedia.org/wiki/Rust_(programming_language)). Following are the steps to enable learned hash table optimization in mm2-fast:
 ```sh
-# Compile and run mm2-fast optimized seeding (all three optimized modules)
+# Compile and run mm2-fast with optimized seeding 
 1. Build learned hash table index for optimized seeding module   
-   Pre-requisite: Install "Rust" and add path to .bashrc file. For Rust installation, visit https://rustup.rs/   
+   Pre-requisite: Install "Rust" and add path to .bashrc file. Rust is trivial to install, see https://rustup.rs/   
                ./build_rmi.sh test/MT-human.fa map-ont               ##takes two arguments: 1. path-to-reference-seq-file 2. preset    
 
 2. Compile and run  
 make clean && make lhash=1
 ./minimap2 -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast-lhash_output
-
-# Compile with all optimizations disabled (runs as minimap2)
+```
+To compile mm2-fast with all optimizations turned off and switch back to default minimap2, use the following command during compilation. This could be useful for debugging.
+```sh
 make clean && make no_opt=1
-
-# Enable optimized seeding and AVX2 based alignment for AVX2 systems (By default, all optimizations are disabled for AVX2 systems). Chaining step is not optimized for AVX2.
+```
+mm2-fast includes preliminary support for AVX2 architecture. Currently, chaining step is not optimized for AVX2 but the seeding and alignment steps are available. To try mm2-fast on AVX2 systems, use the following command to compile.
+```sh
 make clean && make lhash=1 use_avx2=1
 ```
 
@@ -61,8 +63,9 @@ The current version of mm2-fast is based on minimap2-v2.18. We are planning to a
 ### Citations
 ["Accelerating long-read analysis on modern CPUs"](https://doi.org/10.1101/2021.07.21.453294); Saurabh Kalikar, Chirag Jain, Vasimuddin Md, Sanchit Misra; BioRxiv 2021
 
-
+---
 The original README content of minimap2 follows.
+
 
 [![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download)](https://github.com/lh3/minimap2/releases)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimap2.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minimap2)
