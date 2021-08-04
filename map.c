@@ -410,10 +410,13 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
     step_t *s = (step_t*)_data;
 	int qlens[MM_MAX_SEG], j, off = s->seg_off[i], pe_ori = s->p->opt->pe_ori;
 	const char *qseqs[MM_MAX_SEG];
+	double t = 0.0;
 	mm_tbuf_t *b = s->buf[tid];
 	assert(s->n_seg[i] <= MM_MAX_SEG);
-	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+	if (mm_dbg_flag & MM_DBG_PRINT_QNAME) {
 		fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[off].name, tid, s->seq[off].l_seq);
+		t = realtime();
+	}
 	for (j = 0; j < s->n_seg[i]; ++j) {
 		if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
 			mm_revcomp_bseq(&s->seq[off + j]);
@@ -445,6 +448,8 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 				r->rev = !r->rev;
 			}
 		}
+	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+		fprintf(stderr, "QT\t%s\t%d\t%.6f\n", s->seq[off].name, tid, realtime() - t);
 }
 
 static void merge_hits(step_t *s)
