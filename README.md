@@ -7,7 +7,7 @@ In the current version, all the modules are optimized using **AVX-512** vectoriz
 ### System requirement
 Operating System: Linux   
 mm2-fast was tested using g++ (GCC) 9.2.0 and icpc version 19.1.3.304   
-Architecture: [AVX512](https://en.wikipedia.org/wiki/AVX-512)   
+Architecture: x86\_64 CPUs with [AVX512](https://en.wikipedia.org/wiki/AVX-512)   
 Memory requirement: ~30GB for human genome   
 
 ### Installation
@@ -21,7 +21,7 @@ make
 ### Usage
 The usage of mm2-fast is same as minimap2. Here is an example of mapping ONT reads with test data.
 ```sh
-./minimap2 -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast_output
+./mm2-fast -ax map-ont test/MT-human.fa test/MT-orang.fa > mm2-fast_output
 ```
 
 ### Accuracy evaluation
