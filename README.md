@@ -41,7 +41,8 @@ The file diff\_result should show a clean-diff with the difference of 2 lines, i
 The default compilation using make applies two optimizations: AVX512 vectorized chaining and alignment, and learned-indexes based seeding is disabled by default as it requires availability of [Rust](https://en.wikipedia.org/wiki/Rust_(programming_language)). This is because the learned hash-table uses an external training library that runs on Rust. Rust is trivial to install, see https://rustup.rs/ and add its path to .bashrc file. Following are the steps to enable learned hash table optimization in mm2-fast:
 ```sh
 # Start by building learned hash table index for optimized seeding module 
-./build_rmi.sh test/MT-human.fa map-ont               ##takes two arguments: 1. path-to-reference-seq-file 2. preset    
+./build_rmi.sh test/MT-human.fa map-ont               ##Takes two arguments: 1. path-to-reference-seq-file 2. preset. 
+						      ##For human genome, this step should take around 20-30 minutes to finish.    
 
 # Next, compile and run the mapping phase  
 make clean && make lhash=1
@@ -55,6 +56,8 @@ mm2-fast includes preliminary support for AVX2 architecture. Currently, chaining
 ```sh
 make clean && make lhash=1 use_avx2=1
 ```
+### Performance
+We have observed up to 3.5x speedup across datasets (please refer to the paper for more details). For example, for the randomly sampled 100K reads from ["HG002\_GM24385\_1\_2\_3\_Guppy\_3.6.0\_prom.fastq.gz"](https://precision.fda.gov/challenges/10/view), minimap2 takes 80 seconds, while mm2-fast takes 38 seconds to map against the human genome on a 28 cores Intel® Xeon® Platinum 8280 CPUs.  Our sampled datasets with 100K reads are available [here](https://drive.google.com/drive/folders/1131j7ejHdT7QZnjxLcTLi5qqwYcfFbuv).
 
 ### Future Plans
 The current version of mm2-fast is based on minimap2-v2.18. We are planning to apply our optimizations to minimap2 master branch.
