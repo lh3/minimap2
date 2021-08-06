@@ -2949,13 +2949,16 @@ function paf_vcfsel(args)
 
 function paf_pafcmp(args)
 {
-	var c, opt = { min_len:5000, min_mapq:5, min_ovlp:0.5 };
-	while ((c = getopt(args, "c:")) != null) {
+	var c, opt = { min_len:5000, min_mapq:10, min_ovlp:0.5 };
+	while ((c = getopt(args, "q:")) != null) {
+		if (c == 'q') opt.min_mapq = parseInt(opt.arg);
 	}
 
 	var buf = new Bytes();
 	if (args.length - getopt.ind < 2) {
 		print("Usage: paftools.js pafcmp [options] <base.paf> <test.paf>");
+		print("Options:");
+		print("  -q INT    min mapping quality [" + opt.min_mapq + "]");
 		return 1;
 	}
 
