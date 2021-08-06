@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include "mmpriv.h"
+#include "khash.h"
 
 void mm_idxopt_init(mm_idxopt_t *opt)
 {
@@ -154,8 +155,26 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	return 0;
 }
 
+static khint_t mm_hash_mapopt(const mm_mapopt_t *mo) {
+	/* digest options except for split_prefix and split_map */
+	khint_t h = 0;
+	unsigned char *p = (unsigned char*) mo;
+	size_t i;
+	for (i=0; i < sizeof(mm_mapopt_t) - 2*sizeof(const char*); ++i, ++p) {
+		h = (h << 5) - h + (khint_t)*p;
+	}
+	/* add split_prefix */
+	if (mo->split_prefix) {
+		h = (h << 5) - h + kh_str_hash_func(mo->split_prefix);
+	}
+	/* intentionally omit split_map since it has to differ between scatter & gather processes */
+	return h;
+
+}
+
 int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 {
+	fprintf(stderr, "mapping options hash = %u\n", mm_hash_mapopt(mo));
 	if (mo->bw > mo->bw_long) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m with '-rNUM1,NUM2', NUM1 (%d) can't be larger than NUM2 (%d)\033[0m\n", mo->bw, mo->bw_long);
