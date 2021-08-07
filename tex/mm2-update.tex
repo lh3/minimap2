@@ -58,7 +58,7 @@ in v2.19 through v2.22 to improve mapping results.
 \section{Methods}
 
 \subsection{Rescuing high-occurrence $k$-mers}
-Minimap2 keeps all $k$-mer minimizers during indexing. Its original
+Minimap2 keeps all $k$-mer minimizers~\citep{Roberts:2004fv} during indexing. Its original
 implementation only selected low-occurrence minimizers during mapping. The
 cutoff is a few hundred for mapping long reads against a human genome. If a
 read habors only a few or even no low-occurrence minimizers, it will fail
@@ -77,12 +77,14 @@ time by a few percent on real data.
 \subsection{Aligning through longer INDELs}
 The original minimap2 may fail to align long INDELs due to its chaining
 heuristics. Briefly, minimap2 applies dynamic programming (DP) to chain
-minimizer anchors. This is a quadratic algorithm, which is slow for chaining
+minimizer anchors. This is a quadratic algorithm, slow for chaining
 contigs. For acceptable performance, the original minimap2 uses a 500bp band by
-default. If there is an INDEL longer than 500bp and the two chains around the INDEL
+default, which means a gap longer than 500bp will stop chaining.
+To align through longer gaps, older minimap2 implemented a long-join heurstic as follows.
+If there is an INDEL longer than 500bp and the two chains around the INDEL
 have no overlaps on either the query or the reference sequence, minimap2 may
-join the two short chains later at a later step. We call it the
-long-join heuristic. This heuristic may fail around VNTRs because short chains
+join the two short chains later.
+This heuristic may fail around VNTRs because short chains
 often have overlaps in VNTRs. More subtly, minimap2 may escape the inner DP
 loop early, again for performance, if the chaining result is not improved for
 50 iterations. When there is a copy number change in a long segmental
@@ -90,13 +92,13 @@ duplication, the early escape may break around the event even if users
 specify a large band.
 
 In minigraph~\citep{Li:2020aa}, we developed a new chaining algorithm that
-finds short INDELs with DP-based chaining and goes through long INDELs with a
+finds up to 1kb INDELs with DP-based chaining and goes through longer INDELs with a
 subquadratic algorithm~\citep{DBLP:conf/wabi/AbouelhodaO03}. We ported the same
 algorithm to minimap2 for contig mapping. For long-read mapping, the minigraph
-algorithm is slower. Minimap2 v2.22 now still uses the DP-based algorithm to
+algorithm is slower. Minimap2 v2.22 still uses the DP-based algorithm to
 find short chains and then invokes the minigraph algorithm to rechain anchors in
 these short chains. The rechaining step achieves the same goal as long-join
-but is more reliable as it can resolve overlaps between short chains. The old
+but is more reliable because it can resolve overlaps between short chains. The old
 long-join heuristic has since been removed.
 
 \subsection{Properly mapping long reads with SVs}
@@ -108,23 +110,23 @@ algorithm.
 
 In our view, this problem is rooted in impropriate scoring: affine-gap penalty
 over-penalizes a long INDEL that was often evolutionarily created in one event.
-We should not penalize a SV linearly in its length. Minimap2 v2.22 rescores
+We should not penalize a SV by a function linear in the SV length. Minimap2 v2.22 instead rescores
 an alignment with the following scoring function. Suppose an alignment consists
 of $M$ matching bases, $N$ substitutions and $G$ gap opens, we empirically
 score the alignment with
 $$
-M-\frac{N+G}{2d}-\sum_{i=1}^G\log_2(1+g_i)
+S=M-\frac{N+G}{2d}-\sum_{i=1}^G\log_2(1+g_i)
 $$
 where $g_i\ge1$ is the length of the $i$-th gap and
 $$
 d=\max\left\{\frac{N+G}{M+N+G},0.02\right\}
 $$
-Here $d$ approximates per-base sequence divergence with the smallest value set
+It approximates per-base sequence divergence except with the smallest value set
 to 2\%. As an analogy to affine-gap scoring, the matching score in our scheme
 is 1, the mismatch and gap open penalties are both $1/2d$ and the gap extension
 penalty is a logarithm function of the gap length. Our scoring gives a long SV
 a much milder penalty. In terms of time complexity, scoring an alignment is
-linear in the length of the alignment. Time spent on rescoring is negligible in
+linear in the length of the alignment. The time spent on rescoring is negligible in
 practice.
 
 %If we assume sequences evolve under a duplication-mutation model, we may have a
@@ -159,11 +161,11 @@ $[$real-sv-1k$]$ \% false discovery rate  & 2.7  & {\bf 2.4}  & 2.7  & N/A \\
 10 or higher were evaluated by ``paftools.js mapeval''. The mapping error rate
 is measured in the phred scale: if the error rate is $e$, $-10\log_{10}e$ is
 reported in the table. In $[$winno-cmp$]$, 1.39 million CHM13 HiFi reads from
-SRR11292121 were mapped against CHM13. 99.3\% of them were mapped by Winnowmap2
+SRR11292121 were mapped against the same CHM13 assembly. 99.3\% of them were mapped by Winnowmap2
 at mapping quality 10 or higher and were taken as ground truth to evaluate
 minimap2 and lra with ``paftools.js pafcmp''. $[$sim-sv$]$ simulated 1,000
 50bp to 1000bp INDELs from chr8 in CHM13 using SURVIVOR~\citep{Jeffares:2017aa} and simulated Nanopore
-reads at 30 folds with the same pbsim2 command line. SVs were called with
+reads at 30-fold coverage with the same pbsim2 command line. SVs were called with
 ``sniffles -q 10''~\citep{Sedlazeck:2018ab} and compared to the simulated truth with ``SURVIVOR eval
 call.vcf truth.bed 50''. In $[$real-sv-1k$]$, small and long variants were
 called by dipcall-0.3~\citep{Li:2018aa} for HG002 assemblies (AC: GCA\_018852605.1 and
@@ -178,25 +180,27 @@ quality 10 or higher (mapQ10). However, it may occasionally assign a high mappin
 quality to a read with multiple identical best alignments. This reduced its
 mapping accuracy.
 
-In lack of groud truth for real data, so we took Winnowmap2 mapping as ground
-truth to evaluate other mappers (winno-cmp). Out of 1,378,092 reads with mapQ10
+In lack of groud truth for real data, we took Winnowmap2 mapping as ground
+truth to evaluate other mappers (winno-cmp in Table~\ref{tab:1}). Out of 1,378,092 reads with mapQ10
 alignments by Winnowmap2, minimap2 v2.22 could map all of them. 118 reads, less
 than 0.01\% of all reads, were mapped differently by v2.22. 51 of them have
 multiple identical best alignments. We believe these are more likely to be
 Winnowmap2 errors. Most of the remaining 67 (=118-51) reads have multiple
-highly similar but not identical alignments. We are not sure what are real
-mapping errors.
+highly similar but not identical alignments. We are not sure how many are real
+mapping errors. Minimap2 v2.18 is less consistent with Winnowmap2. Most of the
+differences are located in highly repetitive regions.
 
-The two benchmarks above only evaluate read mappings without variations.
+The two benchmarks above only evaluate read mappings when there are no variations between the reads and the reference.
 To measure the mapping accuracy in the presence of SVs (sim-sv), we reproduced
 the results by~\citep{Jain2020.11.01.363887}. Minimap2 v2.22 is as good as
 Winnowmap2 now. Note that we were setting the Sniffles mapping quality
 threshold to 10 in consistent with the benchmarks above. If we used the
-default threshold 20, v2.22 would miss additional 0.5\% SVs, suggesting
-minimap2 v2.22 could map variant reads correctly but with conservative mapping
-quality. This observation is more about the interaction between mappers and
-callers. Furthermore, the simulation here only considers a simple scenario in
-evolution. Non-allelic gene conversions, which happen often in segmental
+default threshold 20, v2.22 would miss additional five SVs (accounting for
+0.5\% of simulated SVs). For four out of these missing five SVs, minimap2 v2.22
+mapped more variant reads than Winnowmap2. Sniffles did not call these SVs
+because minimap2 tended to give them conservative mapping quality. It is worth
+noting that the simulation here only considers a simple scenario in evolution.
+Non-allelic gene conversions, which happen often in segmental
 duplications~\citep{Harpak:2017aa}, would obscure the optimal mapping
 strategies. How much such simple SV simulation informs real-world SV calling
 remains a question.
@@ -205,8 +209,8 @@ To see if minimap2 v2.22 could improve long INDEL alignment, we ran dipcall on
 contig-to-reference alignments and focused on INDELs longer than 1kb
 (real-sv-1k). v2.22 is more sensitive at comparable specificity, confirming its
 advantage in more contiguous alignment. lra is supposed to handle long INDELs
-better, too. However, we could not get lra to work well with dipcall, so did
-not report the numbers.
+well, too. However, we could not get dipcall to work well with lra,
+so did not report the numbers.
 
 Minimap2 spends most computing time on base alignment. As recent improvements
 in v2.22 incur little additional computing and do not change the base alignment
@@ -215,7 +219,7 @@ consistently faster than Winnowmap2 by several times. Sometimes simple
 heuristics can be as effective as more sophisticated yet slower solutions.
 
 \section*{Acknowledgements}
-We thank Arang Rhie and Chirag Jain for providing motivating examples where
+We thank Arang Rhie and Chirag Jain for providing motivating examples for which
 older minimap2 underperforms.
 
 \paragraph{Funding\textcolon} This work is funded by NHGRI grant R01HG010040.
