@@ -183,7 +183,9 @@ truth to evaluate other mappers (winno-cmp). Out of 1,378,092 reads with mapQ10
 alignments by Winnowmap2, minimap2 v2.22 could map all of them. 118 reads, less
 than 0.01\% of all reads, were mapped differently by v2.22. 51 of them have
 multiple identical best alignments. We believe these are more likely to be
-Winnowmap2 errors.
+Winnowmap2 errors. Most of the remaining 67 (=118-51) reads have multiple
+highly similar but not identical alignments. We are not sure what are real
+mapping errors.
 
 The two benchmarks above only evaluate read mappings without variations.
 To measure the mapping accuracy in the presence of SVs (sim-sv), we reproduced
@@ -207,18 +209,17 @@ better, too. However, we could not get lra to work well with dipcall, so did
 not report the numbers.
 
 Minimap2 spends most computing time on base alignment. As recent improvements
-in v2.22 do not change the base alignment algorithm, the new version has similar
-performance to older verions. Minimap2 is consistently faster than Winnowmap2
-by several times.
-
+in v2.22 incur little additional computing and do not change the base alignment
+algorithm, the new version has similar performance to older verions. It is
+consistently faster than Winnowmap2 by several times. Our simple heuristics can
+be as effective as more complex solutions on real data and may help the
+development of future sequence aligners.
 
 \section*{Acknowledgements}
 We thank Arang Rhie and Chirag Jain for providing motivating examples where
 older minimap2 underperforms.
 
 \paragraph{Funding\textcolon} This work is funded by NHGRI grant R01HG010040.
-
-~\\*
 
 \bibliography{minimap2}
 
