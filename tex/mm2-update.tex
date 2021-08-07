@@ -69,8 +69,6 @@ minimizers. Suppose we are looking at two adjacent low-occurence $k$-mers
 located at position $x_1$ and $x_2$, respectively. If $|x_1-x_2|\ge500$,
 minimap2 v2.22 additionally selects $\lfloor|x_1-x_2|/500\rfloor$ minimizers
 of the lowest occurrence among minimizers between $x_1$ and $x_2$.
-We use a binary heap data
-structure to select minimizers of the lowest occurrence in this interval.
 This strategy adds necessary anchors at the cost of increasing total alignment
 time by a few percent on real data.
 
