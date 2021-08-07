@@ -1084,7 +1084,7 @@ function paf_stat(args)
 			}
 			if (NM != null) {
 				var tmp = NM - n_gap_all - nn;
-				if (tmp < 0) warn("WARNING: NM is smaller than the number of gaps at line " + lineno);
+				if (tmp < 0 && nn == 0) warn("WARNING: NM is smaller than the number of gaps at line " + lineno + ": NM=" + NM + ", nn=" + nn + ", G=" + n_gap_all);
 				if (tmp < 0) tmp = 0;
 				n_sub += tmp;
 			}
