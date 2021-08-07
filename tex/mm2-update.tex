@@ -41,18 +41,18 @@ minimap2 v2.18 or earlier.
 \end{abstract}
 
 \section{Introduction}
-Minimap2~\citep{Li:2018ab} is a widely used aligner for maping long sequence
-reads and assembly contigs. \citet{Jain:2020aa} found minimap2 occasionally
+Minimap2~\citep{Li:2018ab} is widely used for maping long sequence
+reads and assembly contigs. \citet{Jain:2020aa} found minimap2 v2.18 or earlier occasionally
 misaligned reads from highly repetitive regions as minimap2 ignored seeds of
 high occurrence. They also noticed minimap2 may misplace reads with structural
 variations (SVs) in such regions~\citep{Jain2020.11.01.363887}. These
 misalignments have become a pressing issue in the advent of
-temolere-to-telomore human assembly~\citep{Miga:2020aa}. Meanwhile, minimap2
+temolere-to-telomore human assembly~\citep{Miga:2020aa}. Meanwhile, old minimap2
 was unable to efficiently align long insertions/deletions (INDELs) and often
 breaks an alignment around variable-number tandem repeats (VNTRs). This has
 inspired new chaining algorithms~\citep{Li:2020aa,Ren:2021aa} which are not
-integrated into minimap2. Here we will describe recent improvements implemented
-in v2.19 through v2.22.
+integrated into minimap2. Here we will describe recent efforts implemented
+in v2.19 through v2.22 to improve mapping results.
 
 \begin{methods}
 \section{Methods}
@@ -66,9 +66,10 @@ chaining due to insufficient anchors.
 
 To resolve this issue, we implemented a new heuristic to add additional
 minimizers. Suppose we are looking at two adjacent low-occurence $k$-mers
-located at position $x_1$ and $x_2$, respectively. If $|x_1-x_2|\ge500$, the
-new minimap2 adds $\lfloor|x_1-x_2|/500\rfloor$ minimizers among
-high-occurrence minimizers between $x_1$ and $x_2$. We use a binary heap data
+located at position $x_1$ and $x_2$, respectively. If $|x_1-x_2|\ge500$,
+minimap2 v2.22 additionally selects $\lfloor|x_1-x_2|/500\rfloor$ minimizers
+of the lowest occurrence among minimizers between $x_1$ and $x_2$.
+We use a binary heap data
 structure to select minimizers of the lowest occurrence in this interval.
 This strategy adds necessary anchors at the cost of increasing total alignment
 time by a few percent on real data.
@@ -76,11 +77,11 @@ time by a few percent on real data.
 \subsection{Aligning through longer INDELs}
 The original minimap2 may fail to align long INDELs due to its chaining
 heuristics. Briefly, minimap2 applies dynamic programming (DP) to chain
-minimizer anchors. It is a quadratic algorithm, which is slow for chaining
+minimizer anchors. This is a quadratic algorithm, which is slow for chaining
 contigs. For acceptable performance, the original minimap2 uses a 500bp band by
-default. If there is an INDEL longer than 500bp and the two chains around it
+default. If there is an INDEL longer than 500bp and the two chains around the INDEL
 have no overlaps on either the query or the reference sequence, minimap2 may
-join the two short chains later as a postprocessing step. We call it the
+join the two short chains later at a later step. We call it the
 long-join heuristic. This heuristic may fail around VNTRs because short chains
 often have overlaps in VNTRs. More subtly, minimap2 may escape the inner DP
 loop early, again for performance, if the chaining result is not improved for
@@ -91,10 +92,10 @@ specify a large band.
 In minigraph~\citep{Li:2020aa}, we developed a new chaining algorithm that
 finds short INDELs with DP-based chaining and goes through long INDELs with a
 subquadratic algorithm~\citep{DBLP:conf/wabi/AbouelhodaO03}. We ported the same
-algorithm to minimap2 for contig mapping. For read mapping, the minigraph
-algorithm is slower. The updated minimap2 still uses the DP-based algorithm to
-find short chains and then uses the minigraph algorithm to rechain anchors in
-these short chains. The rechaining steps achieves the same goal as long-join
+algorithm to minimap2 for contig mapping. For long-read mapping, the minigraph
+algorithm is slower. Minimap2 v2.22 now still uses the DP-based algorithm to
+find short chains and then invokes the minigraph algorithm to rechain anchors in
+these short chains. The rechaining step achieves the same goal as long-join
 but is more reliable as it can resolve overlaps between short chains. The old
 long-join heuristic has since been removed.
 
@@ -107,7 +108,7 @@ algorithm.
 
 In our view, this problem is rooted in impropriate scoring: affine-gap penalty
 over-penalizes a long INDEL that was often evolutionarily created in one event.
-We should not penalize a SV linearly in its length. The new minimap2 rescores
+We should not penalize a SV linearly in its length. Minimap2 v2.22 rescores
 an alignment with the following scoring function. Suppose an alignment consists
 of $M$ matching bases, $N$ substitutions and $G$ gap opens, we empirically
 score the alignment with
@@ -139,7 +140,7 @@ practice.
 
 \begin{table}
 \processtable{Evaluation of minimap2 v2.22}
-{\footnotesize\begin{tabular}{p{4.2cm}rrrr}
+{\footnotesize\label{tab:1}\begin{tabular}{p{4.2cm}rrrr}
 \toprule
 $[$Benchmark$]$ Metric & v2.22 & v2.18 & Winno & lra \\
 \midrule
@@ -165,14 +166,59 @@ minimap2 and lra with ``paftools.js pafcmp''. $[$sim-sv$]$ simulated 1,000
 reads at 30 folds with the same pbsim2 command line. SVs were called with
 ``sniffles -q 10''~\citep{Sedlazeck:2018ab} and compared to the simulated truth with ``SURVIVOR eval
 call.vcf truth.bed 50''. In $[$real-sv-1k$]$, small and long variants were
-called by dipcall-0.3 for HG002 assemblies (AC: GCA\_018852605.1 and
+called by dipcall-0.3~\citep{Li:2018aa} for HG002 assemblies (AC: GCA\_018852605.1 and
 GCA\_018852615.1) and compared to the GIAB truth~\citep{Zook:2020aa} using ``truvari -r 2000 -s
 1000 -S 400 -{}-multimatch -{}-passonly'' which sets the minimum INDEL size to 1kb in evaluation. }
 \end{table}
 
-\section*{Acknowledgements}
+We evaluated minimap2 v2.22 along with v2.18, Winnowmap2 v2.03 and lra v1.3.2
+(Table~\ref{tab:1}). Both versions of minimap2 achieved high mapping accuracy on
+simulated Nanopore reads (sim-map). Winnowmap2 aligned more reads at mapping
+quality 10 or higher (mapQ10). However, it may occasionally assign a high mapping
+quality to a read with multiple identical best alignments. This reduced its
+mapping accuracy.
 
-\paragraph{Funding\textcolon} NHGRI R01HG010040
+In lack of groud truth for real data, so we took Winnowmap2 mapping as ground
+truth to evaluate other mappers (winno-cmp). Out of 1,378,092 reads with mapQ10
+alignments by Winnowmap2, minimap2 v2.22 could map all of them. 118 reads, less
+than 0.01\% of all reads, were mapped differently by v2.22. 51 of them have
+multiple identical best alignments. We believe these are more likely to be
+Winnowmap2 errors.
+
+The two benchmarks above only evaluate read mappings without variations.
+To measure the mapping accuracy in the presence of SVs (sim-sv), we reproduced
+the results by~\citep{Jain2020.11.01.363887}. Minimap2 v2.22 is as good as
+Winnowmap2 now. Note that we were setting the Sniffles mapping quality
+threshold to 10 in consistent with the benchmarks above. If we used the
+default threshold 20, v2.22 would miss additional 0.5\% SVs, suggesting
+minimap2 v2.22 could map variant reads correctly but with conservative mapping
+quality. This observation is more about the interaction between mappers and
+callers. Furthermore, the simulation here only considers a simple scenario in
+evolution. Non-allelic gene conversions, which happen often in segmental
+duplications~\citep{Harpak:2017aa}, would obscure the optimal mapping
+strategies. How much such simple SV simulation informs real-world SV calling
+remains a question.
+
+To see if minimap2 v2.22 could improve long INDEL alignment, we ran dipcall on
+contig-to-reference alignments and focused on INDELs longer than 1kb
+(real-sv-1k). v2.22 is more sensitive at comparable specificity, confirming its
+advantage in more contiguous alignment. lra is supposed to handle long INDELs
+better, too. However, we could not get lra to work well with dipcall, so did
+not report the numbers.
+
+Minimap2 spends most computing time on base alignment. As recent improvements
+in v2.22 do not change the base alignment algorithm, the new version has similar
+performance to older verions. Minimap2 is consistently faster than Winnowmap2
+by several times.
+
+
+\section*{Acknowledgements}
+We thank Arang Rhie and Chirag Jain for providing motivating examples where
+older minimap2 underperforms.
+
+\paragraph{Funding\textcolon} This work is funded by NHGRI grant R01HG010040.
+
+~\\*
 
 \bibliography{minimap2}
 
