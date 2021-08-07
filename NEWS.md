@@ -1,3 +1,28 @@
+Release 2.22-r1101 (7 August 2021)
+----------------------------------
+
+When choosing the best alignment, this release uses logarithm gap penalty and
+query-specific mismatch penalty. It improves the sensitivity to long INDELs in
+repetitive regions.
+
+Other notable changes:
+
+ * Bugfix: fixed an indirect memory leak that may waste a large amount of
+   memory given highly repetitive reference such as a 16S RNA database (#749).
+   All versions of minimap2 have this issue.
+
+ * New feature: added --cap-kalloc to reduce the peak memory. This option is
+   not enabled by default but may become the default in future releases.
+
+Known issue:
+
+ * Minimap2 may take a long time to map a read (#771). So far it is not clear
+   if this happens to v2.18 and earlier versions.
+
+(2.22: 7 August 2021, r1101)
+
+
+
 Release 2.21-r1071 (6 July 2021)
 --------------------------------
 
@@ -5,7 +30,7 @@ This release fixed a regression in short-read mapping introduced in v2.19
 (#776). It also fixed invalid comparisons of uninitialized variables, though
 these are harmless (#752). Long-read alignment should be identical to v2.20.
 
-(2.21: 6 July 2021)
+(2.21: 6 July 2021, r1071)
 
 
 

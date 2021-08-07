@@ -1,4 +1,4 @@
-.TH minimap2 1 "6 July 2021" "minimap2-2.21 (r1071)" "Bioinformatics tools"
+.TH minimap2 1 "7 August 2021" "minimap2-2.22 (r1101)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -423,6 +423,11 @@ alignment.
 Skip alignment if the DP matrix size is above
 .IR NUM .
 Set 0 to disable [100m].
+.TP
+.BI --cap-kalloc \ NUM
+Free thread-local kalloc memory reservoir if after the alignment the size of the reservoir above
+.IR NUM .
+Set 0 to disable [0].
 .SS Input/output options
 .TP 10
 .B -a
