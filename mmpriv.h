@@ -95,6 +95,7 @@ void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int 
 void mm_filter_regs(const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs);
 void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r, float alt_diff_frac);
 void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr);
+void mm_update_dp_max(int qlen, int n_regs, mm_reg1_t *regs, float frac, int a, int b);
 
 void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, const uint64_t *mini_pos);
 

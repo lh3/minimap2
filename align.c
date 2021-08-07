@@ -931,7 +931,7 @@ static int32_t mm_recal_max_dp(const mm_reg1_t *r, double b2, int32_t match_sc)
 	return (int32_t)(match_sc * (r->mlen - b2 * n_mis - gap_cost) + .499);
 }
 
-static void mm_update_dp_max(int qlen, int n_regs, mm_reg1_t *regs, float frac, int a, int b)
+void mm_update_dp_max(int qlen, int n_regs, mm_reg1_t *regs, float frac, int a, int b)
 {
 	int32_t max = -1, max2 = -1, i, max_i = -1;
 	double div, b2;
@@ -1011,7 +1011,7 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	kfree(km, qseq0[0]);
 	kfree(km, ez.cigar);
 	mm_filter_regs(opt, qlen, n_regs_, regs);
-	if (!(opt->flag&MM_F_SR) && qlen >= opt->rank_min_len) {
+	if (!(opt->flag&MM_F_SR) && !opt->split_prefix && qlen >= opt->rank_min_len) {
 		mm_update_dp_max(qlen, *n_regs_, regs, opt->rank_frac, opt->a, opt->b);
 		mm_filter_regs(opt, qlen, n_regs_, regs);
 	}

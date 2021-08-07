@@ -494,6 +494,14 @@ static void merge_hits(step_t *s)
 					}
 				}
 			}
+			if (!(opt->flag&MM_F_SR) && s->seq[k].l_seq >= opt->rank_min_len)
+				mm_update_dp_max(s->seq[k].l_seq, s->n_reg[k], s->reg[k], opt->rank_frac, opt->a, opt->b);
+			for (j = 0; j < s->n_reg[k]; ++j) {
+				mm_reg1_t *r = &s->reg[k][j];
+				if (r->p) r->p->dp_max2 = 0; // reset ->dp_max2 as mm_set_parent() doesn't clear it; necessary with mm_update_dp_max()
+				r->subsc = 0; // this may not be necessary
+				r->n_sub = 0; // n_sub will be an underestimate as we don't see all the chains now, but it can't be accurate anyway
+			}
 			mm_hit_sort(km, &s->n_reg[k], s->reg[k], opt->alt_drop);
 			mm_set_parent(km, opt->mask_level, opt->mask_len, s->n_reg[k], s->reg[k], opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_drop);
 			if (!(opt->flag & MM_F_ALL_CHAINS)) {
