@@ -194,7 +194,7 @@ the results by~\citep{Jain2020.11.01.363887}. Minimap2 v2.22 is as good as
 Winnowmap2 now. Note that we were setting the Sniffles mapping quality
 threshold to 10 in consistent with the benchmarks above. If we used the
 default threshold 20, v2.22 would miss additional five SVs (accounting for
-0.5\% of simulated SVs). For four out of these missing five SVs, minimap2 v2.22
+0.5\% of simulated SVs). For four out of these five missing SVs, minimap2 v2.22
 mapped more variant reads than Winnowmap2. Sniffles did not call these SVs
 because minimap2 tended to give them conservative mapping quality. It is worth
 noting that the simulation here only considers a simple scenario in evolution.
@@ -212,7 +212,7 @@ so did not report the numbers.
 
 Minimap2 spends most computing time on base alignment. As recent improvements
 in v2.22 incur little additional computing and do not change the base alignment
-algorithm, the new version has similar performance to older verions. It is
+algorithm, the new version has similar performance to older versions. It is
 consistently faster than Winnowmap2 by several times. Sometimes simple
 heuristics can be as effective as more sophisticated yet slower solutions.
 
