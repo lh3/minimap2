@@ -11,7 +11,7 @@ Architecture: x86\_64 CPUs with [AVX512](https://en.wikipedia.org/wiki/AVX-512)
 Memory requirement: ~30GB for human genome   
 
 ### Installation
-Clone the *fast-contrib* branch from minimap2 github page. The source code can be compiled by simple using *make* command.
+Clone the *fast-contrib* branch from minimap2 github page. The source code can be compiled by simple using *make* command. It only takes a few seconds.
 ```
 git clone --recursive https://github.com/lh3/minimap2.git -b fast-contrib mm2-fast   
 cd mm2-fast
@@ -38,7 +38,7 @@ diff minimap2_output mm2-fast_output > diff_result
 The file diff\_result should show a clean-diff with the difference of 2 lines, i.e., the lines containing the command-line parameters for minimap2 and mm2-fast.
 
 ### Advanced options
-The default compilation using make applies two optimizations: AVX512 vectorized chaining and alignment, and learned-indexes based seeding is disabled by default as it requires availability of [Rust](https://en.wikipedia.org/wiki/Rust_(programming_language)). This is because the learned hash-table uses an external training library that runs on Rust. Rust is trivial to install, see https://rustup.rs/ and add its path to .bashrc file. Following are the steps to enable learned hash table optimization in mm2-fast:
+The default compilation using make applies two optimizations: AVX512 vectorized chaining and alignment, and learned-indexes based seeding is disabled by default as it requires availability of [Rust](https://en.wikipedia.org/wiki/Rust_(programming_language)). This is because the learned hash-table uses an external training library that runs on Rust. Rust is trivial to install, see https://rustup.rs/ and add its path to .bashrc file. Rust installation only takes a few seconds. Following are the steps to enable learned hash table optimization in mm2-fast:
 ```sh
 # Start by building learned hash table index for optimized seeding module 
 ./build_rmi.sh test/MT-human.fa map-ont               ##Takes two arguments: 1. path-to-reference-seq-file 2. preset. 
