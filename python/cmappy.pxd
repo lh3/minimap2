@@ -51,6 +51,7 @@ cdef extern from "minimap.h":
 		int pe_ori, pe_bonus
 
 		float mid_occ_frac
+		float q_occ_frac
 		int32_t min_mid_occ
 		int32_t mid_occ
 		int32_t max_occ

@@ -19,6 +19,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_mid_occ = 10;
 	opt->max_mid_occ = 1000000;
 	opt->sdust_thres = 0; // no SDUST masking
+	opt->q_occ_frac = 0.02f;
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;

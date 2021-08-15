@@ -163,6 +163,7 @@ typedef struct {
 	int pe_ori, pe_bonus;
 
 	float mid_occ_frac;  // only used by mm_mapopt_update(); see below
+	float q_occ_frac;
 	int32_t min_mid_occ, max_mid_occ;
 	int32_t mid_occ;     // ignore seeds with occurrences above this threshold
 	int32_t max_occ, max_max_occ, occ_dist;

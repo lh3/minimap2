@@ -151,9 +151,15 @@ Lower and upper bounds of k-mer occurrences [10,1000000]. The final k-mer occurr
 .BR -f }}.
 This option prevents excessively small or large
 .B -f
-estimated from the input reference. It deprecates
+estimated from the input reference. Available since r1034 and deprecating
 .B --min-occ-floor
 in earlier versions of minimap2.
+.TP
+.BI --q-occ-frac \ FLOAT
+Discard a query minimizer if its occurrence is higher than
+.I FLOAT
+fraction of query minimizers and than the reference occurrence threshold
+[0.02]. Set 0 to disable. Available since r1105.
 .TP
 .BI -e \ INT
 Sample a high-frequency minimizer every
