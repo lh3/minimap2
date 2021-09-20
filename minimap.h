@@ -171,7 +171,8 @@ typedef struct {
 	int64_t max_sw_mat;
 	int64_t cap_kalloc;
 
-	const char *split_prefix;
+	const char *split_prefix;  // temp file prefix for mapping to split index (sequentially within one process)
+	const char *split_map;     // intermediate output file for mapping to one part of a split index
 } mm_mapopt_t;
 
 // index reader

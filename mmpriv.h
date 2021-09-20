@@ -104,10 +104,13 @@ mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int 
 void mm_seg_free(void *km, int n_segs, mm_seg_t *segs);
 void mm_pair(void *km, int max_gap_ref, int dp_bonus, int sub_diff, int match_sc, const int *qlens, int *n_regs, mm_reg1_t **regs);
 
-FILE *mm_split_init(const char *prefix, const mm_idx_t *mi);
-mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part);
-int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx);
-void mm_split_rm_tmp(const char *prefix, int n_splits);
+FILE *mm_split_init(const char *fn, const mm_idx_t *mi);
+FILE *mm_split_init_tmp(const char *prefix, const mm_idx_t *mi);
+mm_idx_t *mm_split_merge_prep(const char **intermediates, int n_splits, FILE **fp, uint32_t *n_seq_part);
+mm_idx_t *mm_split_merge_prep_tmp(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part);
+int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx, const char **fn_intermediates);
+int mm_split_merge_tmp(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx);
+char** mm_split_tmp_intermediates(const char *prefix, int n_splits);
 
 void mm_err_puts(const char *str);
 void mm_err_fwrite(const void *p, size_t size, size_t nitems, FILE *fp);

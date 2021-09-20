@@ -484,6 +484,7 @@ static void merge_hits(step_t *s)
 			for (j = 0, l = 0; j < s->p->n_parts; ++j) {
 				for (t = 0; t < n_reg_part[j]; ++t, ++l) {
 					mm_reg1_t *r = &s->reg[k][l];
+					/* TODO: double-check all r->id match */
 					uint32_t capacity;
 					mm_err_fread(r, sizeof(mm_reg1_t), 1, fp[j]);
 					r->rid += s->p->rid_shift[j];
@@ -566,7 +567,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
-				if (p->opt->split_prefix && p->n_parts == 0) { // then write to temporary files
+				if (p->fp_split && p->n_parts == 0) { // then write to intermediate file
+					assert(p->opt->split_prefix || p->opt->split_map);
 					mm_err_fwrite(&s->n_reg[i],    sizeof(int), 1, p->fp_split);
 					mm_err_fwrite(&s->rep_len[i],  sizeof(int), 1, p->fp_split);
 					mm_err_fwrite(&s->frag_gap[i], sizeof(int), 1, p->fp_split);
@@ -646,7 +648,9 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 	pl.n_threads = n_threads > 1? n_threads : 1;
 	pl.mini_batch_size = opt->mini_batch_size;
 	if (opt->split_prefix)
-		pl.fp_split = mm_split_init(opt->split_prefix, idx);
+		pl.fp_split = mm_split_init_tmp(opt->split_prefix, idx);
+	else if (opt->split_map)
+		pl.fp_split = mm_split_init(opt->split_map, idx);
 	pl_threads = n_threads == 1? 1 : (opt->flag&MM_F_2_IO_THREADS)? 3 : 2;
 	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
 
@@ -663,7 +667,7 @@ int mm_map_file(const mm_idx_t *idx, const char *fn, const mm_mapopt_t *opt, int
 	return mm_map_file_frag(idx, 1, &fn, opt, n_threads);
 }
 
-int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx)
+int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx, const char **fn_intermediates)
 {
 	int i;
 	pipeline_t pl;
@@ -679,7 +683,7 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 	pl.n_parts = n_split_idx;
 	pl.fp_parts  = CALLOC(FILE*, pl.n_parts);
 	pl.rid_shift = CALLOC(uint32_t, pl.n_parts);
-	pl.mi = mi = mm_split_merge_prep(opt->split_prefix, n_split_idx, pl.fp_parts, pl.rid_shift);
+	pl.mi = mi = mm_split_merge_prep(fn_intermediates, n_split_idx, pl.fp_parts, pl.rid_shift);
 	if (pl.mi == 0) {
 		free(pl.fp_parts);
 		free(pl.rid_shift);
@@ -704,6 +708,19 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 	for (i = 0; i < pl.n_fp; ++i)
 		mm_bseq_close(pl.fp[i]);
 	free(pl.fp);
-	mm_split_rm_tmp(opt->split_prefix, n_split_idx);
 	return 0;
+}
+
+int mm_split_merge_tmp(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_split_idx)
+{
+	char **fn_intermediates;
+	int ret, i;
+	fn_intermediates = mm_split_tmp_intermediates(opt->split_prefix, n_split_idx);
+	ret = mm_split_merge(n_segs, fn, opt, n_split_idx, (const char**) fn_intermediates);
+	for (i = 0; i < n_split_idx; ++i) {
+		remove(fn_intermediates[i]);
+		free(fn_intermediates[i]);
+	}
+	free(fn_intermediates);
+	return ret;
 }

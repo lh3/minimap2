@@ -5,16 +5,13 @@
 #include <errno.h>
 #include "mmpriv.h"
 
-FILE *mm_split_init(const char *prefix, const mm_idx_t *mi)
+FILE *mm_split_init(const char *fn, const mm_idx_t *mi)
 {
-	char *fn;
 	FILE *fp;
 	uint32_t i, k = mi->k;
-	fn = (char*)calloc(strlen(prefix) + 10, 1);
-	sprintf(fn, "%s.%.4d.tmp", prefix, mi->index);
 	if ((fp = fopen(fn, "wb")) == NULL) {
 		if (mm_verbose >= 1)
-			fprintf(stderr, "[ERROR]\033[1;31m failed to write to temporary file '%s'\033[0m: %s\n", fn, strerror(errno));
+			fprintf(stderr, "[ERROR]\033[1;31m failed to write to intermediate file '%s'\033[0m: %s\n", fn, strerror(errno));
 		exit(1);
 	}
 	mm_err_fwrite(&k, 4, 1, fp);
@@ -26,30 +23,35 @@ FILE *mm_split_init(const char *prefix, const mm_idx_t *mi)
 		mm_err_fwrite(mi->seq[i].name, 1, l, fp);
 		mm_err_fwrite(&mi->seq[i].len, 4, 1, fp);
 	}
+	return fp;
+}
+
+FILE *mm_split_init_tmp(const char *prefix, const mm_idx_t *mi)
+{
+	FILE *fp;
+	char *fn;
+	fn = (char*)calloc(strlen(prefix) + 10, 1);
+	sprintf(fn, "%s.%.4d.tmp", prefix, mi->index);
+	fp = mm_split_init(fn, mi);
 	free(fn);
 	return fp;
 }
 
-mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part)
+mm_idx_t *mm_split_merge_prep(const char **intermediates, int n_splits, FILE **fp, uint32_t *n_seq_part)
 {
 	mm_idx_t *mi = 0;
-	char *fn;
 	int i, j;
 
 	if (n_splits < 1) return 0;
-	fn = CALLOC(char, strlen(prefix) + 10);
 	for (i = 0; i < n_splits; ++i) {
-		sprintf(fn, "%s.%.4d.tmp", prefix, i);
-		if ((fp[i] = fopen(fn, "rb")) == 0) {
+		if ((fp[i] = fopen(intermediates[i], "rb")) == 0) {
 			if (mm_verbose >= 1)
-				fprintf(stderr, "ERROR: failed to open temporary file '%s': %s\n", fn, strerror(errno));
+				fprintf(stderr, "ERROR: failed to open intermediate file '%s': %s\n", intermediates[i], strerror(errno));
 			for (j = 0; j < i; ++j)
 				fclose(fp[j]);
-			free(fn);
 			return 0;
 		}
 	}
-	free(fn);
 
 	mi = CALLOC(mm_idx_t, 1);
 	for (i = 0; i < n_splits; ++i) {
@@ -71,14 +73,40 @@ mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint3
 	return mi;
 }
 
-void mm_split_rm_tmp(const char *prefix, int n_splits)
+mm_idx_t *mm_split_merge_prep_tmp(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part)
 {
+	char **filenames;
 	int i;
-	char *fn;
-	fn = CALLOC(char, strlen(prefix) + 10);
+	mm_idx_t *mi;
+
+	if (n_splits < 1) return 0;
+	filenames = CALLOC(char*, n_splits);
 	for (i = 0; i < n_splits; ++i) {
-		sprintf(fn, "%s.%.4d.tmp", prefix, i);
-		remove(fn);
+		filenames[i] = CALLOC(char, strlen(prefix) + 10);
+		sprintf(filenames[i], "%s.%.4d.tmp", prefix, i);
 	}
-	free(fn);
+
+	mi = mm_split_merge_prep((const char**)filenames, n_splits, fp, n_seq_part);
+
+	for (i = 0; i < n_splits; ++i) {
+		free(filenames[i]);
+	}
+	free(filenames);
+
+	return mi;
+}
+
+char** mm_split_tmp_intermediates(const char *prefix, int n_splits)
+{
+	char **filenames;
+	int i;
+
+	if (n_splits < 1) return 0;
+	filenames = CALLOC(char*, n_splits);
+	for (i = 0; i < n_splits; ++i) {
+		filenames[i] = CALLOC(char, strlen(prefix) + 10);
+		sprintf(filenames[i], "%s.%.4d.tmp", prefix, i);
+	}
+
+	return filenames;
 }
