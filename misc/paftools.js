@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.21-r1071';
+var paftools_version = '2.22-r1101';
 
 /*****************************
  ***** Library functions *****
@@ -977,7 +977,7 @@ function paf_stat(args)
 	var re = /(\d+)([MIDSHNX=])/g;
 
 	var lineno = 0, n_pri = 0, n_2nd = 0, n_seq = 0, n_cigar_64k = 0, l_tot = 0, l_cov = 0;
-	var n_gap = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]];
+	var n_gap = [[0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]], n_sub = 0;
 
 	function cov_len(regs)
 	{
@@ -999,7 +999,7 @@ function paf_stat(args)
 		if (line.charAt(0) != '@') {
 			var t = line.split("\t", 12);
 			var m, rs, cigar = null, is_pri = false, is_sam = false, is_rev = false, tname = null;
-			var atlen = null, aqlen, qs, qe, mapq, ori_qlen, NM = null;
+			var atlen = null, aqlen, qs, qe, mapq, ori_qlen, NM = null, nn = 0;
 			if (t.length < 2) continue;
 			if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
 				if (t[4] == '*') continue; // unmapped
@@ -1009,6 +1009,8 @@ function paf_stat(args)
 				}
 				if ((m = /\tNM:i:(\d+)/.exec(line)) != null)
 					NM = parseInt(m[1]);
+				if ((m = /\tnn:i:(\d+)/.exec(line)) != null)
+					nn = parseInt(m[1]);
 				if ((m = /\tcg:Z:(\S+)/.exec(line)) != null)
 					cigar = m[1];
 				if (cigar == null) {
@@ -1032,6 +1034,8 @@ function paf_stat(args)
 				}
 				if ((m = /\tNM:i:(\d+)/.exec(line)) != null)
 					NM = parseInt(m[1]);
+				if ((m = /\tnn:i:(\d+)/.exec(line)) != null)
+					nn = parseInt(m[1]);
 				cigar = t[5];
 				tname = t[2];
 				rs = parseInt(t[3]) - 1;
@@ -1078,6 +1082,12 @@ function paf_stat(args)
 					clip[M == 0? 0 : 1] = l;
 				}
 			}
+			if (NM != null) {
+				var tmp = NM - n_gap_all - nn;
+				if (tmp < 0 && nn == 0) warn("WARNING: NM is smaller than the number of gaps at line " + lineno + ": NM=" + NM + ", nn=" + nn + ", G=" + n_gap_all);
+				if (tmp < 0) tmp = 0;
+				n_sub += tmp;
+			}
 			if (n_cigar > 65535) ++n_cigar_64k;
 			if (ql + sclip != aqlen)
 				warn("WARNING: aligned query length is inconsistent with CIGAR at line " + lineno + " (" + (ql+sclip) + " != " + aqlen + ")");
@@ -1112,6 +1122,7 @@ function paf_stat(args)
 		print("Number of primary alignments with >65535 CIGAR operations: " + n_cigar_64k);
 		print("Number of bases in mapped sequences: " + l_tot);
 		print("Number of mapped bases: " + l_cov);
+		print("Number of substitutions: " + n_sub);
 		print("Number of insertions in [0,50): " + n_gap[0][0]);
 		print("Number of insertions in [50,100): " + n_gap[0][1]);
 		print("Number of insertions in [100,300): " + n_gap[0][2]);
@@ -1475,8 +1486,14 @@ function paf_view(args)
 				warn("WARNING: converting to BLAST-like alignment requires the 'cs' tag, which is absent on line " + lineno);
 				continue;
 			}
+			var n_mm = 0, n_oi = 0, n_od = 0, n_ei = 0, n_ed = 0;
+			while ((m = re_cs.exec(cs)) != null) {
+				if (m[1] == '*') ++n_mm;
+				else if (m[1] == '+') ++n_oi, n_ei += m[2].length;
+				else if (m[1] == '-') ++n_od, n_ed += m[2].length;
+			}
 			line = line.replace(/\tc[sg]:Z:\S+/g, ""); // get rid of cs or cg tags
-			print('>' + line);
+			print('>' + line + "\tmm:i:"+n_mm + "\toi:i:"+n_oi + "\tei:i:"+n_ei + "\tod:i:"+n_od + "\ted:i:"+n_ed);
 			var rs = parseInt(t[7]), qs = t[4] == '+'? parseInt(t[2]) : parseInt(t[3]);
 			var n_blocks = 0;
 			while ((m = re_cs.exec(cs)) != null) {
@@ -2930,6 +2947,120 @@ function paf_vcfsel(args)
 	buf.destroy();
 }
 
+function paf_pafcmp(args)
+{
+	var c, opt = { min_len:5000, min_mapq:10, min_ovlp:0.5 };
+	while ((c = getopt(args, "q:")) != null) {
+		if (c == 'q') opt.min_mapq = parseInt(opt.arg);
+	}
+
+	var buf = new Bytes();
+	if (args.length - getopt.ind < 2) {
+		print("Usage: paftools.js pafcmp [options] <base.paf> <test.paf>");
+		print("Options:");
+		print("  -q INT    min mapping quality [" + opt.min_mapq + "]");
+		return 1;
+	}
+
+	var eval = { n_base:0, n_test:0, n_out_high:0, n_out_low:0, n_hit:0, n_wrong:0, n_miss:0 };
+
+	function process_base(base, a) {
+		if (a.length != 1) return;
+		for (var i = 1; i < 4; ++i)
+			a[0][i] = parseInt(a[0][i]);
+		for (var i = 6; i < 12; ++i)
+			a[0][i] = parseInt(a[0][i]);
+		if (a[0][1] < opt.min_len) return;
+		if (a[0][11] >= opt.min_mapq) ++eval.n_base;
+		base[a[0][0]] = [a[0][5], a[0][7], a[0][8], a[0][11], 0, 0];
+	}
+
+	var file = new File(args[getopt.ind]);
+	warn("Reading " + args[getopt.ind] + "...");
+	var a = [], base = {};
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		var t = line.split("\t");
+		if (/\ttp:A:S/.test(line)) continue;
+		if (a.length > 0 && a[0][0] != t[0]) {
+			process_base(base, a);
+			a = [];
+		}
+		a.push(t);
+	}
+	process_base(base, a);
+	file.close();
+
+	function process_test(base, a) {
+		for (var i = 1; i < 4; ++i)
+			a[0][i] = parseInt(a[0][i]);
+		for (var i = 6; i < 12; ++i)
+			a[0][i] = parseInt(a[0][i]);
+		if (a[0][1] < opt.min_len) return;
+		if (a[0][11] >= opt.min_mapq) ++eval.n_test;
+		var c = [a[0][5], a[0][7], a[0][8], a[0][11]];
+		if (base[a[0][0]] == null) {
+			if (c[3] >= opt.min_mapq) ++opt.n_out_high;
+			else ++opt.n_out_low;
+		} else {
+			var b = base[a[0][0]];
+			var inter = 0, union = (b[2] - b[1]) + (c[2] - c[1]);
+			if (b[0] == c[0]) { // same chr
+				if (b[1] < c[1]) {
+					if (b[2] > c[1])
+						inter = b[2] - c[1], union = c[2] - b[1];
+				} else { // c[1] < b[1]
+					if (c[2] > b[1])
+						inter = c[2] - b[1], union = b[2] - c[1];
+				}
+			}
+			if (inter >= union * opt.min_ovlp) {
+				if (b[3] >= opt.min_mapq) ++eval.n_hit;
+				++b[4];
+			} else {
+				if (b[3] >= opt.min_mapq) {
+					print("W", a[0][0], b.slice(0, 4).join("\t"), c.join("\t"));
+					++eval.n_wrong;
+				}
+				++b[5];
+			}
+		}
+	}
+
+	file = new File(args[getopt.ind+1]);
+	warn("Reading " + args[getopt.ind+1] + "...");
+	a = [];
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		var t = line.split("\t");
+		if (/\ttp:A:S/.test(line)) continue;
+		if (a.length > 0 && a[0][0] != t[0]) {
+			process_test(base, a);
+			a = [];
+		}
+		a.push(t);
+	}
+	process_test(base, a);
+	file.close();
+
+	for (var r in base) {
+		var b = base[r];
+		if (b[3] >= opt.min_mapq && b[4] == 0 && b[5] == 0) {
+			++eval.n_miss;
+			print("M", r, b.slice(0, 4).join("\t"));
+		}
+	}
+
+	print("X", eval.n_base     + " base alignments with mapQ>=" + opt.min_mapq);
+//	print("X", eval.n_test     + " test alignments with mapQ>=" + opt.min_mapq);
+	print("X", eval.n_hit      + " base alignments correctly mapped by test");
+	print("X", eval.n_wrong    + " wrong test alignment");
+	print("X", eval.n_miss     + " base alignments missing");
+	print("X", eval.n_out_high + " additional test alignments with mapQ>=" + opt.min_mapq);
+
+	buf.destroy();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -2957,6 +3088,7 @@ function main(args)
 		print("  version    print paftools.js version");
 		print("");
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
+		print("  pafcmp     compare two PAF files");
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
 		print("  pbsim2fq   convert PBSIM-simulated MAF to FASTQ");
 		print("  junceval   evaluate splice junction consistency with known annotations");
@@ -2978,6 +3110,7 @@ function main(args)
 	else if (cmd == 'vcfpair') paf_vcfpair(args);
 	else if (cmd == 'call') paf_call(args);
 	else if (cmd == 'mapeval') paf_mapeval(args);
+	else if (cmd == 'pafcmp') paf_pafcmp(args);
 	else if (cmd == 'bedcov') paf_bedcov(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);

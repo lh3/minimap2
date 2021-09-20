@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.21-r1071"
+#define MM_VERSION "2.22-r1105-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -72,6 +72,11 @@ static ko_longopt_t long_options[] = {
 	{ "alt-drop",       ko_required_argument, 345 },
 	{ "mask-len",       ko_required_argument, 346 },
 	{ "rmq",            ko_optional_argument, 347 },
+	{ "qstrand",        ko_no_argument,       348 },
+	{ "cap-kalloc",     ko_required_argument, 349 },
+	{ "q-occ-frac",     ko_required_argument, 350 },
+	{ "split-map",      ko_required_argument, 351 },
+	{ "split-merge",    ko_no_argument,       352 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -80,8 +85,6 @@ static ko_longopt_t long_options[] = {
 	{ "mask-level",     ko_required_argument, 'M' },
 	{ "min-dp-score",   ko_required_argument, 's' },
 	{ "sam",            ko_no_argument,       'a' },
-	{ "split-map",      ko_required_argument, 348 },
-	{ "split-merge",    ko_no_argument,       349 },
 	{ 0, 0, 0 }
 };
 
@@ -102,7 +105,7 @@ static inline int64_t mm_parse_num(const char *str)
 	return mm_parse_num2(str, 0);
 }
 
-static inline void yes_or_no(mm_mapopt_t *opt, int flag, int long_idx, const char *arg, int yes_to_set)
+static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const char *arg, int yes_to_set)
 {
 	if (yes_to_set) {
 		if (strcmp(arg, "yes") == 0 || strcmp(arg, "y") == 0) opt->flag |= flag;
@@ -242,8 +245,11 @@ int main(int argc, char *argv[])
 		else if (c == 344) alt_list = o.arg; // --alt
 		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
 		else if (c == 346) opt.mask_len = mm_parse_num(o.arg); // --mask-len
-		else if (c == 348) opt.split_map = o.arg; // --split-map
-		else if (c == 349) split_merge = 1; // --split-merge
+		else if (c == 348) opt.flag |= MM_F_QSTRAND | MM_F_NO_INV; // --qstrand
+		else if (c == 349) opt.cap_kalloc = mm_parse_num(o.arg); // --cap-kalloc
+		else if (c == 350) opt.q_occ_frac = atof(o.arg); // --q-occ-frac
+		else if (c == 351) opt.split_map = o.arg; // --split-map
+		else if (c == 352) split_merge = 1; // --split-merge
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
 		} else if (c == 314) { // --frag
@@ -345,7 +351,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -N INT       retain at most INT secondary alignments [%d]\n", opt.best_n);
 		fprintf(fp_help, "  Alignment:\n");
 		fprintf(fp_help, "    -A INT       matching score [%d]\n", opt.a);
-		fprintf(fp_help, "    -B INT       mismatch penalty [%d]\n", opt.b);
+		fprintf(fp_help, "    -B INT       mismatch penalty (larger value for lower divergence) [%d]\n", opt.b);
 		fprintf(fp_help, "    -O INT[,INT] gap open penalty [%d,%d]\n", opt.q, opt.q2);
 		fprintf(fp_help, "    -E INT[,INT] gap extension penalty; a k-long gap costs min{O1+k*E1,O2+k*E2} [%d,%d]\n", opt.e, opt.e2);
 		fprintf(fp_help, "    -z INT[,INT] Z-drop score and inversion Z-drop score [%d,%d]\n", opt.zdrop, opt.zdrop_inv);

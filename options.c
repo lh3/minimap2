@@ -19,6 +19,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_mid_occ = 10;
 	opt->max_mid_occ = 1000000;
 	opt->sdust_thres = 0; // no SDUST masking
+	opt->q_occ_frac = 0.02f;
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
@@ -52,6 +53,9 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_clip_ratio = 1.0f;
 	opt->mini_batch_size = 500000000;
 	opt->max_sw_mat = 100000000;
+
+	opt->rank_min_len = 500;
+	opt->rank_frac = 0.9f;
 
 	opt->pe_ori = 0; // FF
 	opt->pe_bonus = 33;
@@ -216,6 +220,11 @@ int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 	if ((mo->flag & MM_F_NO_PRINT_2ND) && (mo->flag & MM_F_ALL_CHAINS)) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m -X/-P and --secondary=no can't be applied at the same time\033[0m\n");
+		return -5;
+	}
+	if ((mo->flag & MM_F_QSTRAND) && ((mo->flag & (MM_F_OUT_SAM|MM_F_SPLICE|MM_F_FRAG_MODE)) || (io->flag & MM_I_HPC))) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m --qstrand doesn't work with -a, -H, --frag or --splice\033[0m\n");
 		return -5;
 	}
 	return 0;

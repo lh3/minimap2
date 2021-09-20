@@ -2,6 +2,31 @@
 #include "kalloc.h"
 #include "ksort.h"
 
+void mm_seed_mz_flt(void *km, mm128_v *mv, int32_t q_occ_max, float q_occ_frac)
+{
+	mm128_t *a;
+	size_t i, j, st;
+	if (mv->n <= q_occ_max || q_occ_frac <= 0.0f || q_occ_max <= 0) return;
+	KMALLOC(km, a, mv->n);
+	for (i = 0; i < mv->n; ++i)
+		a[i].x = mv->a[i].x, a[i].y = i;
+	radix_sort_128x(a, a + mv->n);
+	for (st = 0, i = 1; i <= mv->n; ++i) {
+		if (i == mv->n || a[i].x != a[st].x) {
+			int32_t cnt = i - st;
+			if (cnt > q_occ_max && cnt > mv->n * q_occ_frac)
+				for (j = st; j < i; ++j)
+					mv->a[a[j].y].x = 0;
+			st = i;
+		}
+	}
+	kfree(km, a);
+	for (i = j = 0; i < mv->n; ++i)
+		if (mv->a[i].x != 0)
+			mv->a[j++] = mv->a[i];
+	mv->n = j;
+}
+
 mm_seed_t *mm_seed_collect_all(void *km, const mm_idx_t *mi, const mm128_v *mv, int32_t *n_m_)
 {
 	mm_seed_t *m;
