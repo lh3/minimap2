@@ -51,13 +51,13 @@ final PAF or SAM with
 `minimap2 -ax sr --split-merge reads_1.fq reads_2.fq . *.mappings`. Make sure
 to supply the same configuration options to each invocation.
 
-#### 4. The output SAM is malformatted.
+#### 5. The output SAM is malformatted.
 
 This typically happens when you use nohup to wrap a minimap2 command line.
 Nohup is discouraged as it breaks piping. If you have to use nohup, please
 specify an output file with option `-o`.
 
-#### 5. How to output one alignment per read?
+#### 6. How to output one alignment per read?
 
 You can use `--secondary=no` to suppress secondary alignments (aka multiple
 mappings), but you can't suppress supplementary alignment (aka split or
