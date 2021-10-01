@@ -2951,7 +2951,7 @@ function paf_pafcmp(args)
 {
 	var c, opt = { min_len:5000, min_mapq:10, min_ovlp:0.5 };
 	while ((c = getopt(args, "q:")) != null) {
-		if (c == 'q') opt.min_mapq = parseInt(opt.arg);
+		if (c == 'q') opt.min_mapq = parseInt(getopt.arg);
 	}
 
 	var buf = new Bytes();

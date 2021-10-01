@@ -57,7 +57,7 @@ in v2.19 through v2.22 to improve mapping results.
 \begin{methods}
 \section{Methods}
 
-\subsection{Rescuing high-occurrence $k$-mers}
+\subsection{Rescuing high-occurrence $k$-mers}\label{sec:high-occ}
 Minimap2 keeps all $k$-mer minimizers~\citep{Roberts:2004fv} during indexing. Its original
 implementation only selected low-occurrence minimizers during mapping. The
 cutoff is a few hundred for mapping long reads against a human genome. If a
@@ -66,9 +66,10 @@ chaining due to insufficient anchors.
 
 To resolve this issue, we implemented a new heuristic to add additional
 minimizers. Suppose we are looking at two adjacent low-occurence $k$-mers
-located at position $x_1$ and $x_2$, respectively. If $|x_1-x_2|\ge500$,
-minimap2 v2.22 additionally selects $\lfloor|x_1-x_2|/500\rfloor$ minimizers
-of the lowest occurrence among minimizers between $x_1$ and $x_2$.
+located at position $x_1$ and $x_2$, respectively. If $|x_1-x_2|\ge L$,
+minimap2 v2.22 additionally selects $\lfloor|x_1-x_2|/L\rfloor$ minimizers
+of the lowest occurrence among minimizers between $x_1$ and $x_2$. Here
+parameter $L$ controls the frequency of sampling. It defaults to 500.
 This strategy adds necessary anchors at the cost of increasing total alignment
 time by a few percent on real data.
 
@@ -106,7 +107,7 @@ the best scoring alignment is sometimes not the correct alignment.
 \citet{Jain2020.11.01.363887} resolved this dilemma by altering the mapping
 algorithm.
 
-In our view, this problem is rooted in impropriate scoring: affine-gap penalty
+In our view, this problem is rooted in inapropriate scoring: affine-gap penalty
 over-penalizes a long INDEL that was often evolutionarily created in one event.
 We should not penalize a SV by a function linear in the SV length. Minimap2 v2.22 instead rescores
 an alignment with the following scoring function. Suppose an alignment consists
@@ -122,7 +123,7 @@ $$
 It approximates per-base sequence divergence except with the smallest value set
 to 2\%. As an analogy to affine-gap scoring, the matching score in our scheme
 is 1, the mismatch and gap open penalties are both $1/2d$ and the gap extension
-penalty is a logarithm function of the gap length. Our scoring gives a long SV
+penalty is a logarithm function of the gap length~\citep{Gu:1995wt}. Our scoring gives a long SV
 a much milder penalty. In terms of time complexity, scoring an alignment is
 linear in the length of the alignment. The time spent on rescoring is negligible in
 practice.
@@ -144,13 +145,15 @@ practice.
 \toprule
 $[$Benchmark$]$ Metric & v2.22 & v2.18 & Winno & lra \\
 \midrule
-$[$sim-map$]$ \% mapped reads at Q10      & 97.9 & 97.6 & {\bf 99.0} & 97.3 \\
-$[$sim-map$]$ err. rate at Q10 (phredQ)   & {\bf 52}   & {\bf 52}   & 38   & 24 \\
-$[$winno-cmp$]$  rate of diff. (phredQ)   & {\bf 41}   & 37   & N/A  & 18 \\
-$[$sim-sv$]$  \% false negative rate      & {\bf 0.5}  & 2.0  & {\bf 0.5}  & 1.4  \\
-$[$sim-sv$]$  \% false discovery rate     & {\bf 0.0}  & 0.1  & {\bf 0.0}  & 0.1  \\
-$[$real-sv-1k$]$ \% false negative rate   & {\bf 7.3}  & 20.0 & 13.0 & N/A \\
-$[$real-sv-1k$]$ \% false discovery rate  & 2.7  & {\bf 2.4}  & 2.7  & N/A \\
+$[$sim-map$]$ \% mapped reads at Q10      & 97.9       & 97.6      & {\bf 99.0}& 97.3 \\
+$[$sim-map$]$ err. rate at Q10 (phredQ)   & {\bf 52}   & {\bf 52}  & 38        & 24 \\
+$[$winno-cmp$]$ rate of diff. (phredQ)    & {\bf 41}   & 37        & truth     & 18 \\
+$[$winno-cmp$]$ CPU time (hour)           & {\bf 5.0}  & 5.3       & 71.8      & 13.1 \\
+$[$winno-cmp$]$ peak RAM (Gb)             & 17.1       & 14.4      & {\bf 9.6} & 12.4 \\
+$[$sim-sv$]$  \% false negative rate      & {\bf 0.5}  & 2.0       & {\bf 0.5} & 1.4  \\
+$[$sim-sv$]$  \% false discovery rate     & {\bf 0.0}  & 0.1       & {\bf 0.0} & 0.1  \\
+$[$real-sv-1k$]$ \% false negative rate   & {\bf 7.3}  & 20.0      & 13.0      & N/A \\
+$[$real-sv-1k$]$ \% false discovery rate  & 2.7        & {\bf 2.4} & 2.7       & N/A \\
 \botrule
 \end{tabular}}
 {In $[$sim-map$]$, 152,713 reads were simulated from the CHM13 telomere-to-telomere assembly v1.1
@@ -172,7 +175,8 @@ GCA\_018852615.1) and compared to the GIAB truth~\citep{Zook:2020aa} using ``tru
 \end{table}
 
 We evaluated minimap2 v2.22 along with v2.18, Winnowmap2 v2.03 and lra v1.3.2
-(Table~\ref{tab:1}). Both versions of minimap2 achieved high mapping accuracy on
+(Table~\ref{tab:1}), using the default setting of each mapper according to the input data types.
+Both versions of minimap2 achieved high mapping accuracy on
 simulated Nanopore reads (sim-map). Winnowmap2 aligned more reads at mapping
 quality 10 or higher (mapQ10). However, it may occasionally assign a high mapping
 quality to a read with multiple identical best alignments. This reduced its
@@ -184,9 +188,19 @@ alignments by Winnowmap2, minimap2 v2.22 could map all of them. 118 reads, less
 than 0.01\% of all reads, were mapped differently by v2.22. 51 of them have
 multiple identical best alignments. We believe these are more likely to be
 Winnowmap2 errors. Most of the remaining 67 (=118-51) reads have multiple
-highly similar but not identical alignments. We are not sure how many are real
-mapping errors. Minimap2 v2.18 is less consistent with Winnowmap2. Most of the
-differences are located in highly repetitive regions.
+highly similar but not identical alignments.
+Minimap2 v2.18 is less consistent with 275 differences including 30 unmapped
+reads mappable by both Winnowmap2 and v2.22.
+
+For the minimizer rescuing parameter $L$ in Section~\ref{sec:high-occ},
+we set its default to 500 such that v2.22 has comparable performance to v2.18 given simulated PacBio and Nanopore human reads.
+To see the effect of this parameter on real data, we tried several different $L$ values.
+v2.22 gave 99 mapping differences at $L=200$,
+118 at $L=500$ (default), 167 at $L=750$ and 224 differences at $L=1000$ in comparison to Winnowmap2.
+$L=200$ is 28\% slower than the default while $L=1000$ is 9\% faster.
+Changing the default minimizer window size (option ``-w'')
+and the initial minimizer occurrence cutoff (option ``-f'')
+also affects performance and accuracy to a similar magnitude.
 
 The two benchmarks above only evaluate read mappings when there are no variations between the reads and the reference.
 To measure the mapping accuracy in the presence of SVs (sim-sv), we reproduced
@@ -206,8 +220,7 @@ remains a question.
 To see if minimap2 v2.22 could improve long INDEL alignment, we ran dipcall on
 contig-to-reference alignments and focused on INDELs longer than 1kb
 (real-sv-1k). v2.22 is more sensitive at comparable specificity, confirming its
-advantage in more contiguous alignment. lra is supposed to handle long INDELs
-well, too. However, we could not get dipcall to work well with lra,
+advantage in more contiguous alignment. We could not get dipcall to work well with lra,
 so did not report the numbers.
 
 Minimap2 spends most computing time on base alignment. As recent improvements
