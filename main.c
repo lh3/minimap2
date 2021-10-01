@@ -75,6 +75,7 @@ static ko_longopt_t long_options[] = {
 	{ "qstrand",        ko_no_argument,       348 },
 	{ "cap-kalloc",     ko_required_argument, 349 },
 	{ "q-occ-frac",     ko_required_argument, 350 },
+	{ "chain-skip-scale",ko_required_argument,351 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -225,6 +226,7 @@ int main(int argc, char *argv[])
 		else if (c == 341) opt.junc_bonus = atoi(o.arg); // --junc-bonus
 		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
 		else if (c == 343) opt.chain_gap_scale = atof(o.arg); // --chain-gap-scale
+		else if (c == 351) opt.chain_skip_scale = atof(o.arg); // --chain-skip-scale
 		else if (c == 344) alt_list = o.arg; // --alt
 		else if (c == 345) opt.alt_drop = atof(o.arg); // --alt-drop
 		else if (c == 346) opt.mask_len = mm_parse_num(o.arg); // --mask-len

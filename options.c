@@ -33,6 +33,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->rmq_rescue_size = 1000;
 	opt->rmq_rescue_ratio = 0.1f;
 	opt->chain_gap_scale = 0.8f;
+	opt->chain_skip_scale = 0.04f;
 	opt->max_max_occ = 4095;
 	opt->occ_dist = 500;
 

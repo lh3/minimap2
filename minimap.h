@@ -135,6 +135,7 @@ typedef struct {
 	int min_cnt;         // min number of minimizers on each chain
 	int min_chain_score; // min chaining score
 	float chain_gap_scale;
+	float chain_skip_scale;
 	int rmq_size_cap, rmq_inner_dist;
 	int rmq_rescue_size;
 	float rmq_rescue_ratio;
