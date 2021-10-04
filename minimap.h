@@ -108,7 +108,7 @@ typedef struct {
 	int32_t mlen, blen;     // seeded exact match length; seeded alignment block length
 	int32_t n_sub;          // number of suboptimal mappings
 	int32_t score0;         // initial chaining score (before chain merging/spliting)
-	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, seg_id:8, split_inv:1, is_alt:1, dummy:6;
+	uint32_t mapq:8, split:2, rev:1, inv:1, sam_pri:1, proper_frag:1, pe_thru:1, seg_split:1, seg_id:8, split_inv:1, is_alt:1, strand_retained:1, dummy:5;
 	uint32_t hash;
 	float div;
 	mm_extra_t *p;

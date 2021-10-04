@@ -212,7 +212,7 @@ static void chain_post(const mm_mapopt_t *opt, int max_chain_gap_ref, const mm_i
 {
 	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
 		mm_set_parent(km, opt->mask_level, opt->mask_len, *n_regs, regs, opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_drop);
-		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
+		if (n_segs <= 1) mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, 1, opt->max_gap, n_regs, regs);
 		else mm_select_sub_multi(km, opt->pri_ratio, 0.2f, 0.7f, max_chain_gap_ref, mi->k*2, opt->best_n, n_segs, qlens, n_regs, regs);
 	}
 }
@@ -223,7 +223,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	regs = mm_align_skeleton(km, opt, mi, qlen, seq, n_regs, regs, a); // this calls mm_filter_regs()
 	if (!(opt->flag & MM_F_ALL_CHAINS)) { // don't choose primary mapping(s)
 		mm_set_parent(km, opt->mask_level, opt->mask_len, *n_regs, regs, opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_drop);
-		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, n_regs, regs);
+		mm_select_sub(km, opt->pri_ratio, mi->k*2, opt->best_n, 0, opt->max_gap, n_regs, regs);
 		mm_set_sam_pri(*n_regs, regs);
 	}
 	return regs;
@@ -335,8 +335,10 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 
 	chain_post(opt, max_chain_gap_ref, mi, b->km, qlen_sum, n_segs, qlens, &n_regs0, regs0, a);
-	if (!is_sr && !(opt->flag&MM_F_QSTRAND))
+	if (!is_sr && !(opt->flag&MM_F_QSTRAND)) {
 		mm_est_err(mi, qlen_sum, n_regs0, regs0, a, n_mini_pos, mini_pos);
+		n_regs0 = mm_filter_strand_retained(n_regs0, regs0);
+	}
 
 	if (n_segs == 1) { // uni-segment
 		regs0 = align_regs(opt, mi, b->km, qlens[0], seqs[0], &n_regs0, regs0, a);
@@ -509,7 +511,7 @@ static void merge_hits(step_t *s)
 			mm_hit_sort(km, &s->n_reg[k], s->reg[k], opt->alt_drop);
 			mm_set_parent(km, opt->mask_level, opt->mask_len, s->n_reg[k], s->reg[k], opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_drop);
 			if (!(opt->flag & MM_F_ALL_CHAINS)) {
-				mm_select_sub(km, opt->pri_ratio, s->p->mi->k*2, opt->best_n, &s->n_reg[k], s->reg[k]);
+				mm_select_sub(km, opt->pri_ratio, s->p->mi->k*2, opt->best_n, 0, opt->max_gap, &s->n_reg[k], s->reg[k]);
 				mm_set_sam_pri(s->n_reg[k], s->reg[k]);
 			}
 			mm_set_mapq(km, s->n_reg[k], s->reg[k], opt->min_chain_score, opt->a, rep_len, !!(opt->flag & MM_F_SR));

@@ -252,7 +252,7 @@ void mm_sync_regs(void *km, int n_regs, mm_reg1_t *regs) // keep mm_reg1_t::{id,
 	mm_set_sam_pri(n_regs, regs);
 }
 
-void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_, mm_reg1_t *r)
+void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int check_strand, int min_strand_sc, int *n_, mm_reg1_t *r)
 {
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
@@ -264,11 +264,27 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int *n_,
 				if (!(r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].rid == r[p].rid && r[i].rs == r[p].rs && r[i].re == r[p].re)) // not identical hits
 					r[k++] = r[i], ++n_2nd;
 				else if (r[i].p) free(r[i].p);
+			} else if (check_strand && n_2nd < best_n && r[i].score > min_strand_sc && r[i].rev != r[p].rev) {
+				r[i].strand_retained = 1;
+				r[k++] = r[i], ++n_2nd;
 			} else if (r[i].p) free(r[i].p);
 		}
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
 		*n_ = k;
 	}
+}
+
+int mm_filter_strand_retained(int n_regs, mm_reg1_t *r)
+{
+	int i, k;
+	for (i = k = 0; i < n_regs; ++i) {
+		int p = r[i].parent;
+		if (!r[i].strand_retained || r[i].div < r[p].div * 5.0f) {
+			if (k < i) r[k++] = r[i];
+			else ++k;
+		}
+	}
+	return k;
 }
 
 void mm_filter_regs(const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs)
