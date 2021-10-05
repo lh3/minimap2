@@ -19,7 +19,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->min_mid_occ = 10;
 	opt->max_mid_occ = 1000000;
 	opt->sdust_thres = 0; // no SDUST masking
-	opt->q_occ_frac = 0.02f;
+	opt->q_occ_frac = 0.01f;
 
 	opt->min_cnt = 3;
 	opt->min_chain_score = 40;
@@ -33,7 +33,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->rmq_rescue_size = 1000;
 	opt->rmq_rescue_ratio = 0.1f;
 	opt->chain_gap_scale = 0.8f;
-	opt->chain_skip_scale = 0.04f;
+	opt->chain_skip_scale = 0.0f;
 	opt->max_max_occ = 4095;
 	opt->occ_dist = 500;
 
