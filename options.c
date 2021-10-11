@@ -54,6 +54,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->max_clip_ratio = 1.0f;
 	opt->mini_batch_size = 500000000;
 	opt->max_sw_mat = 100000000;
+	opt->cap_kalloc = 1000000000;
 
 	opt->rank_min_len = 500;
 	opt->rank_frac = 0.9f;
