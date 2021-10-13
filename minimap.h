@@ -317,6 +317,20 @@ void mm_idx_stat(const mm_idx_t *idx);
 void mm_idx_destroy(mm_idx_t *mi);
 
 /**
+ * Destroy/deallocate a region
+ *
+ * @param r          region
+ */
+void mm_reg1_destroy(mm_reg1_t *r);
+
+/**
+ * Destroy/deallocate alignment extra data
+ *
+ * @param p          extra data
+ */
+void mm_extra_destroy(mm_extra_t *p);
+
+/**
  * Initialize a thread-local buffer for mapping
  *
  * Each mapping thread requires a buffer specific to the thread (see mm_map()

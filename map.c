@@ -712,3 +712,13 @@ int mm_split_merge(int n_segs, const char **fn, const mm_mapopt_t *opt, int n_sp
 	mm_split_rm_tmp(opt->split_prefix, n_split_idx);
 	return 0;
 }
+
+void mm_reg1_destroy(mm_reg1_t *r)
+{
+	free(r);
+}
+
+void mm_extra_destroy(mm_extra_t *p)
+{
+	free(p);
+}

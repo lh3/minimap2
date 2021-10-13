@@ -49,9 +49,9 @@ int main(int argc, char *argv[])
 				for (i = 0; i < r->p->n_cigar; ++i) // IMPORTANT: this gives the CIGAR in the aligned regions. NO soft/hard clippings!
 					printf("%d%c", r->p->cigar[i]>>4, MM_CIGAR_STR[r->p->cigar[i]&0xf]);
 				putchar('\n');
-				free(r->p);
+				mm_extra_destroy(r->p);
 			}
-			free(reg);
+			mm_reg1_destroy(reg);
 		}
 		mm_tbuf_destroy(tbuf);
 		mm_idx_destroy(mi);
