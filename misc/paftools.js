@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.22-r1101';
+var paftools_version = '2.23-r1111';
 
 /*****************************
  ***** Library functions *****
@@ -1532,12 +1532,13 @@ function paf_view(args)
 
 function paf_gff2bed(args)
 {
-	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false, print_junc = false;
-	while ((c = getopt(args, "u:sgj")) != null) {
+	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false, print_junc = false, output_gene = false;
+	while ((c = getopt(args, "u:sgjG")) != null) {
 		if (c == 'u') fn_ucsc_fai = getopt.arg;
 		else if (c == 's') is_short = true;
 		else if (c == 'g') keep_gff = true;
 		else if (c == 'j') print_junc = true;
+		else if (c == 'G') output_gene = true;
 	}
 
 	if (getopt.ind == args.length) {
@@ -1605,8 +1606,10 @@ function paf_gff2bed(args)
 		print(a[0][0], st, en, name, 1000, a[0][3], cds_st, cds_en, color, a.length, sizes.join(",") + ",", starts.join(",") + ",");
 	}
 
-	var re_gtf = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name) "([^"]+)";/g;
+	var re_gtf  = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name) "([^"]+)";/g;
 	var re_gff3 = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name)=([^;]+)/g;
+	var re_gtf_gene  = /\b(gene_id|gene_type|gene_name) "([^;]+)";/g;
+	var re_gff3_gene = /\b(gene_id|gene_type|source_gene|gene_biotype|gene_name)=([^;]+);/g;
 	var buf = new Bytes();
 	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 
@@ -1620,6 +1623,26 @@ function paf_gff2bed(args)
 			continue;
 		}
 		if (t[0].charAt(0) == '#') continue;
+		if (output_gene) {
+			var id = null, src = null, biotype = null, type = "", name = "N/A";
+			if (t[2] != "gene") continue;
+			while ((m = re_gtf_gene.exec(t[8])) != null) {
+				if (m[1] == "gene_id") id = m[2];
+				else if (m[1] == "gene_type") type = m[2];
+				else if (m[1] == "gene_name") name = m[2];
+			}
+			while ((m = re_gff3_gene.exec(t[8])) != null) {
+				if (m[1] == "gene_id") id = m[2];
+				else if (m[1] == "source_gene") src = m[2];
+				else if (m[1] == "gene_type") type = m[2];
+				else if (m[1] == "gene_biotype") biotype = m[2];
+				else if (m[1] == "gene_name") name = m[2];
+			}
+			if (src != null) id = src;
+			if (type == "" && biotype != null) type = biotype;
+			print(t[0], parseInt(t[3]) - 1, t[4], [id, type, name].join("|"), 1000, t[6]);
+			continue;
+		}
 		if (t[2] != "CDS" && t[2] != "exon") continue;
 		t[3] = parseInt(t[3]) - 1;
 		t[4] = parseInt(t[4]);

@@ -1,3 +1,21 @@
+Release 2.23-r1111 (18 November 2021)
+-------------------------------------
+
+Notable changes:
+
+ * Bugfix: fixed missing alignments around long inversions (#806 and #816).
+   This bug affected v2.19 through v2.22.
+
+ * Improvement: avoid extremely long mapping time for pathologic reads with
+   highly repeated k-mers not in the reference (#771). Use --q-occ-frac=0
+   to disable the new heuristic.
+
+ * Change: use --cap-kalloc=1g by default.
+
+(2.23: 18 November 2021, r1111)
+
+
+
 Release 2.22-r1101 (7 August 2021)
 ----------------------------------
 
