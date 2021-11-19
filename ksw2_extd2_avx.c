@@ -1759,11 +1759,11 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
         off = (int*)kmalloc(km, (qlen + tlen - 1) * sizeof(int) * 2);
         off_end = off + qlen + tlen - 1;
     }
-	for(uint64_t itr = 0; itr < ((qlen + tlen - 1) * n_col_ + 1) * 1; itr ++){
-		avg+= mem2[itr];
-	}
+//	for(uint64_t itr = 0; itr < ((qlen + tlen - 1) * n_col_ + 1) * 1; itr ++){
+//		avg+= mem2[itr];
+//	}
 #ifdef MANUAL_PROFILING
-	uint64_t align_start = __rdtsc();
+//	uint64_t align_start = __rdtsc();
 #endif
 	
 
@@ -2174,15 +2174,15 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 max_H_ = _mm256_set1_epi32(max_H);
                 max_t_ = _mm256_set1_epi32(max_t);
 #if 1
-               //for (t = st0; t < en1; t +=1) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
-		//	H[t] += v8[t];
-		//}
+         //      for (t = st0; t < en1; t +=1) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
+	//		H[t] += v8[t];
+	//	}
                 for (t = st0; t < en1; t += /*4*/8) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
                     __m256i H1, t_;
                     H1 = _mm256_loadu_si256((__m256i*)&H[t]);
-                    __m128i t__ = _mm_load_si128((__m128i*) &v8[t]);
+                    __m128i t__ = _mm_loadu_si128((__m128i*) &v8[t]);
                     t_ = _mm256_cvtepi8_epi32(t__);
-                //  t_ = _mm256_setr_epi32(v8[t], v8[t+1], v8[t+2], v8[t+3], v8[t+4], v8[t+5], v8[t+6], v8[t+7]);
+               //     t_ = _mm256_setr_epi32(v8[t], v8[t+1], v8[t+2], v8[t+3], v8[t+4], v8[t+5], v8[t+6], v8[t+7]);
                     H1 = _mm256_add_epi32(H1, t_);
                     _mm256_storeu_si256((__m256i*)&H[t], H1);
                     // making it 4 lanes to match accuracy
@@ -2293,7 +2293,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
 
     }
 #ifdef MANUAL_PROFILING
-	alignment_time += (__rdtsc() - align_start);
+//	alignment_time += (__rdtsc() - align_start);
 #endif
     
     kfree(km, mem);
