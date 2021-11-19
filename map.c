@@ -10,6 +10,8 @@
 #include "bseq.h"
 #include "khash.h"
 
+
+extern uint64_t rmq_time;
 struct mm_tbuf_s {
 	void *km;
 	int rep_len, frag_gap;
@@ -276,7 +278,12 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	if (opt->flag & MM_F_RMQ) {
 		a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
 						  opt->chain_gap_scale * 0.01 * mi->k, 0.0f, n_a, a, &n_regs0, &u, b->km);
+//		a = mg_lchain_dp(opt->max_gap, opt->rmq_inner_dist, opt->bw, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+//						 	opt->chain_gap_scale * 0.01 * mi->k, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
+
+
 	} else {
+		//fprintf(stderr, "dp call - n_a = %lld\n", n_a);
 		a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
 						 opt->chain_gap_scale * 0.01 * mi->k, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 	}
@@ -284,12 +291,23 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	if (opt->bw_long > opt->bw && (opt->flag & (MM_F_SPLICE|MM_F_SR|MM_F_NO_LJOIN)) == 0 && n_segs == 1 && n_regs0 > 1) { // re-chain/long-join for long sequences
 		int32_t st = (int32_t)a[0].y, en = (int32_t)a[(int32_t)u[0] - 1].y;
 		if (qlen_sum - (en - st) > opt->rmq_rescue_size || en - st > qlen_sum * opt->rmq_rescue_ratio) {
+#ifdef MANUAL_PROFILING
+//			uint64_t tim = __rdtsc();
+#endif
+	//		fprintf(stderr, "pre: rmq rechain call - n_a = %lld n_regs = %lld\n",n_a, n_regs0);
 			int32_t i;
+			int64_t prev_n_a = n_a;
 			for (i = 0, n_a = 0; i < n_regs0; ++i) n_a += (int32_t)u[i];
 			kfree(b->km, u);
 			radix_sort_128x(a, a + n_a);
+//			fprintf(stderr, "post: rmq rechain call - prev_n_a = %lld n_a = %lld n_regs = %lld\n",prev_n_a, n_a, n_regs0);
+//			a = mg_lchain_dp(opt->max_gap, opt->rmq_inner_dist, opt->bw_long, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+//						 	opt->chain_gap_scale * 0.01 * mi->k, 0.0f, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 			a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw_long, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
 							  opt->chain_gap_scale * 0.01 * mi->k, 0.0f, n_a, a, &n_regs0, &u, b->km);
+#ifdef MANUAL_PROFILING
+//			rmq_time += __rdtsc() - tim;
+#endif
 		}
 	} else if (opt->max_occ > opt->mid_occ && rep_len > 0 && !(opt->flag & MM_F_RMQ)) { // re-chain, mostly for short reads
 		int rechain = 0;
@@ -563,6 +581,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (k = 0; k < s->n_frag; ++k) {
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];
+#ifndef DISABLE_OUTPUT
 			for (i = seg_st; i < seg_en; ++i) {
 				mm_bseq1_t *t = &s->seq[i];
 				if (p->opt->split_prefix && p->n_parts == 0) { // then write to temporary files
@@ -597,6 +616,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 					mm_err_puts(p->str.s);
 				}
 			}
+#endif
 			for (i = seg_st; i < seg_en; ++i) {
 				for (j = 0; j < s->n_reg[i]; ++j) free(s->reg[i][j].p);
 				free(s->reg[i]);

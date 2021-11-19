@@ -1,9 +1,40 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 #include "ksort.h"
+#include <stdlib.h>
+#include<algorithm>
+#include <x86intrin.h>
+
+#ifdef LISA_HASH
+#include "lisa_hash.h"
+extern lisa_hash<uint64_t, uint64_t> *lh;
+#endif
+extern uint64_t minimizer_lookup_time;
 
 mm_seed_t *mm_seed_collect_all(void *km, const mm_idx_t *mi, const mm128_v *mv, int32_t *n_m_)
 {
+#ifdef MANUAL_PROFILING
+	uint64_t lookup_start = __rdtsc();
+#endif
+
+#ifdef LISA_HASH
+//-----------------------------------
+	uint64_t** cr_batch = (uint64_t**) malloc((mv->n)*sizeof(uint64_t*));
+	int* t_batch = (int*)malloc((mv->n)*sizeof(int));
+	uint64_t* minimizers = (uint64_t*) malloc((mv->n)*sizeof(uint64_t));
+	int64_t* lisa_pos = (int64_t*) malloc((max(32, (int)mv->n))* sizeof(int64_t));
+
+	for (size_t i = 0; i < mv->n; i++) {
+		mm128_t *p = &mv->a[i];
+		minimizers[i] = p->x>>8;
+	}
+	
+	lh->mm_idx_get_batched(minimizers, mv->n, lisa_pos, cr_batch, t_batch); 
+//-----------------------------------
+
+#endif
+
+
 	mm_seed_t *m;
 	size_t i;
 	int32_t k;
@@ -14,7 +45,12 @@ mm_seed_t *mm_seed_collect_all(void *km, const mm_idx_t *mi, const mm128_v *mv, 
 		mm128_t *p = &mv->a[i];
 		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
 		int t;
+#ifdef LISA_HASH
+		t = t_batch[i];
+		cr = cr_batch[i];
+#else		
 		cr = mm_idx_get(mi, p->x>>8, &t);
+#endif
 		if (t == 0) continue;
 		q = &m[k++];
 		q->q_pos = q_pos, q->q_span = q_span, q->cr = cr, q->n = t, q->seg_id = p->y >> 32;
@@ -22,7 +58,16 @@ mm_seed_t *mm_seed_collect_all(void *km, const mm_idx_t *mi, const mm128_v *mv, 
 		if (i > 0 && p->x>>8 == mv->a[i - 1].x>>8) q->is_tandem = 1;
 		if (i < mv->n - 1 && p->x>>8 == mv->a[i + 1].x>>8) q->is_tandem = 1;
 	}
+#ifdef LISA_HASH
+	free(cr_batch);
+	free(t_batch);
+	free(minimizers);
+	free(lisa_pos);
+#endif
 	*n_m_ = k;
+#ifdef MANUAL_PROFILING
+	minimizer_lookup_time += __rdtsc() - lookup_start;
+#endif
 	return m;
 }
 

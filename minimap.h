@@ -286,6 +286,13 @@ mm_idx_t *mm_idx_load(FILE *fp);
 void mm_idx_dump(FILE *fp, const mm_idx_t *mi);
 
 /**
+ * Store hash table from minimap2 index into a file
+ * @param f_name     File name for output file
+ * @param mi 	     minimap2 index 	
+ */
+void mm_idx_dump_hash(const char* f_name, const mm_idx_t *mi);
+
+/**
  * Create an index from strings in memory
  *
  * @param w            minimizer window size
@@ -313,6 +320,19 @@ void mm_idx_stat(const mm_idx_t *idx);
  * @param r          minimap2 index
  */
 void mm_idx_destroy(mm_idx_t *mi);
+/**
+ * Destroy/deallocate an hash table index
+ *
+ * @param r          minimap2 index
+ */
+void mm_idx_destroy_mm_hash(mm_idx_t *mi);
+
+/**
+ * Destroy/deallocate target sequences
+ *
+ * @param r          minimap2 index
+ */
+void mm_idx_destroy_seq(mm_idx_t *mi);
 
 /**
  * Initialize a thread-local buffer for mapping

@@ -1,5 +1,3 @@
-/* Fast contrib: v.22 */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,6 +6,73 @@
 #include "minimap.h"
 #include "mmpriv.h"
 #include "ketopt.h"
+#include <x86intrin.h>
+#include <immintrin.h>
+#include <sys/time.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <string>
+#include <map>
+#include <errno.h>
+#include "bseq.h"
+#include "minimap.h"
+#include "mmpriv.h"
+#include "ketopt.h"
+
+//#include "profile.h"
+#include <stdint.h>
+#include <unistd.h>
+#include <x86intrin.h>
+
+using namespace std;
+uint64_t avg;
+uint64_t minimizer_lookup_time, alignment_time, dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4;
+
+#ifdef LISA_HASH
+#include "lisa_hash.h"
+lisa_hash<uint64_t, uint64_t> *lh;
+#endif
+
+// New memory allocation approach for alignment optimizations
+//
+void *km1;
+uint64_t km_size = 500000000; // 500 MB
+int km_top;
+/*
+void *kcalloc_(void* km, int count, int size)
+{
+    assert(count*size < km_size);
+    km_top += count*size + 1024;
+    memset(km, 0, count * size);
+        
+    // printf("km_top: %d\n", km_top);
+    return km;
+}
+
+void *kmalloc_(void* km, int count) {
+    if(km_top + count >= km_size)
+        printf("count: %d\n", count);
+    assert(km_top + count < km_size);
+    void *mem = (void*) ((int8_t*) km + km_top);
+    km_top += count + 1024;
+    // printf("km_top: %d\n", km_top);
+    return mem;
+}
+
+void kfree_all() { km_top = 0;}
+  */  
+
+// Memory for alignment end
+
+
+#ifndef __rdtsc
+#ifdef _rdtsc
+#define __rdtsc _rdtsc
+#else
+#define __rdtsc __builtin_ia32_rdtsc
+#endif
+#endif
 
 #define MM_VERSION "2.22-r1101"
 
@@ -119,6 +184,9 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
+	// Memory allocation for alignment optimizations
+    //km1 = calloc(km_size, 1); // 10 MB init contg. alloc
+
 	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
@@ -133,9 +201,11 @@ int main(int argc, char *argv[])
 	liftrlimit();
 	mm_realtime0 = realtime();
 	mm_set_opt(0, &ipt, &opt);
+	string preset_arg = "";
 
 	while ((c = ketopt(&o, argc, argv, 1, opt_str, long_options)) >= 0) { // test command line options and apply option -x/preset first
 		if (c == 'x') {
+			preset_arg +=  (string) o.arg;
 			if (mm_set_opt(o.arg, &ipt, &opt) < 0) {
 				fprintf(stderr, "[ERROR] unknown preset '%s'\n", o.arg);
 				return 1;
@@ -368,6 +438,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[ERROR] incorrect input: in the sr mode, please specify no more than two query files.\n");
 		return 1;
 	}
+	preset_arg = (string)argv[o.ind] + "_" + preset_arg + "_minimizers_key_value_sorted";
 	idx_rdr = mm_idx_reader_open(argv[o.ind], &ipt, fnw);
 	if (idx_rdr == 0) {
 		fprintf(stderr, "[ERROR] failed to open file '%s': %s\n", argv[o.ind], strerror(errno));
@@ -410,6 +481,9 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
+#ifdef LISA_INDEX
+		mm_idx_dump_hash(preset_arg.c_str(), mi); 
+#endif	
 		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
 		if (alt_list) mm_idx_alt_read(mi, alt_list);
 		if (argc - (o.ind + 1) == 0) {
@@ -417,6 +491,16 @@ int main(int argc, char *argv[])
 			continue; // no query files
 		}
 		ret = 0;
+#ifdef LISA_HASH
+	fprintf(stderr, "Using LISA_HASH..\n");
+	mm_idx_destroy_mm_hash(mi);
+	char* prefix;
+	lh = new lisa_hash<uint64_t, uint64_t>(preset_arg, prefix);
+	fprintf(stderr, "Loading done.\n");
+//	total_time =  __rdtsc();
+//	fprintf(stderr, "\nIndexing Real time: %.3f sec;\n", realtime() - mapping_time);
+#endif
+	mm_realtime0 = realtime();
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i) {
 				ret = mm_map_file(mi, argv[i], &opt, n_threads);
@@ -425,12 +509,17 @@ int main(int argc, char *argv[])
 		} else {
 			ret = mm_map_file_frag(mi, argc - (o.ind + 1), (const char**)&argv[o.ind + 1], &opt, n_threads);
 		}
-		mm_idx_destroy(mi);
+		//mm_idx_destroy(mi);
 		if (ret < 0) {
 			fprintf(stderr, "ERROR: failed to map the query file\n");
 			exit(EXIT_FAILURE);
 		}
 	}
+#ifdef LISA_HASH
+		mm_idx_destroy_seq(mi);
+#else
+		mm_idx_destroy(mi);
+#endif
 	n_parts = idx_rdr->n_parts;
 	mm_idx_reader_close(idx_rdr);
 
@@ -449,5 +538,10 @@ int main(int argc, char *argv[])
 			fprintf(stderr, " %s", argv[i]);
 		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec; Peak RSS: %.3f GB\n", __func__, realtime() - mm_realtime0, cputime(), peakrss() / 1024.0 / 1024.0 / 1024.0);
 	}
+
+	fprintf(stderr, "minimizer-lookup: %lld dp: %lld rmq: %lld rmq_t1: %lld rmq_t2: %lld rmq_t3: %lld rmq_t4: %lld alignment: %lld %lld\n", minimizer_lookup_time, dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4, alignment_time, avg);
+#ifdef LISA_HASH
+	delete lh;
+#endif	
 	return 0;
 }
