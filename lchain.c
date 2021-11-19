@@ -5,6 +5,7 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 #include "krmq.h"
+#include <x86intrin.h>
 //#include "simd_chain.h"
 //#include "parallel_chaining_32_bit.h"
 #include "parallel_chaining_v2_22.h"
