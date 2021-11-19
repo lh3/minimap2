@@ -6,7 +6,8 @@
 #include "kalloc.h"
 #include "krmq.h"
 //#include "simd_chain.h"
-#include "parallel_chaining_32_bit.h"
+//#include "parallel_chaining_32_bit.h"
+#include "parallel_chaining_v2_22.h"
 
 extern uint64_t dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4;
 
