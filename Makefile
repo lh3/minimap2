@@ -37,6 +37,7 @@ endif
 
 #INCLUDES=
 #INCLUDES=	-I./ext/TAL_offline/src/LISA-hash #-I./ext/TAL/src/dynamic-programming 
+INCLUDES=	-I./ext/TAL/src/LISA-hash -I./ext/TAL/src/dynamic-programming 
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o \
 			lchain.o align.o hit.o seed.o map.o format.o pe.o esterr.o splitidx.o \
 			ksw2_ll_sse.o
