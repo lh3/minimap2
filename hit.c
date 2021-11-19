@@ -279,7 +279,7 @@ int mm_filter_strand_retained(int n_regs, mm_reg1_t *r)
 	int i, k;
 	for (i = k = 0; i < n_regs; ++i) {
 		int p = r[i].parent;
-		if (!r[i].strand_retained || r[i].div < r[p].div * 5.0f) {
+		if (!r[i].strand_retained || r[i].div < r[p].div * 5.0f || r[i].div < 0.01f) {
 			if (k < i) r[k++] = r[i];
 			else ++k;
 		}
