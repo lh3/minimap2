@@ -1,3 +1,5 @@
+/* Fast contrib: v.22 */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
