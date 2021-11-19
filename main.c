@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.23-r1111"
+#define MM_VERSION "2.23-r1112-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -76,6 +76,7 @@ static ko_longopt_t long_options[] = {
 	{ "cap-kalloc",     ko_required_argument, 349 },
 	{ "q-occ-frac",     ko_required_argument, 350 },
 	{ "chain-skip-scale",ko_required_argument,351 },
+	{ "print-chains",   ko_no_argument,       352 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -233,6 +234,7 @@ int main(int argc, char *argv[])
 		else if (c == 348) opt.flag |= MM_F_QSTRAND | MM_F_NO_INV; // --qstrand
 		else if (c == 349) opt.cap_kalloc = mm_parse_num(o.arg); // --cap-kalloc
 		else if (c == 350) opt.q_occ_frac = atof(o.arg); // --q-occ-frac
+		else if (c == 352) mm_dbg_flag |= MM_DBG_PRINT_CHAIN; // --print-chains
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
 		} else if (c == 314) { // --frag
