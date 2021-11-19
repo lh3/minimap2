@@ -5,6 +5,11 @@
 #include "mmpriv.h"
 #include "kalloc.h"
 #include "krmq.h"
+//#include "simd_chain.h"
+#include "parallel_chaining_32_bit.h"
+
+extern uint64_t dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4;
+
 
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t *n_u_, int32_t *n_v_)
 {
@@ -88,15 +93,65 @@ static mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32
 
 static inline int32_t comput_sc(const mm128_t *ai, const mm128_t *aj, int32_t max_dist_x, int32_t max_dist_y, int32_t bw, float chn_pen_gap, float chn_pen_skip, int is_cdna, int n_seg)
 {
-	int32_t dq = (int32_t)ai->y - (int32_t)aj->y, dr, dd, dg, q_span, sc;
-	int32_t sidi = (ai->y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
-	int32_t sidj = (aj->y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
-	if (dq <= 0 || dq > max_dist_x) return INT32_MIN;
-	dr = (int32_t)(ai->x - aj->x);
-	if (sidi == sidj && (dr == 0 || dq > max_dist_y)) return INT32_MIN;
+
+	uint64_t ai_x, ai_y, aj_x, aj_y;
+	ai_x = ai->x; ai_y = ai->y; aj_x = aj->x; aj_y = aj->y;
+
+#ifdef CHAIN_DEBUG
+	int32_t sc_vect = obj.comput_sc_vectorized_avx2_caller(ai_x, ai_y, aj_x, aj_y, aj->y>>32&0xff);
+#endif
+
+	//if (sc_vect == 0) return INT32_MIN;
+	//else 
+	//return sc_vect;
+
+	//fprintf(stderr, "%lld %lld %lld %lld \n", ai_x, ai_y, aj_x, aj_y); 
+	//fprintf(stderr, "%lld %lld %lld %f %f %d %d\n", max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
+	int32_t dq = (int32_t)ai_y - (int32_t)aj_y, dr, dd, dg, q_span, sc;
+	int32_t sidi = (ai_y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
+	int32_t sidj = (aj_y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
+	if (dq <= 0 || dq > max_dist_x) { 
+
+#ifdef CHAIN_DEBUG
+		if(INT32_MIN != sc_vect){
+		//fprintf(stderr, "score mismatch %d -- %d", sc , sc_vect);
+			fprintf(stderr, "int-min exit: %llu, %llu, %llu, %llu : %d -- %d\n", ai_x, ai_y, aj_x, aj_y, sc, sc_vect);
+		}
+#endif
+	  return INT32_MIN; 
+	}
+	dr = (int32_t)(ai_x - aj_x);
+	if (sidi == sidj && (dr == 0 || dq > max_dist_y)) { 
+
+#ifdef CHAIN_DEBUG
+		if(INT32_MIN != sc_vect){
+		//fprintf(stderr, "score mismatch %d -- %d", sc , sc_vect);
+			fprintf(stderr, "int-min exit: %llu, %llu, %llu, %llu : %d -- %d\n", ai_x, ai_y, aj_x, aj_y, sc, sc_vect);
+		}
+#endif
+		return INT32_MIN;
+	}
 	dd = dr > dq? dr - dq : dq - dr;
-	if (sidi == sidj && dd > bw) return INT32_MIN;
-	if (n_seg > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) return INT32_MIN;
+	if (sidi == sidj && dd > bw) {
+
+#ifdef CHAIN_DEBUG
+		if(INT32_MIN != sc_vect){
+		//fprintf(stderr, "score mismatch %d -- %d", sc , sc_vect);
+			fprintf(stderr, "int-min exit: %llu, %llu, %llu, %llu : %d -- %d\n", ai_x, ai_y, aj_x, aj_y, sc, sc_vect);
+		}
+#endif
+		return INT32_MIN; 
+	}
+	if (n_seg > 1 && !is_cdna && sidi == sidj && dr > max_dist_y) { 
+
+#ifdef CHAIN_DEBUG
+		if(INT32_MIN != sc_vect){
+		//fprintf(stderr, "score mismatch %d -- %d", sc , sc_vect);
+			fprintf(stderr, "int-min exit: %llu, %llu, %llu, %llu : %d -- %d\n", ai_x, ai_y, aj_x, aj_y, sc, sc_vect);
+		}
+#endif
+		return INT32_MIN;
+	}
 	dg = dr < dq? dr : dq;
 	q_span = aj->y>>32&0xff;
 	sc = q_span < dg? q_span : dg;
@@ -110,6 +165,13 @@ static inline int32_t comput_sc(const mm128_t *ai, const mm128_t *aj, int32_t ma
 			else sc -= (int)(lin_pen + .5f * log_pen);
 		} else sc -= (int)(lin_pen + .5f * log_pen);
 	}
+#ifdef CHAIN_DEBUG
+
+	if(sc != sc_vect ){
+		//fprintf(stderr, "score mismatch %d -- %d", sc , sc_vect);
+		fprintf(stderr, "outer: %llu, %llu, %llu, %llu : %d -- %d\n", ai_x, ai_y, aj_x, aj_y, sc, sc_vect);
+	}
+#endif
 	return sc;
 }
 
@@ -124,10 +186,18 @@ static inline int32_t comput_sc(const mm128_t *ai, const mm128_t *aj, int32_t ma
 mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					  int is_cdna, int n_seg, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
-	int32_t *f, *t, *v, n_u, n_v, mmax_f = 0;
+	///fprintf(stderr, "chaining called\n");
+
+
+
+#ifdef MANUAL_PROFILING
+	uint64_t align_start = __rdtsc();
+#endif
+
+	int32_t *f, *t, *v, *v_1, *p_1, n_u, n_v, mmax_f = 0;
 	int64_t *p, i, j, max_ii, st = 0, n_iter = 0;
 	uint64_t *u;
-
+	uint32_t* f_1;
 	if (_u) *_u = 0, *n_u_ = 0;
 	if (n == 0 || a == 0) {
 		kfree(km, a);
@@ -136,9 +206,51 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	if (max_dist_x < bw) max_dist_x = bw;
 	if (max_dist_y < bw && !is_cdna) max_dist_y = bw;
 	KMALLOC(km, p, n);
+	KMALLOC(km, p_1, n);
 	KMALLOC(km, f, n);
+	KMALLOC(km, f_1, n);
 	KMALLOC(km, v, n);
+	KMALLOC(km, v_1, n);
 	KCALLOC(km, t, n);
+
+#ifdef PARALLEL_CHAINING
+
+// Parallel chaining data-structures
+	anchor_t* anchors = (anchor_t*)malloc(n* sizeof(anchor_t));
+	for (i = 0; i < n; ++i) {
+		uint64_t ri = a[i].x;
+		int32_t qi = (int32_t)a[i].y, q_span = a[i].y>>32&0xff; // NB: only 8 bits of span is used!!!
+		anchors[i].r = ri;
+		anchors[i].q = qi;
+		anchors[i].l = q_span;
+	}
+	num_bits_t *anchor_r, *anchor_q, *anchor_l;
+	create_SoA_Anchors_32_bit(anchors, n, anchor_r, anchor_q, anchor_l);
+	//dp_chain obj(max_dist_x, max_dist_y, bw, max_skip, max_iter, 0, is_cdna, n_seg);
+	dp_chain obj(max_dist_x, max_dist_y, bw, max_skip, max_iter, min_cnt, min_sc, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
+
+	obj.mm_dp_vectorized(n, &anchors[0], anchor_r, anchor_q, anchor_l, f_1, p_1, v_1, max_dist_x, max_dist_y, NULL, NULL);
+
+	// -16 is due to extra padding at the start of arrays
+	anchor_r -= 16; anchor_q -= 16; anchor_l -= 16;
+	free(anchor_r); 
+	free(anchor_q); 
+	free(anchor_l);
+	free(anchors);
+	for(int i = 0; i < n; i++){
+	//		if(f[i] != f_1[i] || p[i] != p_1[i] || v[i] !=v_1[i])
+	//		{
+//				fprintf(stderr, "i:%d %d %d %d %d %d %d\n",i, f[i], f_1[i], p[i], p_1[i], v[i], v_1[i] );
+	//		}
+#if 1
+			f[i] = f_1[i];
+			p[i] = p_1[i];
+			v[i] = v_1[i];
+#endif
+	}
+
+//
+#else
 
 	// fill the score and backtrack arrays
 	for (i = 0, max_ii = -1; i < n; ++i) {
@@ -146,10 +258,15 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist_x)) ++st;
 		if (i - st > max_iter) st = i - max_iter;
+		int my_cnt = 0;
 		for (j = i - 1; j >= st; --j) {
 			int32_t sc;
 			sc = comput_sc(&a[i], &a[j], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
 			++n_iter;
+	//		if(i == 177){ 
+				//fprintf(stderr, "args: %d %d %d %d %d\n", a[i].x, a[i].y, a[j].x, a[j].y, a[j].y>>32&0xff);
+				//fprintf(stderr, "j_th %d score: %d\n", ++my_cnt, sc);
+	//		}
 			if (sc == INT32_MIN) continue;
 			sc += f[j];
 			if (sc > max_f) {
@@ -162,32 +279,72 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			if (p[j] >= 0) t[p[j]] = i;
 		}
 		end_j = j;
+		int debug_iter = 2057329;
+		//if (i == debug_iter) fprintf(stderr, "mm2 -- endj: %d max_ii: %d max_f: %d \n", end_j, max_ii, max_f);	
+
+#if 1	
 		if (max_ii < 0 || a[i].x - a[max_ii].x > (int64_t)max_dist_x) {
 			int32_t max = INT32_MIN;
 			max_ii = -1;
-			for (j = i - 1; j >= st; --j)
-				if (max < f[j]) max = f[j], max_ii = j;
+			for (j = i - 1; j >= st; --j) {
+				if (max < (int32_t)f[j]) max = f[j], max_ii = j;
+			}
 		}
+#endif			
+#if 1	
 		if (max_ii >= 0 && max_ii < end_j) {
 			int32_t tmp;
 			tmp = comput_sc(&a[i], &a[max_ii], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
-			if (tmp != INT32_MIN && max_f < tmp + f[max_ii])
+		//	if (i == debug_iter) fprintf(stderr, "mm2: endj: %d max_ii: %d max_f: %d tmp_score: %d \n", end_j, max_ii, max_f, tmp);	
+		
+
+			if (tmp != INT32_MIN && max_f < tmp + f[max_ii])			{
+		//	if (i == debug_iter) fprintf(stderr, "mm2: endj: %d max_ii: %d max_f: %d tmp_score: %d \n", end_j, max_ii, max_f, tmp);	
 				max_f = tmp + f[max_ii], max_j = max_ii;
+		//	if (i == debug_iter) fprintf(stderr, "mm2: endj: %d max_ii: %d max_f: %d tmp_score: %d sum : %d \n", end_j, max_ii, max_f, tmp, tmp + f[max_ii]);	
+
+			}
 		}
+#endif			
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
+
+#if 1
 		if (max_ii < 0 || (a[i].x - a[max_ii].x <= (int64_t)max_dist_x && f[max_ii] < f[i]))
 			max_ii = i;
 		if (mmax_f < max_f) mmax_f = max_f;
+#endif
 	}
 
+#endif
+
+#ifdef CHAIN_DEBUG
+
+		for(int i = 0; i < n; i++){
+			if(f[i] != f_1[i] || p[i] != p_1[i] || v[i] !=v_1[i])
+			{
+				fprintf(stderr, "i:%d %d %d %d %d %d %d\n",i, f[i], f_1[i], p[i], p_1[i], v[i], v_1[i] );
+			}
+#if 0
+			f[i] = f_1[i];
+			p[i] = p_1[i];
+			v[i] = v_1[i];
+#endif
+		}
+
+#endif
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
-	kfree(km, p); kfree(km, f); kfree(km, t);
+	kfree(km, p); kfree(km, p_1); kfree(km, f); kfree(km, f_1); kfree(km, t); kfree(km, v_1);
 	if (n_u == 0) {
 		kfree(km, a); kfree(km, v);
 		return 0;
 	}
+
+
+#ifdef MANUAL_PROFILING
+	dp_time += __rdtsc() - align_start;
+#endif
 	return compact_a(km, n_u, u, n_v, v, a);
 }
 
@@ -225,6 +382,11 @@ static inline int32_t comput_sc_simple(const mm128_t *ai, const mm128_t *aj, flo
 mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					   int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
+#ifdef MANUAL_PROFILING
+	uint64_t start = __rdtsc();
+#endif
+	uint64_t tim;
+	//fprintf(stderr, "rmq call \n");
 	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0;
 	int64_t *p, i, i0, st = 0, st_inner = 0, n_iter = 0;
 	uint64_t *u;
@@ -252,6 +414,9 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 		int32_t q_span = a[i].y>>32&0xff, max_f = q_span;
 		lc_elem_t s, *q, *r, lo, hi;
 		// add in-range anchors
+#ifdef MANUAL_PROFILING_RMQ
+	tim = __rdtsc();
+#endif
 		if (i0 < i && a[i0].x != a[i].x) {
 			int64_t j;
 			for (j = i0; j < i; ++j) {
@@ -266,7 +431,13 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 			}
 			i0 = i;
 		}
+#ifdef MANUAL_PROFILING_RMQ
+	rmq_t1 += __rdtsc() - tim;
+#endif
 		// get rid of active chains out of range
+#ifdef MANUAL_PROFILING_RMQ
+	tim = __rdtsc();
+#endif
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist || krmq_size(head, root) > cap_rmq_size)) {
 			s.y = (int32_t)a[st].y, s.i = st;
 			if ((q = krmq_find(lc_elem, root, &s, 0)) != 0) {
@@ -275,6 +446,12 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 			}
 			++st;
 		}
+#ifdef MANUAL_PROFILING_RMQ
+	rmq_t2 += __rdtsc() - tim;
+#endif
+#ifdef MANUAL_PROFILING_RMQ
+	tim = __rdtsc();
+#endif
 		if (max_dist_inner > 0)  { // similar to the block above, but applied to the inner tree
 			while (st_inner < i && (a[i].x>>32 != a[st_inner].x>>32 || a[i].x > a[st_inner].x + max_dist_inner || krmq_size(head, root_inner) > cap_rmq_size)) {
 				s.y = (int32_t)a[st_inner].y, s.i = st_inner;
@@ -285,6 +462,9 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 				++st_inner;
 			}
 		}
+#ifdef MANUAL_PROFILING_RMQ
+	rmq_t3 += __rdtsc() - tim;
+#endif
 		// RMQ
 		lo.i = INT32_MAX, lo.y = (int32_t)a[i].y - max_dist;
 		hi.i = 0, hi.y = (int32_t)a[i].y;
@@ -304,6 +484,9 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 					krmq_itr_t(lc_elem) itr;
 					krmq_itr_find(lc_elem, root_inner, lo, &itr);
 					while ((q = krmq_at(&itr)) != 0) {
+#ifdef MANUAL_PROFILING_RMQ
+	tim = __rdtsc();
+#endif
 						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
 						++n_rmq_iter;
 						j = q->i;
@@ -319,11 +502,15 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 							if (p[j] >= 0) t[p[j]] = i;
 						}
 						if (!krmq_itr_prev(lc_elem, &itr)) break;
+#ifdef MANUAL_PROFILING_RMQ
+	rmq_t4 += __rdtsc() - tim;
+#endif
 					}
 					n_iter += n_rmq_iter;
 				}
 			}
 		}
+
 		// set max
 		assert(max_j < 0 || (a[max_j].x < a[i].x && (int32_t)a[max_j].y < (int32_t)a[i].y));
 		f[i] = max_f, p[i] = max_j;
@@ -340,5 +527,8 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 		kfree(km, a); kfree(km, v);
 		return 0;
 	}
+#ifdef MANUAL_PROFILING
+	rmq_time += __rdtsc() -  start;
+#endif
 	return compact_a(km, n_u, u, n_v, v, a);
 }
