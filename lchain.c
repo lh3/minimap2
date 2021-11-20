@@ -6,6 +6,22 @@
 #include "kalloc.h"
 #include "krmq.h"
 
+static int64_t mg_chain_bk_end(const mm128_t *z, const int32_t *f, const int64_t *p, int32_t *t, int64_t k)
+{
+	int64_t i = z[k].y, end_i = -1;
+	if (i < 0 || t[i] != 0) return i;
+	while (1) {
+		int32_t s;
+		t[i] = 2;
+		end_i = i = p[i];
+		s = i < 0? z[k].y : (int32_t)z[k].x - f[i];
+		if (i < 0 || t[i] != 0) break;
+	}
+	for (i = z[k].y; i >= 0 && i != end_i; i = p[i]) // reset modified t[]
+		t[i] = 0;
+	return end_i;
+}
+
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t *n_u_, int32_t *n_v_)
 {
 	mm128_t *z;
@@ -24,26 +40,32 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_
 
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // precompute n_u
-		int64_t n_v0 = n_v;
-		int32_t sc;
-		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
-			++n_v, t[i] = 1;
-		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
-		if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
-			++n_u;
-		else n_v = n_v0;
+		if (t[z[k].y] != 0) {
+			int64_t n_v0 = n_v, end_i;
+			int32_t sc;
+			end_i = mg_chain_bk_end(z, f, p, t, k);
+			for (i = z[k].y; i != end_i; i = p[i])
+				++n_v, t[i] = 1;
+			sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
+			if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
+				++n_u;
+			else n_v = n_v0;
+		}
 	}
 	KMALLOC(km, u, n_u);
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // populate u[]
-		int64_t n_v0 = n_v;
-		int32_t sc;
-		for (i = z[k].y; i >= 0 && t[i] == 0; i = p[i])
-			v[n_v++] = i, t[i] = 1;
-		sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
-		if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
-			u[n_u++] = (uint64_t)sc << 32 | (n_v - n_v0);
-		else n_v = n_v0;
+		if (t[z[k].y] != 0) {
+			int64_t n_v0 = n_v, end_i;
+			int32_t sc;
+			end_i = mg_chain_bk_end(z, f, p, t, k);
+			for (i = z[k].y; i != end_i; i = p[i])
+				v[n_v++] = i, t[i] = 1;
+			sc = i < 0? z[k].x : (int32_t)z[k].x - f[i];
+			if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
+				u[n_u++] = (uint64_t)sc << 32 | (n_v - n_v0);
+			else n_v = n_v0;
+		}
 	}
 	kfree(km, z);
 	assert(n_v < INT32_MAX);
