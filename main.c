@@ -29,6 +29,8 @@ using namespace std;
 uint64_t avg;
 uint64_t minimizer_lookup_time, alignment_time, dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4;
 
+bool enable_vect_dp_chaining = false;
+
 #ifdef LISA_HASH
 #include "lisa_hash.h"
 lisa_hash<uint64_t, uint64_t> *lh;
@@ -186,6 +188,9 @@ int main(int argc, char *argv[])
 {
 	// Memory allocation for alignment optimizations
     //km1 = calloc(km_size, 1); // 10 MB init contg. alloc
+#ifdef PARALLEL_CHAINING
+	enable_vect_dp_chaining = true;
+#endif
 
 	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:";
 	ketopt_t o = KETOPT_INIT;
