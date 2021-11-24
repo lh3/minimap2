@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include "mmpriv.h"
-
+extern bool enable_vect_dp_chaining;
 void mm_idxopt_init(mm_idxopt_t *opt)
 {
 	memset(opt, 0, sizeof(mm_idxopt_t));
@@ -94,6 +94,9 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->bw = mo->bw_long = 2000;
 		mo->occ_dist = 0;
 	} else if (strcmp(preset, "map10k") == 0 || strcmp(preset, "map-pb") == 0) {
+		#if defined (PARALLEL_CHAINING) && (defined(__AVX2__)) 
+			enable_vect_dp_chaining = false;
+		#endif
 		io->flag |= MM_I_HPC, io->k = 19;
 	} else if (strcmp(preset, "ava-pb") == 0) {
 		io->flag |= MM_I_HPC, io->k = 19, io->w = 5;
@@ -102,6 +105,9 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->bw_long = mo->bw;
 		mo->occ_dist = 0;
 	} else if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
+		#if defined (PARALLEL_CHAINING) && (defined(__AVX2__)) 
+			enable_vect_dp_chaining = false;
+		#endif
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->max_gap = 10000;
 		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;

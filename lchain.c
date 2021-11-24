@@ -10,9 +10,11 @@
 //#include "parallel_chaining_32_bit.h"
 #include "parallel_chaining_v2_22.h"
 
+#ifdef MANUAL_PROFILING
 extern uint64_t dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4;
+#endif
 
-
+extern bool enable_vect_dp_chaining;
 uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_t *p, int32_t *v, int32_t *t, int32_t min_cnt, int32_t min_sc, int32_t *n_u_, int32_t *n_v_)
 {
 	mm128_t *z;
@@ -215,9 +217,9 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	KMALLOC(km, v_1, n);
 	KCALLOC(km, t, n);
 
-#ifdef PARALLEL_CHAINING
-
-// Parallel chaining data-structures
+//#ifdef PARALLEL_CHAINING
+if(enable_vect_dp_chaining){
+	// Parallel chaining data-structures
 	anchor_t* anchors = (anchor_t*)malloc(n* sizeof(anchor_t));
 	for (i = 0; i < n; ++i) {
 		uint64_t ri = a[i].x;
@@ -228,11 +230,11 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	}
 	num_bits_t *anchor_r, *anchor_q, *anchor_l;
 	create_SoA_Anchors_32_bit(anchors, n, anchor_r, anchor_q, anchor_l);
-	//dp_chain obj(max_dist_x, max_dist_y, bw, max_skip, max_iter, 0, is_cdna, n_seg);
 	dp_chain obj(max_dist_x, max_dist_y, bw, max_skip, max_iter, min_cnt, min_sc, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
 
+#ifdef PARALLEL_CHAINING
 	obj.mm_dp_vectorized(n, &anchors[0], anchor_r, anchor_q, anchor_l, f_1, p_1, v_1, max_dist_x, max_dist_y, NULL, NULL);
-
+#endif
 	// -16 is due to extra padding at the start of arrays
 	anchor_r -= 16; anchor_q -= 16; anchor_l -= 16;
 	free(anchor_r); 
@@ -240,10 +242,6 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	free(anchor_l);
 	free(anchors);
 	for(int i = 0; i < n; i++){
-	//		if(f[i] != f_1[i] || p[i] != p_1[i] || v[i] !=v_1[i])
-	//		{
-//				fprintf(stderr, "i:%d %d %d %d %d %d %d\n",i, f[i], f_1[i], p[i], p_1[i], v[i], v_1[i] );
-	//		}
 #if 1
 			f[i] = f_1[i];
 			p[i] = p_1[i];
@@ -252,7 +250,8 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	}
 
 //
-#else
+} else {
+//#else
 
 	// fill the score and backtrack arrays
 	for (i = 0, max_ii = -1; i < n; ++i) {
@@ -265,10 +264,6 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			int32_t sc;
 			sc = comput_sc(&a[i], &a[j], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
 			++n_iter;
-	//		if(i == 177){ 
-				//fprintf(stderr, "args: %d %d %d %d %d\n", a[i].x, a[i].y, a[j].x, a[j].y, a[j].y>>32&0xff);
-				//fprintf(stderr, "j_th %d score: %d\n", ++my_cnt, sc);
-	//		}
 			if (sc == INT32_MIN) continue;
 			sc += f[j];
 			if (sc > max_f) {
@@ -282,9 +277,7 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		}
 		end_j = j;
 		int debug_iter = 2057329;
-		//if (i == debug_iter) fprintf(stderr, "mm2 -- endj: %d max_ii: %d max_f: %d \n", end_j, max_ii, max_f);	
 
-#if 1	
 		if (max_ii < 0 || a[i].x - a[max_ii].x > (int64_t)max_dist_x) {
 			int32_t max = INT32_MIN;
 			max_ii = -1;
@@ -292,33 +285,26 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 				if (max < (int32_t)f[j]) max = f[j], max_ii = j;
 			}
 		}
-#endif			
-#if 1	
 		if (max_ii >= 0 && max_ii < end_j) {
 			int32_t tmp;
 			tmp = comput_sc(&a[i], &a[max_ii], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
 		//	if (i == debug_iter) fprintf(stderr, "mm2: endj: %d max_ii: %d max_f: %d tmp_score: %d \n", end_j, max_ii, max_f, tmp);	
 		
 
-			if (tmp != INT32_MIN && max_f < tmp + f[max_ii])			{
-		//	if (i == debug_iter) fprintf(stderr, "mm2: endj: %d max_ii: %d max_f: %d tmp_score: %d \n", end_j, max_ii, max_f, tmp);	
+			if (tmp != INT32_MIN && max_f < tmp + f[max_ii]){
 				max_f = tmp + f[max_ii], max_j = max_ii;
-		//	if (i == debug_iter) fprintf(stderr, "mm2: endj: %d max_ii: %d max_f: %d tmp_score: %d sum : %d \n", end_j, max_ii, max_f, tmp, tmp + f[max_ii]);	
-
 			}
 		}
-#endif			
 		f[i] = max_f, p[i] = max_j;
 		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
 
-#if 1
 		if (max_ii < 0 || (a[i].x - a[max_ii].x <= (int64_t)max_dist_x && f[max_ii] < f[i]))
 			max_ii = i;
 		if (mmax_f < max_f) mmax_f = max_f;
-#endif
 	}
 
-#endif
+}
+//#endif
 
 #ifdef CHAIN_DEBUG
 
@@ -333,7 +319,6 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 			v[i] = v_1[i];
 #endif
 		}
-
 #endif
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
