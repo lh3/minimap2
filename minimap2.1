@@ -318,6 +318,9 @@ faster for short reads, but slower for long reads. [no]
 .B --no-pairing
 Treat two reads in a pair as independent reads. The mate related fields in SAM
 are still properly populated.
+.TP
+.B --no-hash-name
+Produce the same alignment for identical sequences regardless of their sequence names.
 .SS Alignment options
 .TP 10
 .BI -A \ INT

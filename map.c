@@ -248,7 +248,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	if (qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
 	if (opt->max_qlen > 0 && qlen_sum > opt->max_qlen) return;
 
-	hash  = qname? __ac_X31_hash_string(qname) : 0;
+	hash  = qname && !(opt->flag & MM_F_NO_HASH_NAME)? __ac_X31_hash_string(qname) : 0;
 	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
 	hash  = __ac_Wang_hash(hash);
 
