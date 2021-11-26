@@ -13,9 +13,9 @@ extern uint64_t minimizer_lookup_time;
 
 mm_seed_t *mm_seed_collect_all(void *km, const mm_idx_t *mi, const mm128_v *mv, int32_t *n_m_)
 {
-#ifdef MANUAL_PROFILING
-	uint64_t lookup_start = __rdtsc();
-#endif
+//#ifdef MANUAL_PROFILING
+//	uint64_t lookup_start = __rdtsc();
+//#endif
 
 #ifdef LISA_HASH
 //-----------------------------------
@@ -65,9 +65,9 @@ mm_seed_t *mm_seed_collect_all(void *km, const mm_idx_t *mi, const mm128_v *mv, 
 	free(lisa_pos);
 #endif
 	*n_m_ = k;
-#ifdef MANUAL_PROFILING
-	minimizer_lookup_time += __rdtsc() - lookup_start;
-#endif
+//#ifdef MANUAL_PROFILING
+//	minimizer_lookup_time += __rdtsc() - lookup_start;
+//#endif
 	return m;
 }
 

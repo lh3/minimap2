@@ -45,6 +45,11 @@ PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
 
+CC=$(CXX)
+ifeq ($(CC), g++)
+	CC=g++ -std=c++11
+endif
+
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
 	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o ksw2_extd2_avx.o
@@ -92,6 +97,17 @@ libminimap2.a:$(OBJS)
 
 sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h ketopt.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< kalloc.o -o $@ -lz
+
+multi:
+		$(MAKE) clean
+		$(MAKE)
+		mv minimap2 mm2-fast
+		$(MAKE) clean
+		$(MAKE) lhash=1
+		mv minimap2 mm2-fast-lhash
+		$(MAKE) clean
+		$(MAKE) no_opt=1
+		mv minimap2 mm2-fast-no-opt
 
 # SSE-specific targets on x86/x86_64
 
