@@ -1,6 +1,6 @@
 ## mm2-fast
 ### Introduction
-mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all the three major modules of minimap2: (a) seeding, (b) chaining, and (c) pairwise alignment, achieving up to 3.5x speedup over minimap2. 
+mm2-fast is an accelerated implementation of minimap2 on modern CPUs. mm2-fast accelerates all the three major modules of minimap2: (a) seeding, (b) chaining, and (c) pairwise alignment, achieving up to 1.9x speedup and 1.4x speed using AVX512 and AVX2 respectively over minimap2. 
 mm2-fast is a drop-in replacement of minimap2, providing the same functionality with the exact same output.
 In the current version, all the modules are optimized using **AVX-512** vectorization. Detailed benchmark results are available in our [preprint](https://doi.org/10.1101/2021.07.21.453294).
 
@@ -25,7 +25,7 @@ The usage of mm2-fast is same as minimap2. Here is an example of mapping ONT rea
 ```
 
 ### Accuracy evaluation
-As mm2-fast is an accelerated version of minimap2-v2.22, the output of mm2-fast can be verified against minimap2-v2.22. Note that AVX512-based chaining in mm2-fast by default runs with a chaining parameter *max-skip=infinity* for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of *max-skip* parameter. Follow the below steps to verify the accuracy of mm2-fast. 
+As mm2-fast is an accelerated version of minimap2-v2.22, the output of mm2-fast can be verified against minimap2-v2.22. Note that AVX512-based chaining in mm2-fast by default runs with a chaining parameter *max-chain-skip=infinity* for higher chaining precision. Therefore, for correctness verification, minimap2 should run with a larger value of *max-chain-skip* parameter. Follow the below steps to verify the accuracy of mm2-fast. 
 ```sh
 git clone https://github.com/lh3/minimap2.git -b v2.22
 cd minimap2 && make
@@ -52,10 +52,7 @@ To compile mm2-fast with all optimizations turned off and switch back to default
 ```sh
 make clean && make no_opt=1
 ```
-mm2-fast includes preliminary support for AVX2 architecture. Currently, chaining step is not optimized for AVX2 but the seeding and alignment steps are available. To try mm2-fast on AVX2 systems, use the following command to compile.
-```sh
-make clean && make lhash=1 use_avx2=1
-```
+
 ### Performance
 We have observed up to 1.9x speedup across datasets (please refer to the paper for more details). For example, for the randomly sampled 100K reads from ["HG002\_GM24385\_1\_2\_3\_Guppy\_3.6.0\_prom.fastq.gz"](https://precision.fda.gov/challenges/10/view), minimap2 takes 92 seconds, while mm2-fast takes 54 seconds to map against the human genome on a 28 cores Intel® Xeon® Platinum 8280 CPUs.  Our sampled datasets with 100K reads are available [here](https://drive.google.com/drive/folders/1131j7ejHdT7QZnjxLcTLi5qqwYcfFbuv).
 
