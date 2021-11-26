@@ -9,7 +9,7 @@ kv_file=$1"_"$2"_minimizers_key_value_sorted"
 
 full_path=`readlink -f $kv_file`
 
-cd ./ext/TAL_offline
+cd ./ext/TAL
 make lisa_hash
 ./build-lisa-hash-index $full_path
 
