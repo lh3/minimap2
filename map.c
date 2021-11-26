@@ -9,9 +9,13 @@
 #include "mmpriv.h"
 #include "bseq.h"
 #include "khash.h"
+#include <x86intrin.h>
 
-
+#ifdef MANUAL_PROFILING
+extern uint64_t minimizer_lookup_time;
 extern uint64_t rmq_time;
+#endif
+
 struct mm_tbuf_s {
 	void *km;
 	int rep_len, frag_gap;
@@ -175,6 +179,9 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, uint64_t **mini_pos)
 {
+#ifdef MANUAL_PROFILING
+	uint64_t lookup_start = __rdtsc();
+#endif
 	int i, n_m;
 	mm_seed_t *m;
 	mm128_t *a;
@@ -207,6 +214,9 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 	}
 	kfree(km, m);
 	radix_sort_128x(a, a + (*n_a));
+#ifdef MANUAL_PROFILING
+	minimizer_lookup_time += __rdtsc() - lookup_start;
+#endif
 	return a;
 }
 

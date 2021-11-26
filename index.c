@@ -22,7 +22,7 @@
 using namespace std;
 
 
-
+extern uint64_t minimizer_lookup_time, alignment_time, dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4;
 #ifdef LISA_HASH
 #include "lisa_hash.h"
 extern lisa_hash<uint64_t, uint64_t> *lh;
@@ -479,6 +479,7 @@ void mm_idx_stat(const mm_idx_t *mi)
 	}
 	fprintf(stderr, "[M::%s::%.3f*%.2f] distinct minimizers: %d (%.2f%% are singletons); average occurrences: %.3lf; average spacing: %.3lf; total length: %ld\n",
 			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), n, 100.0*n1/n, (double)sum / n, (double)len / sum, (long)len);
+	fprintf(stderr, "minimizer-lookup: %lld dp: %lld rmq: %lld rmq_t1: %lld rmq_t2: %lld rmq_t3: %lld rmq_t4: %lld alignment: %lld \n", minimizer_lookup_time, dp_time, rmq_time, rmq_t1, rmq_t2, rmq_t3, rmq_t4, alignment_time);
 }
 
 int mm_idx_index_name(mm_idx_t *mi)
