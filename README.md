@@ -7,7 +7,7 @@ In the current version, all the modules are optimized using **AVX-512** and **AV
 ### System requirement
 Operating System: Linux   
 mm2-fast was tested using g++ (GCC) 9.2.0 and icpc version 19.1.3.304   
-Architecture: x86\_64 CPUs with [AVX512][AVX2](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions)   
+Architecture: x86\_64 CPUs with [AVX512, AVX2](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions)   
 Memory requirement: ~30GB for human genome   
 
 ### Installation
