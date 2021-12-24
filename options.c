@@ -113,7 +113,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_dp_max = 200;
 	} else if (strncmp(preset, "asm", 3) == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
-		mo->bw = mo->bw_long = 100000;
+		mo->bw = 1000, mo->bw_long = 100000;
 		mo->max_gap = 10000;
 		mo->flag |= MM_F_RMQ;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;

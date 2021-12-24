@@ -565,7 +565,7 @@ Align older PacBio continuous long (CLR) reads to a reference genome
 .B asm5
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -U50,500 --rmq -r100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200
+.B -w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200
 .BR -N50 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
 divergence. Only use this preset if the average divergence is far below 5%.
@@ -573,14 +573,14 @@ divergence. Only use this preset if the average divergence is far below 5%.
 .B asm10
 Long assembly to reference mapping
 .RB ( -k19
-.B -w19 -U50,500 --rmq -r100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200
+.B -w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200
 .BR -N50 ).
 Up to 10% sequence divergence.
 .TP
 .B asm20
 Long assembly to reference mapping
 .RB ( -k19
-.B -w10 -U50,500 --rmq -r100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200
+.B -w10 -U50,500 --rmq -r1k,100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200
 .BR -N50 ).
 Up to 20% sequence divergence.
 .TP
