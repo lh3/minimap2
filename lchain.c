@@ -15,7 +15,7 @@ static int64_t mg_chain_bk_end(int32_t max_drop, const mm128_t *z, const int32_t
 		int32_t s;
 		t[i] = 2;
 		end_i = i = p[i];
-		s = i < 0? z[k].y : (int32_t)z[k].x - f[i];
+		s = i < 0? z[k].x : (int32_t)z[k].x - f[i];
 		if (s > max_s) max_s = s, max_i = i;
 		else if (max_s - s > max_drop) break;
 	} while (i >= 0 && t[i] == 0);
