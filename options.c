@@ -74,6 +74,7 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 		if (opt->max_mid_occ > opt->min_mid_occ && opt->mid_occ > opt->max_mid_occ)
 			opt->mid_occ = opt->max_mid_occ;
 	}
+	if (opt->bw_long < opt->bw) opt->bw_long = opt->bw;
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s::%.3f*%.2f] mid_occ = %d\n", __func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), opt->mid_occ);
 }
