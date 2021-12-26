@@ -399,5 +399,5 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 [manpage]: https://lh3.github.io/minimap2/minimap2.html
 [manpage-cs]: https://lh3.github.io/minimap2/minimap2.html#10
 [doi]: https://doi.org/10.1093/bioinformatics/bty191
-[smide]: https://github.com/nemequ/simde
+[simde]: https://github.com/nemequ/simde
 [unimap]: https://github.com/lh3/unimap
