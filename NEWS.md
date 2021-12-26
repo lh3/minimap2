@@ -1,3 +1,17 @@
+Release 2.24-r1122 (26 December 2021)
+-------------------------------------
+
+This release improves alignment around long poorly aligned regions. Older
+minimap2 may chain through such regions in rare cases which may result in
+missing alignments later. The issue has become worse since the the change of
+the chaining algorithm in v2.19. v2.23 implements an incomplete remedy. This
+release provides a better solution with a X-drop-like heuristic and by enabling
+two-bandwidth chaining in the assembly mode.
+
+(2.24: 26 December 2021, r1122)
+
+
+
 Release 2.23-r1111 (18 November 2021)
 -------------------------------------
 
