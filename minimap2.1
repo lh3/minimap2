@@ -1,4 +1,4 @@
-.TH minimap2 1 "18 November 2021" "minimap2-2.23 (r1111)" "Bioinformatics tools"
+.TH minimap2 1 "18 December 2021" "minimap2-2.24 (r1121)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -77,7 +77,7 @@ SAM format.
 Minimizer k-mer length [15]
 .TP
 .BI -w \ INT
-Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
+Minimizer window size [10]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
 .TP
 .B -H
@@ -606,7 +606,7 @@ Long-read splice alignment for PacBio CCS reads
 .B sr
 Short single-end reads without splicing
 .RB ( -k21
-.B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -b0 -r100 -p.5 -N20 -f1000,5000 -n2 -m20
+.B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -b0 -r100 -p.5 -N20 -f1000,5000 -n2 -m25
 .B -s40 -g100 -2K50m --heap-sort=yes
 .BR --secondary=no ).
 .TP
