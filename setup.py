@@ -23,6 +23,7 @@ class LibMM2Build(build_ext):
 		def compile_libminimap2(*args, **kwargs):
 			cmd = ['make', 'libminimap2.a'] + list(args)
 			subprocess.check_call(cmd)
+        options = []
 		if platform.machine() in ["aarch64", "arm64"]:
 			options = ["arm_neon=1", "aarch64=1"]
 		self.execute(
