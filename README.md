@@ -350,6 +350,11 @@ If you use minimap2 in your work, please cite:
 > Li, H. (2018). Minimap2: pairwise alignment for nucleotide sequences.
 > *Bioinformatics*, **34**:3094-3100. [doi:10.1093/bioinformatics/bty191][doi]
 
+and/or:
+
+> Li, H. (2021). New strategies to improve minimap2 alignment accuracy.
+> *Bioinformatics*, **37**:4572-4574. [doi:10.1093/bioinformatics/btab705][doi2]
+
 ## <a name="dguide"></a>Developers' Guide
 
 Minimap2 is not only a command line tool, but also a programming library.
@@ -399,5 +404,6 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 [manpage]: https://lh3.github.io/minimap2/minimap2.html
 [manpage-cs]: https://lh3.github.io/minimap2/minimap2.html#10
 [doi]: https://doi.org/10.1093/bioinformatics/bty191
+[doi2]: https://doi.org/10.1093/bioinformatics/btab705
 [simde]: https://github.com/nemequ/simde
 [unimap]: https://github.com/lh3/unimap
