@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.24-r1122';
+var paftools_version = '2.24-r1132-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2704,6 +2704,24 @@ function paf_misjoin(args)
 		return len < (en - st) * cen_ratio? false : true;
 	}
 
+	function test_cen_point(cen, chr, x) {
+		var b = cen[chr];
+		if (b == null) return false;
+		print(x, b[0][0], b[0][1]);
+		for (var j = 0; j < b.length; ++j)
+			if (x >= b[j][0] && x < b[j][1])
+				return true;
+		return false;
+	}
+
+	if (show_err || show_long) {
+		print("C\tJ  inter-chromosomal misjoin");
+		print("C\tj  inter-chromosomal misjoin with both breakpoints ending in centromeres");
+		print("C\tG  long gap on the reference genome");
+		print("C\tg  long gap on the reference genome with both breakpoints ending in centromeres");
+		print("C\tM  closed inversion");
+		print("C");
+	}
 	function process(a) {
 		var k = 0;
 		for (var i = 0; i < a.length; ++i) {
@@ -2716,14 +2734,17 @@ function paf_misjoin(args)
 		a = a.sort(function(x,y){return x[2]-y[2]});
 		if (show_long) for (var i = 0; i < a.length; ++i) print(a[i].join("\t"));
 		for (var i = 1; i < a.length; ++i) {
-			var ov = [false, false];
+			var ov = [false, false], end_cen = [false, false];
 			ov[0] = test_cen(cen, a[i-1][5], a[i-1][7], a[i-1][8]);
 			ov[1] = test_cen(cen, a[i][5], a[i][7], a[i][8]);
+			end_cen[0] = test_cen_point(cen, a[i-1][5], a[i-1][4] == '+'? a[i-1][8] : a[i-1][7]);
+			end_cen[1] = test_cen_point(cen, a[i][5],   a[i][4] == '+'?   a[i][7]   : a[i][8]);
 			if (a[i-1][5] != a[i][5]) { // different chr
 				if (ov[0] || ov[1]) ++n_diff[1];
 				else if (show_err) {
-					print("J", a[i-1].slice(0, 12).join("\t"));
-					print("J", a[i].slice(0, 12).join("\t"));
+					var label = end_cen[0] && end_cen[1]? 'j' : 'J';
+					print(label, a[i-1].slice(0, 12).join("\t"));
+					print(label, a[i].slice(0, 12).join("\t"));
 				}
 				++n_diff[0];
 			} else if (a[i-1][4] == a[i][4]) { // a gap
@@ -2733,8 +2754,9 @@ function paf_misjoin(args)
 				if (gap > max_gap) {
 					if (ov[0] || ov[1]) ++n_gap[1];
 					else if (show_err) {
-						print("G", a[i-1].slice(0, 12).join("\t"));
-						print("G", a[i].slice(0, 12).join("\t"));
+						var label = end_cen[0] && end_cen[1]? 'g' : 'G';
+						print(label, a[i-1].slice(0, 12).join("\t"));
+						print(label, a[i].slice(0, 12).join("\t"));
 					}
 					++n_gap[0];
 				}
