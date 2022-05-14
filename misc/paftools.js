@@ -1532,22 +1532,24 @@ function paf_view(args)
 
 function paf_gff2bed(args)
 {
-	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false, print_junc = false, output_gene = false;
-	while ((c = getopt(args, "u:sgjG")) != null) {
+	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false, print_junc = false, output_gene = false, ens_canon_only = false;
+	while ((c = getopt(args, "u:sgjGe")) != null) {
 		if (c == 'u') fn_ucsc_fai = getopt.arg;
 		else if (c == 's') is_short = true;
 		else if (c == 'g') keep_gff = true;
 		else if (c == 'j') print_junc = true;
 		else if (c == 'G') output_gene = true;
+		else if (c == 'e') ens_canon_only = true;
 	}
 
 	if (getopt.ind == args.length) {
 		print("Usage: paftools.js gff2bed [options] <in.gff>");
 		print("Options:");
-		print("  -j       Output junction BED");
-		print("  -s       Print names in the short form");
+		print("  -j       output junction BED");
+		print("  -s       print names in the short form");
 		print("  -u FILE  hg38.fa.fai for chr name conversion");
-		print("  -g       Output GFF (used with -u)");
+		print("  -e       only show transcript tagged with 'Ensembl_canonical'");
+		print("  -g       output GFF (used with -u)");
 		exit(1);
 	}
 
@@ -1606,7 +1608,7 @@ function paf_gff2bed(args)
 		print(a[0][0], st, en, name, 1000, a[0][3], cds_st, cds_en, color, a.length, sizes.join(",") + ",", starts.join(",") + ",");
 	}
 
-	var re_gtf  = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name) "([^"]+)";/g;
+	var re_gtf  = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name|tag) "([^"]+)";/g;
 	var re_gff3 = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name)=([^;]+)/g;
 	var re_gtf_gene  = /\b(gene_id|gene_type|gene_name) "([^;]+)";/g;
 	var re_gff3_gene = /\b(gene_id|gene_type|source_gene|gene_biotype|gene_name)=([^;]+);/g;
@@ -1646,13 +1648,14 @@ function paf_gff2bed(args)
 		if (t[2] != "CDS" && t[2] != "exon") continue;
 		t[3] = parseInt(t[3]) - 1;
 		t[4] = parseInt(t[4]);
-		var id = null, type = "", name = "N/A", biotype = "", m, tname = "N/A";
+		var id = null, type = "", name = "N/A", biotype = "", m, tname = "N/A", ens_canonical = false;
 		while ((m = re_gtf.exec(t[8])) != null) {
 			if (m[1] == "transcript_id") id = m[2];
 			else if (m[1] == "transcript_type") type = m[2];
 			else if (m[1] == "transcript_biotype" || m[1] == "gbkey") biotype = m[2];
 			else if (m[1] == "gene_name" || m[1] == "gene_id") name = m[2];
 			else if (m[1] == "transcript_name") tname = m[2];
+			else if (m[1] == "tag" && m[2] == "Ensembl_canonical") ens_canonical = true;
 		}
 		while ((m = re_gff3.exec(t[8])) != null) {
 			if (m[1] == "transcript_id") id = m[2];
@@ -1661,6 +1664,7 @@ function paf_gff2bed(args)
 			else if (m[1] == "gene_name" || m[1] == "gene_id") name = m[2];
 			else if (m[1] == "transcript_name") tname = m[2];
 		}
+		if (ens_canon_only && !ens_canonical) continue;
 		if (type == "" && biotype != "") type = biotype;
 		if (id == null) throw Error("No transcript_id");
 		if (id != last_id) {
