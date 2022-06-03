@@ -15,6 +15,8 @@
 #include "kvec.h"
 #include "khash.h"
 
+#define READ_BLOCK_SIZE 1000
+
 #define idx_hash(a) ((a)>>1)
 #define idx_eq(a, b) ((a)>>1 == (b)>>1)
 KHASH_INIT(idx, uint64_t, uint64_t, 1, idx_hash, idx_eq)
@@ -539,13 +541,17 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		if (size == 0) continue;
 		b->h = h = kh_init(idx);
 		kh_resize(idx, h, size);
-		for (j = 0; j < size; ++j) {
-			uint64_t x[2];
-			int absent;
-			fread(x, 8, 2, fp);
-			k = kh_put(idx, h, x[0], &absent);
-			assert(absent);
-			kh_val(h, k) = x[1];
+		const int read_length = READ_BLOCK_SIZE;
+		for (j = 0; j < size; j += read_length) {
+		  uint64_t x[2 * read_length];
+		  int bytes_read = fread(x, 8, read_length > (size - j) ? 2 * (size - j) : 2 * read_length, fp);
+		  int ints_read = bytes_read / sizeof(uint64_t);
+		  int absent;
+		  for (int z = 0; z < ints_read; z += 2) {
+		    k = kh_put(idx, h, x[z], &absent);
+		    assert(absent);
+		    kh_val(h, k) = x[z + 1];
+		  }
 		}
 	}
 	if (!(mi->flag & MM_I_NO_SEQ)) {
