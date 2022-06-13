@@ -94,10 +94,11 @@ bases in
 .IR target.fa ,
 minimap2 needs to read
 .I query.fa
-multiple times to map it against each batch of target sequences.
+multiple times to map it against each batch of target sequences. This would create a multi-part index.
 .I NUM
 may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
-multi-part index.
+multi-part index. See also option
+.BR --split-prefix .
 .TP
 .B --idx-no-seq
 Don't store target sequences in the index. It saves disk space and memory but
