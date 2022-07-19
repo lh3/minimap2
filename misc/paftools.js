@@ -3110,6 +3110,45 @@ function paf_pafcmp(args)
 	buf.destroy();
 }
 
+function paf_longcs2seq(args) {
+	var c, opt = { query:false };
+	while ((c = getopt(args, "q")) != null)
+		if (c == 'q') opt.query = true;
+	if (args.length == getopt.ind) {
+		print("Usage: paftools.js longcs2seq [-q] <long-cs.paf>");
+		return;
+	}
+	var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g
+	var buf = new Bytes();
+	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var m, cs = null, t = buf.toString().split("\t");
+		for (var i = 12; i < t.length; ++i)
+			if ((m = /^cs:Z:(\S+)/.exec(t[i])) != null) {
+				cs = m[1];
+				break;
+			}
+		if (cs == null) continue;
+		var ts = "", qs = "";
+		while ((m = re_cs.exec(cs)) != null) {
+			if (m[1] == "=") ts += m[2], qs += m[2];
+			else if (m[1] == "+") qs += m[2].toUpperCase();
+			else if (m[1] == "-") ts += m[2].toUpperCase();
+			else if (m[1] == "*") ts += m[2][0].toUpperCase(), qs += m[2][1].toUpperCase();
+			else if (m[1] == ":") throw Error("Long cs is required");
+		}
+		if (opt.query) {
+			print(">" + t[0] + "_" + t[2] + "_" + t[3]);
+			print(qs);
+		} else {
+			print(">" + t[5] + "_" + t[7] + "_" + t[8]);
+			print(ts);
+		}
+	}
+	file.close();
+	buf.destroy();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -3124,6 +3163,7 @@ function main(args)
 		print("  sam2paf    convert SAM to PAF");
 		print("  delta2paf  convert MUMmer's delta to PAF");
 		print("  gff2bed    convert GTF/GFF3 to BED12");
+		print("  longcs2seq convert long-cs PAF to sequences");
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  asmstat    collect basic assembly information");
@@ -3168,6 +3208,7 @@ function main(args)
 	else if (cmd == 'vcfstat') paf_vcfstat(args);
 	else if (cmd == 'sveval') paf_sveval(args);
 	else if (cmd == 'vcfsel') paf_vcfsel(args);
+	else if (cmd == 'longcs2seq') paf_longcs2seq(args);
 	else if (cmd == 'version') print(paftools_version);
 	else throw Error("unrecognized command: " + cmd);
 }
