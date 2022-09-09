@@ -3149,6 +3149,79 @@ function paf_longcs2seq(args) {
 	buf.destroy();
 }
 
+function paf_paf2gff(args) {
+	var c, opt = { aa:false };
+	var re_cigar = /(\d+)([A-Z=])/g;
+	while ((c = getopt(args, "a")) != null) {
+		if (c == 'a') opt.aa = true;
+	}
+	if (args.length == getopt.ind) {
+		print("Usage: paftools.js paf2gff [-a] <in.paf>");
+		return;
+	}
+	var buf = new Bytes();
+	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
+	var hid = 1, last_name = null;
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		if (t[0] != last_name) last_name = t[0], hid = 1;
+		else ++hid;
+		for (var i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
+		for (var i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
+		var cigar = null, score = null;
+		for (var i = 12; i < t.length; ++i) {
+			if ((m = /^(cg:Z|AS:i):(\S+)/.exec(t[i])) != null) {
+				if (m[1] == 'cg:Z') cigar = m[2];
+				else if (m[1] == 'AS:i') score = parseInt(m[2]);
+			}
+		}
+		if (cigar == null) throw Error("failed to find the cg:Z tag");
+		if (score == null) throw Error("failed to find the AS:i tag");
+		var st = 0, en = 0, phase = 0, pseudo = false, fs = 0, a = [];
+		while ((m = re_cigar.exec(cigar)) != null) {
+			var len = parseInt(m[1]);
+			if (m[2] == 'M' || m[2] == 'D') {
+				en += opt.aa? len * 3 : len;
+			} else if (m[2] == 'F' || m[2] == 'G' || m[2] == 'R') {
+				en += len, pseudo = true, fs = 1;
+			} else if (m[2] == 'N') {
+				a.push([t[5], 'paf2gff', 'exon', st, en, 0, t[4], phase, fs]);
+				st = en + len, en += len, phase = 0, fs = 0;
+			} else if (m[2] == 'U') { // ...xGT...AGxx...
+				a.push([t[5], 'paf2gff', 'exon', st, en + 1, 0, t[4], phase, fs]);
+				st = en + len - 2, en += len, phase = 2, fs = 0;
+			} else if (m[2] == 'V') { // ...xxGT...AGx...
+				a.push([t[5], 'paf2gff', 'exon', st, en + 2, 0, t[4], phase, fs]);
+				st = en + len - 1, en += len, phase = 1, fs = 0;
+			}
+		}
+		a.push([t[5], 'paf2gff', 'exon', st, en, 0, t[4], phase, fs]);
+		if (en != t[8] - t[7]) throw Error("inconsistent cigar");
+		var type = pseudo? 'pseudogene' : 'protein_coding';
+		var attr = ['transcript_id=' + t[0] + '#' + hid, 'transcript_type=' + type].join(";");
+		print([t[5], 'paf2gff', 'transcript', t[7] + 1, t[8], score, t[4], '.', attr].join("\t"));
+		if (opt.aa && t[4] == '-') {
+			var b = [], len = t[8] - t[7];
+			for (var i = a.length - 1; i >= 0; --i) {
+				var x = len - a[i][3];
+				a[i][3] = len - a[i][4];
+				a[i][4] = x;
+				//a[i][7] = a[i][7] == 0? 0 : 3 - a[i][7]; // not sure if this line is needed
+				b.push(a[i]);
+			}
+			a = b;
+		}
+		for (var i = 0; i < a.length; ++i) {
+			a[i][3] += t[7] + 1;
+			a[i][4] += t[7];
+			a[i][8] = attr + ";frameshift=" + a[i][8];
+			print(a[i].join("\t"));
+		}
+	}
+	file.close();
+	buf.destroy();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -3164,6 +3237,7 @@ function main(args)
 		print("  delta2paf  convert MUMmer's delta to PAF");
 		print("  gff2bed    convert GTF/GFF3 to BED12");
 		print("  longcs2seq convert long-cs PAF to sequences");
+		print("  paf2gff    convert PAF to GFF3 (tested for miniprot only)");
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  asmstat    collect basic assembly information");
@@ -3209,6 +3283,7 @@ function main(args)
 	else if (cmd == 'sveval') paf_sveval(args);
 	else if (cmd == 'vcfsel') paf_vcfsel(args);
 	else if (cmd == 'longcs2seq') paf_longcs2seq(args);
+	else if (cmd == 'paf2gff') paf_paf2gff(args);
 	else if (cmd == 'version') print(paftools_version);
 	else throw Error("unrecognized command: " + cmd);
 }
