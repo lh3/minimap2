@@ -3202,8 +3202,8 @@ function paf_paf2gff(args) {
 		var attr = ['transcript_id=' + t[0] + '#' + hid, 'transcript_type=' + type].join(";");
 		var trans_attr = 'identity=' + (t[9] / t[10]).toFixed(4);
 		if (np != null) trans_attr += ';positive=' + (np * 3 / t[10]).toFixed(4);
-		trans_attr += ';find_start=' + (t[2] == 0? 1 : 0);
-		trans_attr += ';find_end=' + (t[3] == t[1]? 1 : 0);
+		trans_attr += ';dist_start=' + t[2];
+		trans_attr += ';dist_end=' + (t[1] - t[3]);
 		print([t[5], 'paf2gff', 'transcript', t[7] + 1, t[8], score, t[4], '.', attr + ';' + trans_attr].join("\t"));
 		if (opt.aa && t[4] == '-') {
 			var b = [], len = t[8] - t[7];
