@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.24-r1132-dirty';
+var paftools_version = '2.24-r1141-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2345,12 +2345,13 @@ function paf_pbsim2fq(args)
 
 function paf_junceval(args)
 {
-	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false;
-	while ((c = getopt(args, "l:epc")) != null) {
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false;
+	while ((c = getopt(args, "l:epca")) != null) {
 		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 		else if (c == 'e') print_err_only = print_ovlp = true;
 		else if (c == 'p') print_ovlp = true;
 		else if (c == 'c') chr_only = true;
+		else if (c == 'a') aa = true;
 	}
 
 	if (args.length - getopt.ind < 1) {
@@ -2360,6 +2361,7 @@ function paf_junceval(args)
 		print("  -p        print overlapping introns");
 		print("  -e        print erroreous overlapping introns");
 		print("  -c        only consider alignments to /^(chr)?([0-9]+|X|Y)$/");
+		print("  -a        miniprot PAF");
 		exit(1);
 	}
 
@@ -2413,7 +2415,7 @@ function paf_junceval(args)
 
 	file = getopt.ind+1 >= args.length || args[getopt.ind+1] == '-'? new File() : new File(args[getopt.ind+1]);
 	var last_qname = null;
-	var re_cigar = /(\d+)([MIDNSHP=X])/g;
+	var re_cigar = /(\d+)([MIDNSHP=XFGUV])/g;
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
 		var ctg_name = null, cigar = null, pos = null, qname = t[0];
@@ -2449,12 +2451,41 @@ function paf_junceval(args)
 		}
 
 		var intron = [];
-		while ((m = re_cigar.exec(cigar)) != null) {
-			var len = parseInt(m[1]), op = m[2];
-			if (op == 'N') {
-				intron.push([pos, pos + len]);
-				pos += len;
-			} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
+		if (aa) {
+			var tmp_junc = [], tmp = 0;
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					tmp_junc.push([tmp, tmp + len]);
+					tmp += len;
+				} else if (op == 'U') {
+					tmp_junc.push([tmp + 1, tmp + len - 2]);
+					tmp += len;
+				} else if (op == 'V') {
+					tmp_junc.push([tmp + 2, tmp + len - 1]);
+					tmp += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') {
+					tmp += len * 3;
+				} else if (op == 'F' || op == 'G') {
+					tmp += len;
+				}
+			}
+			if (t[4] == '+') {
+				for (var i = 0; i < tmp_junc.length; ++i)
+					intron.push([pos + tmp_junc[i][0], pos + tmp_junc[i][1]]);
+			} else if (t[4] == '-') {
+				var glen = parseInt(t[8]) - parseInt(t[7]);
+				for (var i = tmp_junc.length - 1; i >= 0; --i)
+					intron.push([pos + (glen - tmp_junc[i][1]), pos + (glen - tmp_junc[i][0])]);
+			}
+		} else {
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					intron.push([pos, pos + len]);
+					pos += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
+			}
 		}
 		if (intron.length == 0) {
 			++n_sgl;
