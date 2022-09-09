@@ -3168,12 +3168,13 @@ function paf_paf2gff(args) {
 		else ++hid;
 		for (var i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
 		for (var i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
-		var cigar = null, score = null, np = null;
+		var cigar = null, score = null, np = null, ds = null;
 		for (var i = 12; i < t.length; ++i) {
-			if ((m = /^(cg:Z|AS:i|np:i):(\S+)/.exec(t[i])) != null) {
+			if ((m = /^(cg:Z|AS:i|np:i|ds:i):(\S+)/.exec(t[i])) != null) {
 				if (m[1] == 'cg:Z') cigar = m[2];
 				else if (m[1] == 'AS:i') score = parseInt(m[2]);
 				else if (m[1] == 'np:i') np = parseInt(m[2]);
+				else if (m[1] == 'ds:i') ds = parseInt(m[2]);
 			}
 		}
 		if (cigar == null) throw Error("failed to find the cg:Z tag");
@@ -3198,12 +3199,15 @@ function paf_paf2gff(args) {
 		}
 		a.push([t[5], 'paf2gff', 'exon', st, en, 0, t[4], phase, fs]);
 		if (en != t[8] - t[7]) throw Error("inconsistent cigar");
+		if (ds != null && ds == 0)
+			a.push([t[5], 'paf2gff', 'stop_codon', en, en + 3, 0, t[4], '.', 0]);
 		var type = pseudo? 'pseudogene' : 'protein_coding';
 		var attr = ['transcript_id=' + t[0] + '#' + hid, 'transcript_type=' + type].join(";");
 		var trans_attr = 'identity=' + (t[9] / t[10]).toFixed(4);
 		if (np != null) trans_attr += ';positive=' + (np * 3 / t[10]).toFixed(4);
 		trans_attr += ';dist_start=' + t[2];
 		trans_attr += ';dist_end=' + (t[1] - t[3]);
+		if (ds != null && ds >= 0) trans_attr += ';dist_stop_codon=' + ds;
 		print([t[5], 'paf2gff', 'transcript', t[7] + 1, t[8], score, t[4], '.', attr + ';' + trans_attr].join("\t"));
 		if (opt.aa && t[4] == '-') {
 			var b = [], len = t[8] - t[7];
@@ -3217,6 +3221,7 @@ function paf_paf2gff(args) {
 			a = b;
 		}
 		for (var i = 0; i < a.length; ++i) {
+			if (!pseudo && a[i][2] == "exon") a[i][2] = "CDS";
 			a[i][3] += t[7] + 1;
 			a[i][4] += t[7];
 			a[i][8] = attr + ";frameshift=" + a[i][8];
