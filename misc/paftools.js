@@ -3168,11 +3168,12 @@ function paf_paf2gff(args) {
 		else ++hid;
 		for (var i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
 		for (var i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
-		var cigar = null, score = null;
+		var cigar = null, score = null, np = null;
 		for (var i = 12; i < t.length; ++i) {
-			if ((m = /^(cg:Z|AS:i):(\S+)/.exec(t[i])) != null) {
+			if ((m = /^(cg:Z|AS:i|np:i):(\S+)/.exec(t[i])) != null) {
 				if (m[1] == 'cg:Z') cigar = m[2];
 				else if (m[1] == 'AS:i') score = parseInt(m[2]);
+				else if (m[1] == 'np:i') np = parseInt(m[2]);
 			}
 		}
 		if (cigar == null) throw Error("failed to find the cg:Z tag");
@@ -3199,7 +3200,11 @@ function paf_paf2gff(args) {
 		if (en != t[8] - t[7]) throw Error("inconsistent cigar");
 		var type = pseudo? 'pseudogene' : 'protein_coding';
 		var attr = ['transcript_id=' + t[0] + '#' + hid, 'transcript_type=' + type].join(";");
-		print([t[5], 'paf2gff', 'transcript', t[7] + 1, t[8], score, t[4], '.', attr].join("\t"));
+		var trans_attr = 'identity=' + (t[9] / t[10]).toFixed(4);
+		if (np != null) trans_attr += ';positive=' + (np * 3 / t[10]).toFixed(4);
+		trans_attr += ';find_start=' + (t[2] == 0? 1 : 0);
+		trans_attr += ';find_end=' + (t[3] == t[1]? 1 : 0);
+		print([t[5], 'paf2gff', 'transcript', t[7] + 1, t[8], score, t[4], '.', attr + ';' + trans_attr].join("\t"));
 		if (opt.aa && t[4] == '-') {
 			var b = [], len = t[8] - t[7];
 			for (var i = a.length - 1; i >= 0; --i) {
