@@ -3164,22 +3164,27 @@ function paf_paf2gff(args) {
 	var hid = 1, last_name = null;
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
+
 		if (t[0] != last_name) last_name = t[0], hid = 1;
 		else ++hid;
 		for (var i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
 		for (var i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
-		var cigar = null, score = null, np = null, ds = null;
+		var cigar = null, score = null, np = null, dist_stop = null, dist_start = null;
 		for (var i = 12; i < t.length; ++i) {
-			if ((m = /^(cg:Z|AS:i|np:i|ds:i):(\S+)/.exec(t[i])) != null) {
+			if ((m = /^(cg:Z|AS:i|np:i|da:i|do:i):(\S+)/.exec(t[i])) != null) {
 				if (m[1] == 'cg:Z') cigar = m[2];
 				else if (m[1] == 'AS:i') score = parseInt(m[2]);
 				else if (m[1] == 'np:i') np = parseInt(m[2]);
-				else if (m[1] == 'ds:i') ds = parseInt(m[2]);
+				else if (m[1] == 'do:i') dist_stop = parseInt(m[2]);
+				else if (m[1] == 'da:i') dist_start = parseInt(m[2]);
 			}
 		}
 		if (cigar == null) throw Error("failed to find the cg:Z tag");
 		if (score == null) throw Error("failed to find the AS:i tag");
+
 		var st = 0, en = 0, phase = 0, pseudo = false, fs = 0, a = [];
+		if (dist_start != null && dist_start == 0)
+			a.push([t[5], 'paf2gff', 'start_codon', 0, 3, 0, t[4], '.', 0]);
 		while ((m = re_cigar.exec(cigar)) != null) {
 			var len = parseInt(m[1]);
 			if (m[2] == 'M' || m[2] == 'D') {
@@ -3199,16 +3204,22 @@ function paf_paf2gff(args) {
 		}
 		a.push([t[5], 'paf2gff', 'exon', st, en, 0, t[4], phase, fs]);
 		if (en != t[8] - t[7]) throw Error("inconsistent cigar");
-		if (ds != null && ds == 0)
+		if (dist_stop != null && dist_stop == 0)
 			a.push([t[5], 'paf2gff', 'stop_codon', en, en + 3, 0, t[4], '.', 0]);
 		var type = pseudo? 'pseudogene' : 'protein_coding';
 		var attr = ['transcript_id=' + t[0] + '#' + hid, 'transcript_type=' + type].join(";");
 		var trans_attr = 'identity=' + (t[9] / t[10]).toFixed(4);
 		if (np != null) trans_attr += ';positive=' + (np * 3 / t[10]).toFixed(4);
-		trans_attr += ';dist_start=' + t[2];
-		trans_attr += ';dist_end=' + (t[1] - t[3]);
-		if (ds != null && ds >= 0) trans_attr += ';dist_stop_codon=' + ds;
-		print([t[5], 'paf2gff', 'transcript', t[7] + 1, t[8], score, t[4], '.', attr + ';' + trans_attr].join("\t"));
+		trans_attr += ';aa_start=' + t[2];
+		trans_attr += ';aa_end=' + (t[1] - t[3]);
+		if (dist_start != null && dist_start >= 0) trans_attr += ';dist_start_codon=' + dist_start;
+		if (dist_stop != null && dist_stop >= 0) trans_attr += ';dist_stop_codon=' + dist_stop;
+		var trans_st = t[7], trans_en = t[8];
+		if (dist_stop != null && dist_stop == 0) {
+			if (t[4] == '-') trans_st -= 3;
+			else trans_en += 3;
+		}
+		print([t[5], 'paf2gff', 'transcript', trans_st + 1, trans_en, score, t[4], '.', attr + ';' + trans_attr].join("\t"));
 		if (opt.aa && t[4] == '-') {
 			var b = [], len = t[8] - t[7];
 			for (var i = a.length - 1; i >= 0; --i) {
