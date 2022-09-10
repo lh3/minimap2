@@ -3195,6 +3195,7 @@ function paf_paf2gff(args) {
 	var hid = 1, last_name = null;
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
+		if (t[5] == '*') continue; // skip unmapped lines
 
 		if (t[0] != last_name) last_name = t[0], hid = 1;
 		else ++hid;
