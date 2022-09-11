@@ -2345,13 +2345,15 @@ function paf_pbsim2fq(args)
 
 function paf_junceval(args)
 {
-	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false;
-	while ((c = getopt(args, "l:epca")) != null) {
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false, is_bed = false;
+	while ((c = getopt(args, "l:epcab1")) != null) {
 		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 		else if (c == 'e') print_err_only = print_ovlp = true;
 		else if (c == 'p') print_ovlp = true;
 		else if (c == 'c') chr_only = true;
 		else if (c == 'a') aa = true;
+		else if (c == 'b') is_bed = true;
+		else if (c == '1') first_only = true;
 	}
 
 	if (args.length - getopt.ind < 1) {
@@ -2361,7 +2363,9 @@ function paf_junceval(args)
 		print("  -p        print overlapping introns");
 		print("  -e        print erroreous overlapping introns");
 		print("  -c        only consider alignments to /^(chr)?([0-9]+|X|Y)$/");
-		print("  -a        miniprot PAF");
+		print("  -a        miniprot PAF as input");
+		print("  -b        BED as input");
+		print("  -1        only process the first alignment of each query");
 		exit(1);
 	}
 
@@ -2421,7 +2425,9 @@ function paf_junceval(args)
 		var ctg_name = null, cigar = null, pos = null, qname = t[0];
 
 		if (t[0].charAt(0) == '@') continue;
-		if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
+		if (is_bed) {
+			ctg_name = t[0], pos = parseInt(t[1]), cigar == null;
+		} else if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
 			ctg_name = t[5], pos = parseInt(t[7]);
 			var type = 'P';
 			for (i = 12; i < t.length; ++i) {
@@ -2451,7 +2457,9 @@ function paf_junceval(args)
 		}
 
 		var intron = [];
-		if (aa) {
+		if (is_bed) {
+			intron.push([pos, parseInt(t[2])]);
+		} else if (aa) {
 			var tmp_junc = [], tmp = 0;
 			while ((m = re_cigar.exec(cigar)) != null) {
 				var len = parseInt(m[1]), op = m[2];
