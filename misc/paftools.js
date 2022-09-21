@@ -3283,6 +3283,47 @@ function paf_paf2gff(args) {
 	buf.destroy();
 }
 
+function paf_gff2junc(args) {
+	var c, feat = "CDS";
+	while ((c = getopt(args, "f:")) != null) {
+		if (c == 'f') feat = getopt.arg;
+	}
+	if (getopt.ind == args.length) {
+		print("Usage: paftools.js gff2junc [-f feature] <in.gff3>");
+		return;
+	}
+	var buf = new Bytes();
+	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+
+	function process_a(a) {
+		if (a.length < 2) return;
+		a = a.sort(function(x, y) { return x[4] - y[4] });
+		for (var i = 1; i < a.length; ++i)
+			print([a[i][1], a[i-1][5], a[i][4], a[i][0], 0, a[i][7]].join("\t"));
+	}
+
+	var a = [];
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		if (t[0][0] == '#') continue;
+		if (t[2].toLowerCase() != feat.toLowerCase()) continue;
+		//print(t.join("\t"));
+		if ((m = /\bParent=([^;]+)/.exec(t[8])) == null)
+			throw Error("Can't find Parent");
+		t[3] = parseInt(t[3]) - 1;
+		t[4] = parseInt(t[4]);
+		t.unshift(m[1]);
+		if (a.length > 0 && a[0][0] != m[1]) {
+			process_a(a);
+			a.length = 0;
+			a.push(t);
+		} else a.push(t);
+	}
+	process_a(a);
+	file.close();
+	buf.destroy();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -3297,8 +3338,9 @@ function main(args)
 		print("  sam2paf    convert SAM to PAF");
 		print("  delta2paf  convert MUMmer's delta to PAF");
 		print("  gff2bed    convert GTF/GFF3 to BED12");
+		print("  gff2junc   convert GFF3 to junction BED");
 		print("  longcs2seq convert long-cs PAF to sequences");
-		print("  paf2gff    convert PAF to GFF3 (tested for miniprot only)");
+//		print("  paf2gff    convert PAF to GFF3 (tested for miniprot only)");
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  asmstat    collect basic assembly information");
@@ -3326,6 +3368,7 @@ function main(args)
 	else if (cmd == 'delta2paf') paf_delta2paf(args);
 	else if (cmd == 'splice2bed') paf_splice2bed(args);
 	else if (cmd == 'gff2bed') paf_gff2bed(args);
+	else if (cmd == 'gff2junc') paf_gff2junc(args);
 	else if (cmd == 'stat') paf_stat(args);
 	else if (cmd == 'asmstat') paf_asmstat(args);
 	else if (cmd == 'asmgene') paf_asmgene(args);
