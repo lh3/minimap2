@@ -35,6 +35,7 @@ static ko_longopt_t long_options[] = {
 	{ "min-dp-len",     ko_required_argument, 308 },
 	{ "print-aln-seq",  ko_no_argument,       309 },
 	{ "splice",         ko_no_argument,       310 },
+	{ "splice-model",   ko_no_argument,       311 },
 	{ "cost-non-gt-ag", ko_required_argument, 'C' },
 	{ "no-long-join",   ko_no_argument,       312 },
 	{ "sr",             ko_no_argument,       313 },
@@ -205,6 +206,7 @@ int main(int argc, char *argv[])
 		else if (c == 308) opt.min_ksw_len = atoi(o.arg); // --min-dp-len
 		else if (c == 309) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
 		else if (c == 310) opt.flag |= MM_F_SPLICE; // --splice
+		else if (c == 311) opt.flag |= MM_F_SPLICE_CMPLX; // --splice-model
 		else if (c == 312) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 313) opt.flag |= MM_F_SR; // --sr
 		else if (c == 317) opt.end_bonus = atoi(o.arg); // --end-bonus

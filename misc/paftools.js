@@ -3308,8 +3308,10 @@ function paf_gff2junc(args) {
 		if (t[0][0] == '#') continue;
 		if (t[2].toLowerCase() != feat.toLowerCase()) continue;
 		//print(t.join("\t"));
-		if ((m = /\bParent=([^;]+)/.exec(t[8])) == null)
-			throw Error("Can't find Parent");
+		if ((m = /\bParent=([^;]+)/.exec(t[8])) == null) {
+			warn("Can't find Parent");
+			continue;
+		}
 		t[3] = parseInt(t[3]) - 1;
 		t[4] = parseInt(t[4]);
 		t.unshift(m[1]);
