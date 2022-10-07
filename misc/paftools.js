@@ -2422,9 +2422,11 @@ function paf_junceval(args)
 	var re_cigar = /(\d+)([MIDNSHP=XFGUV])/g;
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
-		var ctg_name = null, cigar = null, pos = null, qname = t[0];
+		var ctg_name = null, cigar = null, pos = null, qname;
 
 		if (t[0].charAt(0) == '@') continue;
+		if (t[0] == "##PAF") t.shift();
+		qname = t[0];
 		if (is_bed) {
 			ctg_name = t[0], pos = parseInt(t[1]), cigar == null;
 		} else if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
