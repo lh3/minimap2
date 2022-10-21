@@ -251,7 +251,7 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 					   int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
 	int32_t *f,*t, *v, n_u, n_v, mmax_f = 0, max_rmq_size = 0, max_drop = bw;
-	int64_t *p, i, i0, st = 0, st_inner = 0, n_iter = 0;
+	int64_t *p, i, i0, st = 0, st_inner = 0;
 	uint64_t *u;
 	lc_elem_t *root = 0, *root_inner = 0;
 	void *mem_mp = 0;
@@ -345,7 +345,6 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 						}
 						if (!krmq_itr_prev(lc_elem, &itr)) break;
 					}
-					n_iter += n_rmq_iter;
 				}
 			}
 		}

@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.24-r1122"
+#define MM_VERSION "2.24-r1149-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -121,7 +121,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:j:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -153,7 +153,8 @@ int main(int argc, char *argv[])
 	o = KETOPT_INIT;
 
 	while ((c = ketopt(&o, argc, argv, 1, opt_str, long_options)) >= 0) {
-		if (c == 'w') ipt.w = atoi(o.arg);
+		if (c == 'w') ipt.w = atoi(o.arg), ipt.flag &= ~MM_I_SYNCMER;
+		else if (c == 'j') ipt.w = atoi(o.arg), ipt.flag |= MM_I_SYNCMER;
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 'H') ipt.flag |= MM_I_HPC;
 		else if (c == 'd') fnw = o.arg; // the above are indexing related options, except -I
@@ -322,6 +323,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
+		fprintf(fp_help, "    -j INT       syncmer submer size (overriding -w) []\n");
 		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [4G]\n");
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
