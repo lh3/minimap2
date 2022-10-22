@@ -176,7 +176,7 @@ void mm_sketch_syncmer(void *km, const char *str, int len, int smer, int k, uint
 			if (l >= k && kmer_span < 256) {
 				uint64_t x, min = UINT64_MAX;
 				x = hash64(kmer[z], mask);
-				for (j = 0; j < k - smer; ++j) {
+				for (j = 0; j <= k - smer; ++j) {
 					uint64_t y = x >> (j + j) & smask;
 					min = min < y? min : y;
 				}
