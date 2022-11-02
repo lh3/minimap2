@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.24-r1151-dirty';
+var paftools_version = '2.24-r1152-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2556,33 +2556,37 @@ function paf_junceval(args)
 
 function paf_exoneval(args) // adapted from paf_junceval()
 {
-	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false, is_bed = false, use_cds = false;
-	while ((c = getopt(args, "l:epcab1d")) != null) {
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false, is_bed = false, use_cds = false, eval_base = false;
+	while ((c = getopt(args, "l:epcab1ds")) != null) {
 		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 		else if (c == 'e') print_err_only = print_ovlp = true;
 		else if (c == 'p') print_ovlp = true;
 		else if (c == 'c') chr_only = true;
-		else if (c == 'a') aa = true;
+		else if (c == 'a') aa = true, use_cds = true;
 		else if (c == 'b') is_bed = true;
 		else if (c == '1') first_only = true;
 		else if (c == 'd') use_cds = true;
+		else if (c == 's') eval_base = true;
 	}
 
 	if (args.length - getopt.ind < 1) {
 		print("Usage: paftools.js exoneval [options] <gene.gtf> <aln.sam>");
 		print("Options:");
 		print("  -l INT    tolerance of junction positions (0 for exact) [0]");
-		print("  -p        print overlapping introns");
-		print("  -e        print erroreous overlapping introns");
+		print("  -d        evaluate coding regions only (exon regions by default)");
+		print("  -a        miniprot PAF as input (force -d)");
+		print("  -p        print overlapping exons");
+		print("  -e        print erroreous overlapping exons");
 		print("  -c        only consider alignments to /^(chr)?([0-9]+|X|Y)$/");
-		print("  -a        miniprot PAF as input");
-		print("  -b        BED as input");
 		print("  -1        only process the first alignment of each query");
+		print("  -b        BED as input");
+		print("  -s        compute base Sn and Sp (more memory)");
 		exit(1);
 	}
 
 	var file, buf = new Bytes();
 
+	warn("Reading reference GTF...");
 	var tr = {};
 	file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
 	while (file.readline(buf) >= 0) {
@@ -2631,8 +2635,10 @@ function paf_exoneval(args) // adapted from paf_junceval()
 	var n_exon = 0, n_exon_hit = 0, n_exon_novel = 0;
 
 	file = getopt.ind+1 >= args.length || args[getopt.ind+1] == '-'? new File() : new File(args[getopt.ind+1]);
-	var last_qname = null;
+	var last_qname = null, qexon = {};
 	var re_cigar = /(\d+)([MIDNSHP=XFGUV])/g;
+
+	warn("Evaluating alignments...");
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
 		var ctg_name = null, cigar = null, pos = null, qname;
@@ -2718,6 +2724,10 @@ function paf_exoneval(args) // adapted from paf_junceval()
 		var chr = anno[ctg_name];
 		if (chr != null) {
 			for (var i = 0; i < exon.length; ++i) {
+				if (eval_base) {
+					if (qexon[ctg_name] == null) qexon[ctg_name] = [];
+					qexon[ctg_name].push([exon[i][0], exon[i][1]]);
+				}
 				var o = Interval.find_ovlp(chr, exon[i][0], exon[i][1]);
 				if (o.length > 0) {
 					var hit = false;
@@ -2762,6 +2772,55 @@ function paf_exoneval(args) // adapted from paf_junceval()
 		print("# predicted exons: " + n_exon);
 		print("# non-overlapping exons: " + n_exon_novel);
 		print("# correct exons: " + n_exon_hit + " (" + (n_exon_hit / n_exon * 100).toFixed(2) + "%)");
+	}
+
+	function merge_and_index(ex) {
+		for (var chr in ex) {
+			var a = [];
+			e = ex[chr];
+			Interval.sort(e);
+			var st = e[0][0], en = e[0][1];
+			for (var i = 1; i < e.length; ++i) { // merge
+				if (e[i][0] > en) {
+					a.push([st, en]);
+					st = e[i][0], en = e[i][1];
+				} else {
+					en = en > e[i][1]? en : e[i][1];
+				}
+			}
+			a.push([st, en]);
+			Interval.index_end(a);
+			ex[chr] = a;
+		}
+	}
+
+	function cal_sn(a0, a1) {
+		var tot = 0, cov = 0;
+		for (var chr in a1) {
+			var e0 = a0[chr], e1 = a1[chr];
+			for (var i = 0; i < e1.length; ++i)
+				tot += e1[i][1] - e1[i][0];
+			if (e0 == null) continue;
+			for (var i = 0; i < e1.length; ++i) {
+				var o = Interval.find_ovlp(e0, e1[i][0], e1[i][1]);
+				for (var j = 0; j < o.length; ++j) { // this only works when there are no overlaps between intervals
+					var st = e1[i][0] > o[j][0]? e1[i][0] : o[j][0];
+					var en = e1[i][1] < o[j][1]? e1[i][1] : o[j][1];
+					cov += en - st;
+				}
+			}
+		}
+		return [tot, cov];
+	}
+
+	if (eval_base) {
+		warn("Computing base Sn and Sp...");
+		merge_and_index(qexon);
+		merge_and_index(anno);
+		var sn = cal_sn(qexon, anno);
+		var sp = cal_sn(anno, qexon);
+		print("Base Sn: " + sn[1] + " / " + sn[0] + " = " + (sn[1] / sn[0] * 100).toFixed(2) + "%");
+		print("Base Sp: " + sp[1] + " / " + sp[0] + " = " + (sp[1] / sp[0] * 100).toFixed(2) + "%");
 	}
 }
 
