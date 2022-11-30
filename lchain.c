@@ -138,7 +138,7 @@ static inline int32_t comput_sc(const mm128_t *ai, const mm128_t *aj, int32_t ma
 }
 
 /* Input:
- *   a[].x: tid<<33 | rev<<32 | tpos
+ *   a[].x: rev<<63 | tid<<32 | tpos
  *   a[].y: flags<<40 | q_span<<32 | q_pos
  * Output:
  *   n_u: #chains
