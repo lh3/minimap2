@@ -13,7 +13,32 @@
 struct mm_tbuf_s {
 	void *km;
 	int rep_len, frag_gap;
+	double timers[MM_N_THR_TIMERS];
 };
+
+#if defined(__AMD_SPLIT_KERNELS__)
+
+#define N_ACCUM 64
+
+// local variables required for each read processed by a CPU thread
+typedef struct {
+	int count; // #reads accumulated
+	long i[N_ACCUM]; // read id
+	int rep_len[N_ACCUM]; // rep_len for each read
+	int frag_gap[N_ACCUM]; // frag_gap for each read
+	int *qlens[N_ACCUM]; // query length for each segment of each read
+	const char **qseqs[N_ACCUM]; // sequences for each segment of each read
+	int qlen_sum[N_ACCUM]; // sum of qlens of all segments of each read
+	int n_regs0[N_ACCUM]; // number of chains formed from anchors of each read
+	int n_mini_pos[N_ACCUM]; // number of minimizer positions for each read
+	uint64_t *mini_pos[N_ACCUM]; // minimizer positions for each read
+	int64_t n_a[N_ACCUM]; // number of anchors from each read
+	uint64_t *u[N_ACCUM]; // scores for chains from each read
+	mm128_t *a[N_ACCUM]; // array of anchors from each read
+	void *km[N_ACCUM]; // memory pool for each read
+} mm_trbuf_t;
+
+#endif
 
 mm_tbuf_t *mm_tbuf_init(void)
 {
@@ -34,6 +59,27 @@ void *mm_tbuf_get_km(mm_tbuf_t *b)
 {
 	return b->km;
 }
+
+#if defined(__AMD_SPLIT_KERNELS__)
+mm_trbuf_t *mm_trbuf_init(void)
+{
+    mm_trbuf_t *tr;
+    tr = (mm_trbuf_t *)calloc(1, sizeof(mm_trbuf_t));
+	for (int iread=0; iread<N_ACCUM; iread++) {
+		if (!(mm_dbg_flag & 1)) tr->km[iread] = km_init();
+	}
+    return tr;
+}
+
+void mm_trbuf_destroy(mm_trbuf_t *tr)
+{
+    if (tr == 0) return;
+	for (int iread=0; iread<N_ACCUM; iread++) {
+		km_destroy(tr->km[iread]);
+	}
+    free (tr);
+}
+#endif
 
 static int mm_dust_minier(void *km, int n, mm128_t *a, int l_seq, const char *seq, int sdust_thres)
 {
@@ -229,6 +275,177 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 	return regs;
 }
 
+#if defined(__AMD_SPLIT_KERNELS__)
+void mm_map_seed(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname, int *rep_len, int *qlen_sum, int *n_mini_pos, uint64_t **mini_pos, int64_t *n_a, mm128_t **a, void *km)
+{
+	int i;
+	mm128_v mv = {0,0,0};
+	double *timers = b->timers;
+	double t1 = realtime();
+
+	for (i = 0, *qlen_sum = 0; i < n_segs; ++i)
+		*qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
+
+	if (*qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
+	if (opt->max_qlen > 0 && *qlen_sum > opt->max_qlen) return;
+
+	collect_minimizers(km, opt, mi, n_segs, qlens, seqs, &mv);
+	if (opt->q_occ_frac > 0.0f) mm_seed_mz_flt(km, &mv, opt->mid_occ, opt->q_occ_frac);
+	if (opt->flag & MM_F_HEAP_SORT) *a = collect_seed_hits_heap(km, opt, opt->mid_occ, mi, qname, &mv, *qlen_sum, n_a, rep_len, n_mini_pos, mini_pos);
+	else *a = collect_seed_hits(km, opt, opt->mid_occ, mi, qname, &mv, *qlen_sum, n_a, rep_len, n_mini_pos, mini_pos);
+
+	if (mm_dbg_flag & MM_DBG_PRINT_SEED) {
+		fprintf(stderr, "RS\t%d\n", *rep_len);
+		for (i = 0; i < *n_a; ++i)
+			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", mi->seq[(*a)[i].x<<1>>33].name, (int32_t)(*a)[i].x, "+-"[(*a)[i].x>>63], (int32_t)(*a)[i].y, (int32_t)((*a)[i].y>>32&0xff),
+					i == 0? 0 : ((int32_t)(*a)[i].y - (int32_t)(*a)[i-1].y) - ((int32_t)(*a)[i].x - (int32_t)(*a)[i-1].x));
+	}
+	kfree(km, mv.a);
+	timers[MM_TIME_SEED] += realtime() - t1;
+}
+
+void mm_map_chain(const mm_idx_t *mi, int n_segs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname, int *rep_len, int *frag_gap, int *qlen_sum, int *n_regs0, int *n_mini_pos, uint64_t **mini_pos, int64_t *n_a, uint64_t **u, mm128_t **a, void *km)
+{
+	int i;
+	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
+	mm128_v mv = {0,0,0};
+	float chn_pen_gap, chn_pen_skip;
+	double *timers = b->timers;
+	double t1 = realtime();
+
+	// set max chaining gap on the query and the reference sequence
+	if (is_sr)
+		max_chain_gap_qry = *qlen_sum > opt->max_gap? *qlen_sum : opt->max_gap;
+	else max_chain_gap_qry = opt->max_gap;
+	if (opt->max_gap_ref > 0) {
+		max_chain_gap_ref = opt->max_gap_ref; // always honor mm_mapopt_t::max_gap_ref if set
+	} else if (opt->max_frag_len > 0) {
+		max_chain_gap_ref = opt->max_frag_len - *qlen_sum;
+		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
+	} else max_chain_gap_ref = opt->max_gap;
+
+	chn_pen_gap  = opt->chain_gap_scale * 0.01 * mi->k;
+	chn_pen_skip = opt->chain_skip_scale * 0.01 * mi->k;
+	if (opt->flag & MM_F_RMQ) {
+		*a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+						  chn_pen_gap, chn_pen_skip, *n_a, *a, n_regs0, u, km);
+	} else {
+		*a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
+						 chn_pen_gap, chn_pen_skip, is_splice, n_segs, *n_a, *a, n_regs0, u, km);
+	}
+
+	if (opt->bw_long > opt->bw && (opt->flag & (MM_F_SPLICE|MM_F_SR|MM_F_NO_LJOIN)) == 0 && n_segs == 1 && *n_regs0 > 1) { // re-chain/long-join for long sequences
+		int32_t st = (int32_t)(*a)[0].y, en = (int32_t)(*a)[(int32_t)(*u)[0] - 1].y;
+		if (*qlen_sum - (en - st) > opt->rmq_rescue_size || en - st > *qlen_sum * opt->rmq_rescue_ratio) {
+			int32_t i;
+			for (i = 0, *n_a = 0; i < *n_regs0; ++i) *n_a += (int32_t)(*u)[i];
+			kfree(km, *u);
+			radix_sort_128x(*a, (*a) + *n_a);
+			*a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw_long, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+							  chn_pen_gap, chn_pen_skip, *n_a, *a, n_regs0, u, km);
+		}
+	} else if (opt->max_occ > opt->mid_occ && *rep_len > 0 && !(opt->flag & MM_F_RMQ)) { // re-chain, mostly for short reads
+		int rechain = 0;
+		if (*n_regs0 > 0) { // test if the best chain has all the segments
+			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
+			for (i = 0; i < *n_regs0; ++i) { // find the best chain
+				if (max < (int)((*u)[i]>>32)) max = (*u)[i]>>32, max_i = i, max_off = off;
+				off += (uint32_t)(*u)[i];
+			}
+			for (i = 1; i < (int32_t)(*u)[max_i]; ++i) // count the number of segments in the best chain
+				if (((*a)[max_off+i].y&MM_SEED_SEG_MASK) != ((*a)[max_off+i-1].y&MM_SEED_SEG_MASK))
+					++n_chained_segs;
+			if (n_chained_segs < n_segs)
+				rechain = 1;
+		} else rechain = 1;
+		if (rechain) { // redo chaining with a higher max_occ threshold
+			kfree(km, *a);
+			kfree(km, *u);
+			kfree(km, *mini_pos);
+			if (opt->flag & MM_F_HEAP_SORT) *a = collect_seed_hits_heap(km, opt, opt->max_occ, mi, qname, &mv, *qlen_sum, n_a, rep_len, n_mini_pos, mini_pos);
+			else *a = collect_seed_hits(km, opt, opt->max_occ, mi, qname, &mv, *qlen_sum, n_a, rep_len, n_mini_pos, mini_pos);
+			*a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
+							 chn_pen_gap, chn_pen_skip, is_splice, n_segs, *n_a, *a, n_regs0, u, km);
+			kfree(km, mv.a);
+		}
+	}
+	*frag_gap = max_chain_gap_ref;
+	timers[MM_TIME_CHAIN] += realtime() - t1;
+}
+
+void mm_map_align(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname, int rep_len, int frag_gap, int qlen_sum, int *n_regs0, int n_mini_pos, uint64_t **mini_pos, uint64_t *u, mm128_t *a, void **km_ptr)
+{
+	int i, j;
+	int max_chain_gap_ref = frag_gap;
+	int is_sr = !!(opt->flag & MM_F_SR);
+	uint32_t hash;
+	mm_reg1_t *regs0;
+	km_stat_t kmst;
+	double *timers = b->timers;
+	double t1 = realtime();
+	void *km = *km_ptr;
+
+	hash  = qname && !(opt->flag & MM_F_NO_HASH_NAME)? __ac_X31_hash_string(qname) : 0;
+	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
+	hash  = __ac_Wang_hash(hash);
+
+	regs0 = mm_gen_regs(km, hash, qlen_sum, *n_regs0, u, a, !!(opt->flag&MM_F_QSTRAND));
+	if (mi->n_alt) {
+		mm_mark_alt(mi, *n_regs0, regs0);
+		mm_hit_sort(km, n_regs0, regs0, opt->alt_drop); // this step can be merged into mm_gen_regs(); will do if this shows up in profile
+	}
+
+	if (mm_dbg_flag & (MM_DBG_PRINT_SEED|MM_DBG_PRINT_CHAIN))
+		for (j = 0; j < *n_regs0; ++j)
+			for (i = regs0[j].as; i < regs0[j].as + regs0[j].cnt; ++i)
+				fprintf(stderr, "CN\t%d\t%s\t%d\t%c\t%d\t%d\t%d\n", j, mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
+						i == regs0[j].as? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
+
+	chain_post(opt, max_chain_gap_ref, mi, km, qlen_sum, n_segs, qlens, n_regs0, regs0, a);
+	if (!is_sr && !(opt->flag&MM_F_QSTRAND)) {
+		mm_est_err(mi, qlen_sum, *n_regs0, regs0, a, n_mini_pos, *mini_pos);
+		*n_regs0 = mm_filter_strand_retained(*n_regs0, regs0);
+	}
+
+	if (n_segs == 1) { // uni-segment
+		regs0 = align_regs(opt, mi, km, qlens[0], seqs[0], n_regs0, regs0, a);
+		regs0 = (mm_reg1_t*)realloc(regs0, sizeof(*regs0) * *n_regs0);
+		mm_set_mapq(km, *n_regs0, regs0, opt->min_chain_score, opt->a, rep_len, is_sr);
+		n_regs[0] = *n_regs0, regs[0] = regs0;
+	} else { // multi-segment
+		mm_seg_t *seg;
+		seg = mm_seg_gen(km, hash, n_segs, qlens, *n_regs0, regs0, n_regs, regs, a); // split fragment chain to separate segment chains
+		free(regs0);
+		for (i = 0; i < n_segs; ++i) {
+			mm_set_parent(km, opt->mask_level, opt->mask_len, n_regs[i], regs[i], opt->a * 2 + opt->b, opt->flag&MM_F_HARD_MLEVEL, opt->alt_drop); // update mm_reg1_t::parent
+			regs[i] = align_regs(opt, mi, km, qlens[i], seqs[i], &n_regs[i], regs[i], seg[i].a);
+			mm_set_mapq(km, n_regs[i], regs[i], opt->min_chain_score, opt->a, rep_len, is_sr);
+		}
+		mm_seg_free(km, n_segs, seg);
+		if (n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
+			mm_pair(km, max_chain_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // pairing
+	}
+	timers[MM_TIME_ALIGN] += realtime() - t1;
+
+	kfree(km, a);
+	kfree(km, u);
+	kfree(km, *mini_pos);
+
+	if (km) {
+		km_stat(km, &kmst);
+		if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+			fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
+		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
+		if (kmst.largest > 1U<<28 || (opt->cap_kalloc > 0 && kmst.capacity > opt->cap_kalloc)) {
+			if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+				fprintf(stderr, "[W::%s] reset thread-local memory after read %s\n", __func__, qname);
+			km_destroy(km);
+			*km_ptr = km_init();
+		}
+	}
+}
+#endif
+
 void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
 	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
@@ -241,6 +458,8 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	mm_reg1_t *regs0;
 	km_stat_t kmst;
 	float chn_pen_gap, chn_pen_skip;
+	double *timers = b->timers;
+	double t1 = realtime();
 
 	for (i = 0, qlen_sum = 0; i < n_segs; ++i)
 		qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
@@ -263,7 +482,9 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			fprintf(stderr, "SD\t%s\t%d\t%c\t%d\t%d\t%d\n", mi->seq[a[i].x<<1>>33].name, (int32_t)a[i].x, "+-"[a[i].x>>63], (int32_t)a[i].y, (int32_t)(a[i].y>>32&0xff),
 					i == 0? 0 : ((int32_t)a[i].y - (int32_t)a[i-1].y) - ((int32_t)a[i].x - (int32_t)a[i-1].x));
 	}
+	timers[MM_TIME_SEED] += realtime() - t1;
 
+	t1 = realtime();
 	// set max chaining gap on the query and the reference sequence
 	if (is_sr)
 		max_chain_gap_qry = qlen_sum > opt->max_gap? qlen_sum : opt->max_gap;
@@ -321,7 +542,9 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	}
 	b->frag_gap = max_chain_gap_ref;
 	b->rep_len = rep_len;
+	timers[MM_TIME_CHAIN] += realtime() - t1;
 
+	t1 = realtime();
 	regs0 = mm_gen_regs(b->km, hash, qlen_sum, n_regs0, u, a, !!(opt->flag&MM_F_QSTRAND));
 	if (mi->n_alt) {
 		mm_mark_alt(mi, n_regs0, regs0);
@@ -358,6 +581,7 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 		if (n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR))
 			mm_pair(b->km, max_chain_gap_ref, opt->pe_bonus, opt->a * 2 + opt->b, opt->a, qlens, n_regs, regs); // pairing
 	}
+	timers[MM_TIME_ALIGN] += realtime() - t1;
 
 	kfree(b->km, mv.a);
 	kfree(b->km, a);
@@ -409,8 +633,157 @@ typedef struct {
 	int *n_reg, *seg_off, *n_seg, *rep_len, *frag_gap;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
+#if defined(__AMD_SPLIT_KERNELS__)
+    mm_trbuf_t **trbuf;
+#endif
 } step_t;
 
+inline double MIN(double a, double b)
+{
+	return ((a)<(b)?(a):(b));
+}
+inline double MAX(double a, double b)
+{
+	return ((a)>(b)?(a):(b));
+}
+
+// consolidate timers from worker threads
+void mm_consolidate_timers(step_t *s, pipeline_t *p)
+{
+	// Initialize with first thread's timers
+	mm_time_seed_min = s->buf[0]->timers[MM_TIME_SEED];
+	mm_time_seed_max = s->buf[0]->timers[MM_TIME_SEED];
+	mm_time_seed_avg = s->buf[0]->timers[MM_TIME_SEED];
+	mm_time_chain_min = s->buf[0]->timers[MM_TIME_CHAIN];
+	mm_time_chain_max = s->buf[0]->timers[MM_TIME_CHAIN];
+	mm_time_chain_avg = s->buf[0]->timers[MM_TIME_CHAIN];
+	mm_time_align_min = s->buf[0]->timers[MM_TIME_ALIGN];
+	mm_time_align_max = s->buf[0]->timers[MM_TIME_ALIGN];
+	mm_time_align_avg = s->buf[0]->timers[MM_TIME_ALIGN];
+	for (int i = 1; i < p->n_threads; ++i) {
+		mm_time_seed_min = MIN(mm_time_seed_min, s->buf[i]->timers[MM_TIME_SEED]);
+		mm_time_chain_min = MIN(mm_time_chain_min, s->buf[i]->timers[MM_TIME_CHAIN]);
+		mm_time_align_min = MIN(mm_time_align_min, s->buf[i]->timers[MM_TIME_ALIGN]);
+		mm_time_seed_max = MAX(mm_time_seed_max, s->buf[i]->timers[MM_TIME_SEED]);
+		mm_time_chain_max = MAX(mm_time_chain_max, s->buf[i]->timers[MM_TIME_CHAIN]);
+		mm_time_align_max = MAX(mm_time_align_max, s->buf[i]->timers[MM_TIME_ALIGN]);
+		mm_time_seed_avg += s->buf[i]->timers[MM_TIME_SEED];
+		mm_time_chain_avg += s->buf[i]->timers[MM_TIME_CHAIN];
+		mm_time_align_avg += s->buf[i]->timers[MM_TIME_ALIGN];
+	}
+	mm_time_seed_sum = mm_time_seed_avg;
+	mm_time_chain_sum = mm_time_chain_avg;
+	mm_time_align_sum = mm_time_align_avg;
+	mm_time_seed_avg /= p->n_threads;
+	mm_time_chain_avg /= p->n_threads;
+	mm_time_align_avg /= p->n_threads;
+}
+
+
+#if defined(__AMD_SPLIT_KERNELS__)
+static void worker_for(void *_data, long i, int tid) // kt_for() callback
+{
+	step_t *s = (step_t*)_data;
+	int j, iread, off, pe_ori = s->p->opt->pe_ori;
+	double t = 0.0;
+	mm_tbuf_t *b = s->buf[tid];
+	mm_trbuf_t *tr = s->trbuf[tid];
+
+	// Check if this is a valid read
+	if (i != -1) {
+
+		off = s->seg_off[i];
+		iread = tr->count;
+		tr->i[iread] = i;
+		tr->count++;
+
+		assert(s->n_seg[i] <= MM_MAX_SEG);
+		if (mm_dbg_flag & MM_DBG_PRINT_QNAME) {
+			fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[off].name, tid, s->seq[off].l_seq);
+			t = realtime();
+		}
+
+		tr->qlens[iread] = (int *) malloc (s->n_seg[i] * sizeof(int));
+		tr->qseqs[iread] = (const char **) malloc (s->n_seg[i] * sizeof(const char *));
+		for (j = 0; j < s->n_seg[i]; ++j) {
+			if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
+				mm_revcomp_bseq(&s->seq[off + j]);
+			tr->qlens[iread][j] = s->seq[off + j].l_seq;
+			tr->qseqs[iread][j] = s->seq[off + j].seq;
+		}
+		// Seed
+		if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
+			for (j = 0; j < s->n_seg[i]; ++j) {
+				mm_map_seed(s->p->mi, 1, &tr->qlens[iread][j], &tr->qseqs[iread][j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name, &tr->rep_len[iread], &tr->qlen_sum[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->a[iread], tr->km[iread]);
+			}
+		} else {
+			mm_map_seed(s->p->mi, s->n_seg[i], tr->qlens[iread], tr->qseqs[iread], &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name, &tr->rep_len[iread], &tr->qlen_sum[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->a[iread], tr->km[iread]);
+		}
+	}
+
+	// Did we accumulate N_ACCUM reads or get to the last batch of reads?
+	if (tr->count == N_ACCUM || i == -1 ) {
+		// Chain
+		for (iread=0; iread<tr->count; iread++) {
+			i = tr->i[iread];
+			off = s->seg_off[i];
+			if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
+				for (j = 0; j < s->n_seg[i]; ++j) {
+					mm_map_chain(s->p->mi, 1, &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name, &tr->rep_len[iread], &tr->frag_gap[iread], &tr->qlen_sum[iread], &tr->n_regs0[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->u[iread], &tr->a[iread], tr->km[iread]);
+					s->rep_len[off + j] = tr->rep_len[iread];
+					s->frag_gap[off + j] = tr->frag_gap[iread];
+				}
+			} else {
+				mm_map_chain(s->p->mi, s->n_seg[i], &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name, &tr->rep_len[iread], &tr->frag_gap[iread], &tr->qlen_sum[iread], &tr->n_regs0[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->u[iread], &tr->a[iread], tr->km[iread]);
+				for (j = 0; j < s->n_seg[i]; ++j) {
+					s->rep_len[off + j] = tr->rep_len[iread];
+					s->frag_gap[off + j] = tr->frag_gap[iread];
+				}
+			}
+		}
+
+		// Align
+		for (iread=0; iread<tr->count; iread++) {
+			i = tr->i[iread];
+			off = s->seg_off[i];
+			if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
+				for (j = 0; j < s->n_seg[i]; ++j) {
+					mm_map_align(s->p->mi, 1, &tr->qlens[iread][j], &tr->qseqs[iread][j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name, tr->rep_len[iread], tr->frag_gap[iread], tr->qlen_sum[iread], &tr->n_regs0[iread], tr->n_mini_pos[iread], &tr->mini_pos[iread], tr->u[iread], tr->a[iread], &tr->km[iread]);
+				}
+			} else {
+				mm_map_align(s->p->mi, s->n_seg[i], tr->qlens[iread], tr->qseqs[iread], &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name, tr->rep_len[iread], tr->frag_gap[iread], tr->qlen_sum[iread], &tr->n_regs0[iread], tr->n_mini_pos[iread], &tr->mini_pos[iread], tr->u[iread], tr->a[iread], &tr->km[iread]);
+			}
+		}
+
+		for (iread=0; iread<tr->count; iread++) {
+			i = tr->i[iread];
+			off = s->seg_off[i];
+			pe_ori = s->p->opt->pe_ori;
+			for (j = 0; j < s->n_seg[i]; ++j) {// flip the query strand and coordinate to the original read strand
+				if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
+					int k, t;
+					mm_revcomp_bseq(&s->seq[off + j]);
+					for (k = 0; k < s->n_reg[off + j]; ++k) {
+						mm_reg1_t *r = &s->reg[off + j][k];
+						t = r->qs;
+						r->qs = tr->qlens[iread][j] - r->qe;
+						r->qe = tr->qlens[iread][j] - t;
+						r->rev = !r->rev;
+					}
+				}
+			}
+			if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+				fprintf(stderr, "QT\t%s\t%d\t%.6f\n", s->seq[off].name, tid, realtime() - t);
+		}
+
+		// reset tr->count
+		tr->count = 0;
+	}
+	// else continue to fetch another read to process
+}
+#endif
+
+#ifndef __AMD_SPLIT_KERNELS__
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
     step_t *s = (step_t*)_data;
@@ -457,6 +830,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 		fprintf(stderr, "QT\t%s\t%d\t%.6f\n", s->seq[off].name, tid, realtime() - t);
 }
+#endif
 
 static void merge_hits(step_t *s)
 {
@@ -542,6 +916,12 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->buf = (mm_tbuf_t**)calloc(p->n_threads, sizeof(mm_tbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->buf[i] = mm_tbuf_init();
+#if defined(__AMD_SPLIT_KERNELS__)
+			s->trbuf = (mm_trbuf_t**)calloc(p->n_threads, sizeof(mm_trbuf_t*));
+			for (i = 0; i < p->n_threads; ++i)
+				s->trbuf[i] = mm_trbuf_init();
+#endif
+
 			s->n_reg = (int*)calloc(5 * s->n_seq, sizeof(int));
 			s->seg_off = s->n_reg + s->n_seq; // seg_off, n_seg, rep_len and frag_gap are allocated together with n_reg
 			s->n_seg = s->seg_off + s->n_seq;
@@ -562,10 +942,17 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		return in;
     } else if (step == 2) { // step 2: output
 		void *km = 0;
-        step_t *s = (step_t*)in;
+		step_t *s = (step_t*)in;
 		const mm_idx_t *mi = p->mi;
+		// consolidate timers from threads
+		mm_consolidate_timers (s, p);
 		for (i = 0; i < p->n_threads; ++i) mm_tbuf_destroy(s->buf[i]);
 		free(s->buf);
+#if defined(__AMD_SPLIT_KERNELS__)
+		for (i = 0; i < p->n_threads; ++i) mm_trbuf_destroy(s->trbuf[i]);
+		free(s->trbuf);
+#endif
+
 		if ((p->opt->flag & MM_F_OUT_CS) && !(mm_dbg_flag & MM_DBG_NO_KALLOC)) km = km_init();
 		for (k = 0; k < s->n_frag; ++k) {
 			int seg_st = s->seg_off[k], seg_en = s->seg_off[k] + s->n_seg[k];

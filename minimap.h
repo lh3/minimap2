@@ -61,6 +61,8 @@
 
 #define MM_CIGAR_STR  "MIDNSHP=XB"
 
+#define MM_N_THR_TIMERS 8
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -194,6 +196,25 @@ typedef struct mm_tbuf_s mm_tbuf_t;
 // global variables
 extern int mm_verbose, mm_dbg_flag; // verbose level: 0 for no info, 1 for error, 2 for warning, 3 for message (default); debugging flag
 extern double mm_realtime0; // wall-clock timer
+
+typedef enum {
+    MM_TIME_SEED=0,
+    MM_TIME_CHAIN,
+    MM_TIME_ALIGN
+} mm_thr_timer_t;
+
+extern double mm_time_seed_min; // timer for seeding (min for all threads)
+extern double mm_time_seed_max; // timer for seeding (max for all threads)
+extern double mm_time_seed_avg; // timer for seeding (avg of all threads)
+extern double mm_time_seed_sum; // timer for seeding (sum of all threads)
+extern double mm_time_chain_min; // timer for chaining (min for all threads)
+extern double mm_time_chain_max; // timer for chaining (max for all threads)
+extern double mm_time_chain_avg; // timer for chaining (avg of all threads)
+extern double mm_time_chain_sum; // timer for chaining (sum of all threads)
+extern double mm_time_align_min; // timer for alignment (min for all threads)
+extern double mm_time_align_max; // timer for alignment (max for all threads)
+extern double mm_time_align_avg; // timer for alignment (avg of all threads)
+extern double mm_time_align_sum; // timer for alignment (sum of all threads)
 
 /**
  * Set default or preset parameters

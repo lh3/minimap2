@@ -4,6 +4,18 @@
 int mm_verbose = 1;
 int mm_dbg_flag = 0;
 double mm_realtime0;
+double mm_time_seed_min;
+double mm_time_seed_max;
+double mm_time_seed_avg;
+double mm_time_seed_sum;
+double mm_time_chain_min;
+double mm_time_chain_max;
+double mm_time_chain_avg;
+double mm_time_chain_sum;
+double mm_time_align_min;
+double mm_time_align_max;
+double mm_time_align_avg;
+double mm_time_align_sum;
 
 #if defined(WIN32) || defined(_WIN32)
 #include <windows.h>

@@ -454,6 +454,18 @@ int main(int argc, char *argv[])
 		for (i = 0; i < argc; ++i)
 			fprintf(stderr, " %s", argv[i]);
 		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec; Peak RSS: %.3f GB\n", __func__, realtime() - mm_realtime0, cputime(), peakrss() / 1024.0 / 1024.0 / 1024.0);
+		fprintf(stderr, "----------------------------------------------------\n");
+		fprintf(stderr, "              Min (sec)  Max (sec)  Avg (sec)  \n");
+		fprintf(stderr, "----------------------------------------------------\n");
+		fprintf(stderr, "Seed    = %11.3f %11.3f %11.3f\n",
+			    mm_time_seed_min, mm_time_seed_max, mm_time_seed_avg);
+		fprintf(stderr, "Chain   = %11.3f %11.3f %11.3f\n",
+			    mm_time_chain_min, mm_time_chain_max, mm_time_chain_avg);
+		fprintf(stderr, "Align   = %11.3f %11.3f %11.3f\n",
+			    mm_time_align_min, mm_time_align_max, mm_time_align_avg);
+		fprintf(stderr, "----------------------------------------------------\n");
+		fprintf(stderr, "Avg (seed + chain + align) per thread = %.3f secs\n", (mm_time_seed_sum + mm_time_chain_sum + mm_time_align_sum)/(double)n_threads);
+		fprintf(stderr, "Total (seed + chain + align) for %d thread(s) = %.3f secs\n", n_threads, (mm_time_seed_sum + mm_time_chain_sum + mm_time_align_sum));
 	}
 	return 0;
 }
