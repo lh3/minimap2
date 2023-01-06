@@ -3022,7 +3022,6 @@ function paf_misjoin(args)
 	function test_cen_point(cen, chr, x) {
 		var b = cen[chr];
 		if (b == null) return false;
-		print(x, b[0][0], b[0][1]);
 		for (var j = 0; j < b.length; ++j)
 			if (x >= b[j][0] && x < b[j][1])
 				return true;
