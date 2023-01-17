@@ -7,7 +7,7 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.24-r1150-dirty"
+#define MM_VERSION "2.24-r1155-dirty"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -262,7 +262,8 @@ int main(int argc, char *argv[])
 		} else if (c == 326) { // --dual
 			yes_or_no(&opt, MM_F_NO_DUAL, o.longidx, o.arg, 0);
 		} else if (c == 347) { // --rmq
-			yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
+			if (o.arg) yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
+			else opt.flag |= MM_F_RMQ;
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)
