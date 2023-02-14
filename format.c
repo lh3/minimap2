@@ -119,6 +119,7 @@ int mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int a
 {
 	kstring_t str = {0,0,0};
 	int ret = 0;
+	mm_sprintf_lite(&str, "@HD\tVN:1.6\tSO:unsorted\tGO:query\n");
 	if (idx) {
 		uint32_t i;
 		for (i = 0; i < idx->n_seq; ++i)
