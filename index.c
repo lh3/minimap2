@@ -161,6 +161,28 @@ int mm_idx_getseq(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, ui
 	return en - st;
 }
 
+int mm_idx_getseq_rev(const mm_idx_t *mi, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq)
+{
+	uint64_t i, st1, en1;
+	const mm_idx_seq_t *s;
+	if (rid >= mi->n_seq || st >= mi->seq[rid].len) return -1;
+	s = &mi->seq[rid];
+	if (en > s->len) en = s->len;
+	st1 = s->offset + (s->len - en);
+	en1 = s->offset + (s->len - st);
+	for (i = st1; i < en1; ++i) {
+		uint8_t c = mm_seq4_get(mi->S, i);
+		seq[en1 - i - 1] = c < 4? 3 - c : c;
+	}
+	return en - st;
+}
+
+int mm_idx_getseq2(const mm_idx_t *mi, int is_rev, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq)
+{
+	if (is_rev) return mm_idx_getseq_rev(mi, rid, st, en, seq);
+	else return mm_idx_getseq(mi, rid, st, en, seq);
+}
+
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 {
 	int i;
@@ -336,7 +358,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		for (i = 0; i < s->n_seq; ++i) {
 			mm_bseq1_t *t = &s->seq[i];
 			if (t->l_seq > 0)
-				mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a);
+				mm_sketch2(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, p->mi->flag&MM_I_SYNCMER, &s->a);
 			else if (mm_verbose >= 2)
 				fprintf(stderr, "[WARNING] the length database sequence '%s' is 0\n", t->name);
 			free(t->seq); free(t->name);
@@ -424,7 +446,7 @@ mm_idx_t *mm_idx_str(int w, int k, int is_hpc, int bucket_bits, int n, const cha
 		sum_len += p->len;
 		if (p->len > 0) {
 			a.n = 0;
-			mm_sketch(0, s, p->len, w, k, i, is_hpc, &a);
+			mm_sketch2(0, s, p->len, w, k, i, is_hpc, 0, &a); // TODO: mm_idx_str() doesn't support syncmer
 			mm_idx_add(mi, a.n, a.a);
 		}
 	}
@@ -654,7 +676,7 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn, int read_junc
 		char *p, *q, *bl, *bs;
 		int32_t i, id = -1, n_blk = 0;
 		for (p = q = str.s, i = 0;; ++p) {
-			if (*p == 0 || isspace(*p)) {
+			if (*p == 0 || *p == '\t') {
 				int32_t c = *p;
 				*p = 0;
 				if (i == 0) { // chr

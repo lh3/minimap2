@@ -159,3 +159,4 @@ KRADIX_SORT_INIT(128x, mm128_t, sort_key_128x, 8)
 KRADIX_SORT_INIT(64, uint64_t, sort_key_64, 8)
 
 KSORT_INIT_GENERIC(uint32_t)
+KSORT_INIT_GENERIC(uint64_t)
