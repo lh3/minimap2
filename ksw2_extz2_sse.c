@@ -269,7 +269,7 @@ void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			} else H[0] = v8[0] - qe - qe, max_H = H[0], max_t = 0; // special casing r==0
 			// update ez
 			if (en0 == tlen - 1 && H[en0] > ez->mte)
-				ez->mte = H[en0], ez->mte_q = r - en;
+				ez->mte = H[en0], ez->mte_q = r - en0;
 			if (r - st0 == qlen - 1 && H[st0] > ez->mqe)
 				ez->mqe = H[st0], ez->mqe_t = st0;
 			if (ksw_apply_zdrop(ez, 1, max_H, r, max_t, zdrop, e)) break;
