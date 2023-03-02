@@ -330,7 +330,8 @@ void mm_map_chain(const mm_idx_t *mi, int n_segs, int *n_regs, mm_reg1_t **regs,
 		*a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
 						  chn_pen_gap, chn_pen_skip, *n_a, *a, n_regs0, u, km);
 	} else {
-		*a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
+		*a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip,\
+						 opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
 						 chn_pen_gap, chn_pen_skip, is_splice, n_segs, *n_a, *a, n_regs0, u, km);
 	}
 
@@ -712,6 +713,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 			tr->qseqs[iread][j] = s->seq[off + j].seq;
 		}
 		// Seed
+		// TODO: copy anchors to GPU 
 		if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
 			for (j = 0; j < s->n_seg[i]; ++j) {
 				mm_map_seed(s->p->mi, 1, &tr->qlens[iread][j], &tr->qseqs[iread][j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name, &tr->rep_len[iread], &tr->qlen_sum[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->a[iread], tr->km[iread]);
@@ -724,6 +726,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	// Did we accumulate N_ACCUM reads or get to the last batch of reads?
 	if (tr->count == N_ACCUM || i == -1 ) {
 		// Chain
+		// TODO: offload chaining to GPU
 		for (iread=0; iread<tr->count; iread++) {
 			i = tr->i[iread];
 			off = s->seg_off[i];
@@ -920,6 +923,8 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			s->trbuf = (mm_trbuf_t**)calloc(p->n_threads, sizeof(mm_trbuf_t*));
 			for (i = 0; i < p->n_threads; ++i)
 				s->trbuf[i] = mm_trbuf_init();
+			// TODO: initialize GPU infrastructures
+			// TODO: need a data structure to remember all the memptrs 
 #endif
 
 			s->n_reg = (int*)calloc(5 * s->n_seq, sizeof(int));
