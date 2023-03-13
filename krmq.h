@@ -342,16 +342,17 @@ int main(void) {
 
 #define __KRMQ_ITR(suf, __scope, __type, __head, __cmp) \
 	struct krmq_itr_##suf { \
-		const __type *stack[KRMQ_MAX_DEPTH], **top; \
+		/* first element is a sentinel, not for use */ \
+		const __type *stack[1 + KRMQ_MAX_DEPTH], **top; \
 	}; \
 	__scope void krmq_itr_first_##suf(const __type *root, struct krmq_itr_##suf *itr) { \
 		const __type *p; \
-		for (itr->top = itr->stack - 1, p = root; p; p = p->__head.p[0]) \
+		for (itr->top = itr->stack, p = root; p; p = p->__head.p[0]) \
 			*++itr->top = p; \
 	} \
 	__scope int krmq_itr_find_##suf(const __type *root, const __type *x, struct krmq_itr_##suf *itr) { \
 		const __type *p = root; \
-		itr->top = itr->stack - 1; \
+		itr->top = itr->stack; \
 		while (p != 0) { \
 			int cmp; \
 			*++itr->top = p; \
@@ -364,7 +365,7 @@ int main(void) {
 	} \
 	__scope int krmq_itr_next_bidir_##suf(struct krmq_itr_##suf *itr, int dir) { \
 		const __type *p; \
-		if (itr->top < itr->stack) return 0; \
+		if (itr->top == itr->stack) return 0; \
 		dir = !!dir; \
 		p = (*itr->top)->__head.p[dir]; \
 		if (p) { /* go down */ \
@@ -374,8 +375,8 @@ int main(void) {
 		} else { /* go up */ \
 			do { \
 				p = *itr->top--; \
-			} while (itr->top >= itr->stack && p == (*itr->top)->__head.p[dir]); \
-			return itr->top < itr->stack? 0 : 1; \
+			} while (itr->top > itr->stack && p == (*itr->top)->__head.p[dir]); \
+			return itr->top == itr->stack? 0 : 1; \
 		} \
 	} \
 
@@ -458,7 +459,7 @@ int main(void) {
  *
  * @return pointer if present; NULL otherwise
  */
-#define krmq_at(itr) ((itr)->top < (itr)->stack? 0 : *(itr)->top)
+#define krmq_at(itr) ((itr)->top == (itr)->stack? 0 : *(itr)->top)
 
 #define KRMQ_INIT2(suf, __scope, __type, __head, __cmp, __lt2) \
 	__KRMQ_FIND(suf, __scope, __type, __head,  __cmp) \
