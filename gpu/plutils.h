@@ -85,10 +85,10 @@ extern "C" {
 
 // <plchain.cu> gpu chaining methods
 // initialization and cleanup
-void init_blocking_gpu(size_t *max_total_n, size_t *max_reads,
-                       size_t *min_n, Misc misc);  // for blocking_gpu
-void init_stream_gpu(size_t *max_total_n, size_t *max_reads,
-                     size_t *min_n, Misc misc);  // for stream_gpu
+void init_blocking_gpu(size_t *max_total_n, int *max_reads,
+                       int *min_n, Misc misc);  // for blocking_gpu
+void init_stream_gpu(size_t *max_total_n, int *max_reads,
+                     int *min_n, Misc misc);  // for stream_gpu
 void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **batches,
                         int *num_reads, int num_batch, void *km);  // for stream_gpu
 // chaining method

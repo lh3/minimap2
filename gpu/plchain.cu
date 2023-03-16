@@ -465,11 +465,11 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 extern "C" {
 #endif  // __cplusplus
 
-void init_blocking_gpu(size_t* total_n, size_t* max_reads, size_t *min_n, Misc misc) {
+void init_blocking_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
     plmem_initialize(total_n, max_reads, min_n);
 }
 
-void init_stream_gpu(size_t* total_n, size_t* max_reads, size_t *min_n, Misc misc) {
+void init_stream_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
     fprintf(stderr, "[M::%s] gpu initialized for chaining\n", __func__);
     plmem_stream_initialize(total_n, max_reads, min_n);
     plrange_upload_misc(misc);

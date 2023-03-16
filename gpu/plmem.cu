@@ -284,8 +284,8 @@ void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_, size_t m
 
 template <bool is_blooking = false>
 void plmem_config_batch(cJSON *json, int *num_stream_,
-                         size_t *min_n_, size_t *max_total_n_,
-                         size_t *max_read_) {
+                         int *min_n_, size_t *max_total_n_,
+                         int *max_read_) {
     if (is_blooking) 
         *num_stream_ = 16;
     else
@@ -352,8 +352,8 @@ void plmem_config_batch(cJSON *json, int *num_stream_,
 }
 
 // intialize and config kernels for gpu blocking setup
-void plmem_initialize(size_t *max_total_n_, size_t *max_read_,
-                      size_t *min_anchors_) {
+void plmem_initialize(size_t *max_total_n_, int *max_read_,
+                      int *min_anchors_) {
     cJSON *json = plmem_parse_gpu_config("gpu_config.json");
     plmem_config_kernels(json);
     int num_streams;
@@ -363,7 +363,7 @@ void plmem_initialize(size_t *max_total_n_, size_t *max_read_,
 
 // initialize global variable stream_setup
 void plmem_stream_initialize(size_t *max_total_n_,
-                             size_t *max_read_, size_t *min_anchors_) {
+                             int *max_read_, int *min_anchors_) {
 
     int num_stream;
     size_t max_anchors_stream, max_range_grid, max_num_cut;

@@ -83,8 +83,8 @@ extern streamSetup_t stream_setup;
 
 /* memory management methods */
 // initialization and cleanup
-void plmem_initialize(size_t *max_total_n, size_t *max_read, size_t *min_n);
-void plmem_stream_initialize(size_t *max_total_n, size_t *max_read, size_t *min_n);
+void plmem_initialize(size_t *max_total_n, int *max_read, int *min_n);
+void plmem_stream_initialize(size_t *max_total_n, int *max_read, int *min_n);
 void plmem_stream_cleanup();
 
 // alloc and free

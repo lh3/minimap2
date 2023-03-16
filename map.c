@@ -912,7 +912,11 @@ void mm_trbuf_is_full(mm_trbuf_t* tr, step_t *s){
 
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
 {
-	step_t *s = (step_t*)_data;
+	// DEBUG:
+	if (i == -1) {
+        fprintf(stderr, "worker_for called with -1\n");
+    }
+    step_t *s = (step_t*)_data;
 	int j, iread, off, pe_ori = s->p->opt->pe_ori;
 	double t = 0.0;
 	mm_tbuf_t *b = s->buf[tid];
@@ -1259,18 +1263,6 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				s->buf[i] = mm_tbuf_init();
 #if defined(__AMD_SPLIT_KERNELS__)
 			s->trbuf = (mm_trbuf_t**)calloc(p->n_threads, sizeof(mm_trbuf_t*));
-			if (p->opt->flag & MM_F_GPU_CHAIN){
-				// TODO: make misc different for each ream
-				Misc misc = build_misc(s->p->mi, s->p->opt, 0, 1);
-				init_stream_gpu(&s->batch_max_anchors, &s->batch_max_reads, &s->gpu_min_n, misc);
-				// TODO: initialize GPU infrastructures
-				// TODO: need a data structure to remember all the memptrs 
-			} else {
-                s->batch_max_anchors = SIZE_MAX;
-                s->batch_max_reads = N_ACCUM;
-            }
-            for (i = 0; i < p->n_threads; ++i)
-				s->trbuf[i] = mm_trbuf_init(s->batch_max_reads, p->opt);
 #endif
 
 			s->n_reg = (int*)calloc(5 * s->n_seq, sizeof(int));
@@ -1288,6 +1280,21 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			return s;
 		} else free(s);
     } else if (step == 1) { // step 1: map
+#if defined(__AMD_SPLIT_KERNELS__)
+        step_t *s = (step_t *)in;
+        if (p->opt->flag & MM_F_GPU_CHAIN) {
+            // TODO: make misc different for each ream
+			Misc misc = build_misc(p->mi, p->opt, 0, 1);
+			init_stream_gpu(&s->batch_max_anchors, &s->batch_max_reads, & s->gpu_min_n, misc);
+			// TODO: initialize GPU infrastructures
+			// TODO: need a data structure to remember all the memptrs
+        } else {
+            s->batch_max_anchors = SIZE_MAX;
+            s->batch_max_reads = N_ACCUM;
+        }
+        for (i = 0; i < p->n_threads; ++i)
+            s->trbuf[i] = mm_trbuf_init(s->batch_max_reads, p->opt);
+#endif
 		if (p->n_parts > 0) merge_hits((step_t*)in);
 		else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
 		return in;
