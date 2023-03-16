@@ -4,8 +4,12 @@
 #include <string.h>
 #include <time.h>
 
-#include "plchain.cuh"
+
 #include "mmpriv.h"
+#include "plmem.cuh"
+#include "plrange.cuh"
+#include "plscore.cuh"
+#include "plchain.h"
 
 /**
  * translate relative predecessor index to abs index 
@@ -21,37 +25,6 @@ void p_rel2idx(const uint16_t* rel, int64_t* p, size_t n) {
         else
             p[i] = i - rel[i];
     }
-}
-
-/**
- * Build chaining misc from opt
- */
-Misc build_misc(int64_t qlen_sum) {
-    Misc misc;
-    if (opt.flag & MM_F_SR)
-        misc.max_dist_y = qlen_sum > opt.max_gap ? qlen_sum : opt.max_gap;
-    else
-        misc.max_dist_y = opt.max_gap;
-    if (opt.max_gap_ref > 0) {
-        misc.max_dist_x =
-            opt.max_gap_ref;  // always honor mm_mapopt_t::max_gap_ref if set
-    } else if (opt.max_frag_len > 0) {
-        misc.max_dist_x = opt.max_frag_len - qlen_sum;
-        if (misc.max_dist_x < opt.max_gap) misc.max_dist_x = opt.max_gap;
-    } else
-        misc.max_dist_x = opt.max_gap;
-
-    misc.chn_pen_gap = opt.chain_gap_scale * 0.01 * opt.k;
-    misc.chn_pen_skip = opt.chain_skip_scale * 0.01 * opt.k;
-
-    misc.max_iter = opt.max_chain_iter;
-    misc.max_skip = opt.max_chain_skip;
-    misc.bw = opt.bw;
-    misc.min_cnt = opt.min_cnt;
-    misc.min_score = opt.min_chain_score;
-    misc.is_cdna = !!(opt.flag & MM_F_SPLICE);
-    misc.n_seg = 1;
-    return misc;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -212,20 +185,19 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f,
     return u;
 }
 
-void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
+void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, void* km){
     int max_drop = misc.bw;
     if (misc.max_dist_x < misc.bw) misc.max_dist_x = misc.bw;
     if (misc.max_dist_y < misc.bw && !misc.is_cdna) misc.max_dist_y = misc.bw;
     if (misc.is_cdna) max_drop = INT32_MAX;
 
-    size_t total_n = host_mem->total_n;
     size_t n_read = host_mem->size;
 
     uint16_t* p_hostmem = host_mem->p;
     int32_t* f = host_mem->f;
     for (int i = 0; i < n_read; i++) {
         int64_t* p;
-        KMALLOC(reads[i].km, p, reads[i].n);
+        KMALLOC(km, p, reads[i].n);
         p_rel2idx(p_hostmem, p, reads[i].n);
 #ifdef DEBUG_VERBOSE
         debug_print_score(p, f, reads[i].n);
@@ -238,13 +210,13 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
         uint64_t* u;
         int32_t* v;
         int32_t n_u, n_v;
-        u = mg_chain_backtrack(reads[i].km, reads[i].n, f, p, &v, misc.min_cnt,
+        u = mg_chain_backtrack(km, reads[i].n, f, p, &v, misc.min_cnt,
                                misc.min_score, max_drop, &n_u, &n_v);
         reads[i].u = u;
         reads[i].n_u = n_u;
-        kfree(reads[i].km, p);
+        kfree(km, p);
         if (n_u == 0) {
-            kfree(reads[i].km, reads[i].a);
+            kfree(km, reads[i].a);
             reads[i].a = 0;
 
             f += reads[i].n;
@@ -252,7 +224,7 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
             continue;
         }
 
-        mm128_t* new_a = compact_a(reads[i].km, n_u, u, n_v, v, reads[i].a);
+        mm128_t* new_a = compact_a(km, n_u, u, n_v, v, reads[i].a);
         reads[i].a = new_a;
 
         f += reads[i].n;
@@ -260,7 +232,7 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
     }
 }
 
-void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc) { 
+void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc, void* km) { 
     hostMemPtr host_mem;
     deviceMemPtr dev_mem;
 
@@ -293,7 +265,7 @@ void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc) {
     plscore_sync_naive_forward_dp(&dev_mem, misc);
     plmem_sync_d2h_memcpy(&host_mem, &dev_mem);
 
-    plchain_backtracking(&host_mem, reads, misc);
+    plchain_backtracking(&host_mem, reads, misc, km);
 
     plmem_free_host_mem(&host_mem);
     plmem_free_device_mem(&dev_mem);
@@ -331,7 +303,7 @@ int plchain_schedule_stream(const streamSetup_t stream_setup, const int batchid)
     return streamid;
 }
 
-void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int batchid){
+void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int batchid, void* km){
     chain_read_t* reads = *reads_;
     *reads_ = NULL;
     int n_read = *n_read_;
@@ -341,7 +313,7 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
     if (stream_setup.streams[stream_id].busy) {
         // cleanup previous batch in the stream
         plchain_backtracking(&stream_setup.streams[stream_id].host_mem,
-                             stream_setup.streams[stream_id].reads, misc);
+                             stream_setup.streams[stream_id].reads, misc, km);
         *reads_ = stream_setup.streams[stream_id].reads;
         *n_read_ = stream_setup.streams[stream_id].host_mem.size;
         stream_setup.streams[stream_id].busy = false;
@@ -360,12 +332,12 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
         cut_num += (reads[i].n - 1) / an_p_cut + 1;
     }
     if (stream_setup.max_anchors_stream < total_n){
-        fprintf(stderr, "max_anchors_stream %d total_n %d n_read %d\n",
+        fprintf(stderr, "max_anchors_stream %lu total_n %lu n_read %d\n",
                 stream_setup.max_anchors_stream, total_n, n_read);
     }
 
     if (stream_setup.max_range_grid < griddim) {
-        fprintf(stderr, "max_range_grid %d griddim %d, total_n %d n_read %d\n",
+        fprintf(stderr, "max_range_grid %d griddim %d, total_n %lu n_read %d\n",
                 stream_setup.max_range_grid, griddim, total_n, n_read);
     }
 
@@ -393,7 +365,7 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
 }
 
 
-void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int thread_id){
+void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int thread_id, void* km){
     chain_read_t* reads = *reads_;
     *reads_ = NULL;
     int n_read = *n_read_;
@@ -438,7 +410,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 #endif
         // cleanup previous batch in the stream
         plchain_backtracking(&stream_setup.streams[stream_id].host_mem,
-                                stream_setup.streams[stream_id].reads, misc);
+                                stream_setup.streams[stream_id].reads, misc, km);
         *reads_ = stream_setup.streams[stream_id].reads;
         *n_read_ = stream_setup.streams[stream_id].host_mem.size;
         stream_setup.streams[stream_id].busy = false;
@@ -457,12 +429,12 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         cut_num += (reads[i].n - 1) / an_p_cut + 1;
     }
     if (stream_setup.max_anchors_stream < total_n){
-        fprintf(stderr, "max_anchors_stream %d total_n %d n_read %d\n",
+        fprintf(stderr, "max_anchors_stream %lu total_n %lu n_read %d\n",
                 stream_setup.max_anchors_stream, total_n, n_read);
     }
 
     if (stream_setup.max_range_grid < griddim) {
-        fprintf(stderr, "max_range_grid %d griddim %d, total_n %d n_read %d\n",
+        fprintf(stderr, "max_range_grid %d griddim %d, total_n %lu n_read %d\n",
                 stream_setup.max_range_grid, griddim, total_n, n_read);
     }
 
@@ -489,13 +461,16 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     cudaCheck();
 }
 
-void init_blocking_gpu(size_t* total_n, size_t* max_reads, size_t *min_n) {
+#ifdef __cplusplus
+extern "C" {
+#endif  // __cplusplus
+
+void init_blocking_gpu(size_t* total_n, size_t* max_reads, size_t *min_n, Misc misc) {
     plmem_initialize(total_n, max_reads, min_n);
 }
 
-void init_stream_gpu(size_t* total_n, size_t* max_reads, size_t *min_n) {
+void init_stream_gpu(size_t* total_n, size_t* max_reads, size_t *min_n, Misc misc) {
     plmem_stream_initialize(total_n, max_reads, min_n);
-    Misc misc = build_misc(INT64_MAX);
     plrange_upload_misc(misc);
     plscore_upload_misc(misc);
 }
@@ -504,12 +479,15 @@ void init_stream_gpu(size_t* total_n, size_t* max_reads, size_t *min_n) {
  * worker for forward chaining on cpu (blocking)
  * use KMALLOC and kfree for cpu memory management
  */
-void chain_blocking_gpu(const input_meta_t* meta, chain_read_t* in_arr, int n_read) {
-    Misc misc = build_misc(INT64_MAX);
-    plchain_cal_score_sync(in_arr, n_read, misc);
+void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t *in_arr, int n_read, void* km) {
+    // assume only one seg. and qlen_sum desn't matter
+    assert(opt->max_frag_len <= 0);
+    assert(!!(opt->flag & MM_F_SR));
+    assert(in_arr[0].n_seg == 1);
+    Misc misc = build_misc(mi, opt, 0, 1);
+    plchain_cal_score_sync(in_arr, n_read, misc, km);
     for (int i = 0; i < n_read; i++){
-        post_chaining_helper(&in_arr[i], meta->refs, &in_arr[i].seq, misc.max_dist_x,
-                             in_arr[i].km);
+        post_chaining_helper(mi, opt,  &in_arr[i], misc, km);
     }
 }
 
@@ -537,15 +515,19 @@ void chain_blocking_gpu(const input_meta_t* meta, chain_read_t* in_arr, int n_re
 //     }
 // }
 
-void chain_stream_gpu(const input_meta_t* meta, chain_read_t** in_arr_, int* n_read_, int thread_id) {
-    Misc misc = build_misc(INT64_MAX);
-    plchain_cal_score_async(in_arr_, n_read_, misc, stream_setup, thread_id);
+void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **in_arr_, int *n_read_,
+                      int thread_id, void* km) {
+    // assume only one seg. and qlen_sum desn't matter
+    assert(opt->max_frag_len <= 0);
+    assert(!!(opt->flag & MM_F_SR));
+    assert(in_arr[0].n_seg == 1);
+    Misc misc = build_misc(mi, opt, 0, 1);
+    plchain_cal_score_async(in_arr_, n_read_, misc, stream_setup, thread_id, km);
     if (in_arr_) {
         int n_read = *n_read_;
         chain_read_t* out_arr = *in_arr_;
         for (int i = 0; i < n_read; i++) {
-            post_chaining_helper(&out_arr[i], meta->refs, &out_arr[i].seq,
-                                 misc.max_dist_x, out_arr[i].km);
+            post_chaining_helper(mi, opt, &out_arr[i], misc, km);
         }
     }
 }
@@ -613,9 +595,13 @@ void chain_stream_gpu(const input_meta_t* meta, chain_read_t** in_arr_, int* n_r
  * [out] batches:   array of batches
  * [out] num_reads: array of number of reads in each batch
  */
-void finish_stream_gpu(const input_meta_t* meta, chain_read_t** reads_,
-                       int* n_read_, int t) {
-    Misc misc = build_misc(INT64_MAX);
+void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t** reads_,
+                       int* n_read_, int t, void* km) {
+    // assume only one seg. and qlen_sum desn't matter
+    assert(opt->max_frag_len <= 0);
+    assert(!!(opt->flag & MM_F_SR));
+    assert(in_arr[0].n_seg == 1);
+    Misc misc = build_misc(mi, opt, 0, 1);
     /* Sync all the pending batches + backtracking */
     if (!stream_setup.streams[t].busy) {
         *reads_ = NULL;
@@ -628,13 +614,11 @@ void finish_stream_gpu(const input_meta_t* meta, chain_read_t** reads_,
     cudaStreamSynchronize(stream_setup.streams[t].cudastream);
     cudaCheck();
     plchain_backtracking(&stream_setup.streams[t].host_mem,
-                         stream_setup.streams[t].reads, misc);
+                         stream_setup.streams[t].reads, misc, km);
     reads = stream_setup.streams[t].reads;
     n_read = stream_setup.streams[t].host_mem.size;
     for (int i = 0; i < n_read; i++) {
-        post_chaining_helper(&reads[i], meta->refs,
-                             &reads[i].seq, misc.max_dist_x,
-                             reads[i].km);
+        post_chaining_helper(mi, opt, &reads[i], misc, km);
     }
     stream_setup.streams[t].busy = false;
 
@@ -644,3 +628,7 @@ void finish_stream_gpu(const input_meta_t* meta, chain_read_t** reads_,
     plmem_free_host_mem(&stream_setup.streams[t].host_mem);
     plmem_free_device_mem(&stream_setup.streams[t].dev_mem);
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif  // __cplusplus

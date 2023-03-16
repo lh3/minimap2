@@ -40,6 +40,7 @@
 #define MM_F_QSTRAND       (0x100000000LL)
 #define MM_F_NO_INV        (0x200000000LL)
 #define MM_F_NO_HASH_NAME  (0x400000000LL)
+#define MM_F_GPU_CHAIN	   (0x800000000LL) // use gpu for chaining
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2

@@ -86,6 +86,7 @@ static ko_longopt_t long_options[] = {
 	{ "mask-level",     ko_required_argument, 'M' },
 	{ "min-dp-score",   ko_required_argument, 's' },
 	{ "sam",            ko_no_argument,       'a' },
+	{ "gpu-chain", 		ko_no_argument, 	  360 }, // use gpu for chaining
 	{ 0, 0, 0 }
 };
 
@@ -300,7 +301,7 @@ int main(int argc, char *argv[])
 		} else if (c == 'E') {
 			opt.e = opt.e2 = strtol(o.arg, &s, 10);
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
-		}
+		} else if (c == 360) opt.flag != MM_F_GPU_CHAIN; // use gpu for chaining 
 	}
 	if ((opt.flag & MM_F_SPLICE) && (opt.flag & MM_F_FRAG_MODE)) {
 		fprintf(stderr, "[ERROR]\033[1;31m --splice and --frag should not be specified at the same time.\033[0m\n");

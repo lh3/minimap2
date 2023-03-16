@@ -1,10 +1,10 @@
-#ifndef _PLCHAIN_CUH_
-#define _PLCHAIN_CUH_
-
+#ifndef _PLMEM_CUH_
+#define _PLMEM_CUH_
 #include "hipify.cuh"
+#include "plchain.h"
 #include "plutils.h"
-#include <assert.h>
 
+#define MEM_GPU (16-4) // 16 - 4 GB as memory pool = 16760832(0xffc000) KB
 
 typedef struct {
     int index;       // read index / batch index
@@ -75,12 +75,11 @@ typedef struct stream_ptr_t{
 typedef struct gputSetup_t {
     int num_stream;
     stream_ptr_t *streams;
-    size_t max_anchors_stream, max_range_grid, max_num_cut;
+    size_t max_anchors_stream, max_num_cut;
+    int max_range_grid;
 } streamSetup_t;
 
 extern streamSetup_t stream_setup;
-
-#include "plchain.cuh"
 
 /* memory management methods */
 // initialization and cleanup
@@ -103,41 +102,4 @@ void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs);
 void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem);
 void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs);
 void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem);
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-typedef __int32_t int32_t;
-
-/* functions declaration */
-void plrange_upload_misc(Misc misc);
-void plrange_async_range_selection(deviceMemPtr* device_mem_ptr, cudaStream_t* stream);
-void plrange_sync_range_selection(deviceMemPtr* dev_mem, Misc misc
-#ifdef DEBUG_CHECK
-                                  ,
-                                  chain_read_t* reads
-#endif // DEBUG_CHECK
-);
-
-extern range_kernel_config_t range_kernel_config;
-
-void plscore_upload_misc(Misc misc);
-void plscore_async_naive_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream);
-void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem,cudaStream_t* stream);
-void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_);
-void plscore_sync_naive_forward_dp(deviceMemPtr* dev_mem, Misc misc_);
-
-extern score_kernel_config_t score_kernel_config;
-
-// helper function
-void post_chaining_helper(chain_read_t *read,
-                          const mm_seq_meta_t *target,
-                          const mm_seq_meta_t *query, int max_dist_t, void *km);
-
-#ifdef __cplusplus
-}
-#endif
-
-
-#endif // _PLCHAIN_CUH_
+#endif  // _PLMEM_CUH_

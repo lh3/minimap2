@@ -2,8 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include "plchain.cuh"
+#include "plrange.cuh"
 #include "hipify.cuh"
+
 
 /* 
 
