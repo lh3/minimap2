@@ -1118,7 +1118,7 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 				fprintf(stderr, "QT\t%s\t%d\t%.6f\n", s->seq[off].name, tid, realtime() - t);
         }
 
-		// reset pending batch
+        // reset pending batch
         mm_trbuf_batch_reset(batch, s->batch_max_reads, s->p->opt);
         tr->pending_batch = *batch;
         tr->is_pending = 0;
