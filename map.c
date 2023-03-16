@@ -95,7 +95,8 @@ void mm_trbuf_batch_reset(mm_batch_trbuf_t *batch_, int batch_max_reads, const m
 			fprintf(stderr, "QM\t%s\t%d\tBid=%d\tcap=%ld,avail=%ld,nCore=%ld,largest=%ld\n", 
 			last_read->seq.name, last_read->seq.qlen_sum, batch_->batchid, kmst.capacity, kmst.available, kmst.n_cores, kmst.largest);
 		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
-		if (kmst.largest > 1U<<28 || (opt->cap_kalloc > 0 && kmst.capacity > opt->cap_kalloc)) {
+        assert(kmst.capacity == kmst.meta_size + kmst.available);
+        if (kmst.largest > 1U<<28 || (opt->cap_kalloc > 0 && kmst.capacity > opt->cap_kalloc)) {
 			if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 				fprintf(stderr, "[W::%s] reset thread-local memory after read %s\n", __func__, last_read->seq.name);
 			km_destroy(batch_->km);
@@ -124,6 +125,7 @@ void mm_trbuf_batch_destroy(mm_batch_trbuf_t *batch_){
 			fprintf(stderr, "Destroy memory pool cap=%ld,avail=%ld,nCore=%ld,largest=%ld\n", 
 			kmst.capacity, kmst.available, kmst.n_cores, kmst.largest);
 		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
+        assert(kmst.capacity == kmst.meta_size + kmst.available);
         km_destroy(batch_->km);
         batch_->km = 0;
     }

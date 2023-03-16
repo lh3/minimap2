@@ -470,6 +470,7 @@ void init_blocking_gpu(size_t* total_n, size_t* max_reads, size_t *min_n, Misc m
 }
 
 void init_stream_gpu(size_t* total_n, size_t* max_reads, size_t *min_n, Misc misc) {
+    fprintf(stderr, "[M::%s] gpu initialized for chaining\n", __func__);
     plmem_stream_initialize(total_n, max_reads, min_n);
     plrange_upload_misc(misc);
     plscore_upload_misc(misc);
@@ -627,6 +628,7 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t*
 
     plmem_free_host_mem(&stream_setup.streams[t].host_mem);
     plmem_free_device_mem(&stream_setup.streams[t].dev_mem);
+    fprintf(stderr, "[M::%s] gpu exit\n", __func__);
 }
 
 #ifdef __cplusplus

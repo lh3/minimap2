@@ -354,7 +354,7 @@ void plmem_config_batch(cJSON *json, int *num_stream_,
 // intialize and config kernels for gpu blocking setup
 void plmem_initialize(size_t *max_total_n_, size_t *max_read_,
                       size_t *min_anchors_) {
-    cJSON *json = plmem_parse_gpu_config("gpu.config");
+    cJSON *json = plmem_parse_gpu_config("gpu_config.json");
     plmem_config_kernels(json);
     int num_streams;
     plmem_config_batch<true>(json, &num_streams, min_anchors_,
@@ -367,7 +367,7 @@ void plmem_stream_initialize(size_t *max_total_n_,
 
     int num_stream;
     size_t max_anchors_stream, max_range_grid, max_num_cut;
-    cJSON *json = plmem_parse_gpu_config("gpu.config");
+    cJSON *json = plmem_parse_gpu_config("gpu_config.json");
     plmem_config_kernels(json);
     plmem_config_batch<false>(json, &num_stream, min_anchors_, &max_anchors_stream,
                               max_read_);
