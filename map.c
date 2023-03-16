@@ -144,8 +144,9 @@ mm_trbuf_t *mm_trbuf_init(const int batch_max_reads, const mm_mapopt_t *opt)
     mm_trbuf_batch_init(&tr->acc_batch, batch_max_reads);
     tr->acc_batch.batchid = 0;
     mm_trbuf_batch_init(&tr->pending_batch, batch_max_reads);
-    tr->acc_batch.batchid = 1;
+    tr->pending_batch.batchid = 1;
     mm_trbuf_batch_init(&tr->launched_batch, batch_max_reads);
+    tr->launched_batch.batchid = 2;
     return tr;
 }
 
@@ -906,19 +907,18 @@ void mm_trbuf_is_full(mm_trbuf_t* tr, step_t *s){
 		// remove read from acc_batch
         tr->acc_batch.count--;
         tr->acc_batch.total_n -= read_ptr_acc_batch->n;
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->mini_pos);
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->a);
         free_read(read_ptr_acc_batch, tr->acc_batch.km);
     }
 }
 
-static void worker_for(void *_data, long i, int tid) // kt_for() callback
+static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 {
-	// DEBUG:
-	if (i == -1) {
-        fprintf(stderr, "worker_for called with -1\n");
-    }
-    step_t *s = (step_t*)_data;
-	int j, iread, off, pe_ori = s->p->opt->pe_ori;
-	double t = 0.0;
+    step_t *s = (step_t *)_data;
+    long i = i_in;
+    int j, iread, off, pe_ori = s->p->opt->pe_ori;
+    double t = 0.0;
 	mm_tbuf_t *b = s->buf[tid];
 	mm_trbuf_t *tr = s->trbuf[tid];
 
@@ -1003,7 +1003,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 	}
 
     // Did we accumulate enough reads or get to the last batch of reads?
-    while (tr->is_full || (i != -1 && tr->has_launched)) {
+    while (tr->is_full || (i_in == -1 && tr->has_launched)) {
         // Chain
 
         /* perform chaining on acc_batch and move to launched_batch. move current pending batch to acc_batch. Store results in pending batch. */
@@ -1012,7 +1012,7 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		if (s->p->opt->flag & MM_F_GPU_CHAIN){
 			// TODO: offload chaining to GPU
 			mm_batch_trbuf_t kernel_batch = tr->acc_batch;
-			chain_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, kernel_batch.km);
+			chain_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
 			// check if the returned batch exits, and/or is the launched_batch.
 			if (kernel_batch.reads) { // if chain_stream_gpu return non NULL reads
 				assert(tr->has_launched);
@@ -1049,9 +1049,9 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		}
 
 		} else if (s->p->opt->flag & MM_F_GPU_CHAIN){ // clean up if all the pending kernels have been launched
-			assert(i == -1 && tr->has_launched);
+			assert(i_in == -1 && tr->has_launched);
 			mm_batch_trbuf_t kernel_batch;
-			finish_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, 1, tr->launched_batch.km);
+			finish_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
 			assert(kernel_batch.count == tr->launched_batch.count);
 			kernel_batch = tr->launched_batch;
 			tr->is_full = 0;
@@ -1063,18 +1063,19 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
         }
 
         mm_batch_trbuf_t *batch = &tr->pending_batch;
-        /* Copy rep_len & frag_gap to step_t */
-        for (iread = 0; iread < batch->count; iread++) {
-            i = batch->reads[iread].seq.i;
-            j = batch->reads[iread].seq.seg_id;
-            off = s->seg_off[i] + j;
-            for (int k = 0; k < batch->reads[iread].n_seg; k++) {
-                s->rep_len[off + k] = batch->reads[iread].rep_len;
-                s->frag_gap[off + k] = batch->reads[iread].frag_gap;
-            }
-		}
 
 		if (tr->is_pending){
+
+		/* Copy rep_len & frag_gap to step_t */
+		for (iread = 0; iread < batch->count; iread++) {
+			i = batch->reads[iread].seq.i;
+			j = batch->reads[iread].seq.seg_id;
+			off = s->seg_off[i] + j;
+			for (int k = 0; k < batch->reads[iread].n_seg; k++) {
+				s->rep_len[off + k] = batch->reads[iread].rep_len;
+				s->frag_gap[off + k] = batch->reads[iread].frag_gap;
+			}
+		}
 		// Align
 		for (iread = 0; iread < batch->count; iread++) {
 			i = batch->reads[iread].seq.i;

@@ -46,8 +46,8 @@ typedef struct {
     mm_seq_meta_t seq;
 
     // minimap2 input data for reads
-    const char **qseqs;  // sequences for each segment
-    int *qlens;          // query length for each segment
+    const char **qseqs;  // sequences for each segment          <- allocated in worker_for, freed in free_read after seeding
+    int *qlens;          // query length for each segment       <- allocated in worker_for, freed in free_read after seeding
     int n_seg;           // number of segs
 
 #ifdef DEBUG_CHECK
@@ -59,7 +59,7 @@ typedef struct {
     int frag_gap;
 
     // seeding outputs
-    uint64_t *mini_pos;  // minimizer positions
+    uint64_t *mini_pos;  // minimizer positions                 <- allocated in 
     int n_mini_pos;
 
     // seeding output, updated in chaining
@@ -94,6 +94,14 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t 
 // chaining method
 void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t *in_arr, int n_read, void* km);
 void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **in_arr_ptr, int *n_read_ptr, int thread_id, void* km);
+
+/* <lchain.c> Chaining backtracking methods */
+uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f,
+                             const int64_t *p, int32_t *v, int32_t *t,
+                             int32_t min_cnt, int32_t min_sc, int32_t max_drop,
+                             int32_t *n_u_, int32_t *n_v_);
+mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32_t *v, mm128_t *a);
+
 
 /* Post Chaining helpers */
 Misc build_misc(const mm_idx_t *mi, const mm_mapopt_t *opt, const int64_t qlen_sum, const int n_seg);

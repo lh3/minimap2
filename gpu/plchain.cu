@@ -65,126 +65,6 @@ static int64_t mg_chain_bk_end(int32_t max_drop, const mm128_t *z,
     return max_i;
 }
 
-/**
- * @brief
- *
- * @param km
- * @param n_u [in] num of chains
- * @param u[] [in] chain  sc << 32 | num of anchors
- * @param n_v [in] num of anchors in chain
- * @param v[] [in] predecessor by chain, freed
- * @param a[] [in] anchors, freed
- * @return mm128_t* ???
- */
-mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v,
-                          int32_t *v, mm128_t *a) {
-    mm128_t *b, *w;
-    uint64_t *u2;
-    int64_t i, j, k;
-
-    // write the result to b[]
-    KMALLOC(km, b, n_v);
-    for (i = 0, k = 0; i < n_u; ++i) {
-        int32_t k0 = k, ni = (int32_t)u[i];
-        for (j = 0; j < ni; ++j) b[k++] = a[v[k0 + (ni - j - 1)]];
-    }
-    kfree(km, v);
-
-    // sort u[] and a[] by the target position, such that adjacent chains may be
-    // joined
-    KMALLOC(km, w, n_u);
-    for (i = k = 0; i < n_u; ++i) {
-        w[i].x = b[k].x, w[i].y = (uint64_t)k << 32 | i;
-        k += (int32_t)u[i];
-    }
-    radix_sort_128x(w, w + n_u);
-    KMALLOC(km, u2, n_u);
-    for (i = k = 0; i < n_u; ++i) {
-        int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
-        u2[i] = u[j];
-        memcpy(&a[k], &b[w[i].y >> 32], n * sizeof(mm128_t));
-        k += n;
-    }
-    memcpy(u, u2, n_u * 8);
-    memcpy(b, a,
-           k * sizeof(mm128_t));  // write _a_ to _b_ and deallocate _a_ because
-                                  // _a_ is oversized, sometimes a lot
-    kfree(km, a);
-    kfree(km, w);
-    kfree(km, u2);
-    return b;
-}
-
-/* Input:
- *      km: kalloc memory
- *      f[]: score (len n)
- *      p[]: predecessor anchor index (len n, absolute index)
- * Output:
- *      v[]: predecessor anchor index in a chain
- *      n_u_, n_v_: set to u[], v[] size
- * Return:
- *      u[]: chains: score << 32 | anchor cnt in the chain
- * Alloc: u[n_u], v[n]
- * Free: None
- */
-uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f,
-                             const int64_t *p, int32_t **v_, int32_t min_cnt,
-                             int32_t min_sc, int32_t max_drop, int32_t *n_u_,
-                             int32_t *n_v_  // size of u[] and v[]
-) {
-    mm128_t *z;
-    uint64_t *u;
-    int64_t i, k, n_z, n_v;
-    int32_t n_u;
-    int32_t *t, *v;
-    KMALLOC(km, t, n);
-    KMALLOC(km, v, n);
-    *n_u_ = *n_v_ = 0;
-    for (i = 0, n_z = 0; i < n; ++i)  // precompute n_z
-        if (f[i] >= min_sc) ++n_z;
-    if (n_z == 0) return 0;
-    KMALLOC(km, z, n_z);
-    for (i = 0, k = 0; i < n; ++i)  // populate z[]
-        if (f[i] >= min_sc) z[k].x = f[i], z[k++].y = i;
-    radix_sort_128x(z, z + n_z);
-
-    memset(t, 0, n * 4);
-    for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) {  // precompute n_u
-        if (t[z[k].y] == 0) {
-            int64_t n_v0 = n_v, end_i;
-            int32_t sc;
-            end_i = mg_chain_bk_end(max_drop, z, f, p, t, k);
-            for (i = z[k].y; i != end_i; i = p[i]) ++n_v, t[i] = 1;
-            sc = i < 0 ? z[k].x : (int32_t)z[k].x - f[i];
-            if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
-                ++n_u;
-            else
-                n_v = n_v0;
-        }
-    }
-    KMALLOC(km, u, n_u);
-    memset(t, 0, n * 4);
-    for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) {  // populate u[]
-        if (t[z[k].y] == 0) {
-            int64_t n_v0 = n_v, end_i;
-            int32_t sc;
-            end_i = mg_chain_bk_end(max_drop, z, f, p, t, k);
-            for (i = z[k].y; i != end_i; i = p[i]) v[n_v++] = i, t[i] = 1;
-            sc = i < 0 ? z[k].x : (int32_t)z[k].x - f[i];
-            if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt){
-                u[n_u++] = (uint64_t)sc << 32 | (n_v - n_v0);
-            } else
-                n_v = n_v0;
-        }
-    }
-    kfree(km, z);
-    kfree(km, t);
-    assert(n_v < INT32_MAX);
-    *n_u_ = n_u, *n_v_ = n_v;
-    *v_ = v;
-    return u;
-}
-
 void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, void* km){
     int max_drop = misc.bw;
     if (misc.max_dist_x < misc.bw) misc.max_dist_x = misc.bw;
@@ -208,15 +88,19 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, 
 
         /* Backtracking */
         uint64_t* u;
-        int32_t* v;
+        int32_t *v, *t;
+        KMALLOC(km, v, reads[i].n);
+        KCALLOC(km, t, reads[i].n);
         int32_t n_u, n_v;
-        u = mg_chain_backtrack(km, reads[i].n, f, p, &v, misc.min_cnt,
-                               misc.min_score, max_drop, &n_u, &n_v);
+        u = mg_chain_backtrack(km, reads[i].n, f, p, v, t, misc.min_cnt, misc.min_score, max_drop, &n_u, &n_v);
         reads[i].u = u;
         reads[i].n_u = n_u;
         kfree(km, p);
+        // here f is not managed by km memory pool
+        kfree(km, t);
         if (n_u == 0) {
             kfree(km, reads[i].a);
+            kfree(km, v);
             reads[i].a = 0;
 
             f += reads[i].n;
@@ -320,7 +204,6 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
     }
 
     // size sanity check
-    //FIX: not consistent with plmem_reorg_input_arr. 
     size_t total_n = 0, cut_num = 0;
     int griddim = 0;
     for (int i = 0; i < n_read; i++) {
@@ -417,7 +300,6 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     }
 
     // size sanity check
-    //FIX: not consistent with plmem_reorg_input_arr. 
     size_t total_n = 0, cut_num = 0;
     int griddim = 0;
     for (int i = 0; i < n_read; i++) {

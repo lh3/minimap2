@@ -1,0 +1,21 @@
+{
+    "num_streams": 16,
+    "min_n": 512, 
+    "//min_n": "queries with less anchors will be handled on cpu",
+    "//max_total_n": "[optional] max number of anchors per stream",
+    "//max_read": "[optional] max number of reads per stream",
+    "avg_read_n": 20000,
+    "//avg_read_n": "expect average number of anchors per read",
+    "range_kernel": {
+        "blockdim": 512,
+        "cut_check_anchors": 10,
+        "//cut_check_anchors": "Number of anchors to check to attemp a cut",
+        "anchor_per_block": 32768,
+        "//anchor_per_block": "Number of anchors each block handle. Must be int * blockdim"
+    },
+    "score_kernel": {
+        "short_blockdim": 64,
+        "long_blockdim": 1024,
+        "cut_per_block": 64
+    }
+}
