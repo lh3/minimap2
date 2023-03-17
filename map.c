@@ -83,8 +83,6 @@ void mm_trbuf_batch_reset(mm_batch_trbuf_t *batch_, int batch_max_reads, const m
     }
 
 
-    // DEBUG: just in case, reset all the reads
-    memset(batch_->reads, 0, sizeof(chain_read_t) * batch_max_reads);
 
 	/* reset memory pool km */
     km_stat_t kmst;
@@ -884,10 +882,11 @@ void mm_trbuf_is_full(mm_trbuf_t* tr, step_t *s){
         tr->is_full = 1;
         tr->is_pending = 1;
 		// move last read from acc_batch to pending batch (another memory poll)
-        chain_read_t *read_ptr_acc_batch = &tr->acc_batch.reads[tr->acc_batch.count];
+        chain_read_t *read_ptr_acc_batch = &tr->acc_batch.reads[tr->acc_batch.count - 1];
         chain_read_t *read_ptr_pending_batch = &tr->pending_batch.reads[tr->pending_batch.count];
 		/* deep copy, with memory pool transaction*/
-        if (s->p->opt->flag & MM_F_INDEPEND_SEG){
+        *read_ptr_pending_batch = *read_ptr_acc_batch;
+        if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
             read_ptr_pending_batch->qlens = (int *)kmalloc(tr->pending_batch.km, sizeof(int));
             read_ptr_pending_batch->qseqs = (const char **)kmalloc(tr->pending_batch.km, sizeof(const char*));
             read_ptr_pending_batch->qlens[0] = read_ptr_acc_batch->qlens[0];
@@ -903,13 +902,16 @@ void mm_trbuf_is_full(mm_trbuf_t* tr, step_t *s){
         memcpy(read_ptr_pending_batch->mini_pos, read_ptr_acc_batch->mini_pos, read_ptr_acc_batch->n_mini_pos * sizeof(uint64_t));
         memcpy(read_ptr_pending_batch->a, read_ptr_acc_batch->a, read_ptr_acc_batch->n * sizeof(mm128_t));
         strcpy(read_ptr_pending_batch->seq.name, read_ptr_acc_batch->seq.name);
+        tr->pending_batch.count++;
+        tr->pending_batch.total_n += read_ptr_acc_batch->n;
 
-		// remove read from acc_batch
+        // remove read from acc_batch
         tr->acc_batch.count--;
         tr->acc_batch.total_n -= read_ptr_acc_batch->n;
         kfree(tr->acc_batch.km, read_ptr_acc_batch->mini_pos);
         kfree(tr->acc_batch.km, read_ptr_acc_batch->a);
-        free_read(read_ptr_acc_batch, tr->acc_batch.km);
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->qlens);
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->qseqs);
     }
 }
 
@@ -982,17 +984,20 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
             strcpy(read_ptr->seq.name, s->seq[off].name);
             read_ptr->seq.n_alt = s->p->mi->n_alt;
             read_ptr->seq.is_alt = 0;
+
+            read_ptr++;
         }
 		
 
 		// Seed
         for (j = 0; j < n_indep_reads; j++) {
+            read_ptr--;
             mm_map_seed(s->p->mi, s->p->opt, read_ptr, b, km);
-			if 
+            if 
 				(tr->is_pending) tr->pending_batch.total_n += read_ptr->n;
 			else
                 tr->acc_batch.total_n += read_ptr->n;
-            read_ptr--;
+            assert(read_ptr->n_mini_pos >= 0);
         }
 
 
