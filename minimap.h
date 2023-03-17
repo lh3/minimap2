@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#define MM_VERSION "2.24-r1155-dirty"
+
 #define MM_F_NO_DIAG       0x001 // no exact diagonal hit
 #define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
 #define MM_F_CIGAR         0x004
