@@ -9,6 +9,7 @@ extern "C" {
 
 typedef struct {
 	size_t capacity, available, n_blocks, n_cores, largest;
+    size_t meta_size;
 } km_stat_t;
 
 void *kmalloc(void *km, size_t size);

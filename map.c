@@ -12,31 +12,38 @@
 
 struct mm_tbuf_s {
 	void *km;
-	int rep_len, frag_gap;
+	int rep_len, frag_gap; // updated per read. 
 	double timers[MM_N_THR_TIMERS];
-};
+}; // per thread
+
+#define __AMD_SPLIT_KERNELS__
 
 #if defined(__AMD_SPLIT_KERNELS__)
 
+#include "plutils.h"
+
 #define N_ACCUM 64
+
+typedef struct{
+    int batchid;
+    void *km;           // memory pool for each batch
+    int count;			// number of reads in the batch
+    size_t total_n;		// total number of anchors in the batch
+    chain_read_t *reads;
+} mm_batch_trbuf_t;
 
 // local variables required for each read processed by a CPU thread
 typedef struct {
-	int count; // #reads accumulated
-	long i[N_ACCUM]; // read id
-	int rep_len[N_ACCUM]; // rep_len for each read
-	int frag_gap[N_ACCUM]; // frag_gap for each read
-	int *qlens[N_ACCUM]; // query length for each segment of each read
-	const char **qseqs[N_ACCUM]; // sequences for each segment of each read
-	int qlen_sum[N_ACCUM]; // sum of qlens of all segments of each read
-	int n_regs0[N_ACCUM]; // number of chains formed from anchors of each read
-	int n_mini_pos[N_ACCUM]; // number of minimizer positions for each read
-	uint64_t *mini_pos[N_ACCUM]; // minimizer positions for each read
-	int64_t n_a[N_ACCUM]; // number of anchors from each read
-	uint64_t *u[N_ACCUM]; // scores for chains from each read
-	mm128_t *a[N_ACCUM]; // array of anchors from each read
-	void *km[N_ACCUM]; // memory pool for each read
-} mm_trbuf_t;
+    mm_batch_trbuf_t acc_batch;
+    int is_full;
+
+    mm_batch_trbuf_t launched_batch;
+    int has_launched;
+
+    mm_batch_trbuf_t pending_batch;
+    int is_pending;
+
+} mm_trbuf_t;  // per thread
 
 #endif
 
@@ -61,23 +68,93 @@ void *mm_tbuf_get_km(mm_tbuf_t *b)
 }
 
 #if defined(__AMD_SPLIT_KERNELS__)
-mm_trbuf_t *mm_trbuf_init(void)
+void mm_trbuf_batch_init(mm_batch_trbuf_t *batch_, int batch_max_reads) {
+    batch_->count = 0;
+    batch_->total_n = 0;
+    batch_->reads = (chain_read_t *)malloc(sizeof(chain_read_t) * batch_max_reads);
+    batch_->batchid = -1;
+    batch_->km = km_init();
+}
+
+void mm_trbuf_batch_reset(mm_batch_trbuf_t *batch_, int batch_max_reads, const mm_mapopt_t *opt) {
+	// free all the reads in the batch
+    for (int i = 0; i < batch_->count; i++) {
+        free_read(&batch_->reads[i], batch_->km);
+    }
+
+
+
+	/* reset memory pool km */
+    km_stat_t kmst;
+    if (batch_->km) {
+        chain_read_t *last_read = batch_->reads + batch_->count;
+        km_stat(batch_->km, &kmst);
+		if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+			fprintf(stderr, "QM\t%s\t%d\tBid=%d\tcap=%ld,avail=%ld,nCore=%ld,largest=%ld\n", 
+			last_read->seq.name, last_read->seq.qlen_sum, batch_->batchid, kmst.capacity, kmst.available, kmst.n_cores, kmst.largest);
+		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
+        assert(kmst.capacity == kmst.meta_size + kmst.available);
+        if (kmst.largest > 1U<<28 || (opt->cap_kalloc > 0 && kmst.capacity > opt->cap_kalloc)) {
+			if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+				fprintf(stderr, "[W::%s] reset thread-local memory after read %s\n", __func__, last_read->seq.name);
+			km_destroy(batch_->km);
+            batch_->km = km_init();
+        }
+    }
+
+    batch_->count = 0;
+    batch_->total_n = 0;
+    batch_->batchid = -1;
+}
+
+void mm_trbuf_batch_destroy(mm_batch_trbuf_t *batch_){
+	// free reads in the batch
+    for (int i = 0; i < batch_->count; i++){
+        free_read(&batch_->reads[i], batch_->km);
+    }
+    batch_->batchid = -1;
+    batch_->total_n = 0;
+    batch_->count = 0;
+	/* clean memory pool */
+    km_stat_t kmst;
+    if (batch_->km) {
+        km_stat(batch_->km, &kmst);
+		if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
+			fprintf(stderr, "Destroy memory pool cap=%ld,avail=%ld,nCore=%ld,largest=%ld\n", 
+			kmst.capacity, kmst.available, kmst.n_cores, kmst.largest);
+		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
+        assert(kmst.capacity == kmst.meta_size + kmst.available);
+        km_destroy(batch_->km);
+        batch_->km = 0;
+    }
+    free(batch_->reads);
+    batch_->reads = 0;
+}
+
+
+mm_trbuf_t *mm_trbuf_init(const int batch_max_reads, const mm_mapopt_t *opt)
 {
     mm_trbuf_t *tr;
     tr = (mm_trbuf_t *)calloc(1, sizeof(mm_trbuf_t));
-	for (int iread=0; iread<N_ACCUM; iread++) {
-		if (!(mm_dbg_flag & 1)) tr->km[iread] = km_init();
-	}
+	tr->is_full = 0;
+    tr->is_pending = 0;
+    tr->has_launched = 0;
+    mm_trbuf_batch_init(&tr->acc_batch, batch_max_reads);
+    tr->acc_batch.batchid = 0;
+    mm_trbuf_batch_init(&tr->pending_batch, batch_max_reads);
+    tr->pending_batch.batchid = 1;
+    mm_trbuf_batch_init(&tr->launched_batch, batch_max_reads);
+    tr->launched_batch.batchid = 2;
     return tr;
 }
 
 void mm_trbuf_destroy(mm_trbuf_t *tr)
 {
     if (tr == 0) return;
-	for (int iread=0; iread<N_ACCUM; iread++) {
-		km_destroy(tr->km[iread]);
-	}
-    free (tr);
+    mm_trbuf_batch_destroy(&tr->acc_batch);
+    mm_trbuf_batch_destroy(&tr->pending_batch);
+    mm_trbuf_batch_destroy(&tr->launched_batch);
+    free(tr);
 }
 #endif
 
@@ -276,17 +353,27 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 }
 
 #if defined(__AMD_SPLIT_KERNELS__)
-void mm_map_seed(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname, int *rep_len, int *qlen_sum, int *n_mini_pos, uint64_t **mini_pos, int64_t *n_a, mm128_t **a, void *km)
-{
-	int i;
-	mm128_v mv = {0,0,0};
+void mm_map_seed(const mm_idx_t *mi, const mm_mapopt_t *opt,
+                 chain_read_t *read_, mm_tbuf_t *b, void *km) {
+    int n_segs = read_->n_seg;
+    const int *qlens = read_->qlens;
+	const char **seqs = read_->qseqs;
+    const char *qname = read_->seq.name;
+    int *rep_len = &read_->rep_len;
+    int *qlen_sum = &read_->seq.qlen_sum;
+    int *n_mini_pos = &read_->n_mini_pos;
+    uint64_t **mini_pos = &read_->mini_pos;
+    int64_t *n_a = &read_->n;
+    mm128_t **a = &read_->a;
+
+    int i;
+    mm128_v mv = {0,0,0};
 	double *timers = b->timers;
 	double t1 = realtime();
 
-	for (i = 0, *qlen_sum = 0; i < n_segs; ++i)
-		*qlen_sum += qlens[i], n_regs[i] = 0, regs[i] = 0;
+    for (i = 0, *qlen_sum = 0; i < n_segs; ++i) *qlen_sum += qlens[i];
 
-	if (*qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
+    if (*qlen_sum == 0 || n_segs <= 0 || n_segs > MM_MAX_SEG) return;
 	if (opt->max_qlen > 0 && *qlen_sum > opt->max_qlen) return;
 
 	collect_minimizers(km, opt, mi, n_segs, qlens, seqs, &mv);
@@ -304,9 +391,114 @@ void mm_map_seed(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 	timers[MM_TIME_SEED] += realtime() - t1;
 }
 
-void mm_map_chain(const mm_idx_t *mi, int n_segs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname, int *rep_len, int *frag_gap, int *qlen_sum, int *n_regs0, int *n_mini_pos, uint64_t **mini_pos, int64_t *n_a, uint64_t **u, mm128_t **a, void *km)
-{
-	int i;
+Misc build_misc(const mm_idx_t *mi, const mm_mapopt_t *opt, const int64_t qlen_sum, const int n_seg) {
+    int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
+	float chn_pen_gap, chn_pen_skip;
+
+	// set max chaining gap on the query and the reference sequence
+	if (is_sr)
+		max_chain_gap_qry = qlen_sum > opt->max_gap? qlen_sum : opt->max_gap;
+	else max_chain_gap_qry = opt->max_gap;
+	if (opt->max_gap_ref > 0) {
+		max_chain_gap_ref = opt->max_gap_ref; // always honor mm_mapopt_t::max_gap_ref if set
+	} else if (opt->max_frag_len > 0) {
+		max_chain_gap_ref = opt->max_frag_len - qlen_sum;
+		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
+	} else max_chain_gap_ref = opt->max_gap;
+
+	chn_pen_gap  = opt->chain_gap_scale * 0.01 * mi->k;
+	chn_pen_skip = opt->chain_skip_scale * 0.01 * mi->k;
+
+    Misc misc;
+    misc.max_iter = opt->max_chain_iter; // always set up MAX_UINT
+    misc.max_dist_y = max_chain_gap_qry;
+    misc.max_dist_x = max_chain_gap_ref;
+    misc.max_skip = opt->max_chain_skip;
+    misc.bw = opt->bw;
+    misc.min_cnt = opt->min_cnt;
+    misc.min_score = opt->min_chain_score;
+    misc.is_cdna = is_splice;
+    misc.n_seg = n_seg;
+
+    misc.chn_pen_gap = chn_pen_gap;
+    misc.chn_pen_skip = chn_pen_skip;
+
+    return misc;
+}
+
+void post_chaining_helper(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t* read, Misc misc, void *km) {
+    int n_segs = read->n_seg;
+    const char *qname = read->seq.name;
+	int *rep_len = &read->rep_len;
+    int *frag_gap = &read->frag_gap;
+    int *qlen_sum = &read->seq.qlen_sum;
+    int *n_regs0 = &read->n_u;
+	int *n_mini_pos = &read->n_mini_pos;
+    uint64_t **mini_pos = &read->mini_pos;
+    int64_t *n_a = &read->n;
+    uint64_t **u = &read->u;
+    mm128_t **a = &read->a;
+
+    int i;
+    mm128_v mv = {0, 0, 0};
+
+    if (opt->bw_long > opt->bw &&
+        (opt->flag & (MM_F_SPLICE | MM_F_SR | MM_F_NO_LJOIN)) == 0 &&
+        n_segs == 1 && *n_regs0 > 1) {  // re-chain/long-join for long sequences
+        int32_t st = (int32_t)(*a)[0].y, en = (int32_t)(*a)[(int32_t)(*u)[0] - 1].y;
+		if (*qlen_sum - (en - st) > opt->rmq_rescue_size || en - st > *qlen_sum * opt->rmq_rescue_ratio) {
+			int32_t i;
+			for (i = 0, *n_a = 0; i < *n_regs0; ++i) *n_a += (int32_t)(*u)[i];
+			kfree(km, *u);
+			radix_sort_128x(*a, (*a) + *n_a);
+			*a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw_long, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+							  misc.chn_pen_gap, misc.chn_pen_skip, *n_a, *a, n_regs0, u, km);
+		}
+    }
+    else if (opt->max_occ > opt->mid_occ && *rep_len > 0 &&
+             !(opt->flag & MM_F_RMQ)) {  // re-chain, mostly for short reads
+        int rechain = 0;
+		if (*n_regs0 > 0) { // test if the best chain has all the segments
+			int n_chained_segs = 1, max = 0, max_i = -1, max_off = -1, off = 0;
+			for (i = 0; i < *n_regs0; ++i) { // find the best chain
+				if (max < (int)((*u)[i]>>32)) max = (*u)[i]>>32, max_i = i, max_off = off;
+				off += (uint32_t)(*u)[i];
+			}
+			for (i = 1; i < (int32_t)(*u)[max_i]; ++i) // count the number of segments in the best chain
+				if (((*a)[max_off+i].y&MM_SEED_SEG_MASK) != ((*a)[max_off+i-1].y&MM_SEED_SEG_MASK))
+					++n_chained_segs;
+			if (n_chained_segs < n_segs)
+				rechain = 1;
+		} else rechain = 1;
+		if (rechain) { // redo chaining with a higher max_occ threshold
+			kfree(km, *a);
+			kfree(km, *u);
+			kfree(km, *mini_pos);
+			if (opt->flag & MM_F_HEAP_SORT) *a = collect_seed_hits_heap(km, opt, opt->max_occ, mi, qname, &mv, *qlen_sum, n_a, rep_len, n_mini_pos, mini_pos);
+			else *a = collect_seed_hits(km, opt, opt->max_occ, mi, qname, &mv, *qlen_sum, n_a, rep_len, n_mini_pos, mini_pos);
+			*a = mg_lchain_dp(misc.max_dist_x, misc.max_dist_y, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
+							 misc.chn_pen_gap, misc.chn_pen_skip, misc.is_cdna, n_segs, *n_a, *a, n_regs0, u, km);
+			kfree(km, mv.a);
+		}
+    }
+    *frag_gap = misc.max_dist_x;
+}
+
+void mm_map_chain(const mm_idx_t *mi, const mm_mapopt_t *opt,
+                  chain_read_t *read_, mm_tbuf_t *b, void *km) {
+    int n_segs = read_->n_seg;
+    const char *qname = read_->seq.name;
+    int *rep_len = &read_->rep_len;
+    int *frag_gap = &read_->frag_gap;
+    int *qlen_sum = &read_->seq.qlen_sum;
+    int *n_regs0 = &read_->n_u;
+    int *n_mini_pos = &read_->n_mini_pos;
+    uint64_t **mini_pos = &read_->mini_pos;
+    int64_t *n_a = &read_->n;
+    uint64_t **u = &read_->u;
+    mm128_t **a = &read_->a;
+
+    int i;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR);
 	mm128_v mv = {0,0,0};
 	float chn_pen_gap, chn_pen_skip;
@@ -373,23 +565,36 @@ void mm_map_chain(const mm_idx_t *mi, int n_segs, int *n_regs, mm_reg1_t **regs,
 	timers[MM_TIME_CHAIN] += realtime() - t1;
 }
 
-void mm_map_align(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname, int rep_len, int frag_gap, int qlen_sum, int *n_regs0, int n_mini_pos, uint64_t **mini_pos, uint64_t *u, mm128_t *a, void **km_ptr)
-{
-	int i, j;
-	int max_chain_gap_ref = frag_gap;
+void mm_map_align(const mm_idx_t *mi, const mm_mapopt_t *opt,
+                  chain_read_t *read_, mm_reg1_t **regs, int *n_regs, mm_tbuf_t *b, void *km) {
+    int n_segs = read_->n_seg;
+    const int *qlens = read_->qlens;
+    const char **seqs = read_->qseqs;
+    const char *qname = read_->seq.name;
+    int rep_len = read_->rep_len;
+    int frag_gap = read_->frag_gap;
+    int qlen_sum = read_->seq.qlen_sum;
+    int *n_regs0 = &read_->n_u;
+    int n_mini_pos = read_->n_mini_pos;
+    uint64_t **mini_pos = &read_->mini_pos;
+    uint64_t *u = read_->u;
+    mm128_t *a = read_->a;
+
+    int i, j;
+    int max_chain_gap_ref = frag_gap;
 	int is_sr = !!(opt->flag & MM_F_SR);
 	uint32_t hash;
 	mm_reg1_t *regs0;
-	km_stat_t kmst;
 	double *timers = b->timers;
 	double t1 = realtime();
-	void *km = *km_ptr;
+
+	for (i = 0; i < n_segs; ++i) n_regs[i] = 0, regs[i] = 0; // initialize regs 
 
 	hash  = qname && !(opt->flag & MM_F_NO_HASH_NAME)? __ac_X31_hash_string(qname) : 0;
 	hash ^= __ac_Wang_hash(qlen_sum) + __ac_Wang_hash(opt->seed);
 	hash  = __ac_Wang_hash(hash);
 
-	regs0 = mm_gen_regs(km, hash, qlen_sum, *n_regs0, u, a, !!(opt->flag&MM_F_QSTRAND));
+    regs0 = mm_gen_regs(km, hash, qlen_sum, *n_regs0, u, a, !!(opt->flag&MM_F_QSTRAND));
 	if (mi->n_alt) {
 		mm_mark_alt(mi, *n_regs0, regs0);
 		mm_hit_sort(km, n_regs0, regs0, opt->alt_drop); // this step can be merged into mm_gen_regs(); will do if this shows up in profile
@@ -430,19 +635,6 @@ void mm_map_align(const mm_idx_t *mi, int n_segs, const int *qlens, const char *
 	kfree(km, a);
 	kfree(km, u);
 	kfree(km, *mini_pos);
-
-	if (km) {
-		km_stat(km, &kmst);
-		if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
-			fprintf(stderr, "QM\t%s\t%d\tcap=%ld,nCore=%ld,largest=%ld\n", qname, qlen_sum, kmst.capacity, kmst.n_cores, kmst.largest);
-		assert(kmst.n_blocks == kmst.n_cores); // otherwise, there is a memory leak
-		if (kmst.largest > 1U<<28 || (opt->cap_kalloc > 0 && kmst.capacity > opt->cap_kalloc)) {
-			if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
-				fprintf(stderr, "[W::%s] reset thread-local memory after read %s\n", __func__, qname);
-			km_destroy(km);
-			*km_ptr = km_init();
-		}
-	}
 }
 #endif
 
@@ -635,6 +827,9 @@ typedef struct {
 	mm_tbuf_t **buf;
 #if defined(__AMD_SPLIT_KERNELS__)
     mm_trbuf_t **trbuf;
+	int batch_max_reads;
+    size_t batch_max_anchors;
+    int gpu_min_n;
 #endif
 } step_t;
 
@@ -681,105 +876,261 @@ void mm_consolidate_timers(step_t *s, pipeline_t *p)
 
 
 #if defined(__AMD_SPLIT_KERNELS__)
-static void worker_for(void *_data, long i, int tid) // kt_for() callback
+
+void mm_trbuf_is_full(mm_trbuf_t* tr, step_t *s){
+    while (tr->acc_batch.total_n > s->batch_max_anchors) { // if the batch is full
+        tr->is_full = 1;
+        tr->is_pending = 1;
+		// move last read from acc_batch to pending batch (another memory poll)
+        chain_read_t *read_ptr_acc_batch = &tr->acc_batch.reads[tr->acc_batch.count - 1];
+        chain_read_t *read_ptr_pending_batch = &tr->pending_batch.reads[tr->pending_batch.count];
+		/* deep copy, with memory pool transaction*/
+        *read_ptr_pending_batch = *read_ptr_acc_batch;
+        if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
+            read_ptr_pending_batch->qlens = (int *)kmalloc(tr->pending_batch.km, sizeof(int));
+            read_ptr_pending_batch->qseqs = (const char **)kmalloc(tr->pending_batch.km, sizeof(const char*));
+            read_ptr_pending_batch->qlens[0] = read_ptr_acc_batch->qlens[0];
+            read_ptr_pending_batch->qseqs[0] = read_ptr_acc_batch->qseqs[0];
+        } else {
+            read_ptr_pending_batch->qlens = (int *)kmalloc(tr->pending_batch.km, sizeof(int)*read_ptr_acc_batch->n_seg);
+            read_ptr_pending_batch->qseqs = (const char **)kmalloc(tr->pending_batch.km, sizeof(const char*)*read_ptr_acc_batch->n_seg);
+            memcpy(read_ptr_pending_batch->qlens,  read_ptr_acc_batch->qlens, sizeof(int)*read_ptr_acc_batch->n_seg);
+            memcpy(read_ptr_pending_batch->qseqs, read_ptr_acc_batch->qseqs, sizeof(const char*)*read_ptr_acc_batch->n_seg);
+        }
+        read_ptr_pending_batch->mini_pos = (uint64_t*)kmalloc(tr->pending_batch.km, read_ptr_acc_batch->n_mini_pos * sizeof(uint64_t));
+		read_ptr_pending_batch->a = (mm128_t*)kmalloc(tr->pending_batch.km, read_ptr_acc_batch->n * sizeof(mm128_t));
+        memcpy(read_ptr_pending_batch->mini_pos, read_ptr_acc_batch->mini_pos, read_ptr_acc_batch->n_mini_pos * sizeof(uint64_t));
+        memcpy(read_ptr_pending_batch->a, read_ptr_acc_batch->a, read_ptr_acc_batch->n * sizeof(mm128_t));
+        strcpy(read_ptr_pending_batch->seq.name, read_ptr_acc_batch->seq.name);
+        tr->pending_batch.count++;
+        tr->pending_batch.total_n += read_ptr_acc_batch->n;
+
+        // remove read from acc_batch
+        tr->acc_batch.count--;
+        tr->acc_batch.total_n -= read_ptr_acc_batch->n;
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->mini_pos);
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->a);
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->qlens);
+        kfree(tr->acc_batch.km, read_ptr_acc_batch->qseqs);
+    }
+}
+
+static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 {
-	step_t *s = (step_t*)_data;
-	int j, iread, off, pe_ori = s->p->opt->pe_ori;
-	double t = 0.0;
+    step_t *s = (step_t *)_data;
+    long i = i_in;
+    int j, iread, off, pe_ori = s->p->opt->pe_ori;
+    double t = 0.0;
 	mm_tbuf_t *b = s->buf[tid];
 	mm_trbuf_t *tr = s->trbuf[tid];
 
-	// Check if this is a valid read
+    // Check if this is a valid read
 	if (i != -1) {
-
 		off = s->seg_off[i];
-		iread = tr->count;
-		tr->i[iread] = i;
-		tr->count++;
 
-		assert(s->n_seg[i] <= MM_MAX_SEG);
+        assert(s->n_seg[i] <= MM_MAX_SEG);
 		if (mm_dbg_flag & MM_DBG_PRINT_QNAME) {
 			fprintf(stderr, "QR\t%s\t%d\t%d\n", s->seq[off].name, tid, s->seq[off].l_seq);
 			t = realtime();
 		}
 
-		tr->qlens[iread] = (int *) malloc (s->n_seg[i] * sizeof(int));
-		tr->qseqs[iread] = (const char **) malloc (s->n_seg[i] * sizeof(const char *));
-		for (j = 0; j < s->n_seg[i]; ++j) {
-			if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
-				mm_revcomp_bseq(&s->seq[off + j]);
-			tr->qlens[iread][j] = s->seq[off + j].l_seq;
-			tr->qseqs[iread][j] = s->seq[off + j].seq;
-		}
+        int n_indep_reads = (s->p->opt->flag & MM_F_INDEPEND_SEG) ? s->n_seg[i] : 1;
+        void *km;
+        chain_read_t *read_ptr = 0;
+        if ( n_indep_reads + tr->acc_batch.count <= s->batch_max_reads){
+            read_ptr = tr->acc_batch.reads + tr->acc_batch.count;
+            tr->acc_batch.count += n_indep_reads;
+            km = tr->acc_batch.km;
+        } else {
+            read_ptr = tr->pending_batch.reads + tr->pending_batch.count;
+            tr->pending_batch.count += n_indep_reads;
+            tr->is_full = 1;
+            tr->is_pending = 1;
+            km = tr->pending_batch.km;
+        }
+
+        if (s->p->opt->flag & MM_F_INDEPEND_SEG) { // assign to different chain_read_t if segments are indepent
+            for (j = 0; j < s->n_seg[i]; ++j) {
+                read_ptr->qlens = (int *)kmalloc(km, sizeof(int));
+                read_ptr->qseqs = (const char **)kmalloc(km, sizeof(const char *));
+                if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
+					mm_revcomp_bseq(&s->seq[off + j]);
+                read_ptr->qlens[0] = s->seq[off + j].l_seq;
+                read_ptr->qseqs[0] = s->seq[off + j].seq;
+                read_ptr->n_seg = 1;
+
+                read_ptr->seq.i = i;
+                read_ptr->seq.seg_id = j;
+                strcpy(read_ptr->seq.name, s->seq[off + j].name);
+                read_ptr->seq.n_alt = s->p->mi->n_alt;
+                read_ptr->seq.is_alt = 0;
+
+                read_ptr++;
+            }
+
+        } else {
+            read_ptr->qlens = (int *)kmalloc(km, s->n_seg[i] * sizeof(int));
+			read_ptr->qseqs = (const char **)kmalloc(km, s->n_seg[i] * sizeof(const char *));
+            read_ptr->n_seg = s->n_seg[i];
+            for (j = 0; j < s->n_seg[i]; ++j) {
+				if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1))))
+					mm_revcomp_bseq(&s->seq[off + j]);
+                read_ptr->qlens[j] = s->seq[off + j].l_seq;
+                read_ptr->qseqs[j] = s->seq[off + j].seq;
+            }
+
+            read_ptr->seq.i = i;
+            read_ptr->seq.seg_id = 0;
+            strcpy(read_ptr->seq.name, s->seq[off].name);
+            read_ptr->seq.n_alt = s->p->mi->n_alt;
+            read_ptr->seq.is_alt = 0;
+
+            read_ptr++;
+        }
+		
+
 		// Seed
-		if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
-			for (j = 0; j < s->n_seg[i]; ++j) {
-				mm_map_seed(s->p->mi, 1, &tr->qlens[iread][j], &tr->qseqs[iread][j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name, &tr->rep_len[iread], &tr->qlen_sum[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->a[iread], tr->km[iread]);
-			}
-		} else {
-			mm_map_seed(s->p->mi, s->n_seg[i], tr->qlens[iread], tr->qseqs[iread], &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name, &tr->rep_len[iread], &tr->qlen_sum[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->a[iread], tr->km[iread]);
-		}
+        for (j = 0; j < n_indep_reads; j++) {
+            read_ptr--;
+            mm_map_seed(s->p->mi, s->p->opt, read_ptr, b, km);
+            if 
+				(tr->is_pending) tr->pending_batch.total_n += read_ptr->n;
+			else
+                tr->acc_batch.total_n += read_ptr->n;
+            assert(read_ptr->n_mini_pos >= 0);
+        }
+
+
+		// move reads from acc_batch to pending_batch if neccessary
+        mm_trbuf_is_full(tr, s);
+    } else {
+		tr->is_full = 1; // set acc_batch to ready to launch if this is the last read
 	}
 
-	// Did we accumulate N_ACCUM reads or get to the last batch of reads?
-	if (tr->count == N_ACCUM || i == -1 ) {
-		// Chain
-		for (iread=0; iread<tr->count; iread++) {
-			i = tr->i[iread];
-			off = s->seg_off[i];
-			if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
-				for (j = 0; j < s->n_seg[i]; ++j) {
-					mm_map_chain(s->p->mi, 1, &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name, &tr->rep_len[iread], &tr->frag_gap[iread], &tr->qlen_sum[iread], &tr->n_regs0[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->u[iread], &tr->a[iread], tr->km[iread]);
-					s->rep_len[off + j] = tr->rep_len[iread];
-					s->frag_gap[off + j] = tr->frag_gap[iread];
-				}
-			} else {
-				mm_map_chain(s->p->mi, s->n_seg[i], &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name, &tr->rep_len[iread], &tr->frag_gap[iread], &tr->qlen_sum[iread], &tr->n_regs0[iread], &tr->n_mini_pos[iread], &tr->mini_pos[iread], &tr->n_a[iread], &tr->u[iread], &tr->a[iread], tr->km[iread]);
-				for (j = 0; j < s->n_seg[i]; ++j) {
-					s->rep_len[off + j] = tr->rep_len[iread];
-					s->frag_gap[off + j] = tr->frag_gap[iread];
-				}
+    // Did we accumulate enough reads or get to the last batch of reads?
+    while (tr->is_full || (i_in == -1 && tr->has_launched)) {
+        // Chain
+
+        /* perform chaining on acc_batch and move to launched_batch. move current pending batch to acc_batch. Store results in pending batch. */
+		if (tr->is_full) {
+
+		if (s->p->opt->flag & MM_F_GPU_CHAIN){
+			// TODO: offload chaining to GPU
+			mm_batch_trbuf_t kernel_batch = tr->acc_batch;
+			chain_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
+			// check if the returned batch exits, and/or is the launched_batch.
+			if (kernel_batch.reads) { // if chain_stream_gpu return non NULL reads
+				assert(tr->has_launched);
+				assert(kernel_batch.count == tr->launched_batch.count);
+                kernel_batch = tr->launched_batch;
+				tr->launched_batch = tr->acc_batch;
+				tr->acc_batch = tr->pending_batch;
+				tr->pending_batch = kernel_batch;
+				tr->is_pending = 1;
+            } else {
+				assert(!tr->has_launched); // no launched batch
+				kernel_batch = tr->launched_batch;
+				tr->launched_batch = tr->acc_batch;
+				tr->acc_batch = tr->pending_batch;
+				tr->pending_batch = kernel_batch;
+				tr->is_pending = 0;
 			}
+            tr->is_full = 0;
+            tr->has_launched = 1;
+            // endof gpu kernel
+
+        } else {
+			// cpu kernel
+			for (iread=0; iread<tr->acc_batch.count; iread++) {
+					mm_map_chain(s->p->mi, s->p->opt, &tr->acc_batch.reads[iread], b, tr->acc_batch.km);
+			}
+			mm_batch_trbuf_t kernel_batch = tr->acc_batch;
+			tr->acc_batch = tr->pending_batch;
+			tr->pending_batch = kernel_batch;
+			tr->has_launched = 0;
+			tr->is_full = 0;
+			tr->is_pending = 1;
+			// end of cpu kernel
 		}
 
+		} else if (s->p->opt->flag & MM_F_GPU_CHAIN){ // clean up if all the pending kernels have been launched
+			assert(i_in == -1 && tr->has_launched);
+			mm_batch_trbuf_t kernel_batch;
+			finish_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
+			assert(kernel_batch.count == tr->launched_batch.count);
+			kernel_batch = tr->launched_batch;
+			tr->is_full = 0;
+			tr->is_pending = 1;
+			tr->has_launched = 0;
+			tr->launched_batch = tr->acc_batch;
+			tr->acc_batch = tr->pending_batch;
+			tr->pending_batch = kernel_batch;
+        }
+
+        mm_batch_trbuf_t *batch = &tr->pending_batch;
+
+		if (tr->is_pending){
+
+		/* Copy rep_len & frag_gap to step_t */
+		for (iread = 0; iread < batch->count; iread++) {
+			i = batch->reads[iread].seq.i;
+			j = batch->reads[iread].seq.seg_id;
+			off = s->seg_off[i] + j;
+			for (int k = 0; k < batch->reads[iread].n_seg; k++) {
+				s->rep_len[off + k] = batch->reads[iread].rep_len;
+				s->frag_gap[off + k] = batch->reads[iread].frag_gap;
+			}
+		}
 		// Align
-		for (iread=0; iread<tr->count; iread++) {
-			i = tr->i[iread];
+		for (iread = 0; iread < batch->count; iread++) {
+			i = batch->reads[iread].seq.i;
 			off = s->seg_off[i];
+			j = batch->reads[iread].seq.seg_id;
+			mm_map_align(s->p->mi, s->p->opt, &batch->reads[iread], &s->reg[off + j], &s->n_reg[off + j], b, batch->km) ;
 			if (s->p->opt->flag & MM_F_INDEPEND_SEG) {
-				for (j = 0; j < s->n_seg[i]; ++j) {
-					mm_map_align(s->p->mi, 1, &tr->qlens[iread][j], &tr->qseqs[iread][j], &s->n_reg[off+j], &s->reg[off+j], b, s->p->opt, s->seq[off+j].name, tr->rep_len[iread], tr->frag_gap[iread], tr->qlen_sum[iread], &tr->n_regs0[iread], tr->n_mini_pos[iread], &tr->mini_pos[iread], tr->u[iread], tr->a[iread], &tr->km[iread]);
-				}
-			} else {
-				mm_map_align(s->p->mi, s->n_seg[i], tr->qlens[iread], tr->qseqs[iread], &s->n_reg[off], &s->reg[off], b, s->p->opt, s->seq[off].name, tr->rep_len[iread], tr->frag_gap[iread], tr->qlen_sum[iread], &tr->n_regs0[iread], tr->n_mini_pos[iread], &tr->mini_pos[iread], tr->u[iread], tr->a[iread], &tr->km[iread]);
-			}
-		}
-
-		for (iread=0; iread<tr->count; iread++) {
-			i = tr->i[iread];
-			off = s->seg_off[i];
-			pe_ori = s->p->opt->pe_ori;
-			for (j = 0; j < s->n_seg[i]; ++j) {// flip the query strand and coordinate to the original read strand
-				if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori>>1&1)) || (j == 1 && (pe_ori&1)))) {
+				if (s->n_seg[i] == 2 && ((j == 0 && (pe_ori >> 1 & 1)) ||
+											(j == 1 && (pe_ori & 1)))) {
 					int k, t;
 					mm_revcomp_bseq(&s->seq[off + j]);
 					for (k = 0; k < s->n_reg[off + j]; ++k) {
 						mm_reg1_t *r = &s->reg[off + j][k];
 						t = r->qs;
-						r->qs = tr->qlens[iread][j] - r->qe;
-						r->qe = tr->qlens[iread][j] - t;
-						r->rev = !r->rev;
+                        r->qs = batch->reads[iread].qlens[j] - r->qe;
+                        r->qe = batch->reads[iread].qlens[j] - t;
+                        r->rev = !r->rev;
 					}
 				}
-			}
+			} else {
+                for (j = 0; j < batch->reads[iread].n_seg;
+                     ++j) {  // flip the query strand and coordinate to the
+                             // original read strand
+                    if (s->n_seg[i] == 2 &&
+						((j == 0 && (pe_ori >> 1 & 1)) ||
+							(j == 1 && (pe_ori & 1)))) {
+						int k, t;
+						mm_revcomp_bseq(&s->seq[off + j]);
+						for (k = 0; k < s->n_reg[off + j]; ++k) {
+							mm_reg1_t *r = &s->reg[off + j][k];
+							t = r->qs;
+                            r->qs = batch->reads[iread].qlens[j] - r->qe;
+                            r->qe = batch->reads[iread].qlens[j] - t;
+                            r->rev = !r->rev;
+						}
+					}
+                }
+            }
 			if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 				fprintf(stderr, "QT\t%s\t%d\t%.6f\n", s->seq[off].name, tid, realtime() - t);
-		}
+        }
 
-		// reset tr->count
-		tr->count = 0;
-	}
-	// else continue to fetch another read to process
+        // reset pending batch
+        mm_trbuf_batch_reset(batch, s->batch_max_reads, s->p->opt);
+        tr->pending_batch = *batch;
+        tr->is_pending = 0;
+        tr->pending_batch.batchid = tr->acc_batch.batchid + 1;
+
+        }  // if tr->is_pending;
+    }
 }
 #endif
 
@@ -918,8 +1269,6 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				s->buf[i] = mm_tbuf_init();
 #if defined(__AMD_SPLIT_KERNELS__)
 			s->trbuf = (mm_trbuf_t**)calloc(p->n_threads, sizeof(mm_trbuf_t*));
-			for (i = 0; i < p->n_threads; ++i)
-				s->trbuf[i] = mm_trbuf_init();
 #endif
 
 			s->n_reg = (int*)calloc(5 * s->n_seq, sizeof(int));
@@ -937,6 +1286,21 @@ static void *worker_pipeline(void *shared, int step, void *in)
 			return s;
 		} else free(s);
     } else if (step == 1) { // step 1: map
+#if defined(__AMD_SPLIT_KERNELS__)
+        step_t *s = (step_t *)in;
+        if (p->opt->flag & MM_F_GPU_CHAIN) {
+            // TODO: make misc different for each ream
+			Misc misc = build_misc(p->mi, p->opt, 0, 1);
+			init_stream_gpu(&s->batch_max_anchors, &s->batch_max_reads, & s->gpu_min_n, misc);
+			// TODO: initialize GPU infrastructures
+			// TODO: need a data structure to remember all the memptrs
+        } else {
+            s->batch_max_anchors = SIZE_MAX;
+            s->batch_max_reads = N_ACCUM;
+        }
+        for (i = 0; i < p->n_threads; ++i)
+            s->trbuf[i] = mm_trbuf_init(s->batch_max_reads, p->opt);
+#endif
 		if (p->n_parts > 0) merge_hits((step_t*)in);
 		else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
 		return in;
