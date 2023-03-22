@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <assert.h>
-#include "plchain.cuh"
+#include "plscore.cuh"
 #include "hipify.cuh"
 
 /* 

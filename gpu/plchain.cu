@@ -4,8 +4,12 @@
 #include <string.h>
 #include <time.h>
 
-#include "plchain.cuh"
+
 #include "mmpriv.h"
+#include "plmem.cuh"
+#include "plrange.cuh"
+#include "plscore.cuh"
+#include "plchain.h"
 
 /**
  * translate relative predecessor index to abs index 
@@ -21,37 +25,6 @@ void p_rel2idx(const uint16_t* rel, int64_t* p, size_t n) {
         else
             p[i] = i - rel[i];
     }
-}
-
-/**
- * Build chaining misc from opt
- */
-Misc build_misc(int64_t qlen_sum) {
-    Misc misc;
-    if (opt.flag & MM_F_SR)
-        misc.max_dist_y = qlen_sum > opt.max_gap ? qlen_sum : opt.max_gap;
-    else
-        misc.max_dist_y = opt.max_gap;
-    if (opt.max_gap_ref > 0) {
-        misc.max_dist_x =
-            opt.max_gap_ref;  // always honor mm_mapopt_t::max_gap_ref if set
-    } else if (opt.max_frag_len > 0) {
-        misc.max_dist_x = opt.max_frag_len - qlen_sum;
-        if (misc.max_dist_x < opt.max_gap) misc.max_dist_x = opt.max_gap;
-    } else
-        misc.max_dist_x = opt.max_gap;
-
-    misc.chn_pen_gap = opt.chain_gap_scale * 0.01 * opt.k;
-    misc.chn_pen_skip = opt.chain_skip_scale * 0.01 * opt.k;
-
-    misc.max_iter = opt.max_chain_iter;
-    misc.max_skip = opt.max_chain_skip;
-    misc.bw = opt.bw;
-    misc.min_cnt = opt.min_cnt;
-    misc.min_score = opt.min_chain_score;
-    misc.is_cdna = !!(opt.flag & MM_F_SPLICE);
-    misc.n_seg = 1;
-    return misc;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -92,140 +65,19 @@ static int64_t mg_chain_bk_end(int32_t max_drop, const mm128_t *z,
     return max_i;
 }
 
-/**
- * @brief
- *
- * @param km
- * @param n_u [in] num of chains
- * @param u[] [in] chain  sc << 32 | num of anchors
- * @param n_v [in] num of anchors in chain
- * @param v[] [in] predecessor by chain, freed
- * @param a[] [in] anchors, freed
- * @return mm128_t* ???
- */
-mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v,
-                          int32_t *v, mm128_t *a) {
-    mm128_t *b, *w;
-    uint64_t *u2;
-    int64_t i, j, k;
-
-    // write the result to b[]
-    KMALLOC(km, b, n_v);
-    for (i = 0, k = 0; i < n_u; ++i) {
-        int32_t k0 = k, ni = (int32_t)u[i];
-        for (j = 0; j < ni; ++j) b[k++] = a[v[k0 + (ni - j - 1)]];
-    }
-    kfree(km, v);
-
-    // sort u[] and a[] by the target position, such that adjacent chains may be
-    // joined
-    KMALLOC(km, w, n_u);
-    for (i = k = 0; i < n_u; ++i) {
-        w[i].x = b[k].x, w[i].y = (uint64_t)k << 32 | i;
-        k += (int32_t)u[i];
-    }
-    radix_sort_128x(w, w + n_u);
-    KMALLOC(km, u2, n_u);
-    for (i = k = 0; i < n_u; ++i) {
-        int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
-        u2[i] = u[j];
-        memcpy(&a[k], &b[w[i].y >> 32], n * sizeof(mm128_t));
-        k += n;
-    }
-    memcpy(u, u2, n_u * 8);
-    memcpy(b, a,
-           k * sizeof(mm128_t));  // write _a_ to _b_ and deallocate _a_ because
-                                  // _a_ is oversized, sometimes a lot
-    kfree(km, a);
-    kfree(km, w);
-    kfree(km, u2);
-    return b;
-}
-
-/* Input:
- *      km: kalloc memory
- *      f[]: score (len n)
- *      p[]: predecessor anchor index (len n, absolute index)
- * Output:
- *      v[]: predecessor anchor index in a chain
- *      n_u_, n_v_: set to u[], v[] size
- * Return:
- *      u[]: chains: score << 32 | anchor cnt in the chain
- * Alloc: u[n_u], v[n]
- * Free: None
- */
-uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f,
-                             const int64_t *p, int32_t **v_, int32_t min_cnt,
-                             int32_t min_sc, int32_t max_drop, int32_t *n_u_,
-                             int32_t *n_v_  // size of u[] and v[]
-) {
-    mm128_t *z;
-    uint64_t *u;
-    int64_t i, k, n_z, n_v;
-    int32_t n_u;
-    int32_t *t, *v;
-    KMALLOC(km, t, n);
-    KMALLOC(km, v, n);
-    *n_u_ = *n_v_ = 0;
-    for (i = 0, n_z = 0; i < n; ++i)  // precompute n_z
-        if (f[i] >= min_sc) ++n_z;
-    if (n_z == 0) return 0;
-    KMALLOC(km, z, n_z);
-    for (i = 0, k = 0; i < n; ++i)  // populate z[]
-        if (f[i] >= min_sc) z[k].x = f[i], z[k++].y = i;
-    radix_sort_128x(z, z + n_z);
-
-    memset(t, 0, n * 4);
-    for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) {  // precompute n_u
-        if (t[z[k].y] == 0) {
-            int64_t n_v0 = n_v, end_i;
-            int32_t sc;
-            end_i = mg_chain_bk_end(max_drop, z, f, p, t, k);
-            for (i = z[k].y; i != end_i; i = p[i]) ++n_v, t[i] = 1;
-            sc = i < 0 ? z[k].x : (int32_t)z[k].x - f[i];
-            if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt)
-                ++n_u;
-            else
-                n_v = n_v0;
-        }
-    }
-    KMALLOC(km, u, n_u);
-    memset(t, 0, n * 4);
-    for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) {  // populate u[]
-        if (t[z[k].y] == 0) {
-            int64_t n_v0 = n_v, end_i;
-            int32_t sc;
-            end_i = mg_chain_bk_end(max_drop, z, f, p, t, k);
-            for (i = z[k].y; i != end_i; i = p[i]) v[n_v++] = i, t[i] = 1;
-            sc = i < 0 ? z[k].x : (int32_t)z[k].x - f[i];
-            if (sc >= min_sc && n_v > n_v0 && n_v - n_v0 >= min_cnt){
-                u[n_u++] = (uint64_t)sc << 32 | (n_v - n_v0);
-            } else
-                n_v = n_v0;
-        }
-    }
-    kfree(km, z);
-    kfree(km, t);
-    assert(n_v < INT32_MAX);
-    *n_u_ = n_u, *n_v_ = n_v;
-    *v_ = v;
-    return u;
-}
-
-void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
+void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, void* km){
     int max_drop = misc.bw;
     if (misc.max_dist_x < misc.bw) misc.max_dist_x = misc.bw;
     if (misc.max_dist_y < misc.bw && !misc.is_cdna) misc.max_dist_y = misc.bw;
     if (misc.is_cdna) max_drop = INT32_MAX;
 
-    size_t total_n = host_mem->total_n;
     size_t n_read = host_mem->size;
 
     uint16_t* p_hostmem = host_mem->p;
     int32_t* f = host_mem->f;
     for (int i = 0; i < n_read; i++) {
         int64_t* p;
-        KMALLOC(reads[i].km, p, reads[i].n);
+        KMALLOC(km, p, reads[i].n);
         p_rel2idx(p_hostmem, p, reads[i].n);
 #ifdef DEBUG_VERBOSE
         debug_print_score(p, f, reads[i].n);
@@ -236,15 +88,19 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
 
         /* Backtracking */
         uint64_t* u;
-        int32_t* v;
+        int32_t *v, *t;
+        KMALLOC(km, v, reads[i].n);
+        KCALLOC(km, t, reads[i].n);
         int32_t n_u, n_v;
-        u = mg_chain_backtrack(reads[i].km, reads[i].n, f, p, &v, misc.min_cnt,
-                               misc.min_score, max_drop, &n_u, &n_v);
+        u = mg_chain_backtrack(km, reads[i].n, f, p, v, t, misc.min_cnt, misc.min_score, max_drop, &n_u, &n_v);
         reads[i].u = u;
         reads[i].n_u = n_u;
-        kfree(reads[i].km, p);
+        kfree(km, p);
+        // here f is not managed by km memory pool
+        kfree(km, t);
         if (n_u == 0) {
-            kfree(reads[i].km, reads[i].a);
+            kfree(km, reads[i].a);
+            kfree(km, v);
             reads[i].a = 0;
 
             f += reads[i].n;
@@ -252,7 +108,7 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
             continue;
         }
 
-        mm128_t* new_a = compact_a(reads[i].km, n_u, u, n_v, v, reads[i].a);
+        mm128_t* new_a = compact_a(km, n_u, u, n_v, v, reads[i].a);
         reads[i].a = new_a;
 
         f += reads[i].n;
@@ -260,7 +116,7 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc){
     }
 }
 
-void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc) { 
+void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc, void* km) { 
     hostMemPtr host_mem;
     deviceMemPtr dev_mem;
 
@@ -293,7 +149,7 @@ void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc) {
     plscore_sync_naive_forward_dp(&dev_mem, misc);
     plmem_sync_d2h_memcpy(&host_mem, &dev_mem);
 
-    plchain_backtracking(&host_mem, reads, misc);
+    plchain_backtracking(&host_mem, reads, misc, km);
 
     plmem_free_host_mem(&host_mem);
     plmem_free_device_mem(&dev_mem);
@@ -331,7 +187,7 @@ int plchain_schedule_stream(const streamSetup_t stream_setup, const int batchid)
     return streamid;
 }
 
-void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int batchid){
+void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int batchid, void* km){
     chain_read_t* reads = *reads_;
     *reads_ = NULL;
     int n_read = *n_read_;
@@ -341,14 +197,13 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
     if (stream_setup.streams[stream_id].busy) {
         // cleanup previous batch in the stream
         plchain_backtracking(&stream_setup.streams[stream_id].host_mem,
-                             stream_setup.streams[stream_id].reads, misc);
+                             stream_setup.streams[stream_id].reads, misc, km);
         *reads_ = stream_setup.streams[stream_id].reads;
         *n_read_ = stream_setup.streams[stream_id].host_mem.size;
         stream_setup.streams[stream_id].busy = false;
     }
 
     // size sanity check
-    //FIX: not consistent with plmem_reorg_input_arr. 
     size_t total_n = 0, cut_num = 0;
     int griddim = 0;
     for (int i = 0; i < n_read; i++) {
@@ -360,12 +215,12 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
         cut_num += (reads[i].n - 1) / an_p_cut + 1;
     }
     if (stream_setup.max_anchors_stream < total_n){
-        fprintf(stderr, "max_anchors_stream %d total_n %d n_read %d\n",
+        fprintf(stderr, "max_anchors_stream %lu total_n %lu n_read %d\n",
                 stream_setup.max_anchors_stream, total_n, n_read);
     }
 
     if (stream_setup.max_range_grid < griddim) {
-        fprintf(stderr, "max_range_grid %d griddim %d, total_n %d n_read %d\n",
+        fprintf(stderr, "max_range_grid %d griddim %d, total_n %lu n_read %d\n",
                 stream_setup.max_range_grid, griddim, total_n, n_read);
     }
 
@@ -393,7 +248,7 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
 }
 
 
-void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int thread_id){
+void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int thread_id, void* km){
     chain_read_t* reads = *reads_;
     *reads_ = NULL;
     int n_read = *n_read_;
@@ -438,14 +293,13 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 #endif
         // cleanup previous batch in the stream
         plchain_backtracking(&stream_setup.streams[stream_id].host_mem,
-                                stream_setup.streams[stream_id].reads, misc);
+                                stream_setup.streams[stream_id].reads, misc, km);
         *reads_ = stream_setup.streams[stream_id].reads;
         *n_read_ = stream_setup.streams[stream_id].host_mem.size;
         stream_setup.streams[stream_id].busy = false;
     }
 
     // size sanity check
-    //FIX: not consistent with plmem_reorg_input_arr. 
     size_t total_n = 0, cut_num = 0;
     int griddim = 0;
     for (int i = 0; i < n_read; i++) {
@@ -457,12 +311,12 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         cut_num += (reads[i].n - 1) / an_p_cut + 1;
     }
     if (stream_setup.max_anchors_stream < total_n){
-        fprintf(stderr, "max_anchors_stream %d total_n %d n_read %d\n",
+        fprintf(stderr, "max_anchors_stream %lu total_n %lu n_read %d\n",
                 stream_setup.max_anchors_stream, total_n, n_read);
     }
 
     if (stream_setup.max_range_grid < griddim) {
-        fprintf(stderr, "max_range_grid %d griddim %d, total_n %d n_read %d\n",
+        fprintf(stderr, "max_range_grid %d griddim %d, total_n %lu n_read %d\n",
                 stream_setup.max_range_grid, griddim, total_n, n_read);
     }
 
@@ -489,13 +343,17 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     cudaCheck();
 }
 
-void init_blocking_gpu(size_t* total_n, size_t* max_reads, size_t *min_n) {
+#ifdef __cplusplus
+extern "C" {
+#endif  // __cplusplus
+
+void init_blocking_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
     plmem_initialize(total_n, max_reads, min_n);
 }
 
-void init_stream_gpu(size_t* total_n, size_t* max_reads, size_t *min_n) {
+void init_stream_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
+    fprintf(stderr, "[M::%s] gpu initialized for chaining\n", __func__);
     plmem_stream_initialize(total_n, max_reads, min_n);
-    Misc misc = build_misc(INT64_MAX);
     plrange_upload_misc(misc);
     plscore_upload_misc(misc);
 }
@@ -504,12 +362,15 @@ void init_stream_gpu(size_t* total_n, size_t* max_reads, size_t *min_n) {
  * worker for forward chaining on cpu (blocking)
  * use KMALLOC and kfree for cpu memory management
  */
-void chain_blocking_gpu(const input_meta_t* meta, chain_read_t* in_arr, int n_read) {
-    Misc misc = build_misc(INT64_MAX);
-    plchain_cal_score_sync(in_arr, n_read, misc);
+void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t *in_arr, int n_read, void* km) {
+    // assume only one seg. and qlen_sum desn't matter
+    assert(opt->max_frag_len <= 0);
+    assert(!!(opt->flag & MM_F_SR));
+    assert(in_arr[0].n_seg == 1);
+    Misc misc = build_misc(mi, opt, 0, 1);
+    plchain_cal_score_sync(in_arr, n_read, misc, km);
     for (int i = 0; i < n_read; i++){
-        post_chaining_helper(&in_arr[i], meta->refs, &in_arr[i].seq, misc.max_dist_x,
-                             in_arr[i].km);
+        post_chaining_helper(mi, opt,  &in_arr[i], misc, km);
     }
 }
 
@@ -537,15 +398,19 @@ void chain_blocking_gpu(const input_meta_t* meta, chain_read_t* in_arr, int n_re
 //     }
 // }
 
-void chain_stream_gpu(const input_meta_t* meta, chain_read_t** in_arr_, int* n_read_, int thread_id) {
-    Misc misc = build_misc(INT64_MAX);
-    plchain_cal_score_async(in_arr_, n_read_, misc, stream_setup, thread_id);
+void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **in_arr_, int *n_read_,
+                      int thread_id, void* km) {
+    // assume only one seg. and qlen_sum desn't matter
+    assert(opt->max_frag_len <= 0);
+    assert(!!(opt->flag & MM_F_SR));
+    assert(in_arr[0].n_seg == 1);
+    Misc misc = build_misc(mi, opt, 0, 1);
+    plchain_cal_score_async(in_arr_, n_read_, misc, stream_setup, thread_id, km);
     if (in_arr_) {
         int n_read = *n_read_;
         chain_read_t* out_arr = *in_arr_;
         for (int i = 0; i < n_read; i++) {
-            post_chaining_helper(&out_arr[i], meta->refs, &out_arr[i].seq,
-                                 misc.max_dist_x, out_arr[i].km);
+            post_chaining_helper(mi, opt, &out_arr[i], misc, km);
         }
     }
 }
@@ -613,9 +478,13 @@ void chain_stream_gpu(const input_meta_t* meta, chain_read_t** in_arr_, int* n_r
  * [out] batches:   array of batches
  * [out] num_reads: array of number of reads in each batch
  */
-void finish_stream_gpu(const input_meta_t* meta, chain_read_t** reads_,
-                       int* n_read_, int t) {
-    Misc misc = build_misc(INT64_MAX);
+void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t** reads_,
+                       int* n_read_, int t, void* km) {
+    // assume only one seg. and qlen_sum desn't matter
+    assert(opt->max_frag_len <= 0);
+    assert(!!(opt->flag & MM_F_SR));
+    assert(in_arr[0].n_seg == 1);
+    Misc misc = build_misc(mi, opt, 0, 1);
     /* Sync all the pending batches + backtracking */
     if (!stream_setup.streams[t].busy) {
         *reads_ = NULL;
@@ -628,13 +497,11 @@ void finish_stream_gpu(const input_meta_t* meta, chain_read_t** reads_,
     cudaStreamSynchronize(stream_setup.streams[t].cudastream);
     cudaCheck();
     plchain_backtracking(&stream_setup.streams[t].host_mem,
-                         stream_setup.streams[t].reads, misc);
+                         stream_setup.streams[t].reads, misc, km);
     reads = stream_setup.streams[t].reads;
     n_read = stream_setup.streams[t].host_mem.size;
     for (int i = 0; i < n_read; i++) {
-        post_chaining_helper(&reads[i], meta->refs,
-                             &reads[i].seq, misc.max_dist_x,
-                             reads[i].km);
+        post_chaining_helper(mi, opt, &reads[i], misc, km);
     }
     stream_setup.streams[t].busy = false;
 
@@ -643,4 +510,9 @@ void finish_stream_gpu(const input_meta_t* meta, chain_read_t** reads_,
 
     plmem_free_host_mem(&stream_setup.streams[t].host_mem);
     plmem_free_device_mem(&stream_setup.streams[t].dev_mem);
+    fprintf(stderr, "[M::%s] tid=%d gpu exit\n", __func__, t);
 }
+
+#ifdef __cplusplus
+} // extern "C"
+#endif  // __cplusplus

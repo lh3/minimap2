@@ -202,4 +202,6 @@ void km_stat(const void *_km, km_stat_t *s)
 		s->capacity += size;
 		s->largest = s->largest > size? s->largest : size;
 	}
+
+    s->meta_size = s->n_cores * sizeof(header_t);
 }
