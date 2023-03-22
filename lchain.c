@@ -75,7 +75,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_
 	return u;
 }
 
-static mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32_t *v, mm128_t *a)
+mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32_t *v, mm128_t *a)
 {
 	mm128_t *b, *w;
 	uint64_t *u2;

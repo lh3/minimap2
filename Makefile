@@ -1,6 +1,6 @@
 CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
-CPPFLAGS=	-DHAVE_KALLOC
-INCLUDES=
+CPPFLAGS=	-DHAVE_KALLOC -D__AMD_SPLIT_KERNELS__ -Wno-unused-but-set-variable -Wno-unused-variable
+INCLUDES=	-I .
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o \
 			lchain.o align.o hit.o seed.o map.o format.o pe.o esterr.o splitidx.o \
 			ksw2_ll_sse.o
@@ -34,7 +34,7 @@ ifneq ($(tsan),)
 	LIBS+=-fsanitize=thread
 endif
 
-.PHONY:all extra clean depend
+.PHONY:all extra clean depend # profile
 .SUFFIXES:.c .o
 
 .c.o:
@@ -44,14 +44,25 @@ all:$(PROG)
 
 extra:all $(PROG_EXTRA)
 
+# build cJSON
+CJSON_OBJ= 	cJSON/cJSON.o
+INCLUDES += -I cJSON
+$(CJSON_OBJ): 
+	make -C cJSON
+
+# build kernel objs
+include gpu/gpu.mk
+
+
+# compile with nvcc/hipcc
 minimap2:main.o libminimap2.a
-		$(CC) $(CFLAGS) main.o -o $@ -L. -lminimap2 $(LIBS)
+		$(GPU_CC) $(CFLAGS) main.o -o $@ -L. -lminimap2 $(LIBS)
 
 minimap2-lite:example.o libminimap2.a
-		$(CC) $(CFLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
+		$(GPU_CC) $(CFLAGS) $< -o $@ -L. -lminimap2 $(LIBS)
 
-libminimap2.a:$(OBJS)
-		$(AR) -csru $@ $(OBJS)
+libminimap2.a:$(OBJS) $(CU_OBJS) $(CJSON_OBJ)
+		$(AR) -csru $@ $^
 
 sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h ketopt.h sdust.h
 		$(CC) -D_SDUST_MAIN $(CFLAGS) $< kalloc.o -o $@ -lz
@@ -97,7 +108,7 @@ ksw2_exts2_neon.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 
 # other non-file targets
 
-clean:
+clean: cleangpu
 		rm -fr gmon.out *.o a.out $(PROG) $(PROG_EXTRA) *~ *.a *.dSYM build dist mappy*.so mappy.c python/mappy.c mappy.egg*
 
 depend:

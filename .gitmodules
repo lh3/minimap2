@@ -1,3 +1,6 @@
 [submodule "lib/simde"]
 	path = lib/simde
 	url = https://github.com/nemequ/simde.git
+[submodule "cJSON"]
+	path = cJSON
+	url = https://github.com/DaveGamble/cJSON.git
