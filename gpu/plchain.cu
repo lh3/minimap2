@@ -235,10 +235,10 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
     plmem_async_h2d_memcpy(&stream_setup.streams[stream_id]);
     plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
                                   &stream_setup.streams[stream_id].cudastream);
-    plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
-                                   &stream_setup.streams[stream_id].cudastream);
-    // plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+    // plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
     //                                &stream_setup.streams[stream_id].cudastream);
+    plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+                                   &stream_setup.streams[stream_id].cudastream);
     plmem_async_d2h_memcpy(&stream_setup.streams[stream_id]);
     cudaEventRecord(stream_setup.streams[stream_id].cudaevent,
                     stream_setup.streams[stream_id].cudastream);
@@ -331,10 +331,10 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     plmem_async_h2d_memcpy(&stream_setup.streams[stream_id]);
     plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
                                   &stream_setup.streams[stream_id].cudastream);
-    plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
-                                   &stream_setup.streams[stream_id].cudastream);
-    // plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+    // plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
     //                                &stream_setup.streams[stream_id].cudastream);
+    plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+                                   &stream_setup.streams[stream_id].cudastream);
     plmem_async_d2h_memcpy(&stream_setup.streams[stream_id]);
     cudaEventRecord(stream_setup.streams[stream_id].cudaevent,
                     stream_setup.streams[stream_id].cudastream);

@@ -156,7 +156,7 @@ __global__ void score_generation_long(const int64_t* anchors_x, const int64_t* a
     int bid = blockIdx.x;
 
     for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
-        seg_t seg = long_seg[bid]; 
+        seg_t seg = long_seg[segid]; 
         compute_sc_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
