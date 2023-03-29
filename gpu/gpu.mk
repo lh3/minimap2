@@ -1,4 +1,5 @@
 GPU				?= 		AMD
+CONFIG 			= $(if $(GPU_CONFIG),-DGPU_CONFIG='"$(GPU_CONFIG)"')
 
 ###################################################
 ############  	CPU Compile 	###################
@@ -47,7 +48,7 @@ endif
 
 
 %.o: %.cu
-	$(GPU_CC) -c $(GPU_FLAGS) $(CFLAGS)  $(CPPFLAGS) $(INCLUDES) $< -o $@
+	$(GPU_CC) -c $(GPU_FLAGS) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(CONFIG) $< -o $@
 
 cleangpu: 
 	rm -f $(CU_OBJS)
