@@ -177,6 +177,11 @@ typedef struct {
 	int64_t cap_kalloc;
 
 	const char *split_prefix;
+
+	/* gpu batch parameters */
+    int gpu_chain_max_reads;
+    size_t gpu_chain_max_anchors;
+    int gpu_chain_min_n;
 } mm_mapopt_t;
 
 // index reader

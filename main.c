@@ -7,6 +7,11 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
+#if defined(__AMD_SPLIT_KERNELS__)
+
+#include "plutils.h"
+#endif  // (__AMD_SPLIT_KERNELS__)
+
 #define MM_VERSION "2.24-r1122"
 
 #ifdef __linux__
@@ -425,6 +430,16 @@ int main(int argc, char *argv[])
 			mm_idx_destroy(mi);
 			continue; // no query files
 		}
+#if defined(__AMD_SPLIT_KERNELS__)
+        // initialize gpu
+        if (opt.flag & MM_F_GPU_CHAIN) {
+            // TODO: make misc different for each read
+            Misc misc = build_misc(&mi, &opt, 0, 1);
+            init_stream_gpu(&opt.gpu_chain_max_anchors,
+                            &opt.gpu_chain_max_reads, &opt.gpu_chain_min_n,
+                            misc);
+        }
+#endif  // (__AMD_SPLIT_KERNELS__)
 		ret = 0;
 		if (!(opt.flag & MM_F_FRAG_MODE)) {
 			for (i = o.ind + 1; i < argc; ++i) {
@@ -439,7 +454,10 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "ERROR: failed to map the query file\n");
 			exit(EXIT_FAILURE);
 		}
-	}
+#if defined(__AMD_SPLIT_KERNELS__)
+        free_stream_gpu(n_threads);
+#endif  // (__AMD_SPLIT_KERNELS__)
+    }
 	n_parts = idx_rdr->n_parts;
 	mm_idx_reader_close(idx_rdr);
 

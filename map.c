@@ -16,8 +16,6 @@ struct mm_tbuf_s {
 	double timers[MM_N_THR_TIMERS];
 }; // per thread
 
-#define __AMD_SPLIT_KERNELS__
-
 #if defined(__AMD_SPLIT_KERNELS__)
 
 #include "plutils.h"
@@ -1303,10 +1301,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 #if defined(__AMD_SPLIT_KERNELS__)
         step_t *s = (step_t *)in;
         if (p->opt->flag & MM_F_GPU_CHAIN) {
-            // TODO: make misc different for each read
-			Misc misc = build_misc(p->mi, p->opt, 0, 1);
-			init_stream_gpu(&s->batch_max_anchors, &s->batch_max_reads, & s->gpu_min_n, misc);
-			// TODO: seperate GPU infrastructure initialization 
+            s->batch_max_anchors = p->opt->gpu_chain_max_anchors;
+            s->batch_max_reads = p->opt->gpu_chain_max_reads;
+            s->gpu_min_n = p->opt->gpu_chain_min_n;
         } else {
             s->batch_max_anchors = SIZE_MAX;
             s->batch_max_reads = N_ACCUM;
