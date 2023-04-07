@@ -325,7 +325,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
 //		fprintf(fp_help, "    -j INT       syncmer submer size (overriding -w) []\n");
-		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [4G]\n");
+		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [8G]\n");
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
