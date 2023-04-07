@@ -62,14 +62,13 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	b = _mm_sub_epi8(b, tmp); \
 	a2= _mm_sub_epi8(a2, _mm_sub_epi8(z, q2_));
 
-	const int sp[4] = { 4, 7, 10, 15 };
-//	const int sp[4] = { 3, 5, 7, 10 };
 	int r, t, qe = q + e, n_col_, *off = 0, *off_end = 0, tlen_, qlen_, last_st, last_en, max_sc, min_sc, long_thres, long_diff;
 	int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
 	int32_t *H = 0, H0 = 0, last_H0_t = 0;
 	uint8_t *qr, *sf, *mem, *mem2 = 0;
 	__m128i q_, q2_, qe_, zero_, sc_mch_, sc_mis_, sc_N_, m1_;
 	__m128i *u, *v, *x, *y, *x2, *s, *p = 0, *donor, *acceptor;
+	const int sp0[4] = { 8, 15, 21, 30 };
 
 	ksw_reset_extz(ez);
 	if (m <= 1 || qlen <= 0 || tlen <= 0 || q2 <= q + e) return;
@@ -132,10 +131,6 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				if (can_type && (target[t+3] == 0 || target[t+3] == 2)) can_type = 2;
 				if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
 			}
-			if (junc)
-				for (t = 0; t < tlen - 1; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&8)))
-						((int8_t*)donor)[t] += junc_bonus;
 			for (t = 2; t < tlen; ++t) {
 				int can_type = 0;
 				if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 0 && target[t] == 2) can_type = 1; // ...yAG
@@ -143,10 +138,6 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				if (can_type && (target[t-2] == 1 || target[t-2] == 3)) can_type = 2;
 				if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
 			}
-			if (junc)
-				for (t = 0; t < tlen; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&4)))
-						((int8_t*)acceptor)[t] += junc_bonus;
 		} else {
 			for (t = 0; t < tlen - 4; ++t) {
 				int can_type = 0; // type of canonical site: 0=none, 1=GT/AG only, 2=GTr/yAG
@@ -155,10 +146,6 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				if (can_type && (target[t+3] == 1 || target[t+3] == 3)) can_type = 2;
 				if (can_type) ((int8_t*)donor)[t] = can_type == 2? 0 : semi_cost;
 			}
-			if (junc)
-				for (t = 0; t < tlen - 1; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&4)))
-						((int8_t*)donor)[t] += junc_bonus;
 			for (t = 2; t < tlen; ++t) {
 				int can_type = 0;
 				if ((flag & KSW_EZ_SPLICE_FOR) && target[t-1] == 3 && target[t] == 2) can_type = 1; // ...rTG
@@ -166,96 +153,89 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				if (can_type && (target[t-2] == 0 || target[t-2] == 2)) can_type = 2;
 				if (can_type) ((int8_t*)acceptor)[t] = can_type == 2? 0 : semi_cost;
 			}
-			if (junc)
-				for (t = 0; t < tlen; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&8)))
-						((int8_t*)acceptor)[t] += junc_bonus;
 		}
-	} else if (flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) {
+	} else if (flag & (KSW_EZ_SPLICE_FOR|KSW_EZ_SPLICE_REV)) { // use the complex splice model
+		int sp[4];
+		for (t = 0; t < 4; ++t)
+			sp[t] = (int)((double)sp0[t] / 4. + .499);
 		memset(donor,    -sp[3], tlen_ * 16);
 		memset(acceptor, -sp[3], tlen_ * 16);
 		if (!(flag & KSW_EZ_REV_CIGAR)) {
 			for (t = 0; t < tlen - 4; ++t) {
-				int x = 3, y = 3, z;
+				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t+1] == 2 && target[t+2] == 3) // GT.
-						x = target[t+3] == 0 || target[t+3] == 2? -1 : 0;
-					else if (target[t+1] == 2 && target[t+2] == 1) x = 1; // GC.
-					else if (target[t+1] == 0 && target[t+2] == 3) x = 2; // AT.
+					if (target[t+1] == 2 && target[t+2] == 3) // |GT.
+						z = target[t+3] == 0 || target[t+3] == 2? -1 : 0; // |GTr or not
+					else if (target[t+1] == 2 && target[t+2] == 1) z = 1; // |GC.
+					else if (target[t+1] == 0 && target[t+2] == 3) z = 2; // |AT.
+				} else if (flag & KSW_EZ_SPLICE_REV) {
+					if (target[t+1] == 1 && target[t+2] == 3) // |CT. (revcomp of .AG|)
+						z = target[t+3] == 0 || target[t+3] == 2? -1 : 0;
+					else if (target[t+1] == 2 && target[t+2] == 3) z = 2; // |GT. (revcomp of .AC|)
 				}
-				if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t+1] == 1 && target[t+2] == 3) // CT. (revcomp of .AG)
-						y = target[t+3] == 0 || target[t+3] == 2? -1 : 0;
-					else if (target[t+1] == 2 && target[t+2] == 3) y = 2; // GT. (revcomp of .AC)
-				}
-				z = x < y? x : y;
 				((int8_t*)donor)[t] = z < 0? 0 : -sp[z];
 			}
-			if (junc)
-				for (t = 0; t < tlen - 1; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&8)))
-						((int8_t*)donor)[t] += junc_bonus;
 			for (t = 2; t < tlen; ++t) {
-				int x = 3, y = 3, z;
+				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t-1] == 0 && target[t] == 2) // .AG
-						x = target[t-2] == 1 || target[t-2] == 3? -1 : 0;
-					else if (target[t-1] == 0 && target[t] == 1) x = 2; // .AC
+					if (target[t-1] == 0 && target[t] == 2) // .AG|
+						z = target[t-2] == 1 || target[t-2] == 3? -1 : 0; // yAG| or not
+					else if (target[t-1] == 0 && target[t] == 1) z = 2;   // .AC|
+				} else if (flag & KSW_EZ_SPLICE_REV) {
+					if (target[t-1] == 0 && target[t] == 1) // .AC| (revcomp of |GT.)
+						z = target[t-2] == 1 || target[t-2] == 3? -1 : 0; // yAC| or not
+					else if (target[t-1] == 1 && target[t] == 2) z = 1;   // .CG| (revcomp of |GC.)
+					else if (target[t-1] == 0 && target[t] == 3) z = 2;   // .AT| (revcomp of |AT.)
 				}
-				if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t-1] == 0 && target[t] == 1) // .AC (revcomp of GT.)
-						y = target[t-2] == 1 || target[t-2] == 3? -1 : 0;
-					else if (target[t-1] == 1 && target[t] == 2) y = 1; // .CG
-					else if (target[t-1] == 0 && target[t] == 3) y = 1; // .AT
-				}
-				z = x < y? x : y;
 				((int8_t*)acceptor)[t] = z < 0? 0 : -sp[z];
 			}
-			if (junc)
-				for (t = 0; t < tlen; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&4)))
-						((int8_t*)acceptor)[t] += junc_bonus;
 		} else {
 			for (t = 0; t < tlen - 4; ++t) {
-				int x = 3, y = 3, z;
+				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t+1] == 2 && target[t+2] == 0) // GA. (rev of .AG)
-						x = target[t+3] == 1 || target[t+3] == 3? -1 : 0;
-					else if (target[t+1] == 1 && target[t+2] == 0) x = 2; // CA. (rev of .AC)
+					if (target[t+1] == 2 && target[t+2] == 0) // |GA. (rev of .AG|)
+						z = target[t+3] == 1 || target[t+3] == 3? -1 : 0;
+					else if (target[t+1] == 1 && target[t+2] == 0) z = 2; // |CA. (rev of .AC|)
+				} else if (flag & KSW_EZ_SPLICE_REV) {
+					if (target[t+1] == 1 && target[t+2] == 0) // |CA. (comp of |GT.)
+						z = target[t+3] == 1 || target[t+3] == 3? -1 : 0;
+					else if (target[t+1] == 1 && target[t+2] == 2) z = 1; // |CG. (comp of |GC.)
+					else if (target[t+1] == 3 && target[t+2] == 0) z = 2; // |TA. (comp of |AT.)
 				}
-				if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t+1] == 1 && target[t+2] == 0) // CA. (comp of GT.)
-						y = target[t+3] == 1 || target[t+3] == 3? -1 : 0;
-					else if (target[t+1] == 1 && target[t+2] == 2) y = 1; // CG. (comp of GC.)
-					else if (target[t+1] == 3 && target[t+2] == 0) y = 2; // TA. (comp of AT.)
-				}
-				z = x < y? x : y;
 				((int8_t*)donor)[t] = z < 0? 0 : -sp[z];
 			}
-			if (junc)
-				for (t = 0; t < tlen - 1; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&4)))
-						((int8_t*)donor)[t] += junc_bonus;
 			for (t = 2; t < tlen; ++t) {
-				int x = 3, y = 3, z;
+				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t-1] == 3 && target[t] == 2) // .TG (rev of GT.)
-						x = target[t-2] == 0 || target[t-2] == 2? -1 : 0;
-					else if (target[t-1] == 1 && target[t] == 2) x = 1; // .CG
-					else if (target[t-1] == 3 && target[t] == 0) x = 2; // .TA
+					if (target[t-1] == 3 && target[t] == 2) // .TG| (rev of |GT.)
+						z = target[t-2] == 0 || target[t-2] == 2? -1 : 0;
+					else if (target[t-1] == 1 && target[t] == 2) z = 1; // .CG|
+					else if (target[t-1] == 3 && target[t] == 0) z = 2; // .TA|
+				} else if (flag & KSW_EZ_SPLICE_REV) {
+					if (target[t-1] == 3 && target[t] == 1) // .TC| (comp of .AG|)
+						z = target[t-2] == 0 || target[t-2] == 2? -1 : 0;
+					else if (target[t-1] == 3 && target[t] == 2) z = 2; // .TG|
 				}
-				if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t-1] == 3 && target[t] == 1) // .TC (comp of .AG)
-						y = target[t-2] == 0 || target[t-2] == 2? -1 : 0;
-					else if (target[t-1] == 3 && target[t] == 2) y = 2; // .TG
-				}
-				z = x < y? x : y;
 				((int8_t*)acceptor)[t] = z < 0? 0 : -sp[z];
 			}
-			if (junc)
-				for (t = 0; t < tlen; ++t)
-					if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&8)))
-						((int8_t*)acceptor)[t] += junc_bonus;
+		}
+	}
+
+	if (junc) {
+		if (!(flag & KSW_EZ_REV_CIGAR)) {
+			for (t = 0; t < tlen - 1; ++t)
+				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&8)))
+					((int8_t*)donor)[t] += junc_bonus;
+			for (t = 0; t < tlen; ++t)
+				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&4)))
+					((int8_t*)acceptor)[t] += junc_bonus;
+		} else {
+			for (t = 0; t < tlen - 1; ++t)
+				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&2)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&4)))
+					((int8_t*)donor)[t] += junc_bonus;
+			for (t = 0; t < tlen; ++t)
+				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&8)))
+					((int8_t*)acceptor)[t] += junc_bonus;
 		}
 	}
 
