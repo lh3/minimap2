@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <sys/types.h>
 
+#define MM_VERSION "2.24-r1155-dirty"
+
 #define MM_F_NO_DIAG       0x001 // no exact diagonal hit
 #define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
 #define MM_F_CIGAR         0x004
@@ -45,6 +47,7 @@
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
 #define MM_I_NO_NAME      0x4
+#define MM_I_SYNCMER      0x8
 
 #define MM_IDX_MAGIC   "MMI\2"
 

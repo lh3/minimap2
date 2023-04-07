@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.24-r1141-dirty';
+var paftools_version = '2.24-r1152-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2554,6 +2554,276 @@ function paf_junceval(args)
 	}
 }
 
+function paf_exoneval(args) // adapted from paf_junceval()
+{
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false, is_bed = false, use_cds = false, eval_base = false;
+	while ((c = getopt(args, "l:epcab1ds")) != null) {
+		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
+		else if (c == 'e') print_err_only = print_ovlp = true;
+		else if (c == 'p') print_ovlp = true;
+		else if (c == 'c') chr_only = true;
+		else if (c == 'a') aa = true, use_cds = true;
+		else if (c == 'b') is_bed = true;
+		else if (c == '1') first_only = true;
+		else if (c == 'd') use_cds = true;
+		else if (c == 's') eval_base = true;
+	}
+
+	if (args.length - getopt.ind < 1) {
+		print("Usage: paftools.js exoneval [options] <gene.gtf> <aln.sam>");
+		print("Options:");
+		print("  -l INT    tolerance of junction positions (0 for exact) [0]");
+		print("  -d        evaluate coding regions only (exon regions by default)");
+		print("  -a        miniprot PAF as input (force -d)");
+		print("  -p        print overlapping exons");
+		print("  -e        print erroreous overlapping exons");
+		print("  -c        only consider alignments to /^(chr)?([0-9]+|X|Y)$/");
+		print("  -1        only process the first alignment of each query");
+		print("  -b        BED as input");
+		print("  -s        compute base Sn and Sp (more memory)");
+		exit(1);
+	}
+
+	var file, buf = new Bytes();
+
+	warn("Reading reference GTF...");
+	var tr = {};
+	file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		if (t[0].charAt(0) == '#') continue;
+		if (use_cds) {
+			if (t[2] != "cds" && t[2] != "CDS") continue;
+		} else {
+			if (t[2] != 'exon') continue;
+		}
+		var st = parseInt(t[3]) - 1;
+		var en = parseInt(t[4]);
+		if ((m = /transcript_id "(\S+)"/.exec(t[8])) == null) continue;
+		var tid = m[1];
+		if (tr[tid] == null) tr[tid] = [t[0], t[6], 0, 0, []];
+		tr[tid][4].push([st, en]); // this keeps transcript
+	}
+	file.close();
+
+	var anno = {};
+	for (var tid in tr) { // traverse each transcript
+		var t = tr[tid];
+		Interval.sort(t[4]);
+		t[2] = t[4][0][0];
+		t[3] = t[4][t[4].length - 1][1];
+		if (anno[t[0]] == null) anno[t[0]] = [];
+		var s = t[4];
+		for (var i = 0; i < s.length; ++i) // traverse each exon
+			anno[t[0]].push([s[i][0], s[i][1]]);
+	}
+	tr = null;
+
+	for (var chr in anno) { // index exons
+		var e = anno[chr];
+		if (e.length == 0) continue;
+		Interval.sort(e);
+		var k = 0;
+		for (var i = 1; i < e.length; ++i) // dedup
+			if (e[i][0] != e[k][0] || e[i][1] != e[k][1])
+				e[++k] = e[i].slice(0);
+		e.length = k + 1;
+		Interval.index_end(e);
+	}
+
+	var n_pri = 0, n_unmapped = 0, n_mapped = 0;
+	var n_exon = 0, n_exon_hit = 0, n_exon_novel = 0;
+
+	file = getopt.ind+1 >= args.length || args[getopt.ind+1] == '-'? new File() : new File(args[getopt.ind+1]);
+	var last_qname = null, qexon = {};
+	var re_cigar = /(\d+)([MIDNSHP=XFGUV])/g;
+
+	warn("Evaluating alignments...");
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		var ctg_name = null, cigar = null, pos = null, qname;
+
+		if (t[0].charAt(0) == '@') continue;
+		if (t[0] == "##PAF") t.shift();
+		qname = t[0];
+		if (is_bed) {
+			ctg_name = t[0], pos = parseInt(t[1]), cigar == null;
+		} else if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
+			ctg_name = t[5], pos = parseInt(t[7]);
+			var type = 'P';
+			for (i = 12; i < t.length; ++i) {
+				if ((m = /^(tp:A|cg:Z):(\S+)/.exec(t[i])) != null) {
+					if (m[1] == 'tp:A') type = m[2];
+					else cigar = m[2];
+				}
+			}
+			if (type == 'S') continue; // secondary
+		} else { // SAM
+			ctg_name = t[2], pos = parseInt(t[3]) - 1, cigar = t[5];
+			var flag = parseInt(t[1]);
+			if (flag&0x100) continue; // secondary
+		}
+
+		if (chr_only && !/^(chr)?([0-9]+|X|Y)$/.test(ctg_name)) continue;
+		if (first_only && last_qname == qname) continue;
+		if (ctg_name == '*') { // unmapped
+			++n_unmapped;
+			continue;
+		} else {
+			++n_pri;
+			if (last_qname != qname) {
+				++n_mapped;
+				last_qname = qname;
+			}
+		}
+
+		var exon = [];
+		if (is_bed) { // BED
+			exon.push([pos, parseInt(t[2])]);
+		} else if (aa) {
+			var tmp_exon = [], tmp = 0, tmp_st = 0;
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					tmp_exon.push([tmp_st, tmp]);
+					tmp_st = tmp + len, tmp += len;
+				} else if (op == 'U') {
+					tmp_exon.push([tmp_st, tmp + 1]);
+					tmp_st = tmp + len - 2, tmp += len;
+				} else if (op == 'V') {
+					tmp_exon.push([tmp_st, tmp + 2]);
+					tmp_st = tmp + len - 1, tmp += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') {
+					tmp += len * 3;
+				} else if (op == 'F' || op == 'G') {
+					tmp += len;
+				}
+			}
+			tmp_exon.push([tmp_st, tmp]);
+			if (t[4] == '+') {
+				for (var i = 0; i < tmp_exon.length; ++i)
+					exon.push([pos + tmp_exon[i][0], pos + tmp_exon[i][1]]);
+			} else if (t[4] == '-') { // For protein-to-genome alignment, the coordinates are on the query strand. Need to flip them.
+				var glen = parseInt(t[8]) - parseInt(t[7]);
+				for (var i = tmp_exon.length - 1; i >= 0; --i)
+					exon.push([pos + (glen - tmp_exon[i][1]), pos + (glen - tmp_exon[i][0])]);
+			}
+		} else {
+			var tmp_st = pos;
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					exon.push([tmp_st, pos]);
+					tmp_st = pos + len, pos += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
+			}
+			exon.push([tmp_st, pos]);
+		}
+		n_exon += exon.length;
+
+		var chr = anno[ctg_name];
+		if (chr != null) {
+			for (var i = 0; i < exon.length; ++i) {
+				if (eval_base) {
+					if (qexon[ctg_name] == null) qexon[ctg_name] = [];
+					qexon[ctg_name].push([exon[i][0], exon[i][1]]);
+				}
+				var o = Interval.find_ovlp(chr, exon[i][0], exon[i][1]);
+				if (o.length > 0) {
+					var hit = false;
+					for (var j = 0; j < o.length; ++j) {
+						var st_diff = exon[i][0] - o[j][0];
+						var en_diff = exon[i][1] - o[j][1];
+						if (st_diff < 0) st_diff = -st_diff;
+						if (en_diff < 0) en_diff = -en_diff;
+						if (st_diff <= l_fuzzy && en_diff <= l_fuzzy)
+							++n_exon_hit, hit = true;
+						if (hit) break;
+					}
+					if (print_ovlp) {
+						var type = hit? 'C' : 'P';
+						if (hit && print_err_only) continue;
+						var x = '[';
+						for (var j = 0; j < o.length; ++j) {
+							if (j) x += ', ';
+							x += '(' + o[j][0] + "," + o[j][1] + ')';
+						}
+						x += ']';
+						print(type, qname, i+1, ctg_name, exon[i][0], exon[i][1], x);
+					}
+				} else {
+					++n_exon_novel;
+					if (print_ovlp)
+						print('N',  qname, i+1, ctg_name, exon[i][0], exon[i][1]);
+				}
+			}
+		} else {
+			n_exon_novel += exon.length;
+		}
+	}
+	file.close();
+
+	buf.destroy();
+
+	if (!print_ovlp) {
+		print("# unmapped reads: " + n_unmapped);
+		print("# mapped reads: " + n_mapped);
+		print("# primary alignments: " + n_pri);
+		print("# predicted exons: " + n_exon);
+		print("# non-overlapping exons: " + n_exon_novel);
+		print("# correct exons: " + n_exon_hit + " (" + (n_exon_hit / n_exon * 100).toFixed(2) + "%)");
+	}
+
+	function merge_and_index(ex) {
+		for (var chr in ex) {
+			var a = [];
+			e = ex[chr];
+			Interval.sort(e);
+			var st = e[0][0], en = e[0][1];
+			for (var i = 1; i < e.length; ++i) { // merge
+				if (e[i][0] > en) {
+					a.push([st, en]);
+					st = e[i][0], en = e[i][1];
+				} else {
+					en = en > e[i][1]? en : e[i][1];
+				}
+			}
+			a.push([st, en]);
+			Interval.index_end(a);
+			ex[chr] = a;
+		}
+	}
+
+	function cal_sn(a0, a1) {
+		var tot = 0, cov = 0;
+		for (var chr in a1) {
+			var e0 = a0[chr], e1 = a1[chr];
+			for (var i = 0; i < e1.length; ++i)
+				tot += e1[i][1] - e1[i][0];
+			if (e0 == null) continue;
+			for (var i = 0; i < e1.length; ++i) {
+				var o = Interval.find_ovlp(e0, e1[i][0], e1[i][1]);
+				for (var j = 0; j < o.length; ++j) { // this only works when there are no overlaps between intervals
+					var st = e1[i][0] > o[j][0]? e1[i][0] : o[j][0];
+					var en = e1[i][1] < o[j][1]? e1[i][1] : o[j][1];
+					cov += en - st;
+				}
+			}
+		}
+		return [tot, cov];
+	}
+
+	if (eval_base) {
+		warn("Computing base Sn and Sp...");
+		merge_and_index(qexon);
+		merge_and_index(anno);
+		var sn = cal_sn(qexon, anno);
+		var sp = cal_sn(anno, qexon);
+		print("Base Sn: " + sn[1] + " / " + sn[0] + " = " + (sn[1] / sn[0] * 100).toFixed(2) + "%");
+		print("Base Sp: " + sp[1] + " / " + sp[0] + " = " + (sp[1] / sp[0] * 100).toFixed(2) + "%");
+	}
+}
+
 // evaluate overlap sensitivity
 function paf_ov_eval(args)
 {
@@ -2752,7 +3022,6 @@ function paf_misjoin(args)
 	function test_cen_point(cen, chr, x) {
 		var b = cen[chr];
 		if (b == null) return false;
-		print(x, b[0][0], b[0][1]);
 		for (var j = 0; j < b.length; ++j)
 			if (x >= b[j][0] && x < b[j][1])
 				return true;
@@ -3362,6 +3631,7 @@ function main(args)
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
 		print("  pbsim2fq   convert PBSIM-simulated MAF to FASTQ");
 		print("  junceval   evaluate splice junction consistency with known annotations");
+		print("  exoneval   evaluate exon-level consistency with known annotations");
 		print("  ov-eval    evaluate read overlap sensitivity using read-to-ref mapping");
 		exit(1);
 	}
@@ -3386,6 +3656,7 @@ function main(args)
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
 	else if (cmd == 'junceval') paf_junceval(args);
+	else if (cmd == 'exoneval') paf_exoneval(args);
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
 	else if (cmd == 'vcfstat') paf_vcfstat(args);
 	else if (cmd == 'sveval') paf_sveval(args);

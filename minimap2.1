@@ -80,6 +80,19 @@ Minimizer k-mer length [15]
 Minimizer window size [10]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
 .TP
+.BI -j \ INT
+Syncmer submer size [10]. Option
+.B -j
+and
+.B -w
+will override each: if
+.B -w
+is applied after
+.BR -j ,
+.B -j
+will have no effect, and vice versa.
+
+.TP
 .B -H
 Use homopolymer-compressed (HPC) minimizers. An HPC sequence is constructed by
 contracting homopolymer runs to a single base. An HPC minimizer is a minimizer
