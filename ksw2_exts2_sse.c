@@ -123,7 +123,7 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		int sp[4];
 		if (flag & KSW_EZ_SPLICE_CMPLX) {
 			for (t = 0; t < 4; ++t)
-				sp[t] = (int)((double)sp0[t] / 4. + .499);
+				sp[t] = (int)((double)sp0[t] / 3. + .499);
 		} else {
 			sp[0] = flag&KSW_EZ_SPLICE_FLANK? noncan / 2 : 0;
 			sp[1] = sp[2] = sp[3] = noncan;
@@ -134,12 +134,12 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = 0; t < tlen - 4; ++t) {
 				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t+1] == 2 && target[t+2] == 3) // |GT.
+					if (target[t+1] == 2 && target[t+2] == 3)             // |GT.
 						z = target[t+3] == 0 || target[t+3] == 2? -1 : 0; // |GTr or not
 					else if (target[t+1] == 2 && target[t+2] == 1) z = 1; // |GC.
 					else if (target[t+1] == 0 && target[t+2] == 3) z = 2; // |AT.
 				} else if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t+1] == 1 && target[t+2] == 3) // |CT. (revcomp of .AG|)
+					if (target[t+1] == 1 && target[t+2] == 3)             // |CT. (revcomp of .AG|)
 						z = target[t+3] == 0 || target[t+3] == 2? -1 : 0;
 					else if (target[t+1] == 2 && target[t+2] == 3) z = 2; // |GT. (revcomp of .AC|)
 				}
@@ -148,13 +148,13 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = 2; t < tlen; ++t) {
 				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t-1] == 0 && target[t] == 2) // .AG|
+					if (target[t-1] == 0 && target[t] == 2)               // .AG|
 						z = target[t-2] == 1 || target[t-2] == 3? -1 : 0; // yAG| or not
 					else if (target[t-1] == 0 && target[t] == 1) z = 2;   // .AC|
 				} else if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t-1] == 0 && target[t] == 1) // .AC| (revcomp of |GT.)
+					if (target[t-1] == 0 && target[t] == 1)               // .AC| (revcomp of |GT.)
 						z = target[t-2] == 1 || target[t-2] == 3? -1 : 0; // yAC| or not
-					else if (target[t-1] == 1 && target[t] == 2) z = 1;   // .CG| (revcomp of |GC.)
+					else if (target[t-1] == 2 && target[t] == 1) z = 1;   // .GC| (revcomp of |GC.)
 					else if (target[t-1] == 0 && target[t] == 3) z = 2;   // .AT| (revcomp of |AT.)
 				}
 				((int8_t*)acceptor)[t] = z < 0? 0 : -sp[z];
@@ -163,11 +163,11 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = 0; t < tlen - 4; ++t) {
 				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t+1] == 2 && target[t+2] == 0) // |GA. (rev of .AG|)
+					if (target[t+1] == 2 && target[t+2] == 0)             // |GA. (rev of .AG|)
 						z = target[t+3] == 1 || target[t+3] == 3? -1 : 0;
 					else if (target[t+1] == 1 && target[t+2] == 0) z = 2; // |CA. (rev of .AC|)
 				} else if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t+1] == 1 && target[t+2] == 0) // |CA. (comp of |GT.)
+					if (target[t+1] == 1 && target[t+2] == 0)             // |CA. (comp of |GT.)
 						z = target[t+3] == 1 || target[t+3] == 3? -1 : 0;
 					else if (target[t+1] == 1 && target[t+2] == 2) z = 1; // |CG. (comp of |GC.)
 					else if (target[t+1] == 3 && target[t+2] == 0) z = 2; // |TA. (comp of |AT.)
@@ -177,14 +177,14 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = 2; t < tlen; ++t) {
 				int z = 3;
 				if (flag & KSW_EZ_SPLICE_FOR) {
-					if (target[t-1] == 3 && target[t] == 2) // .TG| (rev of |GT.)
+					if (target[t-1] == 3 && target[t] == 2)               // .TG| (rev of |GT.)
 						z = target[t-2] == 0 || target[t-2] == 2? -1 : 0;
-					else if (target[t-1] == 1 && target[t] == 2) z = 1; // .CG|
-					else if (target[t-1] == 3 && target[t] == 0) z = 2; // .TA|
+					else if (target[t-1] == 1 && target[t] == 2) z = 1;   // .CG| (rev of |GC.)
+					else if (target[t-1] == 3 && target[t] == 0) z = 2;   // .TA| (rev of |AT.)
 				} else if (flag & KSW_EZ_SPLICE_REV) {
-					if (target[t-1] == 3 && target[t] == 1) // .TC| (comp of .AG|)
+					if (target[t-1] == 3 && target[t] == 1)               // .TC| (comp of .AG|)
 						z = target[t-2] == 0 || target[t-2] == 2? -1 : 0;
-					else if (target[t-1] == 3 && target[t] == 2) z = 2; // .TG|
+					else if (target[t-1] == 3 && target[t] == 2) z = 2;   // .TG| (comp of .AC|)
 				}
 				((int8_t*)acceptor)[t] = z < 0? 0 : -sp[z];
 			}
