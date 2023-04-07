@@ -33,7 +33,7 @@ static ko_longopt_t long_options[] = {
 	{ "min-dp-len",     ko_required_argument, 308 },
 	{ "print-aln-seq",  ko_no_argument,       309 },
 	{ "splice",         ko_no_argument,       310 },
-	{ "splice-model",   ko_no_argument,       311 },
+	{ "splice-model",   ko_no_argument,       'J' },
 	{ "cost-non-gt-ag", ko_required_argument, 'C' },
 	{ "no-long-join",   ko_no_argument,       312 },
 	{ "sr",             ko_no_argument,       313 },
@@ -120,7 +120,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:j:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:j:J";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -187,6 +187,7 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
+		else if (c == 'J') opt.flag |= MM_F_SPLICE_CMPLX; // --splice-model
 		else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
@@ -205,7 +206,6 @@ int main(int argc, char *argv[])
 		else if (c == 308) opt.min_ksw_len = atoi(o.arg); // --min-dp-len
 		else if (c == 309) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
 		else if (c == 310) opt.flag |= MM_F_SPLICE; // --splice
-		else if (c == 311) opt.flag |= MM_F_SPLICE_CMPLX; // --splice-model
 		else if (c == 312) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 313) opt.flag |= MM_F_SR; // --sr
 		else if (c == 317) opt.end_bonus = atoi(o.arg); // --end-bonus
@@ -324,7 +324,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
-		fprintf(fp_help, "    -j INT       syncmer submer size (overriding -w) []\n");
+//		fprintf(fp_help, "    -j INT       syncmer submer size (overriding -w) []\n");
 		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [4G]\n");
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
