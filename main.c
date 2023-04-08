@@ -33,7 +33,6 @@ static ko_longopt_t long_options[] = {
 	{ "min-dp-len",     ko_required_argument, 308 },
 	{ "print-aln-seq",  ko_no_argument,       309 },
 	{ "splice",         ko_no_argument,       310 },
-	{ "splice-model",   ko_no_argument,       'J' },
 	{ "cost-non-gt-ag", ko_required_argument, 'C' },
 	{ "no-long-join",   ko_no_argument,       312 },
 	{ "sr",             ko_no_argument,       313 },
@@ -120,7 +119,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:j:J";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:j:J:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -187,8 +186,12 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
-		else if (c == 'J') opt.flag |= MM_F_SPLICE_CMPLX; // --splice-model
-		else if (c == 'o') {
+		else if (c == 'J') {
+			int t;
+			t = atoi(o.arg);
+			if (t == 0) opt.flag |= MM_F_SPLICE_OLD;
+			else if (t == 1) opt.flag &= ~MM_F_SPLICE_OLD;
+		} else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
 					fprintf(stderr, "[ERROR]\033[1;31m failed to write the output to file '%s'\033[0m: %s\n", o.arg, strerror(errno));
@@ -347,6 +350,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -z INT[,INT] Z-drop score and inversion Z-drop score [%d,%d]\n", opt.zdrop, opt.zdrop_inv);
 		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
+		fprintf(fp_help, "    -J INT       splice mode. 0: original minimap2 model; 1: miniprot model [1]\n");
 		fprintf(fp_help, "  Input/Output:\n");
 		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");

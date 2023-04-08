@@ -328,7 +328,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		ez->zdropped = 1;
 	} else if (opt->flag & MM_F_SPLICE) {
 		int flag_tmp = flag;
-		if (opt->flag & MM_F_SPLICE_CMPLX) flag_tmp |= KSW_EZ_SPLICE_CMPLX;
+		if (!(opt->flag & MM_F_SPLICE_OLD)) flag_tmp |= KSW_EZ_SPLICE_CMPLX;
 		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, opt->junc_bonus, flag_tmp, junc, ez);
 	} else if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, end_bonus, flag, ez);
