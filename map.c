@@ -16,8 +16,6 @@ struct mm_tbuf_s {
 	double timers[MM_N_THR_TIMERS];
 }; // per thread
 
-#define __AMD_SPLIT_KERNELS__
-
 #if defined(__AMD_SPLIT_KERNELS__)
 
 #include "plutils.h"
@@ -845,33 +843,46 @@ inline double MAX(double a, double b)
 // consolidate timers from worker threads
 void mm_consolidate_timers(step_t *s, pipeline_t *p)
 {
-	// Initialize with first thread's timers
-	mm_time_seed_min = s->buf[0]->timers[MM_TIME_SEED];
-	mm_time_seed_max = s->buf[0]->timers[MM_TIME_SEED];
-	mm_time_seed_avg = s->buf[0]->timers[MM_TIME_SEED];
-	mm_time_chain_min = s->buf[0]->timers[MM_TIME_CHAIN];
-	mm_time_chain_max = s->buf[0]->timers[MM_TIME_CHAIN];
-	mm_time_chain_avg = s->buf[0]->timers[MM_TIME_CHAIN];
-	mm_time_align_min = s->buf[0]->timers[MM_TIME_ALIGN];
-	mm_time_align_max = s->buf[0]->timers[MM_TIME_ALIGN];
-	mm_time_align_avg = s->buf[0]->timers[MM_TIME_ALIGN];
-	for (int i = 1; i < p->n_threads; ++i) {
-		mm_time_seed_min = MIN(mm_time_seed_min, s->buf[i]->timers[MM_TIME_SEED]);
+	mm_time_seed_min = 0;
+    mm_time_chain_min = 0;
+    mm_time_align_min = 0;
+    mm_time_seed_max = 0;
+    mm_time_chain_max = 0;
+    mm_time_align_max = 0;
+    mm_time_seed_avg = 0;
+    mm_time_chain_avg = 0;
+    mm_time_align_avg = 0;
+    for (int i = 0; i < p->n_threads; ++i) {
+        mm_time_seed_min = MIN(mm_time_seed_min, s->buf[i]->timers[MM_TIME_SEED]);
 		mm_time_chain_min = MIN(mm_time_chain_min, s->buf[i]->timers[MM_TIME_CHAIN]);
 		mm_time_align_min = MIN(mm_time_align_min, s->buf[i]->timers[MM_TIME_ALIGN]);
 		mm_time_seed_max = MAX(mm_time_seed_max, s->buf[i]->timers[MM_TIME_SEED]);
 		mm_time_chain_max = MAX(mm_time_chain_max, s->buf[i]->timers[MM_TIME_CHAIN]);
 		mm_time_align_max = MAX(mm_time_align_max, s->buf[i]->timers[MM_TIME_ALIGN]);
-		mm_time_seed_avg += s->buf[i]->timers[MM_TIME_SEED];
-		mm_time_chain_avg += s->buf[i]->timers[MM_TIME_CHAIN];
-		mm_time_align_avg += s->buf[i]->timers[MM_TIME_ALIGN];
-	}
-	mm_time_seed_sum = mm_time_seed_avg;
-	mm_time_chain_sum = mm_time_chain_avg;
-	mm_time_align_sum = mm_time_align_avg;
-	mm_time_seed_avg /= p->n_threads;
-	mm_time_chain_avg /= p->n_threads;
-	mm_time_align_avg /= p->n_threads;
+        mm_time_seed_avg += s->buf[i]->timers[MM_TIME_SEED];
+        mm_time_chain_avg += s->buf[i]->timers[MM_TIME_CHAIN];
+        mm_time_align_avg += s->buf[i]->timers[MM_TIME_ALIGN];
+        mm_time_seed_sum += s->buf[i]->timers[MM_TIME_SEED];
+		mm_time_chain_sum += s->buf[i]->timers[MM_TIME_CHAIN];
+		mm_time_align_sum += s->buf[i]->timers[MM_TIME_ALIGN];
+    }
+    mm_time_seed_avg /= p->n_threads;
+    mm_time_chain_avg /= p->n_threads;
+    mm_time_align_avg /= p->n_threads;
+
+    fprintf(stderr, "----------------------------------------------------\n");
+	fprintf(stderr, "              Min (sec)  Max (sec)  Avg (sec)  \n");
+	fprintf(stderr, "----------------------------------------------------\n");
+	fprintf(stderr, "Seed    = %11.3f %11.3f %11.3f\n",
+			mm_time_seed_min, mm_time_seed_max, mm_time_seed_avg);
+	fprintf(stderr, "Chain   = %11.3f %11.3f %11.3f\n",
+			mm_time_chain_min, mm_time_chain_max, mm_time_chain_avg);
+	fprintf(stderr, "Align   = %11.3f %11.3f %11.3f\n",
+			mm_time_align_min, mm_time_align_max, mm_time_align_avg);
+	fprintf(stderr, "----------------------------------------------------\n");
+	fprintf(stderr, "Avg (seed + chain + align) per thread = %.3f secs\n", (mm_time_seed_avg + mm_time_chain_avg + mm_time_align_avg));
+	fprintf(stderr, "Total (seed + chain + align) (all batches) for %d thread(s) = %.3f secs\n", p->n_threads, (mm_time_seed_sum + mm_time_chain_sum + mm_time_align_sum));
+
 }
 
 
@@ -1015,7 +1026,8 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 		if (tr->is_full) {
 
 		if (s->p->opt->flag & MM_F_GPU_CHAIN){
-			// TODO: offload chaining to GPU
+			double t1 = realtime();
+			// chaining on GPU
 			mm_batch_trbuf_t kernel_batch = tr->acc_batch;
 			chain_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
 			// check if the returned batch exits, and/or is the launched_batch.
@@ -1038,7 +1050,7 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
             tr->is_full = 0;
             tr->has_launched = 1;
             // endof gpu kernel
-
+            b->timers[MM_TIME_CHAIN] += realtime() - t1;
         } else {
 			// cpu kernel
 			for (iread=0; iread<tr->acc_batch.count; iread++) {
@@ -1289,11 +1301,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 #if defined(__AMD_SPLIT_KERNELS__)
         step_t *s = (step_t *)in;
         if (p->opt->flag & MM_F_GPU_CHAIN) {
-            // TODO: make misc different for each ream
-			Misc misc = build_misc(p->mi, p->opt, 0, 1);
-			init_stream_gpu(&s->batch_max_anchors, &s->batch_max_reads, & s->gpu_min_n, misc);
-			// TODO: initialize GPU infrastructures
-			// TODO: need a data structure to remember all the memptrs
+            s->batch_max_anchors = p->opt->gpu_chain_max_anchors;
+            s->batch_max_reads = p->opt->gpu_chain_max_reads;
+            s->gpu_min_n = p->opt->gpu_chain_min_n;
         } else {
             s->batch_max_anchors = SIZE_MAX;
             s->batch_max_reads = N_ACCUM;

@@ -4,18 +4,18 @@
 int mm_verbose = 1;
 int mm_dbg_flag = 0;
 double mm_realtime0;
-double mm_time_seed_min;
-double mm_time_seed_max;
-double mm_time_seed_avg;
-double mm_time_seed_sum;
-double mm_time_chain_min;
-double mm_time_chain_max;
-double mm_time_chain_avg;
-double mm_time_chain_sum;
-double mm_time_align_min;
-double mm_time_align_max;
-double mm_time_align_avg;
-double mm_time_align_sum;
+double mm_time_seed_min = 0;
+double mm_time_seed_max = 0;
+double mm_time_seed_avg = 0;
+double mm_time_seed_sum = 0;
+double mm_time_chain_min = 0;
+double mm_time_chain_max = 0;
+double mm_time_chain_avg = 0;
+double mm_time_chain_sum = 0;
+double mm_time_align_min = 0;
+double mm_time_align_max = 0;
+double mm_time_align_avg = 0;
+double mm_time_align_sum = 0;
 
 #if defined(WIN32) || defined(_WIN32)
 #include <windows.h>

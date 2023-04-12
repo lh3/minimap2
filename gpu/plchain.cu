@@ -235,10 +235,10 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
     plmem_async_h2d_memcpy(&stream_setup.streams[stream_id]);
     plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
                                   &stream_setup.streams[stream_id].cudastream);
-    plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
-                                   &stream_setup.streams[stream_id].cudastream);
-    // plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+    // plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
     //                                &stream_setup.streams[stream_id].cudastream);
+    plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+                                   &stream_setup.streams[stream_id].cudastream);
     plmem_async_d2h_memcpy(&stream_setup.streams[stream_id]);
     cudaEventRecord(stream_setup.streams[stream_id].cudaevent,
                     stream_setup.streams[stream_id].cudastream);
@@ -331,10 +331,10 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     plmem_async_h2d_memcpy(&stream_setup.streams[stream_id]);
     plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
                                   &stream_setup.streams[stream_id].cudastream);
-    plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
-                                   &stream_setup.streams[stream_id].cudastream);
-    // plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+    // plscore_async_naive_forward_dp(&stream_setup.streams[stream_id].dev_mem,
     //                                &stream_setup.streams[stream_id].cudastream);
+    plscore_async_long_short_forward_dp(&stream_setup.streams[stream_id].dev_mem,
+                                   &stream_setup.streams[stream_id].cudastream);
     plmem_async_d2h_memcpy(&stream_setup.streams[stream_id]);
     cudaEventRecord(stream_setup.streams[stream_id].cudaevent,
                     stream_setup.streams[stream_id].cudastream);
@@ -508,9 +508,15 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t*
     *reads_ = reads;
     *n_read_ = n_read;
 
-    plmem_free_host_mem(&stream_setup.streams[t].host_mem);
-    plmem_free_device_mem(&stream_setup.streams[t].dev_mem);
-    fprintf(stderr, "[M::%s] tid=%d gpu exit\n", __func__, t);
+}
+
+
+void free_stream_gpu(int n_threads){
+    for (int t = 0; t < n_threads; t++){
+        plmem_free_host_mem(&stream_setup.streams[t].host_mem);
+        plmem_free_device_mem(&stream_setup.streams[t].dev_mem);
+    }
+    fprintf(stderr, "[M::%s] gpu free memory\n", __func__);
 }
 
 #ifdef __cplusplus

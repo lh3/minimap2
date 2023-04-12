@@ -91,6 +91,7 @@ void init_stream_gpu(size_t *max_total_n, int *max_reads,
                      int *min_n, Misc misc);  // for stream_gpu
 void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **batches,
                         int *num_reads, int num_batch, void *km);  // for stream_gpu
+void free_stream_gpu(int n_threads); // for stream_gpu free pinned memory
 // chaining method
 void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t *in_arr, int n_read, void* km);
 void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **in_arr_ptr, int *n_read_ptr, int thread_id, void* km);
