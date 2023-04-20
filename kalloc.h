@@ -37,7 +37,7 @@ void km_stat_print(const void *km);
 
 #define KEXPAND(km, a, m) do { \
 		(m) = (m) >= 4? (m) + ((m)>>1) : 16; \
-	        krealloc((km), (a), (m) * sizeof(a)) ; \
+		a = krealloc((km), (a), (m) * sizeof(a)) ;	\
 	} while (0)
 
 #ifndef klib_unused
