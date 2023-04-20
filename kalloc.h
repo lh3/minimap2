@@ -56,7 +56,7 @@ void km_stat_print(const void *km);
 	} kmp_##name##_t; \
 	SCOPE kmp_##name##_t *kmp_init_##name(void *km) { \
 		kmp_##name##_t *mp; \
-		Kcalloc(km, kmp_##name##_t, 1); \
+		mp = Kcalloc(km, kmp_##name##_t, 1); \
 		mp->km = km; \
 		return mp; \
 	} \
