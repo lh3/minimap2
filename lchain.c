@@ -35,7 +35,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_
 	for (i = 0, n_z = 0; i < n; ++i) // precompute n_z
 		if (f[i] >= min_sc) ++n_z;
 	if (n_z == 0) return 0;
-	Kmalloc(km, mm128_t, n_z);
+	z = Kmalloc(km, mm128_t, n_z);
 	for (i = 0, k = 0; i < n; ++i) // populate z[]
 		if (f[i] >= min_sc) z[k].x = f[i], z[k++].y = i;
 	radix_sort_128x(z, z + n_z);
