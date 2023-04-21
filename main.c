@@ -242,7 +242,7 @@ int main(int argc, char *argv[])
 		else if (c == 350) opt.q_occ_frac = atof(o.arg); // --q-occ-frac
 		else if (c == 352) mm_dbg_flag |= MM_DBG_PRINT_CHAIN; // --print-chains
 		else if (c == 353) opt.flag |= MM_F_NO_HASH_NAME; // --no-hash-name
-		else if (c == 347) opt.flag |= MM_F_SECONDARY_SEQ; // --secondary-seq
+		else if (c == 354) opt.flag |= MM_F_SECONDARY_SEQ; // --secondary-seq
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
 		} else if (c == 314) { // --frag
