@@ -35,7 +35,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_
 	for (i = 0, n_z = 0; i < n; ++i) // precompute n_z
 		if (f[i] >= min_sc) ++n_z;
 	if (n_z == 0) return 0;
-	KMALLOC(km, z, n_z);
+	z = Kmalloc(km, mm128_t, n_z);
 	for (i = 0, k = 0; i < n; ++i) // populate z[]
 		if (f[i] >= min_sc) z[k].x = f[i], z[k++].y = i;
 	radix_sort_128x(z, z + n_z);
@@ -54,7 +54,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f, const int64_
 			else n_v = n_v0;
 		}
 	}
-	KMALLOC(km, u, n_u);
+	u = Kmalloc(km, uint64_t, n_u);
 	memset(t, 0, n * 4);
 	for (k = n_z - 1, n_v = n_u = 0; k >= 0; --k) { // populate u[]
 		if (t[z[k].y] == 0) {
@@ -82,7 +82,7 @@ static mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32
 	int64_t i, j, k;
 
 	// write the result to b[]
-	KMALLOC(km, b, n_v);
+	b = Kmalloc(km, mm128_t, n_v);
 	for (i = 0, k = 0; i < n_u; ++i) {
 		int32_t k0 = k, ni = (int32_t)u[i];
 		for (j = 0; j < ni; ++j)
@@ -91,13 +91,13 @@ static mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32
 	kfree(km, v);
 
 	// sort u[] and a[] by the target position, such that adjacent chains may be joined
-	KMALLOC(km, w, n_u);
+	w = Kmalloc(km, mm128_t, n_u);
 	for (i = k = 0; i < n_u; ++i) {
 		w[i].x = b[k].x, w[i].y = (uint64_t)k<<32|i;
 		k += (int32_t)u[i];
 	}
 	radix_sort_128x(w, w + n_u);
-	KMALLOC(km, u2, n_u);
+	u2 = Kmalloc(km, uint64_t, n_u);
 	for (i = k = 0; i < n_u; ++i) {
 		int32_t j = (int32_t)w[i].y, n = (int32_t)u[j];
 		u2[i] = u[j];
@@ -160,10 +160,10 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	if (max_dist_x < bw) max_dist_x = bw;
 	if (max_dist_y < bw && !is_cdna) max_dist_y = bw;
 	if (is_cdna) max_drop = INT32_MAX;
-	KMALLOC(km, p, n);
-	KMALLOC(km, f, n);
-	KMALLOC(km, v, n);
-	KCALLOC(km, t, n);
+	p = Kmalloc(km, int64_t, n);
+	f = Kmalloc(km, int32_t, n);
+	v = Kmalloc(km, int32_t, n);
+	t = Kcalloc(km, int32_t, n);
 
 	// fill the score and backtrack arrays
 	for (i = 0, max_ii = -1; i < n; ++i) {
@@ -264,10 +264,10 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 	}
 	if (max_dist < bw) max_dist = bw;
 	if (max_dist_inner <= 0 || max_dist_inner >= max_dist) max_dist_inner = 0;
-	KMALLOC(km, p, n);
-	KMALLOC(km, f, n);
-	KCALLOC(km, t, n);
-	KMALLOC(km, v, n);
+	p = Kmalloc(km, int64_t, n);
+	f = Kmalloc(km, int32_t, n);
+	t = Kcalloc(km, int32_t, n);
+	v = Kmalloc(km, int32_t, n);
 	mem_mp = km_init2(km, 0x10000);
 	mp = kmp_init_rmq(mem_mp);
 

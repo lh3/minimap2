@@ -37,7 +37,7 @@ void km_stat_print(const void *km);
 
 #define KEXPAND(km, a, m) do { \
 		(m) = (m) >= 4? (m) + ((m)>>1) : 16; \
-		KREALLOC((km), (a), (m)); \
+		a = krealloc((km), (a), (m) * sizeof(a)) ;	\
 	} while (0)
 
 #ifndef klib_unused
@@ -56,7 +56,7 @@ void km_stat_print(const void *km);
 	} kmp_##name##_t; \
 	SCOPE kmp_##name##_t *kmp_init_##name(void *km) { \
 		kmp_##name##_t *mp; \
-		KCALLOC(km, mp, 1); \
+		mp = Kcalloc(km, kmp_##name##_t, 1); \
 		mp->km = km; \
 		return mp; \
 	} \
