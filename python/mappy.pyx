@@ -172,6 +172,7 @@ cdef class Aligner:
 		cdef cmappy.mm_mapopt_t map_opt
 
 		if self._idx == NULL: return
+		if ((self.map_opt.flag & 4) and (self._idx.flag & 2)): return
 		map_opt = self.map_opt
 		if max_frag_len is not None: map_opt.max_frag_len = max_frag_len
 		if extra_flags is not None: map_opt.flag |= extra_flags
@@ -217,6 +218,7 @@ cdef class Aligner:
 		cdef int l
 		cdef char *s
 		if self._idx == NULL: return
+		if ((self.map_opt.flag & 4) and (self._idx.flag & 2)): return
 		s = cmappy.mappy_fetch_seq(self._idx, name.encode(), start, end, &l)
 		if l == 0: return None
 		r = s[:l] if isinstance(s, str) else s[:l].decode()

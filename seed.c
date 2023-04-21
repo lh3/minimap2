@@ -7,7 +7,7 @@ void mm_seed_mz_flt(void *km, mm128_v *mv, int32_t q_occ_max, float q_occ_frac)
 	mm128_t *a;
 	size_t i, j, st;
 	if (mv->n <= q_occ_max || q_occ_frac <= 0.0f || q_occ_max <= 0) return;
-	KMALLOC(km, a, mv->n);
+	a = Kmalloc(km, mm128_t, mv->n);
 	for (i = 0; i < mv->n; ++i)
 		a[i].x = mv->a[i].x, a[i].y = i;
 	radix_sort_128x(a, a + mv->n);
