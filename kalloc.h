@@ -31,13 +31,18 @@ void km_stat_print(const void *km);
 #define Kcalloc(km, type, cnt)       ((type*)kcalloc((km), (cnt), sizeof(type)))
 #define Krealloc(km, type, ptr, cnt) ((type*)krealloc((km), (ptr), (cnt) * sizeof(type)))
 
+#define Kexpand(km, type, a, m) do { \
+		(m) = (m) >= 4? (m) + ((m)>>1) : 16; \
+		(a) = Krealloc(km, type, (a), (m)); \
+	} while (0)
+
 #define KMALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kmalloc((km), (len) * sizeof(*(ptr))))
 #define KCALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kcalloc((km), (len), sizeof(*(ptr))))
 #define KREALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))krealloc((km), (ptr), (len) * sizeof(*(ptr))))
 
 #define KEXPAND(km, a, m) do { \
 		(m) = (m) >= 4? (m) + ((m)>>1) : 16; \
-		a = krealloc((km), (a), (m) * sizeof(a)) ;	\
+		KREALLOC((km), (a), (m)); \
 	} while (0)
 
 #ifndef klib_unused
@@ -72,7 +77,7 @@ void km_stat_print(const void *km);
 	} \
 	SCOPE void kmp_free_##name(kmp_##name##_t *mp, kmptype_t *p) { \
 		--mp->cnt; \
-		if (mp->n == mp->max) KEXPAND(mp->km, mp->buf, mp->max); \
+		if (mp->n == mp->max) Kexpand(mp->km, kmptype_t*, mp->buf, mp->max); \
 		mp->buf[mp->n++] = p; \
 	}
 
