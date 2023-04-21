@@ -43,6 +43,7 @@
 #define MM_F_NO_INV        (0x200000000LL)
 #define MM_F_NO_HASH_NAME  (0x400000000LL)
 #define MM_F_SPLICE_OLD    (0x800000000LL)
+#define MM_F_SECONDARY_SEQ (0x1000000000LL)	//output SEQ field for seqondary alignments using hard clipping
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
