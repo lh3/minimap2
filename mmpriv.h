@@ -60,8 +60,6 @@ void radix_sort_64(uint64_t *beg, uint64_t *end);
 uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
 
 void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p);
-void mm_sketch_syncmer(void *km, const char *str, int len, int smer, int k, uint32_t rid, int is_hpc, mm128_v *p);
-void mm_sketch2(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, int is_syncmer, mm128_v *p);
 
 mm_seed_t *mm_collect_matches(void *km, int *_n_m, int qlen, int max_occ, int max_max_occ, int dist, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos);
 void mm_seed_mz_flt(void *km, mm128_v *mv, int32_t q_occ_max, float q_occ_frac);

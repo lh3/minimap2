@@ -62,7 +62,7 @@ static void collect_minimizers(void *km, const mm_mapopt_t *opt, const mm_idx_t 
 	mv->n = 0;
 	for (i = n = 0; i < n_segs; ++i) {
 		size_t j;
-		mm_sketch2(km, seqs[i], qlens[i], mi->w, mi->k, i, mi->flag&MM_I_HPC, mi->flag&MM_I_SYNCMER, mv);
+		mm_sketch(km, seqs[i], qlens[i], mi->w, mi->k, i, mi->flag&MM_I_HPC, mv);
 		for (j = n; j < mv->n; ++j)
 			mv->a[j].y += sum << 1;
 		if (opt->sdust_thres > 0) // mask low-complexity minimizers

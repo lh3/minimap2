@@ -1,3 +1,41 @@
+Release 2.25-r1173 (25 April 2023)
+----------------------------------
+
+Notable changes:
+
+ * Improvement: use the miniprot splice model for RNA-seq alignment by default.
+   This model considers non-GT-AG splice sites and leads to slightly higher
+   (<0.1%) accuracy and sensitivity on real human data.
+
+ * Change: increased the default `-I` to `8G` such that minimap2 would create a
+   uni-part index for a pair of mammalian genomes. This change may increase the
+   memory for all-vs-all read overlap alignment given large datasets.
+
+ * New feature: output the sequences in secondary alignments with option
+   `--secondary-seq` (#687).
+
+ * Bugfix: --rmq was not parsed correctly (#1010)
+
+ * Bugfix: possibly incorrect coordinate when applying end bonus to the target
+   sequence (#1025). This is a ksw2 bug. It does not affect minimap2 as
+   minimap2 is not using the affected feature.
+
+ * Improvement: incorporated several changes for better compatibility with
+   Windows (#1051) and for minimap2 integration at Oxford Nanopore Technologies
+   (#1048 and #1033).
+
+ * Improvement: output the HD-line in SAM output (#1019).
+
+ * Improvement: check minimap2 index file in mappy to prevent segmentation
+   fault for certain indices (#1008).
+
+For genomic sequences, minimap2 should give identical output to v2.24.
+Long-read RNA-seq alignment may occasionally differ from previous versions.
+
+(2.25: 25 April 2023, r1173)
+
+
+
 Release 2.24-r1122 (26 December 2021)
 -------------------------------------
 
