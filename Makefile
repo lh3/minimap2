@@ -30,12 +30,12 @@ endif
 
 ifneq ($(asan),)
 	CFLAGS+=-fsanitize=address
-	LIBS+=-fsanitize=address
+	LIBS+=-fsanitize=address -ldl
 endif
 
 ifneq ($(tsan),)
 	CFLAGS+=-fsanitize=thread
-	LIBS+=-fsanitize=thread
+	LIBS+=-fsanitize=thread -ldl
 endif
 
 .PHONY:all extra clean depend
