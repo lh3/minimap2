@@ -1,3 +1,12 @@
+Release 2.26-r1175 (29 April 2023)
+----------------------------------
+
+Fixed the broken Python package. This is the only change.
+
+(2.25: 25 April 2023, r1173)
+
+
+
 Release 2.25-r1173 (25 April 2023)
 ----------------------------------
 
