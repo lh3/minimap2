@@ -229,7 +229,7 @@ void plrange_upload_misc(Misc misc){
     hipMemcpyToSymbol(HIP_SYMBOL(d_cut_check_anchors),
                       &range_kernel_config.cut_check_anchors, sizeof(int));
 #else
-    cudaMemcpyToSymbol(d_max_dist_x, &isc.max_dist_x, sizeof(int));
+    cudaMemcpyToSymbol(d_max_dist_x, &misc.max_dist_x, sizeof(int));
     cudaMemcpyToSymbol(d_max_iter, &misc.max_iter, sizeof(int));
     cudaMemcpyToSymbol(d_cut_check_anchors,
                        &range_kernel_config.cut_check_anchors, sizeof(int));
