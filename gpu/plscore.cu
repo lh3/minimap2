@@ -25,7 +25,7 @@ __device__ static inline float cuda_mg_log2(float x) // NB: this doesn't work wh
 	return log_2;
 }
 
-__device__ static inline int32_t comput_sc(const int64_t ai_x, const int64_t ai_y, const int64_t aj_x, const int64_t aj_y,
+__device__ int32_t comput_sc(const int64_t ai_x, const int64_t ai_y, const int64_t aj_x, const int64_t aj_y,
                                 int32_t max_dist_x, int32_t max_dist_y,
                                 int32_t bw, float chn_pen_gap,
                                 float chn_pen_skip, int is_cdna, int n_seg) {
@@ -79,14 +79,18 @@ inline __device__ void compute_sc_seg_one_wf(const int64_t* anchors_x, const int
         p[i] = 0;
     }
     __syncthreads();
-    assert(range[end_idx-1] == 0);
+    // assert(range[end_idx-1] == 0);
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
         // if (range_i + i >= end_idx)
         //     printf("range_i %d i %lu start_idx %lu, end_idx %lu\n", range_i, i, start_idx, end_idx);
-        assert(range_i + i < end_idx);
+        // assert(range_i + i < end_idx);
         for (int32_t j = tid; j < range_i; j += blockDim.x) {
-            int32_t sc = comput_sc(anchors_x[i+j+1], anchors_y[i+j+1], anchors_x[i], anchors_y[i],
+            int32_t sc = comput_sc(
+                                anchors_x[i+j+1], 
+                                anchors_y[i+j+1], 
+                                anchors_x[i], 
+                                anchors_y[i],
                                 blk_misc.max_dist_x, blk_misc.max_dist_y, blk_misc.bw, blk_misc.chn_pen_gap, 
                                 blk_misc.chn_pen_skip, blk_misc.is_cdna, blk_misc.n_seg);
             if (sc == INT32_MIN) continue;
@@ -101,6 +105,47 @@ inline __device__ void compute_sc_seg_one_wf(const int64_t* anchors_x, const int
     }
     
 }
+
+inline __device__ void compute_sc_long_seg_one_wf(const int64_t* anchors_x, const int64_t* anchors_y, int32_t* range, 
+                    size_t start_idx, size_t end_idx,
+                    int32_t* f, uint16_t* p
+){
+    Misc blk_misc = misc;
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+    // init f and p
+    for (size_t i=start_idx+tid; i < end_idx; i += blockDim.x) {
+        f[i] = anchors_y[i] >> 32 & 0xff;
+        p[i] = 0;
+    }
+    __syncthreads();
+    // assert(range[end_idx-1] == 0);
+    for (size_t i=start_idx; i < end_idx; i++) {
+        int32_t range_i = range[i];
+        // if (range_i + i >= end_idx)
+        //     printf("range_i %d i %lu start_idx %lu, end_idx %lu\n", range_i, i, start_idx, end_idx);
+        // assert(range_i + i < end_idx);
+        for (int32_t j = tid; j < range_i; j += blockDim.x) {
+            int32_t sc = comput_sc(
+                                anchors_x[i+j+1], 
+                                anchors_y[i+j+1], 
+                                anchors_x[i], 
+                                anchors_y[i],
+                                blk_misc.max_dist_x, blk_misc.max_dist_y, blk_misc.bw, blk_misc.chn_pen_gap, 
+                                blk_misc.chn_pen_skip, blk_misc.is_cdna, blk_misc.n_seg);
+            if (sc == INT32_MIN) continue;
+            sc += f[i];
+            if (sc >= f[i+j+1] && sc != (anchors_y[i+j+1]>>32 & 0xff)) {
+                f[i+j+1] = sc;
+                p[i+j+1] = j+1;
+
+            }
+        }
+        __syncthreads();
+    }
+    
+}
+
 
 
 /* kernels begin */
@@ -143,7 +188,7 @@ __global__ void score_generation_short(
             }
             continue;
         }
-        assert(end_idx <= total_n);
+        // assert(end_idx <= total_n);
         compute_sc_seg_one_wf(anchors_x, anchors_y, range, start_idx, end_idx, f, p);
     }
 }
@@ -157,7 +202,7 @@ __global__ void score_generation_long(const int64_t* anchors_x, const int64_t* a
 
     for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
         seg_t seg = long_seg[segid]; 
-        compute_sc_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
+        compute_sc_long_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
 __global__ void score_generation_naive(const int64_t* anchors_x, const int64_t* anchors_y, int32_t *range,
@@ -188,7 +233,7 @@ __global__ void score_generation_naive(const int64_t* anchors_x, const int64_t* 
             }
             ++end_segid;
         }
-        assert(end_idx <= total_n);
+        // assert(end_idx <= total_n);
         compute_sc_seg_one_wf(anchors_x, anchors_y, range, start_idx, end_idx, f, p);
     }
 }

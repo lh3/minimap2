@@ -22,6 +22,7 @@ void plrange_sync_range_selection(deviceMemPtr* dev_mem, Misc misc
 
 extern range_kernel_config_t range_kernel_config;
 
+
 #ifdef __cplusplus
 }
 #endif

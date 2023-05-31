@@ -6,7 +6,7 @@
 *.dSYM
 minimap2
 mappy.c
-data/**
+data
 .vscode/**
 test.sam
 *.sam
@@ -15,3 +15,4 @@ debug/**
 verf
 trace
 *.sh
+ncu
