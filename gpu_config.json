@@ -16,6 +16,7 @@
     "score_kernel": {
         "short_blockdim": 64,
         "long_blockdim": 1024,
-        "cut_per_block": 64
+        "short_griddim": 4032,
+        "long_griddim": 4032
     }
 }
