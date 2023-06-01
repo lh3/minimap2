@@ -256,21 +256,21 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     dim3 shortDimBlock(score_kernel_config.short_blockdim, 1, 1);
-    int griddim = (cut_num - 1) / score_kernel_config.cut_per_block + 1;
-    dim3 DimGrid(griddim, 1, 1);
+    dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
+    dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
 
     // Run kernel
     // printf("Grid Dim, %d\n", DimGrid.x);
     cudaMemsetAsync(dev_mem->d_long_seg_count, 0, sizeof(unsigned int),
                     *stream);
-    score_generation_short<<<DimGrid, shortDimBlock, 0, *stream>>>(
+    score_generation_short<<<shortDimGrid, shortDimBlock, 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num,
         dev_mem->d_long_seg, dev_mem->d_long_seg_count);
     cudaCheck();
 
     dim3 longDimBlock(score_kernel_config.long_blockdim, 1, 1);
-    score_generation_long<<<DimGrid, longDimBlock, 0, *stream>>>(
+    score_generation_long<<<longDimGrid, longDimBlock, 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_long_seg,
         dev_mem->d_long_seg_count, dev_mem->d_f, dev_mem->d_p);
     cudaCheck();
@@ -286,12 +286,12 @@ void plscore_async_naive_forward_dp(deviceMemPtr* dev_mem,
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     dim3 DimBlock(score_kernel_config.long_blockdim, 1, 1);
-    int griddim = (cut_num - 1) / score_kernel_config.cut_per_block + 1;
-    dim3 DimGrid(griddim, 1, 1);
+    dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
+    dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
 
     // Run kernel
     // printf("Grid Dim, %d\n", DimGrid.x);
-    score_generation_naive<<<DimGrid, DimBlock, 0, *stream>>>(
+    score_generation_naive<<<shortDimGrid, DimBlock, 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_cut,
         dev_mem->d_f, dev_mem->d_p, total_n, cut_num);
     cudaCheck();
@@ -315,10 +315,10 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     size_t cut_num = dev_mem->num_cut;
     plscore_upload_misc(misc_);
     dim3 shortDimBlock(score_kernel_config.short_blockdim, 1, 1);
-    int griddim = (cut_num - 1) / score_kernel_config.cut_per_block + 1;
-    dim3 DimGrid(griddim, 1, 1);
+    dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
+    dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
     cudaMemset(dev_mem->d_long_seg_count, 0, sizeof(unsigned int));
-    score_generation_short<<<DimGrid, shortDimBlock>>>(
+    score_generation_short<<<shortDimGrid, shortDimBlock>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num, 
         dev_mem->d_long_seg, dev_mem->d_long_seg_count);
@@ -344,7 +344,7 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
 
     dim3 longDimBlock(score_kernel_config.long_blockdim, 1, 1);
 
-    score_generation_long<<<DimGrid, longDimBlock>>>(
+    score_generation_long<<<longDimGrid, longDimBlock>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_long_seg, dev_mem->d_long_seg_count,
         dev_mem->d_f, dev_mem->d_p);
 
@@ -366,10 +366,10 @@ void plscore_sync_naive_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     size_t cut_num = dev_mem->num_cut;
     plscore_upload_misc(misc_);
     dim3 DimBlock(score_kernel_config.long_blockdim, 1, 1);
-    int griddim = (cut_num - 1) / score_kernel_config.cut_per_block + 1;
-    dim3 DimGrid(griddim, 1, 1);
+    dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
+    dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
     // fprintf(stderr, "cut_num %d\n", cut_num);
-    score_generation_naive<<<DimGrid, DimBlock>>>(
+    score_generation_naive<<<shortDimGrid, DimBlock>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num);
     cudaCheck();

@@ -12,7 +12,8 @@ typedef struct range_kernel_config_t {
 typedef struct score_kernel_config_t{
     int short_blockdim;
     int long_blockdim;
-    int cut_per_block;
+    int short_griddim;
+    int long_griddim;
 } score_kernel_config_t;
 
 #endif // _PLCHAIN_H_

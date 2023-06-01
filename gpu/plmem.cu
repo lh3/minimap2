@@ -255,8 +255,10 @@ void plmem_config_kernels(cJSON *json) {
         get_json_int(score_config_json, "short_blockdim");
     score_kernel_config.long_blockdim =
         get_json_int(score_config_json, "long_blockdim");
-    score_kernel_config.cut_per_block =
-        get_json_int(score_config_json, "cut_per_block");
+    score_kernel_config.short_griddim =
+        get_json_int(score_config_json, "short_griddim");
+    score_kernel_config.long_griddim =
+        get_json_int(score_config_json, "long_griddim");
 }
 
 void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_, size_t max_total_n, size_t max_read, size_t min_n){

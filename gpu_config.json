@@ -1,9 +1,9 @@
 {
-    "num_streams": 4,
+    "num_streams": 1,
     "min_n": 512, 
     "//min_n": "queries with less anchors will be handled on cpu",
-    "max_total_n": 268440000, 
-    "max_read": 1120000,
+    "max_total_n": 1068440000, 
+    "max_read": 9120000,
     "avg_read_n": 20000,
     "//avg_read_n": "expect average number of anchors per read",
     "range_kernel": {
@@ -16,6 +16,7 @@
     "score_kernel": {
         "short_blockdim": 64,
         "long_blockdim": 512,
-        "cut_per_block": 64
+        "short_griddim": 2016,
+        "long_griddim": 2016
     }
 }
