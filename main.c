@@ -120,7 +120,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:J:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:b:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:J:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -178,6 +178,7 @@ int main(int argc, char *argv[])
 		else if (c == 'm') opt.min_chain_score = atoi(o.arg);
 		else if (c == 'A') opt.a = atoi(o.arg);
 		else if (c == 'B') opt.b = atoi(o.arg);
+		else if (c == 'b') opt.transition = atoi(o.arg);
 		else if (c == 's') opt.min_dp_max = atoi(o.arg);
 		else if (c == 'C') opt.noncan = atoi(o.arg);
 		else if (c == 'I') ipt.batch_size = mm_parse_num(o.arg);
@@ -367,7 +368,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see minimap2.1 for details) []\n");
-		fprintf(fp_help, "                 - map-pb/map-ont - PacBio CLR/Nanopore vs reference mapping\n");
+		fprintf(fp_help, "                 - map-pb/map-ont/map-iclr-prerender/map-iclr - PacBio/Nanopore/ICLR vs reference mapping\n");
 		fprintf(fp_help, "                 - map-hifi - PacBio HiFi reads vs reference mapping\n");
 		fprintf(fp_help, "                 - ava-pb/ava-ont - PacBio/Nanopore read overlap\n");
 		fprintf(fp_help, "                 - asm5/asm10/asm20 - asm-to-ref mapping, for ~0.1/1/5%% sequence divergence\n");

@@ -21,6 +21,16 @@ static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t sc
 		mat[(m - 1) * m + j] = sc_ambi;
 }
 
+static void ksw_gen_ts_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t transition, int8_t sc_ambi)
+{
+	ksw_gen_simple_mat(m,mat,a,b,sc_ambi);
+	transition = transition > 0? -transition : transition;
+	mat[2]=transition;  // A->G
+	mat[7]=transition;  // C->T
+	mat[8]=transition;  // G->A
+	mat[13]=transition; // T->C
+}
+
 static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
 {
 	uint32_t i;
@@ -586,7 +596,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	r2->cnt = 0;
 	if (r->cnt == 0) return;
-	ksw_gen_simple_mat(5, mat, opt->a, opt->b, opt->sc_ambi);
+	ksw_gen_ts_mat(5, mat, opt->a, opt->b, opt->transition, opt->sc_ambi);
 	bw = (int)(opt->bw * 1.5 + 1.);
 	bw_long = (int)(opt->bw_long * 1.5 + 1.);
 	if (bw_long < bw) bw_long = bw;
@@ -844,7 +854,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (ql < opt->min_chain_score || ql > opt->max_gap) return 0;
 	if (tl < opt->min_chain_score || tl > opt->max_gap) return 0;
 
-	ksw_gen_simple_mat(5, mat, opt->a, opt->b, opt->sc_ambi);
+	ksw_gen_ts_mat(5, mat, opt->a, opt->b, opt->transition, opt->sc_ambi);
 	tseq = (uint8_t*)kmalloc(km, tl);
 	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
 	qseq = r1->rev? &qseq0[0][r2->qe] : &qseq0[1][qlen - r2->qs];
