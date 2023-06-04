@@ -45,6 +45,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->alt_drop = 0.15f;
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
+	opt->transition = opt->b;
 	opt->sc_ambi = 1;
 	opt->zdrop = 400, opt->zdrop_inv = 200;
 	opt->end_bonus = -1;
@@ -112,6 +113,14 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->occ_dist = 500;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->min_dp_max = 200;
+	} else if (strcmp(preset, "map-iclr-prerender") == 0) {
+		io->flag = 0, io->k = 15;
+		mo->b = 6, mo->transition = 1;
+		mo->q = 10, mo->q2 = 50;
+	} else if (strcmp(preset, "map-iclr") == 0) {
+		io->flag = 0, io->k = 19;
+		mo->b = 6, mo->transition = 4;
+		mo->q = 10, mo->q2 = 50;
 	} else if (strncmp(preset, "asm", 3) == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->bw = 1000, mo->bw_long = 100000;

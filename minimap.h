@@ -153,6 +153,7 @@ typedef struct {
 	float alt_drop;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
+	int transition; // transition mismatch score (A:G, C:T)
 	int sc_ambi; // score when one or both bases are "N"
 	int noncan;      // cost of non-canonical splicing sites
 	int junc_bonus;

@@ -139,12 +139,15 @@ parameters at the same time. The default setting is the same as `map-ont`.
 ```sh
 minimap2 -ax map-pb  ref.fa pacbio-reads.fq > aln.sam   # for PacBio CLR reads
 minimap2 -ax map-ont ref.fa ont-reads.fq > aln.sam      # for Oxford Nanopore reads
+minimap2 -ax map-iclr ref.fa iclr-reads.fq > aln.sam    # for Illumina Complete Long Reads
 ```
 The difference between `map-pb` and `map-ont` is that `map-pb` uses
 homopolymer-compressed (HPC) minimizers as seeds, while `map-ont` uses ordinary
-minimizers as seeds. Emperical evaluation suggests HPC minimizers improve
+minimizers as seeds. Empirical evaluation suggests HPC minimizers improve
 performance and sensitivity when aligning PacBio CLR reads, but hurt when aligning
-Nanopore reads.
+Nanopore reads. `map-iclr` uses an adjusted alignment scoring matrix that
+accounts for the low overall error rate in the reads, with transversion errors
+being less frequent than transitions.
 
 #### <a name="map-long-splice"></a>Map long mRNA/cDNA reads
 
