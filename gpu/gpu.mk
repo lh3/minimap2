@@ -1,4 +1,4 @@
-GPU				?= NVCC
+GPU				?= 		AMD
 CONFIG 			= $(if $(GPU_CONFIG),-DGPU_CONFIG='"$(GPU_CONFIG)"')
 
 ###################################################
@@ -12,7 +12,7 @@ INCLUDES		+= -I gpu
 ############  	CUDA Compile 	###################
 ###################################################
 NVCC 			= nvcc
-CUDAFLAGS		= -rdc=true -DNDEBUG -lineinfo ## turn off assert
+CUDAFLAGS		= -rdc=true -DNDEBUG ## turn off assert
 CUDATESTFLAG	= -G
 
 ###################################################
