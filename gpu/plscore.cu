@@ -212,7 +212,8 @@ __global__ void score_generation_long(const int64_t* anchors_x, const int64_t* a
 
     for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
         seg_t seg = long_seg[segid]; 
-        compute_sc_long_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
+        compute_sc_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
+        // compute_sc_long_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
 __global__ void score_generation_naive(const int64_t* anchors_x, const int64_t* anchors_y, int32_t *range,
