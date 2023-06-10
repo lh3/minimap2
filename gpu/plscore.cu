@@ -112,12 +112,19 @@ inline __device__ void compute_sc_long_seg_one_wf(const int64_t* anchors_x, cons
 ){
     Misc blk_misc = misc;
     int tid = threadIdx.x;
-    int bid = blockIdx.x;
+    // int bid = blockIdx.x;
+    // NOTE: smallest alignd offset that is greater than start_idx
+    //      anchor_offset = tid;
+    //      while (anchor_offset <= start_idx) anchor_offset += blockDim.x;
+    int anchor_offset = tid + (start_idx - tid + blockDim.x) / blockDim.x * blockDim.x;
     // init f and p
-    for (size_t i=start_idx+tid; i < end_idx; i += blockDim.x) {
+    for (size_t i=anchor_offset; i < end_idx; i += blockDim.x) {
         f[i] = anchors_y[i] >> 32 & 0xff;
         p[i] = 0;
     }
+    // int64_t local_anchors[10];
+    int64_t anchor_x = anchors_x[anchor_offset];
+    int64_t anchor_y = anchors_y[anchor_offset];
     __syncthreads();
     // assert(range[end_idx-1] == 0);
     for (size_t i=start_idx; i < end_idx; i++) {
@@ -125,22 +132,25 @@ inline __device__ void compute_sc_long_seg_one_wf(const int64_t* anchors_x, cons
         // if (range_i + i >= end_idx)
         //     printf("range_i %d i %lu start_idx %lu, end_idx %lu\n", range_i, i, start_idx, end_idx);
         // assert(range_i + i < end_idx);
-        for (int32_t j = tid; j < range_i; j += blockDim.x) {
+        // for (int32_t j = tid; j < range_i; j += blockDim.x) {
+        for (unsigned j = anchor_offset; j < i+range_i+1; j += blockDim.x) {
+            anchor_x = anchors_x[j];
+            anchor_y = anchors_y[j];
             int32_t sc = comput_sc(
-                                anchors_x[i+j+1], 
-                                anchors_y[i+j+1], 
+                                anchor_x, 
+                                anchor_y, 
                                 anchors_x[i], 
                                 anchors_y[i],
                                 blk_misc.max_dist_x, blk_misc.max_dist_y, blk_misc.bw, blk_misc.chn_pen_gap, 
                                 blk_misc.chn_pen_skip, blk_misc.is_cdna, blk_misc.n_seg);
             if (sc == INT32_MIN) continue;
             sc += f[i];
-            if (sc >= f[i+j+1] && sc != (anchors_y[i+j+1]>>32 & 0xff)) {
-                f[i+j+1] = sc;
-                p[i+j+1] = j+1;
-
+            if (sc >= f[j] && sc != (anchors_y[j]>>32 & 0xff)) {
+                f[j] = sc;
+                p[j] = j+1;
             }
         }
+        anchor_offset += (anchor_offset <= i+1) * blockDim.x; // update anchor offset
         __syncthreads();
     }
     

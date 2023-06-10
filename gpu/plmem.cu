@@ -108,7 +108,7 @@ void plmem_reorg_input_arr(chain_read_t *reads, int n_read,
             host_mem->cut_start_idx[griddim + j] = cut_num;
         }
         cut_num += (n - (block_num - 1) * config.anchor_per_block - 1) /
-                       config.blockdim + 1;
+                       config.blockdim;
         end_idx = idx + n;
 
         griddim += block_num;
