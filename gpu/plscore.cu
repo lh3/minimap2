@@ -160,7 +160,8 @@ inline __device__ void compute_sc_long_seg_one_wf(const int64_t* anchors_x, cons
 
 /* kernels begin */
 #ifdef __SHORT_BLOCK_SIZE__
-__launch_bounds__(__SHORT_BLOCK_SIZE__)
+template <size_t short_block_size>
+__launch_bounds__(short_block_size)
 #endif
 __global__ void score_generation_short(
                                 /* Input: Anchor & Range Inputs */
@@ -206,7 +207,8 @@ __global__ void score_generation_short(
 }
 
 #ifdef __LONG_BLOCK_SIZE__
-__launch_bounds__(__LONG_BLOCK_SIZE__)
+template <size_t long_block_size>
+__launch_bounds__(long_block_size)
 #endif
 __global__ void score_generation_long(const int64_t* anchors_x, const int64_t* anchors_y, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
@@ -279,8 +281,8 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
                     *stream);
 
     #ifdef __SHORT_BLOCK_SIZE__
-    printf("short block size: %d\n", __SHORT_BLOCK_SIZE__);
-    score_generation_short<<<shortDimGrid, dim3(__SHORT_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+    fprintf(stderr, "short block size: %d\n", __SHORT_BLOCK_SIZE__);
+    score_generation_short<__SHORT_BLOCK_SIZE__><<<shortDimGrid, dim3(__SHORT_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num,
         dev_mem->d_long_seg, dev_mem->d_long_seg_count);
@@ -294,8 +296,8 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
     cudaCheck();
 
     #ifdef __LONG_BLOCK_SIZE__
-    printf("long block size: %d\n", __LONG_BLOCK_SIZE__);
-    score_generation_long<<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+    fprintf(stderr, "long block size: %d\n", __LONG_BLOCK_SIZE__);
+    score_generation_long<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_long_seg,
         dev_mem->d_long_seg_count, dev_mem->d_f, dev_mem->d_p);
     #else
@@ -350,7 +352,7 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     cudaMemset(dev_mem->d_long_seg_count, 0, sizeof(unsigned int));
     #ifdef __SHORT_BLOCK_SIZE__
     printf("short block size: %d\n", __SHORT_BLOCK_SIZE__);
-    score_generation_short<<<shortDimGrid, dim3(__SHORT_BLOCK_SIZE__, 1, 1)>>>(
+    score_generation_short<__SHORT_BLOCK_SIZE__><<<shortDimGrid, dim3(__SHORT_BLOCK_SIZE__, 1, 1)>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num, 
         dev_mem->d_long_seg, dev_mem->d_long_seg_count);
@@ -383,7 +385,7 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
 
     #ifdef __LONG_BLOCK_SIZE__
     printf("long block size: %d\n", __LONG_BLOCK_SIZE__);
-    score_generation_long<<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1)>>>(
+    score_generation_long<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1)>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_long_seg, dev_mem->d_long_seg_count,
         dev_mem->d_f, dev_mem->d_p);
     #else
