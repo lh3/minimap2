@@ -38,6 +38,7 @@
         exit(EXIT_FAILURE);                                                 \
     }                                                                       \
 }
+#define     cudaWarpSize                    64
 #else
 #define cudaCheck() {                                                   \
     cudaError_t err = cudaGetLastError();                               \

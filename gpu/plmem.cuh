@@ -61,6 +61,8 @@ typedef struct {
     size_t *d_cut;  // cut
     unsigned int *d_long_seg_count;
     seg_t *d_long_seg;
+    unsigned int *d_mid_seg_count;
+    seg_t *d_mid_seg;
 } deviceMemPtr;
 
 typedef struct stream_ptr_t{

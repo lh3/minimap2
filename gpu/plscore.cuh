@@ -7,6 +7,9 @@
 #ifdef __cplusplus
 extern "C"{
 #endif
+#define MM_MID_SEG_CUTOFF 1
+#define MM_LONG_SEG_CUTOFF 9
+
 void plscore_upload_misc(Misc misc);
 void plscore_async_naive_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream);
 void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem,cudaStream_t* stream);

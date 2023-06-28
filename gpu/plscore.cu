@@ -106,6 +106,52 @@ inline __device__ void compute_sc_seg_one_wf(const int64_t* anchors_x, const int
     
 }
 
+#define NUM_ANCHORS_PREFETCH 1024
+
+inline __device__ void compute_sc_seg_shared(const int64_t* anchors_x, const int64_t* anchors_y, int32_t* range, 
+                    size_t start_idx, size_t end_idx,
+                    int32_t* f, uint16_t* p
+){
+    Misc blk_misc = misc;
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+    // init f and p
+    for (size_t i=start_idx+tid; i < end_idx; i += blockDim.x) {
+        f[i] = anchors_y[i] >> 32 & 0xff;
+        p[i] = 0;
+    }
+    __syncthreads();
+    // assert(range[end_idx-1] == 0);
+    __shared__ int64_t anchors_x_shared[NUM_ANCHORS_PREFETCH];
+
+    __shared__ int64_t anchors_y_shared[NUM_ANCHORS_PREFETCH];
+    size_t prefetch_end_idx = 0;
+    unsigned int prefetch_smem_offset = 0;
+    for (size_t i = start_idx; i < end_idx; i++) {
+        int32_t range_i = range[i];
+        // if (range_i + i >= end_idx)
+        //     printf("range_i %d i %lu start_idx %lu, end_idx %lu\n", range_i, i, start_idx, end_idx);
+        // assert(range_i + i < end_idx);
+        for (int32_t j = tid; j < range_i; j += blockDim.x) {
+            int32_t sc = comput_sc(
+                                anchors_x[i+j+1], 
+                                anchors_y[i+j+1], 
+                                anchors_x[i], 
+                                anchors_y[i],
+                                blk_misc.max_dist_x, blk_misc.max_dist_y, blk_misc.bw, blk_misc.chn_pen_gap, 
+                                blk_misc.chn_pen_skip, blk_misc.is_cdna, blk_misc.n_seg);
+            if (sc == INT32_MIN) continue;
+            sc += f[i];
+            if (sc >= f[i+j+1] && sc != (anchors_y[i+j+1]>>32 & 0xff)) {
+                f[i+j+1] = sc;
+                p[i+j+1] = j+1;
+
+            }
+        }
+        __syncthreads();
+    }
+}
+
 inline __device__ void compute_sc_long_seg_one_wf(const int64_t* anchors_x, const int64_t* anchors_y, int32_t* range, 
                     size_t start_idx, size_t end_idx,
                     int32_t* f, uint16_t* p
@@ -170,7 +216,8 @@ __global__ void score_generation_short(
                                 /* Sizes*/
                                 size_t total_n, size_t seg_count,
                                 /* Output: Long segs */
-                                seg_t *long_seg, unsigned int *long_seg_count){
+                                seg_t *long_seg, unsigned int *long_seg_count
+                                ,seg_t *mid_seg, unsigned int *mid_seg_count){
     int tid = threadIdx.x;
     int bid = blockIdx.x;
     // init f and p
@@ -190,11 +237,18 @@ __global__ void score_generation_short(
             }
             ++end_segid;
         }
-        if (end_segid > segid+1) {
+        if (end_segid > segid + MM_LONG_SEG_CUTOFF) {
             if (tid == 0){
                 int long_seg_idx = atomicAdd(long_seg_count, 1);
                 long_seg[long_seg_idx].start_idx = start_idx;
                 long_seg[long_seg_idx].end_idx = end_idx;
+            }
+            continue;
+        } else if (end_segid > segid + MM_MID_SEG_CUTOFF) {
+            if (tid == 0) {
+                int mid_seg_idx = atomicAdd(mid_seg_count, 1);
+                mid_seg[mid_seg_idx].start_idx = start_idx;
+                mid_seg[mid_seg_idx].end_idx = end_idx;
             }
             continue;
         }
@@ -274,16 +328,26 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
     // printf("Grid Dim, %d\n", DimGrid.x);
     cudaMemsetAsync(dev_mem->d_long_seg_count, 0, sizeof(unsigned int),
                     *stream);
+    cudaMemsetAsync(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int),
+                    *stream);
     score_generation_short<<<shortDimGrid, shortDimBlock, 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num,
-        dev_mem->d_long_seg, dev_mem->d_long_seg_count);
+        dev_mem->d_long_seg, dev_mem->d_long_seg_count, 
+        dev_mem->d_mid_seg, dev_mem->d_mid_seg_count);
     cudaCheck();
 
-    dim3 longDimBlock(score_kernel_config.long_blockdim, 1, 1);
+    dim3 longDimBlock(score_kernel_config.mid_blockdim, 1, 1);
     score_generation_long<<<longDimGrid, longDimBlock, 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_long_seg,
         dev_mem->d_long_seg_count, dev_mem->d_f, dev_mem->d_p);
+    cudaCheck();
+
+    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
+    dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
+    score_generation_long<<<midDimGrid, midDimBlock, 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
     cudaCheck();
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "[M::%s] score generation success\n", __func__);
@@ -329,10 +393,12 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
     dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
     cudaMemset(dev_mem->d_long_seg_count, 0, sizeof(unsigned int));
+    cudaMemset(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int));
     score_generation_short<<<shortDimGrid, shortDimBlock>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num, 
-        dev_mem->d_long_seg, dev_mem->d_long_seg_count);
+        dev_mem->d_long_seg, dev_mem->d_long_seg_count, 
+        dev_mem->d_mid_seg, dev_mem->d_mid_seg_count);
     cudaCheck();
     cudaDeviceSynchronize();
 
@@ -358,6 +424,16 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     score_generation_long<<<longDimGrid, longDimBlock>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_long_seg, dev_mem->d_long_seg_count,
         dev_mem->d_f, dev_mem->d_p);
+
+    cudaCheck();
+    cudaDeviceSynchronize();
+
+    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
+    dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
+
+    score_generation_long<<<midDimGrid, midDimBlock>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
 
     cudaCheck();
     cudaDeviceSynchronize();

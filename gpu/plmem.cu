@@ -49,7 +49,9 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch, int
     // cut
     cudaMalloc(&dev_mem->d_cut, num_cut * sizeof(size_t));
     cudaMalloc(&dev_mem->d_long_seg_count, sizeof(unsigned int));
-    cudaMalloc(&dev_mem->d_long_seg, num_cut/2 * sizeof(seg_t));
+    cudaMalloc(&dev_mem->d_long_seg, num_cut/(MM_LONG_SEG_CUTOFF + 1) * sizeof(seg_t));
+    cudaMalloc(&dev_mem->d_mid_seg_count, sizeof(unsigned int));
+    cudaMalloc(&dev_mem->d_mid_seg, num_cut/(MM_MID_SEG_CUTOFF + 1) * sizeof(seg_t));
     cudaCheck();
 }
 
@@ -67,6 +69,8 @@ void plmem_free_device_mem(deviceMemPtr *dev_mem) {
     cudaFree(dev_mem->d_cut);
     cudaFree(dev_mem->d_long_seg);
     cudaFree(dev_mem->d_long_seg_count);
+    cudaFree(dev_mem->d_mid_seg);
+    cudaFree(dev_mem->d_mid_seg_count);
     cudaCheck();
 }
 
@@ -255,10 +259,14 @@ void plmem_config_kernels(cJSON *json) {
         get_json_int(score_config_json, "short_blockdim");
     score_kernel_config.long_blockdim =
         get_json_int(score_config_json, "long_blockdim");
+    score_kernel_config.mid_blockdim =
+        get_json_int(score_config_json, "mid_blockdim");
     score_kernel_config.short_griddim =
         get_json_int(score_config_json, "short_griddim");
     score_kernel_config.long_griddim =
         get_json_int(score_config_json, "long_griddim");
+    score_kernel_config.mid_griddim =
+        get_json_int(score_config_json, "mid_griddim");
 }
 
 void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_, size_t max_total_n, size_t max_read, size_t min_n){
