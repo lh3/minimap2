@@ -15,7 +15,7 @@ INCLUDES		+= -I gpu
 ############  	CUDA Compile 	###################
 ###################################################
 NVCC 			= nvcc
-CUDAFLAGS		= -rdc=true -DNDEBUG ## turn off assert
+CUDAFLAGS		= -rdc=true -DNDEBUG -lineinfo ## turn off assert
 CUDATESTFLAG	= -G
 
 ###################################################

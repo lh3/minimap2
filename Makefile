@@ -1,5 +1,5 @@
-CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
-CPPFLAGS=	-DHAVE_KALLOC -D__AMD_SPLIT_KERNELS__ -Wno-unused-but-set-variable -Wno-unused-variable
+CFLAGS=		-g -O2 # -Wall -Wc++-compat #-Wextra
+CPPFLAGS=	-DHAVE_KALLOC -D__AMD_SPLIT_KERNELS__ # -Wno-unused-but-set-variable -Wno-unused-variable
 INCLUDES=	-I .
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o \
 			lchain.o align.o hit.o seed.o map.o format.o pe.o esterr.o splitidx.o \
