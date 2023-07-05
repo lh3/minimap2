@@ -167,8 +167,8 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 
 	// fill the score and backtrack arrays
 	for (i = 0, max_ii = -1; i < n; ++i) {
-		int64_t max_j = -1, end_j;
-		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
+        int64_t max_j = -1, end_j;
+        int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist_x)) ++st;
 		if (i - st > max_iter) st = i - max_iter;
 		for (j = i - 1; j >= st; --j) {
