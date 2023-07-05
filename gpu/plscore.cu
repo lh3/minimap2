@@ -328,6 +328,7 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
     size_t total_n = dev_mem->total_n;
     size_t cut_num = dev_mem->num_cut;
     dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
+    dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
     dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
 
     // Run kernel
@@ -354,6 +355,19 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
     #endif
     cudaCheck();
 
+    #ifdef __MID_BLOCK_SIZE__
+    fprintf(stderr, "mid block size: %d\n", __MID_BLOCK_SIZE__);
+    score_generation_long<__MID_BLOCK_SIZE__><<<midDimGrid, dim3(__MID_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    #else
+    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
+    score_generation_long<<<midDimGrid, midDimBlock, 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    #endif
+    cudaCheck();
+
     #ifdef __LONG_BLOCK_SIZE__
     fprintf(stderr, "long block size: %d\n", __LONG_BLOCK_SIZE__);
     score_generation_long<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
@@ -365,13 +379,6 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_long_seg,
         dev_mem->d_long_seg_count, dev_mem->d_f, dev_mem->d_p);
     #endif
-    cudaCheck();
-
-    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
-    dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
-    score_generation_long<<<midDimGrid, midDimBlock, 0, *stream>>>(
-        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
-        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
     cudaCheck();
 
 #ifdef DEBUG_VERBOSE
@@ -415,6 +422,7 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     size_t cut_num = dev_mem->num_cut;
     plscore_upload_misc(misc_);
     dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
+    dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
     dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
     cudaMemset(dev_mem->d_long_seg_count, 0, sizeof(unsigned int));
     #ifdef __SHORT_BLOCK_SIZE__
@@ -452,6 +460,18 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     // cudaMemcpy(elapsed_clk, d_clk, sizeof(long long int)*DimGrid.x, cudaMemcpyDeviceToHost);
 #endif // DEBUG_CHECK
 
+    #ifdef __MID_BLOCK_SIZE__
+    fprintf(stderr, "mid block size: %d\n", __MID_BLOCK_SIZE__);
+    score_generation_long<__MID_BLOCK_SIZE__><<<midDimGrid, dim3(__MID_BLOCK_SIZE__, 1, 1)>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    #else
+    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
+    score_generation_long<<<midDimGrid, midDimBlock>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    #endif
+
     #ifdef __LONG_BLOCK_SIZE__
     printf("long block size: %d\n", __LONG_BLOCK_SIZE__);
     score_generation_long<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1)>>>(
@@ -466,12 +486,7 @@ void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_) {
     cudaCheck();
     cudaDeviceSynchronize();
 
-    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
-    dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
-
-    score_generation_long<<<midDimGrid, midDimBlock>>>(
-        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
-        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    cudaCheck();
 
     cudaCheck();
     cudaDeviceSynchronize();

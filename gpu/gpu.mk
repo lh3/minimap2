@@ -1,6 +1,7 @@
 GPU				?= 		AMD
 CONFIG 			= $(if $(GPU_CONFIG),-DGPU_CONFIG='"$(GPU_CONFIG)"')
 CONFIG			+= $(if $(LONG_BLOCK_SIZE),-D__LONG_BLOCK_SIZE__=\($(LONG_BLOCK_SIZE)\))
+CONFIG			+= $(if $(MID_BLOCK_SIZE),-D__MID_BLOCK_SIZE__=\($(MID_BLOCK_SIZE)\))
 CONFIG			+= $(if $(SHORT_BLOCK_SIZE),-D__SHORT_BLOCK_SIZE__=\($(SHORT_BLOCK_SIZE)\))
 
 ###################################################
@@ -14,7 +15,7 @@ INCLUDES		+= -I gpu
 ############  	CUDA Compile 	###################
 ###################################################
 NVCC 			= nvcc
-CUDAFLAGS		= -rdc=true -DNDEBUG ## turn off assert
+CUDAFLAGS		= -rdc=true -DNDEBUG -lineinfo ## turn off assert
 CUDATESTFLAG	= -G
 
 ###################################################
