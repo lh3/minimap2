@@ -17,11 +17,11 @@ __constant__ int d_max_dist_x;
 __constant__ int d_max_iter;
 __constant__ int d_cut_check_anchors;
 
-inline __device__ int64_t range_binary_search(const int64_t* ax, int64_t i, int64_t st_end){
+inline __device__ int64_t range_binary_search(const int32_t* ax, const int32_t* rev, int64_t i, int64_t st_end){
     int64_t st_high = st_end, st_low=i;
     while (st_high != st_low) {
         int64_t mid = (st_high + st_low -1) / 2+1;
-        if (ax[i] >> 32 != ax[mid] >> 32 || ax[mid] > ax[i] + d_max_dist_x) {
+        if (rev[i] != rev[mid] || ax[mid] > ax[i] + d_max_dist_x) {
             st_high = mid -1;
         } else {
             st_low = mid;
@@ -35,7 +35,7 @@ inline __device__ int64_t range_binary_search(const int64_t* ax, int64_t i, int6
  * Forward Range Selection Kernel using global memory and binary range search. 
  * cut reads into segements where successor range = 0. 
 */
-__global__ void range_selection_kernel_binary(const int64_t* ax, size_t *start_idx_arr, size_t *read_end_idx_arr, 
+__global__ void range_selection_kernel_binary(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
     int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, range_kernel_config_t config){
     int tid = threadIdx.x;
     int bid = blockIdx.x;
@@ -60,11 +60,11 @@ __global__ void range_selection_kernel_binary(const int64_t* ax, size_t *start_i
             st = st <= st_max ? st : st_max;
             assert(st < total_n);
             assert(i < total_n);
-            if (st > i && (ax[i] >> 32 != ax[st] >> 32 || ax[st] > ax[i] + d_max_dist_x)){
+            if (st > i && (rev[st] != rev[i] || ax[st] > ax[i] + d_max_dist_x)){
                 break;
             }
         }
-        st = range_binary_search(ax, i, st);
+        st = range_binary_search(ax, rev, i, st);
         range[i] = st - i;
 
         if (tid >= blockDim.x - d_cut_check_anchors &&
@@ -79,7 +79,7 @@ __global__ void range_selection_kernel_binary(const int64_t* ax, size_t *start_i
  * Forward Range Selection Kernel using global memory and linear range search.
  * cut reads into segements where successor range = 0.
  */
-__global__ void range_selection_kernel_naive(const int64_t* ax, size_t *start_idx_arr, size_t *read_end_idx_arr, 
+__global__ void range_selection_kernel_naive(const int32_t* ax, const int32_t* rev, size_t *start_idx_arr, size_t *read_end_idx_arr, 
     int32_t *range, size_t* cut, size_t* cut_start_idx, size_t total_n, range_kernel_config_t config){
     int tid = threadIdx.x;
     int bid = blockIdx.x;
@@ -109,7 +109,7 @@ __global__ void range_selection_kernel_naive(const int64_t* ax, size_t *start_id
         assert(st < total_n);
         assert(i < total_n);
         while (st > i && 
-                (ax[i] >> 32 != ax[st] >> 32  // NOTE: different prefix cannot become predecessor 
+                (rev[i] != rev[st] // NOTE: different prefix cannot become predecessor 
                 || ax[st] > ax[i] + d_max_dist_x)) { // NOTE: same prefix compare the value
             --st;
         }
@@ -247,9 +247,8 @@ void plrange_async_range_selection(deviceMemPtr* dev_mem, cudaStream_t* stream) 
     //         range_kernel_config.blockdim);
 
     // Run kernel
-    // range_selection_kernel<<<DimGrid, DimBlock>>>(d_ax, d_start_idx, d_end_idx, d_read_end_idx, d_range);
     range_selection_kernel_binary<<<DimGrid, DimBlock, 0, *stream>>>(
-        dev_mem->d_ax, dev_mem->d_start_idx, dev_mem->d_read_end_idx,
+        dev_mem->d_ax, dev_mem->d_xrev, dev_mem->d_start_idx, dev_mem->d_read_end_idx,
         dev_mem->d_range, dev_mem->d_cut, dev_mem->d_cut_start_idx, total_n, range_kernel_config);
     cudaCheck();
 #ifdef DEBUG_VERBOSE
@@ -274,9 +273,8 @@ void plrange_sync_range_selection(deviceMemPtr *dev_mem, Misc misc
         fprintf(stderr, "Grim Dim: %d Cut: %zu Anchors: %zu\n", DimGrid.x,
                 cut_num, total_n);
 #endif
-    // range_selection_kernel<<<DimGrid, DimBlock>>>(d_ax, d_start_idx, d_read_end_idx, d_range);
     range_selection_kernel_binary<<<DimGrid, DimBlock>>>(
-        dev_mem->d_ax, dev_mem->d_start_idx, dev_mem->d_read_end_idx,
+        dev_mem->d_ax, dev_mem->d_xrev, dev_mem->d_start_idx, dev_mem->d_read_end_idx,
         dev_mem->d_range, dev_mem->d_cut, dev_mem->d_cut_start_idx, total_n, range_kernel_config);
 #ifdef DEBUG_VERBOSE
     fprintf(stderr, "Kernel Launched\n");

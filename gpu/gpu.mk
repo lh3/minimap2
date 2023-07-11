@@ -40,6 +40,8 @@ else
 	GPU_TESTFL	= $(CUDATESTFLAG)
 endif
 
+GPU_FLAGS += $(GPU_TESTFL)
+
 # check: CFLAGS += -DDEBUG_CHECK
 # check: HIPFLAGS += -DDEBUG_CHECK
 # check: CUDAFLAGS += -DDEBUG_CHECK

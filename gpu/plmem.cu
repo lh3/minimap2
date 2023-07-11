@@ -10,8 +10,10 @@
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size) {
     // data array
-    cudaMallocHost((void**)&host_mem->ax, anchor_per_batch * sizeof(int64_t));
-    cudaMallocHost((void**)&host_mem->ay, anchor_per_batch * sizeof(int64_t));
+    cudaMallocHost((void**)&host_mem->ax, anchor_per_batch * sizeof(int32_t));
+    cudaMallocHost((void**)&host_mem->ay, anchor_per_batch * sizeof(int32_t));
+    cudaMallocHost((void**)&host_mem->sid, anchor_per_batch * sizeof(int8_t));
+    cudaMallocHost((void**)&host_mem->xrev, anchor_per_batch * sizeof(int32_t));
     cudaMallocHost((void**)&host_mem->f, anchor_per_batch * sizeof(int32_t));
     cudaMallocHost((void**)&host_mem->p, anchor_per_batch * sizeof(uint16_t));
 
@@ -35,8 +37,10 @@ void plmem_free_host_mem(hostMemPtr *host_mem) {
 
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch, int range_grid_size, int num_cut){
     // data array
-    cudaMalloc(&dev_mem->d_ax, anchor_per_batch * sizeof(int64_t));
-    cudaMalloc(&dev_mem->d_ay, anchor_per_batch * sizeof(int64_t));
+    cudaMalloc(&dev_mem->d_ax, anchor_per_batch * sizeof(int32_t));
+    cudaMalloc(&dev_mem->d_ay, anchor_per_batch * sizeof(int32_t));
+    cudaMalloc(&dev_mem->d_sid, anchor_per_batch * sizeof(int8_t));
+    cudaMalloc(&dev_mem->d_xrev, anchor_per_batch * sizeof(int32_t));
     cudaMalloc(&dev_mem->d_range, anchor_per_batch * sizeof(int32_t));
     cudaMalloc(&dev_mem->d_f, anchor_per_batch * sizeof(int32_t));
     cudaMalloc(&dev_mem->d_p, anchor_per_batch * sizeof(uint16_t));
@@ -58,6 +62,8 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch, int
 void plmem_free_device_mem(deviceMemPtr *dev_mem) { 
     cudaFree(dev_mem->d_ax);
     cudaFree(dev_mem->d_ay);
+    cudaFree(dev_mem->d_sid);
+    cudaFree(dev_mem->d_xrev);
     cudaFree(dev_mem->d_range);
     cudaFree(dev_mem->d_f);
     cudaFree(dev_mem->d_p);
@@ -118,8 +124,10 @@ void plmem_reorg_input_arr(chain_read_t *reads, int n_read,
         griddim += block_num;
 
         for (int j = 0; j < n; j++) {
-            host_mem->ax[idx] = reads[i].a[j].x;
-            host_mem->ay[idx] = reads[i].a[j].y;
+            host_mem->ax[idx] = (int32_t)reads[i].a[j].x;
+            host_mem->ay[idx] = (int32_t)reads[i].a[j].y;
+            host_mem->sid[idx] = (reads[i].a[j].y & MM_SEED_SEG_MASK) >> MM_SEED_SEG_SHIFT;
+            host_mem->xrev[idx] = reads[i].a[j].x >> 32;
             ++idx;
         }
     }
@@ -132,10 +140,16 @@ void plmem_async_h2d_memcpy(stream_ptr_t* stream_ptrs) {
     deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
     cudaStream_t *stream = &stream_ptrs->cudastream;
     cudaMemcpyAsync(dev_mem->d_ax, host_mem->ax,
-                    sizeof(int64_t) * host_mem->total_n, cudaMemcpyHostToDevice,
+                    sizeof(int32_t) * host_mem->total_n, cudaMemcpyHostToDevice,
                     *stream);
     cudaMemcpyAsync(dev_mem->d_ay, host_mem->ay,
-                    sizeof(int64_t) * host_mem->total_n, cudaMemcpyHostToDevice,
+                    sizeof(int32_t) * host_mem->total_n, cudaMemcpyHostToDevice,
+                    *stream);
+    cudaMemcpyAsync(dev_mem->d_sid, host_mem->sid,
+                    sizeof(int8_t) * host_mem->total_n, cudaMemcpyHostToDevice,
+                    *stream);
+    cudaMemcpyAsync(dev_mem->d_xrev, host_mem->xrev,
+                    sizeof(int32_t) * host_mem->total_n, cudaMemcpyHostToDevice,
                     *stream);
     cudaMemcpyAsync(dev_mem->d_start_idx, host_mem->start_idx,
                     sizeof(size_t) * host_mem->griddim, cudaMemcpyHostToDevice,
@@ -160,10 +174,14 @@ void plmem_async_h2d_memcpy(stream_ptr_t* stream_ptrs) {
 }
 
 void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem) {
-    cudaMemcpy(dev_mem->d_ax, host_mem->ax, sizeof(int64_t) * host_mem->total_n,
+    cudaMemcpy(dev_mem->d_ax, host_mem->ax, sizeof(int32_t) * host_mem->total_n,
                cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_mem->d_ay, host_mem->ay, sizeof(int64_t) * host_mem->total_n,
+    cudaMemcpy(dev_mem->d_ay, host_mem->ay, sizeof(int32_t) * host_mem->total_n,
                cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_mem->d_sid, host_mem->sid, sizeof(int8_t) * host_mem->total_n,
+               cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_mem->d_xrev, host_mem->xrev,
+               sizeof(int32_t) * host_mem->total_n, cudaMemcpyHostToDevice);
     cudaMemcpy(dev_mem->d_start_idx, host_mem->start_idx,
                sizeof(size_t) * host_mem->griddim, cudaMemcpyHostToDevice);
     cudaMemcpy(dev_mem->d_read_end_idx, host_mem->read_end_idx,
