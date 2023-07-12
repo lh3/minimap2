@@ -77,7 +77,7 @@ inline __device__ void compute_sc_seg_one_wf(const int32_t* anchors_x, const int
         f[i] = MM_QSPAN;
         p[i] = 0;
     }
-    // __syncthreads();
+    __syncthreads();
     // assert(range[end_idx-1] == 0);
     for (size_t i=start_idx; i < end_idx; i++) {
         int32_t range_i = range[i];
@@ -102,7 +102,7 @@ inline __device__ void compute_sc_seg_one_wf(const int32_t* anchors_x, const int
 
             }
         }
-        // __syncthreads();
+        __syncthreads();
     }
     
 }

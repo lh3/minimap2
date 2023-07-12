@@ -230,10 +230,13 @@ void plrange_upload_misc(Misc misc){
                       &range_kernel_config.cut_check_anchors, sizeof(int));
 #else
     cudaMemcpyToSymbol(d_max_dist_x, &misc.max_dist_x, sizeof(int));
+    cudaCheck();
     cudaMemcpyToSymbol(d_max_iter, &misc.max_iter, sizeof(int));
+    cudaCheck();
     cudaMemcpyToSymbol(d_cut_check_anchors,
                        &range_kernel_config.cut_check_anchors, sizeof(int));
 #endif  // USEHIP
+    cudaCheck();
 }
 
 void plrange_async_range_selection(deviceMemPtr* dev_mem, cudaStream_t* stream) {
