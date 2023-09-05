@@ -77,6 +77,49 @@ inline __device__ void compute_sc_seg_one_wf(const int32_t* anchors_x, const int
         f[i] = MM_QSPAN;
         p[i] = 0;
     }
+    // __syncthreads();
+    // assert(range[end_idx-1] == 0);
+    for (size_t i=start_idx; i < end_idx; i++) {
+        int32_t range_i = range[i];
+        // if (range_i + i >= end_idx)
+        //     printf("range_i %d i %lu start_idx %lu, end_idx %lu\n", range_i, i, start_idx, end_idx);
+        // assert(range_i + i < end_idx);
+        for (int32_t j = tid; j < range_i; j += blockDim.x) {
+            int32_t sc = comput_sc(
+                                anchors_x[i+j+1], 
+                                anchors_y[i+j+1], 
+                                anchors_x[i], 
+                                anchors_y[i],
+                                sid [i+j+1],
+                                sid [i],
+                                blk_misc.max_dist_x, blk_misc.max_dist_y, blk_misc.bw, blk_misc.chn_pen_gap, 
+                                blk_misc.chn_pen_skip, blk_misc.is_cdna, blk_misc.n_seg);
+            if (sc == INT32_MIN) continue;
+            sc += f[i];
+            if (sc >= f[i+j+1] && sc != MM_QSPAN) {
+                f[i+j+1] = sc;
+                p[i+j+1] = j+1;
+
+            }
+        }
+        // __syncthreads();
+    }
+    
+}
+
+
+inline __device__ void compute_sc_long_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
+                    size_t start_idx, size_t end_idx,
+                    int32_t* f, uint16_t* p
+){
+    Misc blk_misc = misc;
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+    // init f and p
+    for (size_t i=start_idx+tid; i < end_idx; i += blockDim.x) {
+        f[i] = MM_QSPAN;
+        p[i] = 0;
+    }
     __syncthreads();
     // assert(range[end_idx-1] == 0);
     for (size_t i=start_idx; i < end_idx; i++) {
@@ -290,8 +333,8 @@ __global__ void score_generation_long(const int32_t* anchors_x, const int32_t* a
 
     for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
         seg_t seg = long_seg[segid]; 
-        compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
-        // compute_sc_long_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
+        // compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+        compute_sc_long_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
 __global__ void score_generation_naive(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t *range,

@@ -1050,6 +1050,7 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
             tr->is_full = 0;
             tr->has_launched = 1;
             // endof gpu kernel
+			// FIXME: This is wrong without sync stream
             b->timers[MM_TIME_CHAIN] += realtime() - t1;
         } else {
 			// cpu kernel

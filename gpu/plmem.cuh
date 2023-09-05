@@ -74,7 +74,7 @@ typedef struct stream_ptr_t{
     hostMemPtr host_mem;
     deviceMemPtr dev_mem;
     cudaStream_t cudastream;
-    cudaEvent_t cudaevent;
+    cudaEvent_t cudaevent, startevent;
     bool busy = false;
 } stream_ptr_t;
 

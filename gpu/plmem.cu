@@ -420,6 +420,7 @@ void plmem_stream_initialize(size_t *max_total_n_,
         stream_setup.streams[i].busy = false;
         cudaStreamCreate(&stream_setup.streams[i].cudastream);
         cudaEventCreate(&stream_setup.streams[i].cudaevent);
+        cudaEventCreate(&stream_setup.streams[i].startevent);
         cudaCheck();
         plmem_malloc_host_mem(&stream_setup.streams[i].host_mem, max_anchors_stream,
                               max_range_grid);
