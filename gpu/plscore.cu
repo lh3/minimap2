@@ -65,13 +65,13 @@ __device__ int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32
 
 /* arithmetic functions end */
 
-inline __device__ void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
+inline __device__ void compute_sc_seg_one_wf(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t* range, 
                     size_t start_idx, size_t end_idx,
                     int32_t* f, uint16_t* p
 ){
     Misc blk_misc = misc;
     int tid = threadIdx.x;
-    int bid = blockIdx.x;
+    // int bid = blockIdx.x;
     // init f and p
     for (size_t i=start_idx+tid; i < end_idx; i += blockDim.x) {
         f[i] = MM_QSPAN;
@@ -212,7 +212,7 @@ __launch_bounds__(short_block_size)
 #endif
 __global__ void score_generation_short(
                                 /* Input: Anchor & Range Inputs */
-                                const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t *range, 
+                                int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range, 
                                 /* Input: Segmentations */
                                 size_t *seg_start_arr,
                                 /* Output: Score and Previous Anchor */
@@ -265,7 +265,7 @@ __global__ void score_generation_short(
 template <size_t mid_block_size>
 __launch_bounds__(mid_block_size)
 #endif
-__global__ void score_generation_mid(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t *range,
+__global__ void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p){
     int tid = threadIdx.x;
@@ -282,7 +282,7 @@ __global__ void score_generation_mid(const int32_t* anchors_x, const int32_t* an
 template <size_t long_block_size>
 __launch_bounds__(long_block_size)
 #endif
-__global__ void score_generation_long(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t *range,
+__global__ void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p){
     int tid = threadIdx.x;
@@ -294,7 +294,7 @@ __global__ void score_generation_long(const int32_t* anchors_x, const int32_t* a
         // compute_sc_long_seg_one_wf(anchors_x, anchors_y, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
-__global__ void score_generation_naive(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t *range,
+__global__ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                         size_t *seg_start_arr, 
                         int32_t* f, uint16_t* p, size_t total_n, size_t seg_count) {
 

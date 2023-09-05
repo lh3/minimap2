@@ -297,6 +297,7 @@ void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_, size_t m
 
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
+    cudaCheck();
 
     if (*max_range_grid_ > prop.maxGridSize[0]) {
         fprintf(stderr, "Invalid memory config!\n");

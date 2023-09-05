@@ -1025,45 +1025,46 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
         /* perform chaining on acc_batch and move to launched_batch. move current pending batch to acc_batch. Store results in pending batch. */
 		if (tr->is_full) {
 
-		if (s->p->opt->flag & MM_F_GPU_CHAIN){
-			double t1 = realtime();
-			// chaining on GPU
-			mm_batch_trbuf_t kernel_batch = tr->acc_batch;
-			chain_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
-			// check if the returned batch exits, and/or is the launched_batch.
-			if (kernel_batch.reads) { // if chain_stream_gpu return non NULL reads
-				assert(tr->has_launched);
-				assert(kernel_batch.count == tr->launched_batch.count);
-                kernel_batch = tr->launched_batch;
-				tr->launched_batch = tr->acc_batch;
+			if (s->p->opt->flag & MM_F_GPU_CHAIN){
+				double t1 = realtime();
+				// chaining on GPU
+				mm_batch_trbuf_t kernel_batch = tr->acc_batch;
+				chain_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
+				// check if the returned batch exits, and/or is the launched_batch.
+				if (kernel_batch.reads) { // if chain_stream_gpu return non NULL reads
+					assert(tr->has_launched);
+					assert(kernel_batch.count == tr->launched_batch.count);
+					kernel_batch = tr->launched_batch;
+					tr->launched_batch = tr->acc_batch;
+					tr->acc_batch = tr->pending_batch;
+					tr->pending_batch = kernel_batch;
+					tr->is_pending = 1;
+				} else {
+					assert(!tr->has_launched); // no launched batch
+					kernel_batch = tr->launched_batch;
+					tr->launched_batch = tr->acc_batch;
+					tr->acc_batch = tr->pending_batch;
+					tr->pending_batch = kernel_batch;
+					tr->is_pending = 0;
+				}
+				tr->is_full = 0;
+				tr->has_launched = 1;
+				// endof gpu kernel
+				// NOTE: Because it just submit the GPU task, this timer doesn't make sense for GPU
+				b->timers[MM_TIME_CHAIN] += realtime() - t1;
+			} else {
+				// cpu kernel
+				for (iread=0; iread<tr->acc_batch.count; iread++) {
+						mm_map_chain(s->p->mi, s->p->opt, &tr->acc_batch.reads[iread], b, tr->acc_batch.km);
+				}
+				mm_batch_trbuf_t kernel_batch = tr->acc_batch;
 				tr->acc_batch = tr->pending_batch;
 				tr->pending_batch = kernel_batch;
+				tr->has_launched = 0;
+				tr->is_full = 0;
 				tr->is_pending = 1;
-            } else {
-				assert(!tr->has_launched); // no launched batch
-				kernel_batch = tr->launched_batch;
-				tr->launched_batch = tr->acc_batch;
-				tr->acc_batch = tr->pending_batch;
-				tr->pending_batch = kernel_batch;
-				tr->is_pending = 0;
+				// end of cpu kernel
 			}
-            tr->is_full = 0;
-            tr->has_launched = 1;
-            // endof gpu kernel
-            b->timers[MM_TIME_CHAIN] += realtime() - t1;
-        } else {
-			// cpu kernel
-			for (iread=0; iread<tr->acc_batch.count; iread++) {
-					mm_map_chain(s->p->mi, s->p->opt, &tr->acc_batch.reads[iread], b, tr->acc_batch.km);
-			}
-			mm_batch_trbuf_t kernel_batch = tr->acc_batch;
-			tr->acc_batch = tr->pending_batch;
-			tr->pending_batch = kernel_batch;
-			tr->has_launched = 0;
-			tr->is_full = 0;
-			tr->is_pending = 1;
-			// end of cpu kernel
-		}
 
 		} else if (s->p->opt->flag & MM_F_GPU_CHAIN){ // clean up if all the pending kernels have been launched
 			assert(i_in == -1 && tr->has_launched);
