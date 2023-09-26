@@ -39,6 +39,11 @@ typedef struct {
 typedef struct seg_t {
     size_t start_idx;
     size_t end_idx;
+//DEBUG: used for debug plchain_cal_long_seg_range_dis LONG_SEG_RANGE_DIS
+#ifdef DEBUG_VERBOSE 
+    size_t start_segid;
+    size_t end_segid;
+#endif // DEBUG_VERBOSE
 } seg_t;
 
 typedef struct {

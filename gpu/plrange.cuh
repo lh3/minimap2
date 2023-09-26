@@ -13,12 +13,7 @@ typedef __int32_t int32_t;
 /* functions declaration */
 void plrange_upload_misc(Misc misc);
 void plrange_async_range_selection(deviceMemPtr* device_mem_ptr, cudaStream_t* stream);
-void plrange_sync_range_selection(deviceMemPtr* dev_mem, Misc misc
-#ifdef DEBUG_CHECK
-                                  ,
-                                  chain_read_t* reads
-#endif // DEBUG_CHECK
-);
+void plrange_sync_range_selection(deviceMemPtr* dev_mem, Misc misc);
 
 extern range_kernel_config_t range_kernel_config;
 
