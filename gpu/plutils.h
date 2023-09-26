@@ -50,8 +50,8 @@ typedef struct {
     int *qlens;          // query length for each segment       <- allocated in worker_for, freed in free_read after seeding
     int n_seg;           // number of segs
 
-#ifdef DEBUG_CHECK
-    // for score checking after chaining
+//DEBUG: for SCORE CHECK after chaining
+#if defined(DEBUG_CHECK) && 0
     int32_t *f;
     int64_t *p;
 #endif  // DEBUG_CHECK
@@ -120,9 +120,9 @@ void post_chaining_helper(const mm_idx_t *mi, const mm_mapopt_t *opt,
 static inline void free_read(chain_read_t *in, void* km) {
     if (in->qseqs) kfree(km, in->qseqs);
     if (in->qlens) kfree(km, in->qlens);
-    // if (in->a) kfree(km, in->a);
-    // if (in->u) kfree(km, in->u);
-#ifdef DEBUG_CHECK
+
+//DEBUG: for SCORE CHECK after chaining
+#if defined(DEBUG_CHECK) && 0 
     if (in->f) kfree(km, in->f);
     if (in->p) kfree(km, in->p);
     in->f = 0, in->p = 0;

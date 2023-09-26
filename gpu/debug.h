@@ -1,6 +1,6 @@
 #ifndef __DEBUG_H__
 #define __DEBUG_H__
-#include "utils.h"
+#include "plutils.h"
 #include "mmpriv.h"
 
 #ifdef __cplusplus
@@ -38,17 +38,16 @@ void debug_check_range(const int32_t* range, size_t n);
 int debug_check_cut(const size_t *cut, const int32_t *range, size_t max_cut,
                     size_t n, size_t offset);
 
+#ifdef DEBUG_CHECK_FORCE
 mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip,
                       int max_iter, int min_cnt, int min_sc, float chn_pen_gap,
                       float chn_pen_skip, int is_cdna, int n_seg,
                       int64_t n,   // NOTE: n is number of anchors
                       mm128_t *a,  // NOTE: a is ptr to anchors.
-                      int *n_u_, uint64_t **_u, void *km, chain_read_t *input
-#ifdef DEBUG_CHECK_FORCE
-                      ,
+                      int *n_u_, uint64_t **_u, void *km, chain_read_t *input,
                       int32_t *f_, int64_t *p_
-#endif  // DEBUG_CHECK_FORCE
 );
+#endif  // DEBUG_CHECK_FORCE
 
 #endif  // DEBUG_CHECK
 

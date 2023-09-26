@@ -411,11 +411,11 @@ void plmem_stream_initialize(size_t *max_total_n_,
     // assert(num_stream > 1);
 
     stream_setup.streams = new stream_ptr_t[num_stream];
-#ifdef DEBUG_CHECK
+#ifdef DEBUG_PRINT
     fprintf(
         stderr,
         "[Info] max anchors per stream: %zu, max range grid %zu max_num_cut %zu\n", max_anchors_stream, max_range_grid, max_num_cut);
-#endif  // DEBUG_CHECK
+#endif  // DEBUG_PRINT
 
     for (int i = 0; i < num_stream; i++) {
         stream_setup.streams[i].busy = false;
