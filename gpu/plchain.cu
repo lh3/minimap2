@@ -11,6 +11,10 @@
 #include "plscore.cuh"
 #include "plchain.h"
 
+#ifdef DEBUG_CHECK
+#include "debug.h"
+#endif // DEBUG_CHECK
+
 /**
  * translate relative predecessor index to abs index 
  * Input
@@ -81,10 +85,12 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, 
         int64_t* p;
         KMALLOC(km, p, reads[i].n);
         p_rel2idx(p_hostmem, p, reads[i].n);
-#ifdef DEBUG_VERBOSE
+// DEBUG:print scores
+#if defined(DEBUG_VERBOSE) && 0
         debug_print_score(p, f, reads[i].n);
 #endif
-#ifdef DEBUG_CHECK
+//DEBUG: Check score w.r.t to input (MAKE SURE INPUT SCORE EXISTS: search for SCORE CHECK) 
+#if defined(DEBUG_CHECK) && 0
         debug_check_score(p, f, reads[i].p, reads[i].f, reads[i].n);
 #endif
 
@@ -142,11 +148,7 @@ void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc, void* km
     assert(host_mem.total_n == total_n);
 
     plmem_sync_h2d_memcpy(&host_mem, &dev_mem);
-    plrange_sync_range_selection(&dev_mem, misc
-#ifdef DEBUG_CHECK
-    , reads
-#endif
-    );
+    plrange_sync_range_selection(&dev_mem, misc);
     // plscore_sync_long_short_forward_dp(&dev_mem, misc);
     plscore_sync_naive_forward_dp(&dev_mem, misc);
     plmem_sync_d2h_memcpy(&host_mem, &dev_mem);
@@ -248,6 +250,234 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
     stream_setup.streams[stream_id].reads = reads;
     cudaCheck();
 }
+#ifdef DEBUG_VERBOSE
+
+// find long seg range distribution
+void plchain_cal_long_seg_range_dis(size_t total_n, deviceMemPtr* dev_mem){
+    static uint64_t long_seg_range_dis[5001] = {0};
+    static unsigned int long_seg_total = 0;
+    static uint64_t long_seg_anchors_total = 0;
+    static FILE* fp = NULL;
+    // check range
+    int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
+    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
+                cudaMemcpyDeviceToHost);
+
+    unsigned int long_seg_count;
+    cudaMemcpy(&long_seg_count, dev_mem->d_long_seg_count, sizeof(unsigned int),
+                cudaMemcpyDeviceToHost);
+    fprintf(stderr, "[verbose] %u long segs generated\n", long_seg_count);
+    seg_t* long_seg = (seg_t*)malloc(sizeof(seg_t) * long_seg_count);
+    cudaMemcpy(long_seg, dev_mem->d_long_seg, sizeof(seg_t) * long_seg_count,
+                cudaMemcpyDeviceToHost);
+
+    static FILE* fp_all_data = NULL;
+    if (!fp_all_data){
+        fp_all_data = fopen("long_seg_range_dis_all.csv", "w+");
+        fprintf(fp_all_data, "seg_length");
+        for (int i = 0; i < 5000; i++) fprintf(fp_all_data, ",%d", i);
+        fprintf(fp_all_data, "\n");
+    }
+
+    for (int sid = 0; sid < long_seg_count; sid++) {
+        uint64_t long_seg_range_dis_all[5001] = {0};
+        for (size_t i = long_seg[sid].start_idx; i < long_seg[sid].end_idx; i++){
+            assert(range[i] <= 5000);
+            long_seg_range_dis[range[i]]++;
+            long_seg_range_dis_all[range[i]]++;
+        }
+        if (long_seg[sid].end_idx - long_seg[sid].start_idx < 530){
+            fprintf(stderr, "Found seg of length %lu, segid %lu - %lu \n",
+                    long_seg[sid].end_idx - long_seg[sid].start_idx,
+                    long_seg[sid].start_segid, long_seg[sid].end_segid);
+        }
+
+        fprintf(fp_all_data, "%lu", long_seg[sid].end_idx - long_seg[sid].start_idx);
+        for (int i = 0; i < 5000; i++){
+            fprintf(fp_all_data, ",%lu", long_seg_range_dis_all[i]);
+        }
+        fprintf(fp_all_data, "\n");
+        long_seg_anchors_total += long_seg[sid].end_idx - long_seg[sid].start_idx;
+        ++long_seg_total;
+    }   
+    if (!fp) {
+        fp = fopen("long_seg_range_dis.csv", "w+");
+        fprintf(fp, "num_segs,num_anchors");
+        for (int i = 0; i < 5000; i++) fprintf(fp, ",%d", i);
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "%u segs,%lu anchors", long_seg_total, long_seg_anchors_total);
+    for (int i = 0; i < 5000; i++){
+        fprintf(fp, ",%lu", long_seg_range_dis[i]);
+    }
+    fprintf(fp, "\n");
+    free(range);
+    free(long_seg);
+}
+
+// range distribution
+void plchain_cal_range_dis(size_t total_n, size_t num_cut, deviceMemPtr* dev_mem){
+    static uint64_t range_dis[5001] = {0};
+    static size_t seg_total = 0;
+    static uint64_t anchors_total = 0;
+    static FILE* fp = NULL;
+    // check range
+    int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
+    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
+                cudaMemcpyDeviceToHost);
+
+    fprintf(stderr, "[verbose] %lu cuts generated\n", num_cut);
+    for (size_t i = 0; i < total_n; i++){
+        assert(range[i] <= 5000);
+        range_dis[range[i]]++;
+    }
+    anchors_total += total_n;
+    seg_total += num_cut;
+    if (!fp) {
+        fp = fopen("range_dis.csv", "w+");
+        fprintf(fp, "num_segs,num_anchors");
+        for (int i = 0; i < 5000; i++) fprintf(fp, ",%d", i);
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "%lusegs,%luanchors", seg_total, anchors_total);
+    for (int i = 0; i < 5000; i++){
+        fprintf(fp, ",%lu", range_dis[i]);
+    }
+    fprintf(fp, "\n");
+    free(range);
+}
+
+// sc pair vs. seg length
+void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, deviceMemPtr* dev_mem){
+    // bin width: 10 cuts, max 5000 cuts
+    static uint64_t sc_pair_dis[501] = {0}; // number of sc pairs for each seg length
+    static uint64_t anchors_dis[501] = {0};
+    size_t* cut = (size_t*)malloc(sizeof(size_t) * num_cut);
+    cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * num_cut, cudaMemcpyDeviceToHost);
+
+    int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
+    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n, cudaMemcpyDeviceToHost);
+
+    uint64_t start_idx = 0, cut_size = 0;
+    for (int cid = 0; cid < num_cut; cid++) {
+        if (cut[cid] != SIZE_MAX) {
+            uint64_t sc_pair_num = 0;
+            for (uint64_t i = start_idx; i < cut[cid]; i++){
+                sc_pair_num += range[i];
+            }
+            if (cut_size/10 < 500) {
+                sc_pair_dis[cut_size/10] += sc_pair_num;
+                anchors_dis[cut_size/10] += cut[cid] - start_idx;
+            } else {
+                sc_pair_dis[500] += sc_pair_num;
+                anchors_dis[500] += cut[cid] - start_idx;
+            }
+            cut_size = 0;
+            start_idx = cut[cid];
+        } else {
+            ++cut_size;
+        }
+    }
+    free(range);
+    free(cut);
+
+    static FILE* f_sc_pair_dis = NULL;
+    if (!f_sc_pair_dis){
+        f_sc_pair_dis = fopen("sc_pair_dis.csv", "w+");
+        fprintf(f_sc_pair_dis, "seg_len,");
+        for (int i = 0; i < 500; i++){
+            fprintf(f_sc_pair_dis, "%d,", i*10);
+        }
+        fprintf(f_sc_pair_dis, "5000\n");
+    }
+    
+    fprintf(f_sc_pair_dis, "sc_pairs,");
+    for (int i = 0; i <= 500; i++){
+        fprintf(f_sc_pair_dis, "%lu,", sc_pair_dis[i]);
+    }
+    fprintf(f_sc_pair_dis, "\n");
+    fprintf(f_sc_pair_dis, "anchors,");
+    for (int i = 0; i <= 500; i++){
+        fprintf(f_sc_pair_dis, "%lu,", anchors_dis[i]);
+    }
+    fprintf(f_sc_pair_dis, "\n");
+    fflush(f_sc_pair_dis);
+}
+
+
+#endif // DEBUG_CHECK
+
+
+
+
+#ifdef DEBUG_CHECK
+
+void plchain_debug_analysis(stream_ptr_t stream){
+    size_t total_n = stream.host_mem.total_n;
+    chain_read_t* reads = stream.reads;
+    deviceMemPtr* dev_mem = &stream.dev_mem;
+    size_t cut_num = stream.host_mem.cut_num;
+
+    unsigned int num_mid_seg, num_long_seg;
+    cudaMemcpy(&num_mid_seg, dev_mem->d_mid_seg_count, sizeof(unsigned int),
+                cudaMemcpyDeviceToHost);
+    cudaMemcpy(&num_long_seg, dev_mem->d_long_seg_count, sizeof(unsigned int),
+                cudaMemcpyDeviceToHost);
+
+    fprintf(stderr, "[DEBUG] total segs: %lu, short:%lu mid: %u long: %u\n", cut_num, cut_num - num_mid_seg - num_long_seg, num_mid_seg, num_long_seg);
+
+// DEBUG: check range w.r.t to input and range violations
+#if defined(DEBUG_CHECK) && 0
+    int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
+    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
+                cudaMemcpyDeviceToHost);
+    
+// Check range w.r.t input (MAKE SURE INPUT RANGE EXISTS)
+#if 0
+    int64_t read_start = 0;
+    for (int i = 0; i < dev_mem->size; i++) {
+// DEBUG: print range
+#if defined(DEBUG_VERBOSE) && 0
+        debug_print_successor_range(range + read_start, reads[i].n);
+#endif
+        debug_check_range(range + read_start, input_arr[i].range, input_arr[i].n);
+        read_start += reads[i].n;
+    }
+#endif
+
+// DEBUG: Check voilation of cut
+#if defined(DEBUG_CHECK) && 0
+    size_t* cut = (size_t*)malloc(sizeof(size_t) * cut_num);
+    cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num,
+                cudaMemcpyDeviceToHost);
+    for (int readid = 0, cid = 0, idx = 0; readid < dev_mem->size; readid++) {
+// DEBUG: Print cuts
+#if defined(DEBUG_VERBOSE) && 0
+    debug_print_cut(cut + cid, cut_num - cid, reads[readid].n, idx, reads[readid].seq.name);
+#endif
+    cid += debug_check_cut(cut + cid, range, cut_num - cid,
+                            reads[readid].n, idx);
+    idx += reads[readid].n;
+    }
+    free(cut);
+#endif
+    free(range);
+#endif // DEBUG_CHECK
+
+// DEBUG: Calculate workload distribution
+#if defined(DEBUG_VERBOSE) && 1
+    plchain_cal_sc_pair_density(total_n, cut_num, dev_mem);
+#endif // DEBUG_VERBOSE
+
+//DEBUG: Calculate range distribution (MAKE SURE start_segid & end_segid EXISTS: search for LONG_SEG_RANGE_DIS)
+#if defined(DEBUG_VERBOSE) && 0
+        plchain_cal_long_seg_range_dis(total_n, dev_mem);
+        plchain_cal_range_dis(total_n, cut_num, dev_mem);
+#endif // DEBUG_VERBOSE
+
+}
+
+#endif // DEBUG_CHECK
 
 
 void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int thread_id, void* km){
@@ -260,51 +490,17 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     if (stream_setup.streams[stream_id].busy) {
         cudaStreamSynchronize(stream_setup.streams[stream_id].cudastream);
 
-// #ifdef DEBUG_CHECK
-        size_t total_n = stream_setup.streams[stream_id].host_mem.total_n;
-        chain_read_t* reads = stream_setup.streams[stream_id].reads;
-        deviceMemPtr* dev_mem = &stream_setup.streams[stream_id].dev_mem;
-        size_t cut_num = stream_setup.streams[stream_id].host_mem.cut_num;
-        // DEBUG: print seg numbers for each kernel
+#ifdef DEBUG_PRINT
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, stream_setup.streams[stream_id].startevent, stream_setup.streams[stream_id].cudaevent);
+    fprintf(stderr, "[Info] %s (%s:%d) last launch runtime: %f ms\n", __func__, __FILE__, __LINE__, milliseconds);
+#endif
 
-        unsigned int num_mid_seg, num_long_seg;
-        cudaMemcpy(&num_mid_seg, dev_mem->d_mid_seg_count, sizeof(unsigned int),
-                   cudaMemcpyDeviceToHost);
-        cudaMemcpy(&num_long_seg, dev_mem->d_long_seg_count, sizeof(unsigned int),
-                   cudaMemcpyDeviceToHost);
-        float milliseconds = 0;
-        cudaEventElapsedTime(&milliseconds, stream_setup.streams[stream_id].startevent, stream_setup.streams[stream_id].cudaevent);
-        fprintf(stderr, "[DEBUG] total segs: %lu, short:%lu mid: %u long: %u, last launch runtime: %f ms\n", cut_num, cut_num - num_mid_seg - num_long_seg, num_mid_seg, num_long_seg, milliseconds);
-#ifdef DEBUG_CHECK
-        // check range
-        int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
-        cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
-                   cudaMemcpyDeviceToHost);
+// DEBUG: debug analysis that involves sychronizating the whole device 
+#if defined(DEBUG_CHECK)
+        plchain_debug_analysis(stream_setup.streams[stream_id]);
+#endif  // DEBUG_VERBOSE
 
-        size_t* cut = (size_t*)malloc(sizeof(size_t) * cut_num);
-        cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num,
-                   cudaMemcpyDeviceToHost);
-        for (int readid = 0, cid = 0, idx = 0; readid < dev_mem->size;
-             readid++) {
-#ifdef DEBUG_VERBOSE
-            debug_print_cut(cut + cid, cut_num - cid, reads[readid].n, idx);
-#endif
-            cid += debug_check_cut(cut + cid, range, cut_num - cid,
-                                   reads[readid].n, idx);
-            idx += reads[readid].n;
-        }
-        int64_t read_start = 0;
-        for (int i = 0; i < dev_mem->size; i++) {
-#ifdef DEBUG_VERBOSE
-            debug_print_successor_range(range + read_start, reads[i].n);
-#endif
-            // debug_check_range(range + read_start, input_arr[i].range,
-            // input_arr[i].n);
-            read_start += reads[i].n;
-        }
-        free(range);
-        free(cut);
-#endif
         // cleanup previous batch in the stream
         plchain_backtracking(&stream_setup.streams[stream_id].host_mem,
                                 stream_setup.streams[stream_id].reads, misc, km);
@@ -368,7 +564,9 @@ void init_blocking_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
 }
 
 void init_stream_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
-    fprintf(stderr, "[M::%s] gpu initialized for chaining\n", __func__);
+#ifdef DEBUG_PRINT
+    fprintf(stderr, "[INFO::%s] gpu initialized for chaining\n", __func__);
+#endif // DEBUG_PRINT
     plmem_stream_initialize(total_n, max_reads, min_n);
     plrange_upload_misc(misc);
     plscore_upload_misc(misc);
@@ -381,8 +579,6 @@ void init_stream_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
 void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t *in_arr, int n_read, void* km) {
     // assume only one seg. and qlen_sum desn't matter
     assert(opt->max_frag_len <= 0);
-    assert(!!(opt->flag & MM_F_SR));
-    assert(in_arr[0].n_seg == 1);
     Misc misc = build_misc(mi, opt, 0, 1);
     plchain_cal_score_sync(in_arr, n_read, misc, km);
     for (int i = 0; i < n_read; i++){
@@ -418,8 +614,6 @@ void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t *
                       int thread_id, void* km) {
     // assume only one seg. and qlen_sum desn't matter
     assert(opt->max_frag_len <= 0);
-    assert(!!(opt->flag & MM_F_SR));
-    assert(in_arr[0].n_seg == 1);
     Misc misc = build_misc(mi, opt, 0, 1);
     plchain_cal_score_async(in_arr_, n_read_, misc, stream_setup, thread_id, km);
     if (in_arr_) {
@@ -498,8 +692,6 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t*
                        int* n_read_, int t, void* km) {
     // assume only one seg. and qlen_sum desn't matter
     assert(opt->max_frag_len <= 0);
-    assert(!!(opt->flag & MM_F_SR));
-    assert(in_arr[0].n_seg == 1);
     Misc misc = build_misc(mi, opt, 0, 1);
     /* Sync all the pending batches + backtracking */
     if (!stream_setup.streams[t].busy) {
@@ -511,20 +703,19 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t*
     chain_read_t* reads;
     int n_read;
     cudaStreamSynchronize(stream_setup.streams[t].cudastream);
-    deviceMemPtr* dev_mem = &stream_setup.streams[t].dev_mem;
-    size_t cut_num = stream_setup.streams[t].host_mem.cut_num;
-    // DEBUG: print seg numbers for each kernel
+    cudaCheck();
 
-    unsigned int num_mid_seg, num_long_seg;
-    cudaMemcpy(&num_mid_seg, dev_mem->d_mid_seg_count, sizeof(unsigned int),
-                cudaMemcpyDeviceToHost);
-    cudaMemcpy(&num_long_seg, dev_mem->d_long_seg_count, sizeof(unsigned int),
-                cudaMemcpyDeviceToHost);
+#ifdef DEBUG_PRINT
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, stream_setup.streams[t].startevent, stream_setup.streams[t].cudaevent);
-    fprintf(stderr, "[DEBUG] total segs: %lu, short:%lu mid: %u long: %u, last launch runtime: %f ms\n", cut_num, cut_num - num_mid_seg - num_long_seg, num_mid_seg, num_long_seg, milliseconds);
+    fprintf(stderr, "[Info] %s (%s:%d) Last Batch Finished. last launch runtime: %f ms\n", __func__, __FILE__, __LINE__, milliseconds);
+#endif
 
-    cudaCheck();
+// DEBUG: debug analysis that involves sychronizating the whole device 
+#if defined(DEBUG_CHECK)
+    plchain_debug_analysis(stream_setup.streams[t]);
+#endif // DEBUG_CHECK
+    
     plchain_backtracking(&stream_setup.streams[t].host_mem,
                          stream_setup.streams[t].reads, misc, km);
     reads = stream_setup.streams[t].reads;
@@ -545,7 +736,9 @@ void free_stream_gpu(int n_threads){
         plmem_free_host_mem(&stream_setup.streams[t].host_mem);
         plmem_free_device_mem(&stream_setup.streams[t].dev_mem);
     }
-    fprintf(stderr, "[M::%s] gpu free memory\n", __func__);
+#ifdef DEBUG_PRINT
+    fprintf(stderr, "[INFO::%s] gpu free memory\n", __func__);
+#endif // DEBUG_PRINT
 }
 
 #ifdef __cplusplus
