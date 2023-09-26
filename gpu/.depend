@@ -1,37 +1,23 @@
 
-# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx1030
+# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx90a
 plchain.o: gpu/plchain.cu mmpriv.h minimap.h bseq.h kseq.h gpu/plmem.cuh \
   gpu/hipify.cuh gpu/plchain.h gpu/plutils.h kalloc.h gpu/plrange.cuh \
-  gpu/plscore.cuh gpu/debug.h
+  gpu/plscore.cuh
 
-# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx1030
+# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx90a
 
 # __CLANG_OFFLOAD_BUNDLE____START__ host-x86_64-unknown-linux-gnu
 plchain.o: gpu/plchain.cu mmpriv.h minimap.h bseq.h kseq.h gpu/plmem.cuh \
   gpu/hipify.cuh gpu/plchain.h gpu/plutils.h kalloc.h gpu/plrange.cuh \
-  gpu/plscore.cuh gpu/debug.h
+  gpu/plscore.cuh
 
 # __CLANG_OFFLOAD_BUNDLE____END__ host-x86_64-unknown-linux-gnu
 
-# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx1030
-plmem.o: gpu/plmem.cu gpu/plmem.cuh gpu/hipify.cuh gpu/plchain.h \
-  gpu/plutils.h kalloc.h minimap.h gpu/plrange.cuh gpu/plscore.cuh \
-  mmpriv.h bseq.h kseq.h cJSON/cJSON.h
-
-# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx1030
-
-# __CLANG_OFFLOAD_BUNDLE____START__ host-x86_64-unknown-linux-gnu
-plmem.o: gpu/plmem.cu gpu/plmem.cuh gpu/hipify.cuh gpu/plchain.h \
-  gpu/plutils.h kalloc.h minimap.h gpu/plrange.cuh gpu/plscore.cuh \
-  mmpriv.h bseq.h kseq.h cJSON/cJSON.h
-
-# __CLANG_OFFLOAD_BUNDLE____END__ host-x86_64-unknown-linux-gnu
-
-# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx1030
+# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx90a
 plrange.o: gpu/plrange.cu gpu/plrange.cuh gpu/plmem.cuh gpu/hipify.cuh \
   gpu/plchain.h gpu/plutils.h kalloc.h minimap.h
 
-# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx1030
+# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx90a
 
 # __CLANG_OFFLOAD_BUNDLE____START__ host-x86_64-unknown-linux-gnu
 plrange.o: gpu/plrange.cu gpu/plrange.cuh gpu/plmem.cuh gpu/hipify.cuh \
@@ -39,11 +25,25 @@ plrange.o: gpu/plrange.cu gpu/plrange.cuh gpu/plmem.cuh gpu/hipify.cuh \
 
 # __CLANG_OFFLOAD_BUNDLE____END__ host-x86_64-unknown-linux-gnu
 
-# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx1030
+# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx90a
+plmem.o: gpu/plmem.cu gpu/plmem.cuh gpu/hipify.cuh gpu/plchain.h \
+  gpu/plutils.h kalloc.h minimap.h gpu/plrange.cuh gpu/plscore.cuh \
+  mmpriv.h bseq.h kseq.h cJSON/cJSON.h
+
+# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx90a
+
+# __CLANG_OFFLOAD_BUNDLE____START__ host-x86_64-unknown-linux-gnu
+plmem.o: gpu/plmem.cu gpu/plmem.cuh gpu/hipify.cuh gpu/plchain.h \
+  gpu/plutils.h kalloc.h minimap.h gpu/plrange.cuh gpu/plscore.cuh \
+  mmpriv.h bseq.h kseq.h cJSON/cJSON.h
+
+# __CLANG_OFFLOAD_BUNDLE____END__ host-x86_64-unknown-linux-gnu
+
+# __CLANG_OFFLOAD_BUNDLE____START__ hip-amdgcn-amd-amdhsa-gfx90a
 plscore.o: gpu/plscore.cu gpu/plscore.cuh gpu/plmem.cuh gpu/hipify.cuh \
   gpu/plchain.h gpu/plutils.h kalloc.h minimap.h mmpriv.h bseq.h kseq.h
 
-# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx1030
+# __CLANG_OFFLOAD_BUNDLE____END__ hip-amdgcn-amd-amdhsa-gfx90a
 
 # __CLANG_OFFLOAD_BUNDLE____START__ host-x86_64-unknown-linux-gnu
 plscore.o: gpu/plscore.cu gpu/plscore.cuh gpu/plmem.cuh gpu/hipify.cuh \
