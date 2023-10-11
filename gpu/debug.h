@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-extern char debug_folder[];
+const char debug_folder[] = "debug";
 
 // #define ITER_LIMIT 10000
 // #define MAX_READ_NUM 100000

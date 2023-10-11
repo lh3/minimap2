@@ -18,3 +18,5 @@ ncu
 nsys
 profile_output*
 workloads
+.cmake/**
+.depend

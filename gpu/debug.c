@@ -33,7 +33,7 @@ void debug_output_anchors(const char debug_folder[], chain_read_t *in) {
 
     /* Write Sequence Name and Length, rep_len*/
     fprintf(f_anchors, "<%s\t%d\n", in->seq.name, in->seq.len);
-    fprintf(f_anchors, "*%d\n", in->seq.rep_len);
+    fprintf(f_anchors, "*%d\n", in->rep_len);
 
     /* Read Number of Anchors */
     fprintf(f_anchors, "#%d\n", in->n);
@@ -45,6 +45,8 @@ void debug_output_anchors(const char debug_folder[], chain_read_t *in) {
     fprintf(f_anchors, "\n");
 }
 
+// DEBUG: not used
+#if 0
 void debug_output_score(const char debug_folder[], chain_read_t *in) {
     static FILE *f_score = NULL;
     if (!f_score) {
@@ -73,6 +75,7 @@ void debug_output_score(const char debug_folder[], chain_read_t *in) {
     }
     fprintf(f_score, "\n");
 }
+#endif 
 
 void debug_output_meta(const char debug_folder[], input_meta_t *meta) {
     static FILE *f_metaout = NULL;
@@ -234,6 +237,10 @@ void debug_print_regs(mm_reg1_t* regs, int n_u, char* qname){
 /////////////           check functions     ///////////////////////////////
 ///////////////////////////////////////////////////////////////////////////
 #ifdef DEBUG_CHECK
+
+
+// DEBUG: uses with gold standard input score and range. SCORE CHECK
+#if 0
 /**
  * Read Plaintxt input file for Chaining scores from <debug_folder>.score
  * Allocate and Populate chain_read_t.f, chain_read_t.p
@@ -373,6 +380,7 @@ int debug_check_score(const int64_t *p, const int32_t *f, const int64_t *p_gold,
     readid++;
     return rt;
 }
+#endif // uses if we have gold standard input
 
 
 void debug_check_range(const int32_t* range, size_t n){

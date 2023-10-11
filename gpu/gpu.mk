@@ -11,6 +11,8 @@ CONFIG			+= $(if $(LONG_CUT),-DMM_LONG_SEG_CUTOFF=\($(LONG_CUT)\))
 ###################################################
 CU_SRC			= $(wildcard gpu/*.cu)
 CU_OBJS			= $(CU_SRC:%.cu=%.o)
+C_SRC			= $(wildcard gpu/*.c)
+OBJS			+= $(C_SRC:%.c=%.o)
 INCLUDES		+= -I gpu
 
 ###################################################
@@ -18,14 +20,14 @@ INCLUDES		+= -I gpu
 ###################################################
 NVCC 			= nvcc
 CUDAFLAGS		= -rdc=true -lineinfo
-CUDATESTFLAG	= -G -DDEBUG_PRINT
+CUDATESTFLAG	= -G
 
 ###################################################
 ############	HIP Compile		###################
 ###################################################
 HIPCC			= hipcc
-HIPFLAGS		= -DUSEHIP -Rpass-analysis=kernel-resource-usage
-HIPTESTFLAGS	= -g -DDEBUG_PRINT
+HIPFLAGS		= -DUSEHIP 
+HIPTESTFLAGS	= -g -Rpass-analysis=kernel-resource-usage
 
 ###################################################
 ############	DEBUG Options	###################
@@ -46,7 +48,6 @@ endif
 
 ifneq ($(DEBUG_ANALYSIS),)
 	GPU_FLAGS	+= $(GPU_TESTFL)
-	GPU_FLAGS	+= -DDEBUG_CHECK -DDEBUG_VERBOSE
 endif 
 
 
@@ -54,7 +55,7 @@ endif
 	$(GPU_CC) -c $(GPU_FLAGS) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(CONFIG) $< -o $@
 
 cleangpu: 
-	rm -f $(CU_OBJS)
+	rm -f gpu/*.o
 
 # profile:CFLAGS += -pg -g3
 # profile:all
