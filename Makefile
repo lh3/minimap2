@@ -1,5 +1,5 @@
 CFLAGS=		 -O2 -g -DNDEBUG
-CDEBUG_FLAGS= -g -Wall -Wc++-compat -Wextra -O2 #-O0 -DNDEBUG
+CDEBUG_FLAGS= -g -Wall -Wc++-compat -Wextra -DDEBUG_PRINT -O2 #-O0 -DNDEBUG
 CPPFLAGS=	-DHAVE_KALLOC -D__AMD_SPLIT_KERNELS__ # -Wno-unused-but-set-variable -Wno-unused-variable
 INCLUDES=	-I .
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o \
@@ -40,6 +40,7 @@ ifneq ($(DEBUG),) # turn on debug flags
 endif
 ifneq ($(DEBUG_ANALYSIS),) # turn on debug flags 
 	CFLAGS = $(CDEBUG_FLAGS) 
+	CFLAGS += -DDEBUG_CHECK -DDEBUG_VERBOSE
 endif
 
 .PHONY:all extra clean depend # profile

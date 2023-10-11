@@ -426,10 +426,12 @@ void plchain_debug_analysis(stream_ptr_t stream){
 
     fprintf(stderr, "[DEBUG] total segs: %lu, short:%lu mid: %u long: %u\n", cut_num, cut_num - num_mid_seg - num_long_seg, num_mid_seg, num_long_seg);
 
-// DEBUG: check range w.r.t to input and range violations
-#if defined(DEBUG_CHECK) && 0
+
     int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
     cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
+                cudaMemcpyDeviceToHost);
+    size_t* cut = (size_t*)malloc(sizeof(size_t) * cut_num);
+    cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num,
                 cudaMemcpyDeviceToHost);
     
 // Check range w.r.t input (MAKE SURE INPUT RANGE EXISTS)
@@ -447,22 +449,18 @@ void plchain_debug_analysis(stream_ptr_t stream){
 
 // DEBUG: Check voilation of cut
 #if defined(DEBUG_CHECK) && 0
-    size_t* cut = (size_t*)malloc(sizeof(size_t) * cut_num);
-    cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num,
-                cudaMemcpyDeviceToHost);
     for (int readid = 0, cid = 0, idx = 0; readid < dev_mem->size; readid++) {
 // DEBUG: Print cuts
 #if defined(DEBUG_VERBOSE) && 0
     debug_print_cut(cut + cid, cut_num - cid, reads[readid].n, idx, reads[readid].seq.name);
 #endif
-    cid += debug_check_cut(cut + cid, range, cut_num - cid,
-                            reads[readid].n, idx);
+    cid += debug_check_cut(cut + cid, range, cut_num - cid, reads[readid].n, idx);
     idx += reads[readid].n;
     }
-    free(cut);
 #endif
+
+    free(cut);
     free(range);
-#endif // DEBUG_CHECK
 
 // DEBUG: Calculate workload distribution
 #if defined(DEBUG_VERBOSE) && 1
