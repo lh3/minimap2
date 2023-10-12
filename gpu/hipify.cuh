@@ -30,6 +30,7 @@
 #define     cudaEventQuery                  hipEventQuery
 #define     cudaEventDestroy                hipEventDestroy
 #define     cudaEventElapsedTime            hipEventElapsedTime
+#define     cudaStreamWaitEvent             hipStreamWaitEvent
 #define cudaCheck() {                                                       \
     hipError_t err = hipGetLastError();                                     \
     if (hipSuccess != err) {                                                \
