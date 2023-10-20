@@ -16,6 +16,10 @@ extern "C"{
 #define MM_LONG_SEG_CUTOFF 10
 #endif
 
+#ifndef MM_CUT_SIZE
+#define MM_CUT_SIZE 512
+#endif
+
 #define MM_QSPAN 15 
 
 void plscore_upload_misc(Misc misc);

@@ -255,7 +255,7 @@ void plrange_async_range_selection(deviceMemPtr* dev_mem, cudaStream_t* stream) 
         dev_mem->d_range, dev_mem->d_cut, dev_mem->d_cut_start_idx, total_n, range_kernel_config);
     cudaCheck();
 #ifdef DEBUG_PRINT
-    fprintf(stderr, "[Info] %s (%s:%d): Range Kernel Launched, grid %d cut %d\n", __func__, __FILE__, __LINE__, DimGrid.x, cut_num);
+    fprintf(stderr, "[Info] %s (%s:%d): Batch total_n %lu, Range Kernel Launched, grid %d cut %d\n", __func__, __FILE__, __LINE__, total_n, DimGrid.x, cut_num);
 #endif
 }
 

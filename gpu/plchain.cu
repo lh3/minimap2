@@ -139,7 +139,7 @@ void plchain_cal_score_sync(chain_read_t *reads, int n_read, Misc misc, void* km
         cut_num += (reads[i].n - 1) / an_p_cut + 1;
     }
 
-    plmem_malloc_host_mem(&host_mem, total_n, griddim);
+    plmem_malloc_host_mem(&host_mem, total_n, griddim, 0);
     plmem_malloc_device_mem(&dev_mem, total_n, griddim, cut_num);
     plmem_reorg_input_arr(reads, n_read, &host_mem, range_kernel_config);
     // sanity check
@@ -199,6 +199,9 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
     /* stream scheduler */
     int stream_id = plchain_schedule_stream(stream_setup, batchid);
     if (stream_setup.streams[stream_id].busy) {
+#ifdef DEBUG_PRINT
+    fprintf(stderr, "[Info] %s (%s:%d) stream %d sync, total_n %lu\n", __func__, __FILE__, __LINE__, stream_id, stream_setup.streams[stream_id].host_mem.total_n);
+#endif // DEBUG_PRINT 
         // cleanup previous batch in the stream
         plchain_backtracking(&stream_setup.streams[stream_id].host_mem,
                              stream_setup.streams[stream_id].reads, misc, km);
@@ -416,6 +419,7 @@ void plchain_debug_analysis(stream_ptr_t stream){
     size_t total_n = stream.host_mem.total_n;
     chain_read_t* reads = stream.reads;
     deviceMemPtr* dev_mem = &stream.dev_mem;
+    hostMemPtr* host_mem = &stream.host_mem;
     size_t cut_num = stream.host_mem.cut_num;
 
     unsigned int num_mid_seg, num_long_seg;
@@ -459,11 +463,18 @@ void plchain_debug_analysis(stream_ptr_t stream){
     }
 #endif
 
+#if defined(DEBUG_VERBOSE) && 0
+    int32_t* ax = (int32_t*) malloc(sizeof(int32_t) * dev_mem->buffer_size_long);
+    cudaMemcpy(ax, dev_mem->d_ax_long, sizeof(int32_t) * dev_mem->buffer_size_long, cudaMemcpyDeviceToHost);
+    debug_print_segs(host_mem->long_segs, reads, host_mem->long_segs_num, stream.host_mem.size);
+    debug_check_anchors(host_mem->long_segs, host_mem->long_segs_num, ax, host_mem->ax);
+#endif
+
     free(cut);
     free(range);
 
 // DEBUG: Calculate workload distribution
-#if defined(DEBUG_VERBOSE) && 1
+#if defined(DEBUG_VERBOSE) && 0
     plchain_cal_sc_pair_density(total_n, cut_num, dev_mem);
 #endif // DEBUG_VERBOSE
 

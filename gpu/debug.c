@@ -231,6 +231,39 @@ void debug_print_regs(mm_reg1_t* regs, int n_u, char* qname){
     }
 }
 
+FILE* fout_segs = NULL;
+void debug_print_segs(seg_t* segs, chain_read_t* reads, int num_segs, int num_reads){
+    if (fout_segs == NULL){
+        char fout_segs_filename[50];
+        strcpy(fout_segs_filename, debug_folder);
+        strcat(fout_segs_filename, ".long-segs.out");
+        if ((fout_segs = fopen(fout_segs_filename, "w+")) == NULL) {
+            fprintf(stderr, "[Error]: Cannot create print output file: %s \n",
+                    fout_segs_filename);
+            exit(1);
+        }
+        fprintf(stderr, "[Info] Writing segs to file %s\n", fout_segs_filename);
+        fprintf(fout_segs, "[segs] \n");
+    }
+    fprintf(fout_segs, "Num Segs: %d, Num Reads: %d\n", num_segs, num_reads);
+    for (int i = 0; i < num_segs; i++){
+        fprintf(fout_segs, "Seg #%d, %lu - %lu\n", i, segs[i].start_idx, segs[i].end_idx);
+    }
+    fflush(fout_segs);
+}
+
+void debug_check_anchors(seg_t* segs, int num_segs, int32_t* ax_aggregated, int32_t* ax){
+    size_t buffer_idx = 0;
+    for (int seg_id = 0; seg_id < num_segs; seg_id++) {
+        fprintf(fout_segs, "checking seg %lu - %lu...\n", segs[seg_id].start_idx, segs[seg_id].end_idx);
+        for (size_t i = segs[seg_id].start_idx; i < segs[seg_id].end_idx; i++) {
+            if (ax_aggregated[buffer_idx] != ax[i]) 
+                fprintf(fout_segs, "Anchor mismatch: %d(%lu) %d(%lu)\n", ax_aggregated[buffer_idx], buffer_idx, ax[i], i);
+            buffer_idx++;
+        }
+    }
+}
+
 #endif // DEBUG_VERBOSE
 
 ///////////////////////////////////////////////////////////////////////////

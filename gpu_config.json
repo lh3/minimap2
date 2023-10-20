@@ -2,8 +2,9 @@
     "num_streams": 1,
     "min_n": 512, 
     "//min_n": "queries with less anchors will be handled on cpu",
-    "//max_total_n": 126844000, 
-    "//max_read": 8120009,
+    "long_seg_buffer_size": 1268440,
+    "max_total_n": 126844000, 
+    "max_read": 8120009,
     "avg_read_n": 20000,
     "//avg_read_n": "expect average number of anchors per read",
     "range_kernel": {

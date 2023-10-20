@@ -18,8 +18,15 @@ typedef struct {
     int32_t *ay;  // (int32_t) a[].y
     int8_t* sid;  // a[].y >> 40 & 0xff
     int32_t *xrev; // a[].x >> 32
+    // outputs
     int32_t *f;   // score
     uint16_t *p;  // predecessor
+
+    // array size: number of cuts in the batch / long_seg_cut
+    seg_t *long_segs;
+    unsigned int long_segs_num;
+    int32_t *f_long;  // score for long segs
+    uint16_t *p_long;  // predecessor for long segs
 
     // start index for each block in range selection
     /***** range selection block assiagnment
@@ -35,16 +42,6 @@ typedef struct {
     size_t *read_end_idx;
     size_t *cut_start_idx;
 } hostMemPtr;
-
-typedef struct seg_t {
-    size_t start_idx;
-    size_t end_idx;
-//DEBUG: used for debug plchain_cal_long_seg_range_dis LONG_SEG_RANGE_DIS
-#ifdef DEBUG_VERBOSE 
-    size_t start_segid;
-    size_t end_segid;
-#endif // DEBUG_VERBOSE
-} seg_t;
 
 typedef struct {
     int size;
@@ -70,8 +67,18 @@ typedef struct {
     size_t *d_cut;  // cut
     unsigned int *d_long_seg_count;
     seg_t *d_long_seg;
+    seg_t *d_long_seg_og;
     unsigned int *d_mid_seg_count;
     seg_t *d_mid_seg;
+
+    // long segement buffer
+    int32_t *d_ax_long, *d_ay_long;
+    int8_t *d_sid_long;
+    int32_t *d_range_long;
+    size_t *d_total_n_long;
+    size_t buffer_size_long;
+    int32_t *d_f_long;  // score, size: buffer_size_long * sizeof(int32_t)
+    uint16_t *d_p_long;  // predecessor, size: buffer_size_long * sizeof(uint16_t)
 } deviceMemPtr;
 
 typedef struct stream_ptr_t{
@@ -100,7 +107,7 @@ void plmem_stream_cleanup();
 
 // alloc and free
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
-                           int range_grid_size);
+                           int range_grid_size, size_t buffer_size_long);
 void plmem_free_host_mem(hostMemPtr *host_mem);
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
                              int range_grid_size, int num_cut);

@@ -27,7 +27,7 @@ CUDATESTFLAG	= -G
 ###################################################
 HIPCC			= hipcc
 HIPFLAGS		= -DUSEHIP 
-HIPTESTFLAGS	= -g -Rpass-analysis=kernel-resource-usage
+HIPTESTFLAGS	= -G -Rpass-analysis=kernel-resource-usage
 
 ###################################################
 ############	DEBUG Options	###################
