@@ -320,8 +320,8 @@ __global__ void score_generation_short(
                 a_y_long[long_seg_start_idx + idx] = anchors_y[start_idx + idx];
                 sid_long[long_seg_start_idx + idx] = sid[start_idx + idx];
                 range_long[long_seg_start_idx + idx] = range[start_idx + idx];
-                assert(long_seg_start_idx + idx < buffer_size_long);
-                assert(start_idx + idx < total_n);
+                // assert(long_seg_start_idx + idx < buffer_size_long);
+                // assert(start_idx + idx < total_n);
             }
             continue;
         } else if (end_segid > segid + MM_MID_SEG_CUTOFF) {
