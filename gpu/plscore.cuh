@@ -25,6 +25,8 @@ extern "C"{
 void plscore_upload_misc(Misc misc);
 void plscore_async_naive_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream);
 void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem,cudaStream_t* stream);
+void plscore_async_short_mid_forward_dp(deviceMemPtr* dev_mem,cudaStream_t* stream);
+void plscore_async_long_forward_dp(deviceMemPtr* dev_mem,cudaStream_t* stream);
 void plscore_sync_long_short_forward_dp(deviceMemPtr* dev_mem, Misc misc_);
 void plscore_sync_naive_forward_dp(deviceMemPtr* dev_mem, Misc misc_);
 

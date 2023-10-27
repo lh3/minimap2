@@ -108,7 +108,7 @@ inline __device__ void compute_sc_seg_one_wf(int32_t* anchors_x, int32_t* anchor
 }
 
 
-inline __device__ void compute_sc_long_seg(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
+inline __device__ void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
                     size_t start_idx, size_t end_idx,
                     int32_t* f, uint16_t* p
 ){
@@ -350,7 +350,7 @@ __global__ void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int
     for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
         seg_t seg = long_seg[segid]; 
         // compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
-        compute_sc_long_seg(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+        compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
 
@@ -367,7 +367,7 @@ __global__ void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, in
     for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
         seg_t seg = long_seg[segid]; 
         // compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
-        compute_sc_long_seg(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+        compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
 __global__ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
@@ -427,13 +427,6 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
 
     // Run kernel
     // printf("Grid Dim, %d\n", DimGrid.x);
-    cudaMemsetAsync(dev_mem->d_long_seg_count, 0, sizeof(unsigned int),
-                    *stream);
-    cudaMemsetAsync(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int),
-                    *stream);
-    cudaMemsetAsync(dev_mem->d_total_n_long, 0, sizeof(size_t),
-                    *stream);
-
     #ifdef __SHORT_BLOCK_SIZE__
     // fprintf(stderr, "short block size: %d\n", __SHORT_BLOCK_SIZE__);
     score_generation_short<__SHORT_BLOCK_SIZE__><<<shortDimGrid, dim3(__SHORT_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
@@ -484,6 +477,90 @@ void plscore_async_long_short_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* st
 
 #ifdef DEBUG_PRINT
     fprintf(stderr, "[Info] %s (%s:%d) score generation success\n", __func__, __FILE__, __LINE__);
+#endif
+    
+    cudaCheck();
+}
+
+
+void plscore_async_short_mid_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream) {
+    size_t total_n = dev_mem->total_n;
+    size_t cut_num = dev_mem->num_cut;
+    size_t buffer_size_long = dev_mem->buffer_size_long;
+    dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
+    dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
+
+    // Run kernel
+    // printf("Grid Dim, %d\n", DimGrid.x);
+    cudaMemsetAsync(dev_mem->d_long_seg_count, 0, sizeof(unsigned int),
+                    *stream);
+    cudaMemsetAsync(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int),
+                    *stream);
+    cudaMemsetAsync(dev_mem->d_total_n_long, 0, sizeof(size_t),
+                    *stream);
+
+    #ifdef __SHORT_BLOCK_SIZE__
+    // fprintf(stderr, "short block size: %d\n", __SHORT_BLOCK_SIZE__);
+    score_generation_short<__SHORT_BLOCK_SIZE__><<<shortDimGrid, dim3(__SHORT_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range,
+        dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num,
+        dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long,
+        dev_mem->d_total_n_long, buffer_size_long,
+        dev_mem->d_long_seg, dev_mem->d_long_seg_og, dev_mem->d_long_seg_count,
+        dev_mem->d_mid_seg, dev_mem->d_mid_seg_count);
+    #else
+    dim3 shortDimBlock(score_kernel_config.short_blockdim, 1, 1);
+    score_generation_short<<<shortDimGrid, shortDimBlock, 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range,
+        dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num,
+        dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long,
+        dev_mem->d_total_n_long, buffer_size_long,
+        dev_mem->d_long_seg, dev_mem->d_long_seg_og, dev_mem->d_long_seg_count, 
+        dev_mem->d_mid_seg, dev_mem->d_mid_seg_count);
+    #endif
+    cudaCheck();
+
+    #ifdef __MID_BLOCK_SIZE__
+    // fprintf(stderr, "mid block size: %d\n", __MID_BLOCK_SIZE__);
+    score_generation_mid<__MID_BLOCK_SIZE__><<<midDimGrid, dim3(__MID_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    #else
+    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
+    score_generation_mid<<<midDimGrid, midDimBlock, 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    #endif
+    cudaCheck();
+
+#ifdef DEBUG_PRINT
+    fprintf(stderr, "[Info] %s (%s:%d) short mid score generation success\n", __func__, __FILE__, __LINE__);
+#endif
+    
+    cudaCheck();
+}
+
+void plscore_async_long_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream) {
+    size_t total_n = dev_mem->total_n;
+    size_t cut_num = dev_mem->num_cut;
+    size_t buffer_size_long = dev_mem->buffer_size_long;
+    dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
+
+    #ifdef __LONG_BLOCK_SIZE__
+    // fprintf(stderr, "long block size: %d\n", __LONG_BLOCK_SIZE__);
+    score_generation_long<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+        dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
+        dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long);
+    #else
+    dim3 longDimBlock(score_kernel_config.long_blockdim, 1, 1);
+    score_generation_long<<<longDimGrid, longDimBlock, 0, *stream>>>(
+        dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
+        dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long);
+    #endif
+    cudaCheck();
+
+#ifdef DEBUG_PRINT
+    fprintf(stderr, "[Info] %s (%s:%d) long score generation success\n", __func__, __FILE__, __LINE__);
 #endif
     
     cudaCheck();

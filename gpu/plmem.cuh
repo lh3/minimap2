@@ -5,6 +5,7 @@
 #include "plutils.h"
 
 #define MEM_GPU (16-4) // 16 - 4 GB as memory pool = 16760832(0xffc000) KB
+#define MICRO_BATCH 4
 
 typedef struct {
     int index;       // read index / batch index
@@ -23,10 +24,8 @@ typedef struct {
     uint16_t *p;  // predecessor
 
     // array size: number of cuts in the batch / long_seg_cut
-    seg_t *long_segs;
+    // total long segs number till this batch
     unsigned int long_segs_num;
-    int32_t *f_long;  // score for long segs
-    uint16_t *p_long;  // predecessor for long segs
 
     // start index for each block in range selection
     /***** range selection block assiagnment
@@ -42,6 +41,14 @@ typedef struct {
     size_t *read_end_idx;
     size_t *cut_start_idx;
 } hostMemPtr;
+
+typedef struct {
+    // array size: number of cuts in the batch / long_seg_cut
+    seg_t *long_segs;
+    unsigned int total_long_segs_num; // sum of mini batch long_segs_num
+    int32_t *f_long;  // score for long segs
+    uint16_t *p_long;  // predecessor for long segs
+} longMemPtr;
 
 typedef struct {
     int size;
@@ -83,7 +90,8 @@ typedef struct {
 
 typedef struct stream_ptr_t{
     chain_read_t *reads;
-    hostMemPtr host_mem;
+    hostMemPtr host_mems[MICRO_BATCH];
+    longMemPtr long_mem;
     deviceMemPtr dev_mem;
     cudaStream_t cudastream;
     cudaEvent_t cudaevent, startevent;
@@ -108,6 +116,7 @@ void plmem_stream_cleanup();
 // alloc and free
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size, size_t buffer_size_long);
+void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long);
 void plmem_free_host_mem(hostMemPtr *host_mem);
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
                              int range_grid_size, int num_cut);
@@ -117,7 +126,10 @@ void plmem_free_device_mem(deviceMemPtr *dev_mem);
 void plmem_reorg_input_arr(chain_read_t *reads, int n_read,
                            hostMemPtr *host_mem, range_kernel_config_t config);
 void plmem_async_h2d_memcpy(stream_ptr_t *stream_ptrs);
+void plmem_async_h2d_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid);
 void plmem_sync_h2d_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem);
 void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs);
+void plmem_async_d2h_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid);
+void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs);
 void plmem_sync_d2h_memcpy(hostMemPtr *host_mem, deviceMemPtr *dev_mem);
 #endif  // _PLMEM_CUH_
