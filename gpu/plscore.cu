@@ -490,14 +490,14 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* str
     dim3 shortDimGrid(score_kernel_config.short_griddim, 1, 1);
     dim3 midDimGrid(score_kernel_config.mid_griddim, 1, 1);
 
-    // Run kernel
-    // printf("Grid Dim, %d\n", DimGrid.x);
-    cudaMemsetAsync(dev_mem->d_long_seg_count, 0, sizeof(unsigned int),
-                    *stream);
+    // // Run kernel
+    // // printf("Grid Dim, %d\n", DimGrid.x);
+    // cudaMemsetAsync(dev_mem->d_long_seg_count, 0, sizeof(unsigned int),
+    //                 *stream);
     cudaMemsetAsync(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int),
                     *stream);
-    cudaMemsetAsync(dev_mem->d_total_n_long, 0, sizeof(size_t),
-                    *stream);
+    // cudaMemsetAsync(dev_mem->d_total_n_long, 0, sizeof(size_t),
+    //                 *stream);
 
     #ifdef __SHORT_BLOCK_SIZE__
     // fprintf(stderr, "short block size: %d\n", __SHORT_BLOCK_SIZE__);

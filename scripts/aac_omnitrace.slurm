@@ -20,7 +20,7 @@ module unuse /shared/apps/modules/sles15sp4/modulefiles
 module unuse /shared/apps/modules/centos8/modulefiles
 module unuse /shared/apps/modules/rocky9/modulefiles
 
-module load rocm-5.4.3
+module load rocm-5.7.1
 # export AMD_LOG_LEVEL=4
 # Replace the following line with the actual command(s) you want to run
 cd /shared/prod/home/liuxs/bioinfo/minimap2/
