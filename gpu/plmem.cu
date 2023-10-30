@@ -7,6 +7,10 @@
 #include "plscore.cuh"
 #include <time.h>
 
+#define OneK 1024
+#define OneM (OneK*1024)
+#define OneG (OneM*1024)
+
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size, size_t buffer_size_long) {
     // data array
@@ -68,6 +72,12 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch, int
     cudaMalloc(&dev_mem->d_long_seg_og, dev_mem->buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
     cudaMalloc(&dev_mem->d_mid_seg_count, sizeof(unsigned int));
     cudaMalloc(&dev_mem->d_mid_seg, num_cut/(MM_MID_SEG_CUTOFF + 1) * sizeof(seg_t));
+
+    size_t gpu_free_mem, gpu_total_mem;
+    cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
+#ifdef DEBUG_PRINT
+        fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB (before alloc long seg buffer) \n", (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
+#endif
 
     // long seg buffer
     cudaMalloc(&dev_mem->d_ax_long, dev_mem->buffer_size_long * sizeof(int32_t));
@@ -517,6 +527,11 @@ void plmem_stream_initialize(size_t *max_total_n_,
     cJSON *json = plmem_parse_gpu_config(GPU_CONFIG);
 #endif
     plmem_config_kernels(json);
+    size_t gpu_free_mem, gpu_total_mem;
+    cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
+#ifdef DEBUG_PRINT
+    fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB\n", (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
+#endif
     plmem_config_batch<false>(json, &num_stream, min_anchors_, &max_anchors_stream,
                               max_read_, &long_seg_buffer_size);
     plmem_config_stream(&max_range_grid, &max_num_cut, max_anchors_stream,
@@ -557,6 +572,11 @@ void plmem_stream_initialize(size_t *max_total_n_,
         cudaMemsetAsync(&stream_setup.streams[i].dev_mem.d_total_n_long, 0, sizeof(size_t),
                         stream_setup.streams[i].cudastream);
     }
+
+cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
+#ifdef DEBUG_PRINT
+        fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB\n", (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
+#endif
 
     *max_total_n_ = max_anchors_stream;
 

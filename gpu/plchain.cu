@@ -85,11 +85,11 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, 
         int64_t* p;
         KMALLOC(km, p, reads[i].n);
         p_rel2idx(p_hostmem, p, reads[i].n);
-// DEBUG:print scores
+// print scores
 #if defined(DEBUG_VERBOSE) && 0
         debug_print_score(p, f, reads[i].n);
 #endif
-//DEBUG: Check score w.r.t to input (MAKE SURE INPUT SCORE EXISTS: search for SCORE CHECK) 
+// Check score w.r.t to input (MAKE SURE INPUT SCORE EXISTS: search for SCORE CHECK) 
 #if defined(DEBUG_CHECK) && 0
         debug_check_score(p, f, reads[i].p, reads[i].f, reads[i].n);
 #endif
@@ -514,19 +514,15 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 #if defined(DEBUG_CHECK)
         plchain_debug_analysis(stream_setup.streams[stream_id]);
 #endif  // DEBUG_VERBOSE
-        // reset values
-        cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_long_seg_count, 0, sizeof(unsigned int),
-                        stream_setup.streams[stream_id].cudastream);
-        cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_mid_seg_count, 0, sizeof(unsigned int),
-                        stream_setup.streams[stream_id].cudastream);
-        cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_total_n_long, 0, sizeof(size_t),
-                        stream_setup.streams[stream_id].cudastream);
         seg_t* long_segs = stream_setup.streams[stream_id].long_mem.long_segs;
         size_t long_seg_idx = 0;
         for (int uid = 0; uid < MICRO_BATCH; uid++) {
             // regorg long to each host mem ptr
             // NOTE: this is the number of long segs till this microbatch
             size_t long_segs_num = stream_setup.streams[stream_id].host_mems[uid].long_segs_num;
+#ifdef DEBUG_PRINT
+            fprintf(stderr, "[Debug] %s (%s:%d) long seg %lu - %lu \n", __func__, __FILE__, __LINE__, long_seg_idx, long_segs_num);
+#endif
             for (; long_seg_idx < long_segs_num; long_seg_idx++) {
                 // TODO: write long_segs + long_seg_idx to f/p
             }
@@ -549,6 +545,12 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     for (int i = 0; i < n_read; i++) {
         total_n += reads[i].n;
     } // compute total_n first
+
+    // reset long seg counters
+    cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_long_seg_count, 0, sizeof(unsigned int),
+                    stream_setup.streams[stream_id].cudastream);
+    cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_total_n_long, 0, sizeof(size_t),
+                    stream_setup.streams[stream_id].cudastream);
 
     stream_setup.streams[stream_id].reads = reads;
     int read_start = 0;
@@ -770,19 +772,15 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t*
 #endif // DEBUG_CHECK
     
     // TODO: backtrack multiple pending batches
-    // reset values
-    cudaMemsetAsync(stream_setup.streams[t].dev_mem.d_long_seg_count, 0, sizeof(unsigned int),
-                    stream_setup.streams[t].cudastream);
-    cudaMemsetAsync(stream_setup.streams[t].dev_mem.d_mid_seg_count, 0, sizeof(unsigned int),
-                    stream_setup.streams[t].cudastream);
-    cudaMemsetAsync(stream_setup.streams[t].dev_mem.d_total_n_long, 0, sizeof(size_t),
-                    stream_setup.streams[t].cudastream);
     seg_t* long_segs = stream_setup.streams[t].long_mem.long_segs;
     size_t long_seg_idx = 0;
     for (int uid = 0; uid < MICRO_BATCH; uid++) {
         // regorg long to each host mem ptr
         // NOTE: this is the number of long segs till this microbatch
         size_t long_segs_num = stream_setup.streams[t].host_mems[uid].long_segs_num;
+#ifdef DEBUG_PRINT
+        fprintf(stderr, "[Debug] %s (%s:%d) long seg %lu - %lu \n", __func__, __FILE__, __LINE__, long_seg_idx, long_segs_num);
+#endif
         for (; long_seg_idx < long_segs_num; long_seg_idx++) {
             // TODO: write long_segs + long_seg_idx to f/p
         }

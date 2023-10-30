@@ -31,6 +31,7 @@
 #define     cudaEventDestroy                hipEventDestroy
 #define     cudaEventElapsedTime            hipEventElapsedTime
 #define     cudaStreamWaitEvent             hipStreamWaitEvent
+#define     cudaMemGetInfo                  hipMemGetInfo
 #define cudaCheck() {                                                       \
     hipError_t err = hipGetLastError();                                     \
     if (hipSuccess != err) {                                                \
