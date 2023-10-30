@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.26-r1175';
+var paftools_version = '2.26-r1182-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -133,26 +133,50 @@ Interval.find_ovlp = function(a, st, en)
 
 function fasta_read(fn)
 {
-	var h = {}, gt = '>'.charCodeAt(0);
+	var h = {}, seqlen = [];
+	var buf = new Bytes();
 	var file = fn == '-'? new File() : new File(fn);
-	var buf = new Bytes(), seq = null, name = null, seqlen = [];
-	while (file.readline(buf) >= 0) {
-		if (buf[0] == gt) {
-			if (seq != null && name != null) {
-				seqlen.push([name, seq.length]);
-				h[name] = seq;
-				name = seq = null;
-			}
-			var m, line = buf.toString();
-			if ((m = /^>(\S+)/.exec(line)) != null) {
-				name = m[1];
-				seq = new Bytes();
-			}
-		} else seq.set(buf);
-	}
-	if (seq != null && name != null) {
-		seqlen.push([name, seq.length]);
-		h[name] = seq;
+	if (typeof k8_version == "undefined") { // for k8-0.x
+		var seq = null, name = null, gt = '>'.charCodeAt(0);
+		while (file.readline(buf) >= 0) {
+			if (buf[0] == gt) {
+				if (seq != null && name != null) {
+					seqlen.push([name, seq.length]);
+					h[name] = seq;
+					name = seq = null;
+				}
+				var m, line = buf.toString();
+				if ((m = /^>(\S+)/.exec(line)) != null) {
+					name = m[1];
+					seq = new Bytes();
+				}
+			} else seq.set(buf);
+		}
+		if (seq != null && name != null) {
+			seqlen.push([name, seq.length]);
+			h[name] = seq;
+		}
+	} else { // for k8-1.x
+		var seq = null, name = null;
+		while (file.readline(buf) >= 0) {
+			var line = buf.toString();
+			if (line[0] == ">") {
+				if (seq != null && name != null) {
+					seqlen.push([name, seq.length]);
+					h[name] = seq.toString();
+					name = seq = null;
+				}
+				var m;
+				if ((m = /^>(\S+)/.exec(line)) != null) {
+					name = m[1];
+					seq = new Bytes();
+				}
+			} else seq.set(line);
+		}
+		if (seq != null && name != null) {
+			seqlen.push([name, seq.length]);
+			h[name] = seq.toString();
+		}
 	}
 	buf.destroy();
 	file.close();
@@ -161,8 +185,9 @@ function fasta_read(fn)
 
 function fasta_free(fa)
 {
-	for (var name in fa)
-		fa[name].destroy();
+	if (typeof k8_version == "undefined")
+		for (var name in fa)
+			fa[name].destroy();
 }
 
 Bytes.prototype.reverse = function()
@@ -379,7 +404,7 @@ function paf_call(args)
 		} else if (o[1] > 0) { // shouldn't happen in theory
 			if (fa[o[0]] == null) throw Error('sequence "' + o[0] + '" is absent from the reference FASTA');
 			if (o[1] >= fa[o[0]].length) throw Error('position ' + o[1] + ' exceeds the length of sequence "' + o[0] + '"');
-			var ref = String.fromCharCode(fa[o[0]][o[1]-1]).toUpperCase();
+			var ref = typeof k8_version == "undefined"? String.fromCharCode(fa[o[0]][o[1]-1]).toUpperCase() : fa[o[0]][o[1]-1].toUpperCase();
 			if (o[5] == '-') // insertion
 				v = [o[0], o[1], '.', ref, ref + o[6].toUpperCase()];
 			else // deletion
