@@ -497,7 +497,6 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     chain_read_t* reads = *reads_;
     *reads_ = NULL;
     int n_read = *n_read_;
-    fprintf(stderr, "[Debug] %s (%s:%d) n_read %d\n", __func__, __FILE__, __LINE__, n_read);
     *n_read_ = 0;
     /* sync stream and process previous batch */
     int stream_id = thread_id;
@@ -545,6 +544,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     for (int i = 0; i < n_read; i++) {
         total_n += reads[i].n;
     } // compute total_n first
+    fprintf(stderr, "[Debug] %s (%s:%d) n_read %d, total anchors %lu\n", __func__, __FILE__, __LINE__, n_read, total_n);
 
     // reset long seg counters
     cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_long_seg_count, 0, sizeof(unsigned int),
@@ -555,6 +555,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     stream_setup.streams[stream_id].reads = reads;
     int read_start = 0;
     for (int uid = 0; uid < MICRO_BATCH; uid++) {
+        roctxRangePushA("microbatch");
         // decide the size of micro batch
         size_t batch_n = 0;
         int read_end = 0;
@@ -572,30 +573,38 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
             cut_num += (reads[read_end].n - 1) / an_p_cut + 1;
         }
         fprintf(stderr, "[Debug] %s (%s:%d) batch_n %lu, read_start %d, read_end %d\n", __func__, __FILE__, __LINE__, batch_n, read_start, read_end);
-        // sanity check
-        if (stream_setup.max_anchors_stream < total_n){
-            fprintf(stderr, "max_anchors_stream %lu total_n %lu n_read %d\n",
-                    stream_setup.max_anchors_stream, total_n, n_read);
-        }
+        // // sanity check
+        // if (stream_setup.max_anchors_stream < total_n){
+        //     fprintf(stderr, "max_anchors_stream %lu total_n %lu n_read %d\n",
+        //             stream_setup.max_anchors_stream, total_n, n_read);
+        // }
 
-        if (stream_setup.max_range_grid < griddim) {
-            fprintf(stderr, "max_range_grid %d griddim %d, total_n %lu n_read %d\n",
-                    stream_setup.max_range_grid, griddim, total_n, n_read);
-        }
+        // if (stream_setup.max_range_grid < griddim) {
+        //     fprintf(stderr, "max_range_grid %d griddim %d, total_n %lu n_read %d\n",
+        //             stream_setup.max_range_grid, griddim, total_n, n_read);
+        // }
 
-        assert(stream_setup.max_anchors_stream >= total_n);
+        assert(stream_setup.max_anchors_stream >= batch_n);
         assert(stream_setup.max_range_grid >= griddim);
         assert(stream_setup.max_num_cut >= cut_num);
         // work on micro batch
+        roctxRangePushA("step1");
+        // step1: reorg input
         plmem_reorg_input_arr(reads + read_start, read_end - read_start,
                           &stream_setup.streams[stream_id].host_mems[uid],
                           range_kernel_config);
+        // step2: copy to device
+        roctxRangePop();
+        roctxRangePop();
 
         plmem_async_h2d_short_memcpy(&stream_setup.streams[stream_id], uid);
+        // step3: range selection
         plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
                                     &stream_setup.streams[stream_id].cudastream);
+        // step4: score generation for short and mid segs
         plscore_async_short_mid_forward_dp(&stream_setup.streams[stream_id].dev_mem,
                                     &stream_setup.streams[stream_id].cudastream);
+        // step5: copy short and mid results back
         plmem_async_d2h_short_memcpy(&stream_setup.streams[stream_id], uid);
         // update index
         read_start = read_end;

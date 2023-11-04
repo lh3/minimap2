@@ -159,7 +159,7 @@ void plmem_reorg_input_arr(chain_read_t *reads, int n_read,
         end_idx = idx + n;
 
         griddim += block_num;
-
+        
         for (int j = 0; j < n; j++) {
             host_mem->ax[idx] = (int32_t)reads[i].a[j].x;
             host_mem->ay[idx] = (int32_t)reads[i].a[j].y;
@@ -446,11 +446,12 @@ void plmem_config_batch(cJSON *json, int *num_stream_,
     *min_n_ = min_anchors;
 
     /* If Use define max_total_n & max_read */
-    cJSON *max_total_n_json = cJSON_GetObjectItem(json, "max_total_n");
+    // FIXME: this is limited by int32max
+    cJSON *max_total_n_json = cJSON_GetObjectItem(json, "max_total_n"); 
     cJSON *max_read_json = cJSON_GetObjectItem(json, "max_read");
     cJSON *long_seg_buffer_size_json = cJSON_GetObjectItem(json, "long_seg_buffer_size");
     if (max_total_n_json && max_read_json){
-        *max_total_n_ = max_total_n_json->valueint;
+        *max_total_n_ = (size_t) max_total_n_json->valuedouble;
         *max_read_ = max_read_json->valueint;
         *long_seg_buffer_size_ = long_seg_buffer_size_json->valueint;
         return;
@@ -460,10 +461,7 @@ void plmem_config_batch(cJSON *json, int *num_stream_,
     cudaDeviceProp prop;
     cudaGetDeviceProperties(&prop, 0);
 
-    size_t avail_mem_per_stream = (prop.totalGlobalMem / *num_stream_ ) * 0.8;
-
-    fprintf(stderr, "[M: %s] mem_per_stream: %zu x %d streams \n", __func__,
-            avail_mem_per_stream, *num_stream_);
+    size_t avail_mem_per_stream = (prop.totalGlobalMem / *num_stream_ ) * 0.9;
 
     // memory per anchor = (ax + ay + range + f + p) + (start_idx + read_end_idx
     // + cut_start_idx) + cut + long_seg size: F1 = ax + ay + range + f + p; F2

@@ -5,6 +5,7 @@ CONFIG			+= $(if $(MID_BLOCK_SIZE),-D__MID_BLOCK_SIZE__=\($(MID_BLOCK_SIZE)\))
 CONFIG			+= $(if $(SHORT_BLOCK_SIZE),-D__SHORT_BLOCK_SIZE__=\($(SHORT_BLOCK_SIZE)\))
 CONFIG			+= $(if $(MID_CUT),-DMM_MID_SEG_CUTOFF=\($(MID_CUT)\))
 CONFIG			+= $(if $(LONG_CUT),-DMM_LONG_SEG_CUTOFF=\($(LONG_CUT)\))
+CONFIG			+= $(if $(MICRO_BATCH),-DMICRO_BATCH=\($(MICRO_BATCH)\))
 
 ###################################################
 ############  	CPU Compile 	###################
@@ -28,6 +29,7 @@ CUDATESTFLAG	= -G
 HIPCC			= hipcc
 HIPFLAGS		= -DUSEHIP 
 HIPTESTFLAGS	= -G -Rpass-analysis=kernel-resource-usage
+LIBS			+= -L${ROCM_PATH}/lib -lroctx64 -lroctracer64
 
 ###################################################
 ############	DEBUG Options	###################

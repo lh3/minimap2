@@ -4,8 +4,9 @@
 #include "plchain.h"
 #include "plutils.h"
 
-#define MEM_GPU (16-4) // 16 - 4 GB as memory pool = 16760832(0xffc000) KB
-#define MICRO_BATCH 4
+#ifndef MICRO_BATCH
+#define MICRO_BATCH 1
+#endif // MICRO_BATCH
 
 typedef struct {
     int index;       // read index / batch index
