@@ -26,7 +26,7 @@ typedef struct {
 
     // array size: number of cuts in the batch / long_seg_cut
     // total long segs number till this batch
-    unsigned int long_segs_num;
+    unsigned int *long_segs_num;
 
     // start index for each block in range selection
     /***** range selection block assiagnment

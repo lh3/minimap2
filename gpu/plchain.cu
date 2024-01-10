@@ -470,8 +470,8 @@ void plchain_debug_analysis(stream_ptr_t stream){
 #if defined(DEBUG_VERBOSE) && 0
     int32_t* ax = (int32_t*) malloc(sizeof(int32_t) * dev_mem->buffer_size_long);
     cudaMemcpy(ax, dev_mem->d_ax_long, sizeof(int32_t) * dev_mem->buffer_size_long, cudaMemcpyDeviceToHost);
-    debug_print_segs(host_mem->long_segs, reads, host_mem->long_segs_num, stream.host_mems[uid].size);
-    debug_check_anchors(host_mem->long_segs, host_mem->long_segs_num, ax, host_mem->ax);
+    debug_print_segs(host_mem->long_segs, reads, host_mem->long_segs_num[0], stream.host_mems[uid].size);
+    debug_check_anchors(host_mem->long_segs, host_mem->long_segs_num[0], ax, host_mem->ax);
 #endif
 
     free(cut);
@@ -518,7 +518,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         for (int uid = 0; uid < MICRO_BATCH; uid++) {
             // regorg long to each host mem ptr
             // NOTE: this is the number of long segs till this microbatch
-            size_t long_segs_num = stream_setup.streams[stream_id].host_mems[uid].long_segs_num;
+            size_t long_segs_num = stream_setup.streams[stream_id].host_mems[uid].long_segs_num[0];
 #ifdef DEBUG_PRINT
             fprintf(stderr, "[Debug] %s (%s:%d) long seg %lu - %lu \n", __func__, __FILE__, __LINE__, long_seg_idx, long_segs_num);
 #endif
@@ -786,7 +786,7 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t*
     for (int uid = 0; uid < MICRO_BATCH; uid++) {
         // regorg long to each host mem ptr
         // NOTE: this is the number of long segs till this microbatch
-        size_t long_segs_num = stream_setup.streams[t].host_mems[uid].long_segs_num;
+        size_t long_segs_num = stream_setup.streams[t].host_mems[uid].long_segs_num[0];
 #ifdef DEBUG_PRINT
         fprintf(stderr, "[Debug] %s (%s:%d) long seg %lu - %lu \n", __func__, __FILE__, __LINE__, long_seg_idx, long_segs_num);
 #endif
