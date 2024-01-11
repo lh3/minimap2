@@ -10,6 +10,8 @@
 #SBATCH --output=slurm_output/sample_sbatch_job.%j.out    # Output file
 #SBATCH --error=slurm_output/sample_sbatch_job.%j.err     # Error file
 
+export MM2_ROOT=$HOME/minimap2
+
 # Load necessary modules (if required)
 source /etc/profile.d/modules.sh
 scl enable gcc-toolset-11 bash
@@ -23,7 +25,7 @@ module unuse /shared/apps/modules/rocky9/modulefiles
 module load rocm-5.7.1
 # export AMD_LOG_LEVEL=4
 # Replace the following line with the actual command(s) you want to run
-cd /shared/prod/home/liuxs/bioinfo/minimap2/
+cd $MM2_ROOT
 # make clean
 # make MICRO_BATCH=4 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=100
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa

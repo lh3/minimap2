@@ -588,7 +588,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         assert(stream_setup.max_range_grid >= griddim);
         assert(stream_setup.max_num_cut >= cut_num);
         // work on micro batch
-        roctxRangePushA("step1");
+        roctxRangePushA("reorg");
         // step1: reorg input
         plmem_reorg_input_arr(reads + read_start, read_end - read_start,
                           &stream_setup.streams[stream_id].host_mems[uid],
