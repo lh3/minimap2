@@ -192,6 +192,7 @@ int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 	if (f <= 0.) return INT32_MAX;
 	for (i = 0; i < 1<<mi->b; ++i)
 		if (mi->B[i].h) n += kh_size((idxhash_t*)mi->B[i].h);
+	if (n == 0) return INT32_MAX;
 	a = (uint32_t*)malloc(n * 4);
 	for (i = n = 0; i < 1<<mi->b; ++i) {
 		idxhash_t *h = (idxhash_t*)mi->B[i].h;
