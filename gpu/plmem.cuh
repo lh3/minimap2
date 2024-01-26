@@ -46,8 +46,9 @@ typedef struct {
 typedef struct {
     // array size: number of cuts in the batch / long_seg_cut
     seg_t *long_segs;
-    unsigned int total_long_segs_num; // sum of mini batch long_segs_num
-    int32_t *f_long;  // score for long segs
+    unsigned int *total_long_segs_num; // sum of mini batch long_segs_num
+    size_t *total_long_segs_n; // number of anchors in all the long segs
+    int32_t *f_long;   // score for long segs
     uint16_t *p_long;  // predecessor for long segs
 } longMemPtr;
 
@@ -95,14 +96,14 @@ typedef struct stream_ptr_t{
     longMemPtr long_mem;
     deviceMemPtr dev_mem;
     cudaStream_t cudastream;
-    cudaEvent_t cudaevent, startevent;
+    cudaEvent_t stopevent, startevent, long_kernel_event;
     bool busy = false;
 } stream_ptr_t;
 
 typedef struct gputSetup_t {
     int num_stream;
     stream_ptr_t *streams;
-    size_t max_anchors_stream, max_num_cut;
+    size_t max_anchors_stream, max_num_cut, long_seg_buffer_size_stream;
     int max_range_grid;
 } streamSetup_t;
 
@@ -119,6 +120,7 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size, size_t buffer_size_long);
 void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long);
 void plmem_free_host_mem(hostMemPtr *host_mem);
+void plmem_free_long_mem(longMemPtr *long_mem);
 void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch,
                              int range_grid_size, int num_cut);
 void plmem_free_device_mem(deviceMemPtr *dev_mem);

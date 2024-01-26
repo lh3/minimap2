@@ -434,7 +434,7 @@ int main(int argc, char *argv[])
         // initialize gpu
         if (opt.flag & MM_F_GPU_CHAIN) {
             // TODO: make misc different for each read
-            Misc misc = build_misc(&mi, &opt, 0, 1);
+            Misc misc = build_misc(mi, &opt, 0, 1);
             init_stream_gpu(&opt.gpu_chain_max_anchors,
                             &opt.gpu_chain_max_reads, &opt.gpu_chain_min_n,
                             misc);

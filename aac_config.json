@@ -19,6 +19,7 @@
         "short_blockdim": 64,
         "long_blockdim": 64,
         "mid_blockdim": 64,
+        "//blockdim config": "options are not used: static config specified at compile time (make ... LONG_BLOCK_SIZE=1024)",
         "short_griddim": 16128,
         "long_griddim": 1024,
         "mid_griddim": 16128

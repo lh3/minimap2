@@ -22,16 +22,17 @@ module unuse /shared/apps/modules/sles15sp4/modulefiles
 module unuse /shared/apps/modules/centos8/modulefiles
 module unuse /shared/apps/modules/rocky9/modulefiles
 
-module load rocm-5.7.1
+# module load rocm-5.7.1
+module load rocm/6.0.0
 # export AMD_LOG_LEVEL=4
 # Replace the following line with the actual command(s) you want to run
 cd $MM2_ROOT
-# make clean
-# make MICRO_BATCH=1 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=100
+make clean
+make MICRO_BATCH=4 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=100
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_200kto300k.fa
-# omniperf profile -p omniperf_output -n long_seg_${SLURM_JOB_ID} --device 0 -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_2GBases_10kto300k.fa
-omniperf profile -p omniperf_output -n long_seg_${SLURM_JOB_ID} --device 0 -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa
+omniperf profile -p omniperf_output -n long_seg_${SLURM_JOB_ID} --device 0 -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_2GBases_10kto300k.fa
+# omniperf profile -p omniperf_output n long_seg_${SLURM_JOB_ID} --device 0 -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa
 # omniperf profile -p omniperf_output -n long_seg_${SLURM_JOB_ID} --device 0 -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_200kto300k.fa
 # Optional: You can add post-processing commands here
 
