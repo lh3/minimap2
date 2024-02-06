@@ -102,7 +102,7 @@ inline __device__ void compute_sc_seg_one_wf(int32_t* anchors_x, int32_t* anchor
 
             }
         }
-        // __syncthreads();
+        // __syncthreads(); // NOTE: single warp, no need to sync
     }
     
 }
