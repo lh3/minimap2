@@ -10,6 +10,31 @@
 #include "plrange.cuh"
 #include "plscore.cuh"
 #include "plchain.h"
+#include <utility>
+#include <algorithm>
+
+// utils functions
+struct
+{
+    bool operator()(std::pair<size_t,unsigned> a, std::pair<size_t,unsigned> b) const {
+        return a.first > b.first;
+    }
+}
+comp;
+
+void pairsort(seg_t *sdata, unsigned *map, unsigned N){
+    std::pair<size_t,unsigned> elements[N];
+    for (unsigned i = 0; i < N; ++i){
+      elements[i].second = map[i];
+      elements[i].first = sdata[i].end_idx - sdata[i].start_idx;
+    }
+
+    std::sort(elements, elements+N, comp); // descent order
+
+    for (unsigned i = 0; i < N; ++i){
+      map[i] = elements[i].second;
+    }
+}
 
 #ifdef DEBUG_CHECK
 #include "debug.h"
@@ -559,7 +584,6 @@ int plchain_finish_batch(streamSetup_t stream_setup, int stream_id, Misc misc, v
     return n_reads;
 } 
 
-
 void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, streamSetup_t stream_setup, int thread_id, void* km){
     chain_read_t* reads = *reads_;
     *reads_ = NULL;
@@ -650,7 +674,39 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         read_start = read_end;
         roctxRangePop();
     }
-    
+
+    // step6: copy back long_segs_og
+    cudaStreamSynchronize(stream_setup.streams[stream_id].cudastream);
+    unsigned int num_long_seg;
+    cudaMemcpy(&num_long_seg, stream_setup.streams[stream_id].dev_mem.d_long_seg_count, sizeof(unsigned int),
+                cudaMemcpyDeviceToHost);
+    seg_t* long_segs_og = (seg_t*)malloc(sizeof(seg_t) * num_long_seg);
+    cudaMemcpy(long_segs_og, stream_setup.streams[stream_id].dev_mem.d_long_seg_og, sizeof(seg_t) * num_long_seg,
+                cudaMemcpyDeviceToHost);
+    #ifdef DEBUG_PRINT
+    for (int i = 0; i < num_long_seg; i++){
+        fprintf(stderr, "long seg %d: %lu - %lu\n", i, long_segs_og[i].start_idx, long_segs_og[i].end_idx);
+    }
+    #endif // DEBUG_PRINT
+
+    // step7: sort long segs in descent order
+    unsigned *map = new unsigned[num_long_seg];
+    for (unsigned i = 0; i < num_long_seg; i++) {
+        map[i] = i;
+    }
+    pairsort(long_segs_og, map, num_long_seg);
+    #ifdef DEBUG_PRINT
+    for (int i = 0; i < num_long_seg; i++){
+        fprintf(stderr, "sorted index: %u, length: %zu\n", map[i], long_segs_og[map[i]].end_idx - long_segs_og[map[i]].start_idx);
+    }
+    #endif // DEBUG_PRINT
+    free(long_segs_og);
+
+    // step8: copy map to device
+    cudaMalloc(&stream_setup.streams[stream_id].dev_mem.d_map, sizeof(unsigned) * num_long_seg);
+    cudaMemcpy(stream_setup.streams[stream_id].dev_mem.d_map, map, sizeof(unsigned) * num_long_seg, cudaMemcpyHostToDevice);
+    free(map);
+
     cudaEventRecord(stream_setup.streams[stream_id].long_kernel_event,
                     stream_setup.streams[stream_id].cudastream);
     plscore_async_long_forward_dp(&stream_setup.streams[stream_id].dev_mem,

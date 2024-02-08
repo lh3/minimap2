@@ -81,6 +81,7 @@ typedef struct {
     seg_t *d_mid_seg;
 
     // long segement buffer
+    unsigned *d_map;
     int32_t *d_ax_long, *d_ay_long;
     int8_t *d_sid_long;
     int32_t *d_range_long;

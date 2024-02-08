@@ -370,6 +370,25 @@ __global__ void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, in
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     }
 }
+
+// FIXME: merge together
+#ifdef __LONG_BLOCK_SIZE__
+template <size_t long_block_size>
+__launch_bounds__(long_block_size)
+#endif
+__global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
+                                seg_t *long_seg, unsigned int* long_seg_count,
+                                int32_t* f, uint16_t* p, unsigned int* map){
+    int tid = threadIdx.x;
+    int bid = blockIdx.x;
+
+    for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
+        seg_t seg = long_seg[map[segid]]; 
+        // compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+        compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+    }
+}
+
 __global__ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                         size_t *seg_start_arr, 
                         int32_t* f, uint16_t* p, size_t total_n, size_t seg_count) {
@@ -550,14 +569,14 @@ void plscore_async_long_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream) 
 
     #ifdef __LONG_BLOCK_SIZE__
     // fprintf(stderr, "long block size: %d\n", __LONG_BLOCK_SIZE__);
-    score_generation_long<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+    score_generation_long_map<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
         dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
-        dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long);
+        dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long, dev_mem->d_map);
     #else
     dim3 longDimBlock(score_kernel_config.long_blockdim, 1, 1);
-    score_generation_long<<<longDimGrid, longDimBlock, 0, *stream>>>(
+    score_generation_long_map<<<longDimGrid, longDimBlock, 0, *stream>>>(
         dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
-        dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long);
+        dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long, dev_mem->d_map);
     #endif
     cudaCheck();
 
