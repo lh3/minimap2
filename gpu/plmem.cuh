@@ -74,11 +74,11 @@ typedef struct {
 
     // cut
     size_t *d_cut;  // cut
-    unsigned int *d_long_seg_count;
-    seg_t *d_long_seg;
-    seg_t *d_long_seg_og;
-    unsigned int *d_mid_seg_count;
-    seg_t *d_mid_seg;
+    unsigned int *d_long_seg_count; // total number of long seg (aggregated accross micro batches)
+    seg_t *d_long_seg;              // start & end idx of long segs in the long seg buffer (aggregated across micro batches)
+    seg_t *d_long_seg_og;           // start & end idx of long seg in the micro batch. (aggregated accross micro batches)
+    unsigned int *d_mid_seg_count;  // private to micro batch
+    seg_t *d_mid_seg;               // private to micro batch
 
     // long segement buffer
     int32_t *d_ax_long, *d_ay_long;
@@ -97,6 +97,7 @@ typedef struct stream_ptr_t{
     deviceMemPtr dev_mem;
     cudaStream_t cudastream;
     cudaEvent_t stopevent, startevent, long_kernel_event;
+    cudaEvent_t short_kernel_event[MICRO_BATCH];
     bool busy = false;
 } stream_ptr_t;
 
