@@ -12,6 +12,7 @@ Parallel chaining helper functions with CUDA
 */
 
 __constant__ Misc misc;
+__device__ unsigned curr_long_segid;
 
 /* arithmetic functions begin */
 
@@ -381,11 +382,29 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
                                 int32_t* f, uint16_t* p, unsigned int* map){
     int tid = threadIdx.x;
     int bid = blockIdx.x;
+    if (tid == 0 && bid == 0) {
+        // init the first batch as the size of the grid
+        curr_long_segid = 0;
+    }
+    auto start = clock64();
+    unsigned int segid = atomicAdd(&curr_long_segid, 1);
+    while (segid < *long_seg_count) {
+        seg_t seg = long_seg[map[segid]]; // sorted
+        // seg_t seg = long_seg[segid]; // unsorted
+        compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+        segid = atomicAdd(&curr_long_segid, 1);
+    }
+    
+    // for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
+    //     seg_t seg = long_seg[map[segid]]; // sorted
+    //     // seg_t seg = long_seg[segid]; // unsorted
+    //     // compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+    //     compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+    // }
 
-    for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
-        seg_t seg = long_seg[map[segid]]; 
-        // compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
-        compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+    auto end = clock64();
+    if (threadIdx.x == 0) {
+        printf("bid: %d, long kernel time: %lu\n", bid, end - start);
     }
 }
 
