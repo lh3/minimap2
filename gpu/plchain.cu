@@ -720,11 +720,11 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     seg_t* long_segs_og = (seg_t*)malloc(sizeof(seg_t) * num_long_seg);
     cudaMemcpy(long_segs_og, stream_setup.streams[stream_id].dev_mem.d_long_seg_og, sizeof(seg_t) * num_long_seg,
                 cudaMemcpyDeviceToHost);
-    #ifdef DEBUG_PRINT
+    #ifdef DEBUG_VERBOSE
     for (int i = 0; i < num_long_seg; i++){
         fprintf(stderr, "long seg %d: %lu - %lu\n", i, long_segs_og[i].start_idx, long_segs_og[i].end_idx);
     }
-    #endif // DEBUG_PRINT
+    #endif // DEBUG_VERBOSE
 
     // step7: sort long segs in descent order
     unsigned *map = new unsigned[num_long_seg];
@@ -732,11 +732,11 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         map[i] = i;
     }
     pairsort(long_segs_og, map, num_long_seg);
-    #ifdef DEBUG_PRINT
+    #ifdef DEBUG_VERBOSE
     for (int i = 0; i < num_long_seg; i++){
         fprintf(stderr, "sorted index: %u, length: %zu\n", map[i], long_segs_og[map[i]].end_idx - long_segs_og[map[i]].start_idx);
     }
-    #endif // DEBUG_PRINT
+    #endif // DEBUG_VERBOSE
     free(long_segs_og);
 
     // step8: copy map to device
