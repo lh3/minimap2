@@ -29,7 +29,7 @@ CUDATESTFLAG	= -G
 HIPCC			= hipcc
 HIPFLAGS		= -DUSEHIP 
 HIPTESTFLAGS	= -G -Rpass-analysis=kernel-resource-usage
-LIBS			+= -L${ROCM_PATH}/lib -lroctx64 -lroctracer64
+HIPLIBS			= -L${ROCM_PATH}/lib -lroctx64 -lroctracer64
 
 ###################################################
 ############	DEBUG Options	###################
@@ -38,6 +38,7 @@ ifeq ($(GPU), AMD)
 	GPU_CC 		= $(HIPCC)
 	GPU_FLAGS	= $(HIPFLAGS)
 	GPU_TESTFL	= $(HIPTESTFLAGS)
+	LIBS		+= $(HIPLIBS)
 else
 	GPU_CC 		= $(NVCC)
 	GPU_FLAGS	= $(CUDAFLAGS)

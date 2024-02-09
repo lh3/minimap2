@@ -13,6 +13,14 @@
 
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size, size_t buffer_size_long) {
+#ifdef DEBUG_PRINT
+    size_t host_mem_size; 
+    host_mem_size = anchor_per_batch * (sizeof(int32_t) + sizeof(int32_t) + 
+                    sizeof(int8_t) + sizeof(int32_t) + sizeof(int32_t) + sizeof(uint16_t));
+    host_mem_size += range_grid_size * (sizeof(size_t) + sizeof(size_t) + sizeof(size_t));
+    fprintf(stderr, "[Info] Host Malloc Pinned Memory Size %.2f GB\n", (float)host_mem_size / OneG);
+#endif
+
     // data array
     cudaMallocHost((void**)&host_mem->ax, anchor_per_batch * sizeof(int32_t));
     cudaMallocHost((void**)&host_mem->ay, anchor_per_batch * sizeof(int32_t));
@@ -34,6 +42,12 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
 }
 
 void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
+#ifdef DEBUG_PRINT
+    size_t host_mem_size; 
+    host_mem_size =  buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t);
+    host_mem_size += buffer_size_long * (sizeof(int32_t) + sizeof(uint16_t));
+    fprintf(stderr, "[Info] Host Malloc Pinned Memory Size %.2f GB (long seg)\n", (float)host_mem_size / OneG);
+#endif
     // data array
     cudaMallocHost((void**)&long_mem->long_segs, buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
     cudaMallocHost((void**)&long_mem->f_long, buffer_size_long * sizeof(int32_t));
@@ -46,6 +60,8 @@ void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
 void plmem_free_host_mem(hostMemPtr *host_mem) { 
     cudaFreeHost(host_mem->ax);
     cudaFreeHost(host_mem->ay);
+    cudaFreeHost(host_mem->sid);
+    cudaFreeHost(host_mem->xrev);
     cudaFreeHost(host_mem->f);
     cudaFreeHost(host_mem->p);
     cudaFreeHost(host_mem->start_idx);
@@ -576,17 +592,18 @@ void plmem_stream_initialize(size_t *max_total_n_,
         for (int j = 0; j < MICRO_BATCH; j++) {
             plmem_malloc_host_mem(&stream_setup.streams[i].host_mems[j], max_anchors_stream,
                               max_range_grid, long_seg_buffer_size);
+            cudaEventCreate(&stream_setup.streams[i].short_kernel_event[j]);
         }
         // one stream has one long mem and one device mem
         plmem_malloc_long_mem(&stream_setup.streams[i].long_mem, long_seg_buffer_size);
         plmem_malloc_device_mem(&stream_setup.streams[i].dev_mem, max_anchors_stream,
                                 max_range_grid, max_num_cut);
-        cudaMemsetAsync(&stream_setup.streams[i].dev_mem.d_long_seg_count, 0, sizeof(unsigned int),
-                        stream_setup.streams[i].cudastream);
-        cudaMemsetAsync(&stream_setup.streams[i].dev_mem.d_mid_seg_count, 0, sizeof(unsigned int),
-                        stream_setup.streams[i].cudastream);
-        cudaMemsetAsync(&stream_setup.streams[i].dev_mem.d_total_n_long, 0, sizeof(size_t),
-                        stream_setup.streams[i].cudastream);
+        cudaMemset(stream_setup.streams[i].dev_mem.d_long_seg_count, 0, sizeof(unsigned int));
+        cudaCheck();
+        cudaMemset(stream_setup.streams[i].dev_mem.d_mid_seg_count, 0, sizeof(unsigned int));
+        cudaCheck();
+        cudaMemset(stream_setup.streams[i].dev_mem.d_total_n_long, 0, sizeof(size_t));
+        cudaCheck();
     }
 
 cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);

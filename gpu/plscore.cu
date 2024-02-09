@@ -291,16 +291,16 @@ __global__ void score_generation_short(
             size_t long_seg_start_idx;
             if (tid == 0) {
                 /* Allocate space in long seg buffer */
-                long_seg_start_idx = atomicAdd(total_n_long, end_idx - start_idx);
+                long_seg_start_idx = atomicAdd((unsigned long long int*)total_n_long, (unsigned long long int)end_idx - start_idx);
                 if (long_seg_start_idx + (end_idx - start_idx) >= buffer_size_long){ // long segement buffer is full
-                    atomicSub(total_n_long, end_idx - start_idx); // rollback total_n_long
+                    atomicAdd((unsigned long long int*)total_n_long, (unsigned long long int)end_idx - start_idx); // rollback total_n_long
                     long_seg_start_idx = SIZE_MAX;
                     // fallback to mid kernel
-                    int mid_seg_idx = atomicAdd(mid_seg_count, 1);
+                    int mid_seg_idx = atomicAdd((unsigned long long int*)mid_seg_count, 1);
                     mid_seg[mid_seg_idx].start_idx = start_idx;
                     mid_seg[mid_seg_idx].end_idx = end_idx;
                 } else {
-                    int long_seg_idx = atomicAdd(long_seg_count, 1);
+                    int long_seg_idx = atomicAdd((unsigned long long int*)long_seg_count, 1);
                     long_seg[long_seg_idx].start_idx = long_seg_start_idx;
                     long_seg[long_seg_idx].end_idx = long_seg_start_idx + (end_idx - start_idx);
                     long_seg_og[long_seg_idx].start_idx = start_idx;
@@ -313,7 +313,11 @@ __global__ void score_generation_short(
                 }
             }
             // broadcast long_seg_start_idx to all scalar registers
+#ifdef USEHIP
             long_seg_start_idx = __builtin_amdgcn_readfirstlane(long_seg_start_idx);
+#else
+            long_seg_start_idx = __shfl_sync(0xffffffff, long_seg_start_idx, 0);
+#endif
             if (long_seg_start_idx == SIZE_MAX)
                 continue;  // failed to allocate long_seg buffer
             for (uint64_t idx = tid; idx < end_idx - start_idx; idx += blockDim.x){
@@ -574,7 +578,7 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* str
     cudaCheck();
 
 #ifdef DEBUG_PRINT
-    fprintf(stderr, "[Info] %s (%s:%d) short mid score generation success\n", __func__, __FILE__, __LINE__);
+    // fprintf(stderr, "[Info] %s (%s:%d) short mid score kernel launched\n", __func__, __FILE__, __LINE__);
 #endif
     
     cudaCheck();
@@ -600,7 +604,7 @@ void plscore_async_long_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream) 
     cudaCheck();
 
 #ifdef DEBUG_PRINT
-    fprintf(stderr, "[Info] %s (%s:%d) long score generation success\n", __func__, __FILE__, __LINE__);
+    // fprintf(stderr, "[Info] %s (%s:%d) long score generation launched\n", __func__, __FILE__, __LINE__);
 #endif
     
     cudaCheck();

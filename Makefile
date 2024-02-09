@@ -1,5 +1,5 @@
 CFLAGS=		 -O2 -g -DNDEBUG
-CDEBUG_FLAGS= -g -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -Wno-unused-function -Wno-c++17-extensions -DDEBUG_PRINT -O2 -Wno-\#warnings #-O0 -DNDEBUG
+CDEBUG_FLAGS= -g -DDEBUG_PRINT -O2 #-Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -Wno-unused-function -Wno-c++17-extensions -Wno-\#warnings #-O0 -DNDEBUG
 CPPFLAGS=	-DHAVE_KALLOC -D__AMD_SPLIT_KERNELS__ # -Wno-unused-but-set-variable -Wno-unused-variable
 CPPFLAGS+= 	$(if $(MICRO_BATCH),-DMICRO_BATCH=\($(MICRO_BATCH)\))
 INCLUDES=	-I .
