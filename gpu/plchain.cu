@@ -437,28 +437,18 @@ void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, deviceMemPtr* d
 #endif // DEBUG_CHECK
 
 
-
-
 #ifdef DEBUG_CHECK
-
-void plchain_debug_analysis(stream_ptr_t stream){
+void plchain_debug_analysis_short(stream_ptr_t stream, float* throughput){
     // TODO: analysis multiple or current host mems
     // TODO: this needs to be recalculated
-    size_t uid = 0;
+    size_t uid = MICRO_BATCH-1 ;
     size_t total_n = stream.host_mems[uid].total_n;
     chain_read_t* reads = stream.reads;
     deviceMemPtr* dev_mem = &stream.dev_mem;
     hostMemPtr* host_mem = &stream.host_mems[uid];
-    longMemPtr* long_mem = &stream.long_mem;
     size_t cut_num = stream.host_mems[uid].cut_num;
 
-    unsigned int num_mid_seg, num_long_seg;
-    cudaMemcpy(&num_mid_seg, dev_mem->d_mid_seg_count, sizeof(unsigned int),
-                cudaMemcpyDeviceToHost);
-    cudaMemcpy(&num_long_seg, dev_mem->d_long_seg_count, sizeof(unsigned int),
-                cudaMemcpyDeviceToHost);
-
-    fprintf(stderr, "[DEBUG] total segs: %lu, short:%lu mid: %u long: %u\n", cut_num, cut_num - num_mid_seg - num_long_seg, num_mid_seg, num_long_seg);
+    fprintf(stderr, "[DEBUG](MICROBATCH# %d) total segs: %lu, short:%lu mid: %u \n", uid, cut_num, cut_num - num_mid_seg - num_long_seg, num_mid_seg);
 
 
     int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
@@ -467,31 +457,20 @@ void plchain_debug_analysis(stream_ptr_t stream){
     size_t* cut = (size_t*)malloc(sizeof(size_t) * cut_num);
     cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num,
                 cudaMemcpyDeviceToHost);
-    seg_t* long_segs = (seg_t*)malloc(sizeof(seg_t) * num_long_seg);
-    cudaMemcpy(long_segs, dev_mem->d_long_seg, sizeof(seg_t) * num_long_seg,
-                cudaMemcpyDeviceToHost);
-    int32_t* long_range = (int32_t*)malloc(sizeof(int32_t) * *(long_mem->total_long_segs_n));
-    cudaMemcpy(long_range, dev_mem->d_range_long, sizeof(int32_t) * *(long_mem->total_long_segs_n), cudaMemcpyDeviceToHost);
-
+  
 // Calculate total workload (sc pairs)
     size_t total_sc_pairs = 0;
     for (size_t i = 0; i < total_n; i++) {
         total_sc_pairs += range[i];
     }
-    size_t long_seg_sc_pairs = 0;
-    for (int long_seg_id = 0; long_seg_id < num_long_seg; long_seg_id++) {
-        for(size_t i = long_segs[long_seg_id].start_idx; i < long_segs[long_seg_id].end_idx; i++){
-            long_seg_sc_pairs += long_range[i];
-        }
-    }
-    fprintf(stderr, "[DEBUG] Total workload (sc pairs) in batch: %lu, in long segs %lu\n", total_sc_pairs, long_seg_sc_pairs);
+   
+    fprintf(stderr, "[DEBUG] Total workload (sc pairs) in batch: %lu\n", total_sc_pairs);
 
-
-    // calculate kernel throughput
-    float long_kernel_runtime_ms = 0;
-    cudaEventElapsedTime(&long_kernel_runtime_ms, stream.long_kernel_event, stream.stopevent);
-    float long_kernel_througput = long_seg_sc_pairs / long_kernel_runtime_ms / (float)1000;
-    fprintf(stderr, "[DEBUG] Long Seg kernel throughput: %.2f Mpairs/s\n", long_kernel_througput);
+    // calculate short kernel throughput
+    float short_kernel_runtime_ms = 0;
+    cudaEventElapsedTime(&short_kernel_runtime_ms, stream.short_kernel_start_event[uid], stream.short_kernel_stop_event[uid]);
+    float throughput[uid] = total_sc_pairs / short_kernel_runtime_ms / (float)1000;
+    fprintf(stderr, "[DEBUG] Short Seg kernel #%d throughput: %.2f Mpairs/s\n", uid, throughput[uid]);
 
 // Check range w.r.t input (MAKE SURE INPUT RANGE EXISTS)
 #if 0
@@ -538,7 +517,63 @@ void plchain_debug_analysis(stream_ptr_t stream){
         plchain_cal_long_seg_range_dis(total_n, dev_mem);
         plchain_cal_range_dis(total_n, cut_num, dev_mem);
 #endif // DEBUG_VERBOSE
+}
+#endif 
 
+
+
+
+#ifdef DEBUG_CHECK
+
+float plchain_debug_analysis_long(stream_ptr_t stream){ // return throughput in pairs / sec. 
+    // TODO: analysis multiple or current host mems
+    deviceMemPtr* dev_mem = &stream.dev_mem;
+    longMemPtr* long_mem = &stream.long_mem;
+
+    unsigned int num_mid_seg, num_long_seg;
+    cudaMemcpy(&num_long_seg, dev_mem->d_long_seg_count, sizeof(unsigned int),
+                cudaMemcpyDeviceToHost);
+
+    fprintf(stderr, "[DEBUG]LONG Kernel: num of long kernels %u\n", num_long_seg);
+
+
+    seg_t* long_segs = (seg_t*)malloc(sizeof(seg_t) * num_long_seg);
+    cudaMemcpy(long_segs, dev_mem->d_long_seg, sizeof(seg_t) * num_long_seg,
+                cudaMemcpyDeviceToHost);
+    int32_t* long_range = (int32_t*)malloc(sizeof(int32_t) * *(long_mem->total_long_segs_n));
+    cudaMemcpy(long_range, dev_mem->d_range_long, sizeof(int32_t) * *(long_mem->total_long_segs_n), cudaMemcpyDeviceToHost);
+
+// Calculate total workload (sc pairs)
+    size_t long_seg_sc_pairs = 0;
+    for(size_t i = 0; i < long_mem->total_long_segs_n; i++){
+        long_seg_sc_pairs += long_range[i];
+    }
+    fprintf(stderr, "[DEBUG] Total workload (sc pairs) in batch: %lu, in long segs %lu\n", total_sc_pairs, long_seg_sc_pairs);
+
+
+    // calculate long kernel throughput
+    float long_kernel_runtime_ms = 0;
+    cudaEventElapsedTime(&long_kernel_runtime_ms, stream.long_kernel_event, stream.stopevent);
+    float long_kernel_througput = long_seg_sc_pairs / long_kernel_runtime_ms / (float)1000;
+    fprintf(stderr, "[DEBUG] Long Seg kernel throughput: %.2f Mpairs/s\n", long_kernel_througput);
+    return long_kernel_througput;
+
+// Check range w.r.t input (MAKE SURE INPUT RANGE EXISTS)
+#if 0
+    int64_t read_start = 0;
+    for (int i = 0; i < dev_mem->size; i++) {
+// DEBUG: print range
+#if defined(DEBUG_VERBOSE) && 0
+        debug_print_successor_range(range + read_start, reads[i].n);
+#endif
+        debug_check_range(range + read_start, input_arr[i].range, input_arr[i].n);
+        read_start += reads[i].n;
+    }
+#endif
+
+    free(long_segs);
+    free(long_range);
+    
 }
 
 #endif // DEBUG_CHECK
@@ -549,35 +584,36 @@ RETURN: number of reads in the batch
 */
 int plchain_finish_batch(streamSetup_t stream_setup, int stream_id, Misc misc, void* km){
     int n_reads = 0; // Number of reads in the batch
+    // DEBUG: debug analysis that involves sychronizating the whole device 
+#if defined(DEBUG_CHECK)
+        plchain_debug_analysis_long(stream_setup.streams[stream_id]);
+#endif  // DEBUG_VERBOSE
 #ifdef DEBUG_PRINT
         float milliseconds = 0;
         cudaEventElapsedTime(&milliseconds, stream_setup.streams[stream_id].startevent, stream_setup.streams[stream_id].stopevent);
-        // fprintf(stderr, "[Info] %s (%s:%d) last launch runtime: %f ms\n", __func__, __FILE__, __LINE__, milliseconds);
+        fprintf(stderr, "[Info] %s (%s:%d) last launch runtime: %f ms\n", __func__, __FILE__, __LINE__, milliseconds);
 #endif
 
 #ifdef DEBUG_PRINT
         float long_kernel_runtime_ms = 0;
         float short_kernel_runtime_ms[MICRO_BATCH];
+        float short_kernel_througput[MICRO_BATCH];
         cudaEventElapsedTime(&long_kernel_runtime_ms, stream_setup.streams[stream_id].long_kernel_event, stream_setup.streams[stream_id].stopevent);
         float long_kernel_througput = *stream_setup.streams[stream_id].long_mem.total_long_segs_n / long_kernel_runtime_ms / (float)1000;
         for (int uid = 0; uid < MICRO_BATCH; uid++){
-            cudaEventElapsedTime(&short_kernel_runtime_ms[uid], stream_setup.streams[stream_id].short_kernel_event[uid], 
-            uid + 1 < MICRO_BATCH ? stream_setup.streams[stream_id].short_kernel_event[uid+1] : stream_setup.streams[stream_id].long_kernel_event);
+            cudaEventElapsedTime(&short_kernel_runtime_ms[uid], stream_setup.streams[stream_id].short_kernel_start_event[uid], stream_setup.streams[stream_id].short_kernel_stop_event[uid]);
+            short_kernel_througput[uid] = *stream_setup.streams[stream_id].host_mems[uid].total_n / short_kernel_runtime_ms[uid] / (float)1000;
         }
         fprintf(stderr, " %9.2f %%\n", (float)(*stream_setup.streams[stream_id].long_mem.total_long_segs_n)/stream_setup.long_seg_buffer_size_stream*100);
         fprintf(stderr, "Runtime(s) = ");
-        for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, " %11.2f", short_kernel_runtime_ms[uid] / 1000);
-        fprintf(stderr, " %9.2f %%\n", long_kernel_runtime_ms / 1000);
+        for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "%11.2f", short_kernel_runtime_ms[uid] / 1000);
+        fprintf(stderr, " %11.2f\n", long_kernel_runtime_ms / 1000);
         fprintf(stderr, "Throutput (Ma/s) = ");
-        for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "           ");
+        for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "%11.2f", short_kernel_througput[uid]);
         fprintf(stderr, " %11.2f\n", long_kernel_througput);
-        fprintf(stderr, "[Info] %s finish (%s:%d) n_read %d long seg buffer usage %.2f%%. Long seg kernel throughput %.2f Manchors/s\n", __func__, __FILE__, __LINE__, n_reads, (float)(*stream_setup.streams[stream_id].long_mem.total_long_segs_n)/stream_setup.long_seg_buffer_size_stream*100, long_kernel_througput);
-#endif // DEBUG_PRINT
-
-// DEBUG: debug analysis that involves sychronizating the whole device 
-#if defined(DEBUG_CHECK)
-        plchain_debug_analysis(stream_setup.streams[stream_id]);
-#endif  // DEBUG_VERBOSE
+        // fprintf(stderr, "[Info] %s finish (%s:%d) n_read %d long seg buffer usage %.2f%%. Long seg kernel throughput %.2f Manchors/s\n", __func__, __FILE__, __LINE__, n_reads, (float)(*stream_setup.streams[stream_id].long_mem.total_long_segs_n)/stream_setup.long_seg_buffer_size_stream*100, long_kernel_througput);
+    fprintf(stderr, "----------------------------------------------------------------------------\n");
+#endif 
         seg_t* long_segs = stream_setup.streams[stream_id].long_mem.long_segs;
         size_t long_seg_idx = 0;
         for (int uid = 0; uid < MICRO_BATCH; uid++) {
@@ -634,6 +670,9 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     stream_setup.streams[stream_id].reads = reads;
     int read_start = 0;
 #ifdef DEBUG_PRINT
+    float kernel_mem_usage[MICRO_BATCH];
+    float kernel_throughput[MICRO_BATCH];
+#endif // DEBUG_PRINT
     fprintf(stderr, "----------------------------------------------------------------\n           ");
     for (int uid = 0; uid < MICRO_BATCH; uid++){
         fprintf(stderr, "       Short%d", uid);
@@ -663,9 +702,10 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
             cut_num += (reads[read_end].n - 1) / an_p_cut + 1;
         }
 #ifdef DEBUG_PRINT
-        // fprintf(stderr, "[Info] %s (%s:%d) MICROBATCH#%d batch_n %lu, read_start %d, read_end %d usage %.2f %%\n", __func__, __FILE__, __LINE__, uid, batch_n, read_start, read_end, (float)batch_n/stream_setup.max_anchors_stream*100);
-
-        fprintf(stderr, " %9.2f %%", (float)batch_n/stream_setup.max_anchors_stream*100);
+        fprintf(stderr, "[Info] %s (%s:%d) MICROBATCH#%d batch_n %lu, read_start %d, read_end %d usage %.2f %%\n", __func__, __FILE__, __LINE__, uid, batch_n, read_start, read_end, (float)batch_n/stream_setup.max_anchors_stream*100);
+        memro
+        kernel_mem_usage[uid] = (float)batch_n/stream_setup.max_anchors_stream*100;
+        fprintf(stderr, " %9.2f %%", );
 #endif // DEBUG_PRINT
         // // sanity check
         // if (stream_setup.max_anchors_stream < total_n){
@@ -693,9 +733,11 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 #ifdef USEHIP
         roctxRangePop();
 #endif
-        
-        cudaEventRecord(stream_setup.streams[stream_id].short_kernel_event[uid],
+
+#ifdef DEBUG_PRINT
+        cudaEventRecord(stream_setup.streams[stream_id].short_kernel_start_event[uid],
                     stream_setup.streams[stream_id].cudastream);
+#endif // DEBUG_PRINT
         plmem_async_h2d_short_memcpy(&stream_setup.streams[stream_id], uid);
         // step3: range selection
         plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
@@ -705,8 +747,17 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
                                     &stream_setup.streams[stream_id].cudastream);
         // step5: copy short and mid results back
         plmem_async_d2h_short_memcpy(&stream_setup.streams[stream_id], uid);
+#ifdef DEBUG_PRINT
+        cudaEventRecord(stream_setup.streams[stream_id].short_kernel_stop_event[uid],
+                    stream_setup.streams[stream_id].cudastream);
         // update index
         read_start = read_end;
+#endif // DEBUG_PRINT
+
+#ifdef DEBUG_CHECK
+        fprintf(stderr, " %9.2f %%", kernel_mem_usage[uid]);
+#endif // DEBUG_CHECK
+
 #ifdef USEHIP
         roctxRangePop();
 #endif

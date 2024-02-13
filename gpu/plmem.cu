@@ -592,7 +592,8 @@ void plmem_stream_initialize(size_t *max_total_n_,
         for (int j = 0; j < MICRO_BATCH; j++) {
             plmem_malloc_host_mem(&stream_setup.streams[i].host_mems[j], max_anchors_stream,
                               max_range_grid, long_seg_buffer_size);
-            cudaEventCreate(&stream_setup.streams[i].short_kernel_event[j]);
+            cudaEventCreate(&stream_setup.streams[i].short_kernel_start_event[j]);
+            cudaEventCreate(&stream_setup.streams[i].short_kernel_stop_event[j]);
         }
         // one stream has one long mem and one device mem
         plmem_malloc_long_mem(&stream_setup.streams[i].long_mem, long_seg_buffer_size);
