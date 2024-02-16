@@ -28,7 +28,7 @@ CUDATESTFLAG	= -G
 ###################################################
 HIPCC			= hipcc
 HIPFLAGS		= -DUSEHIP 
-HIPTESTFLAGS	= -G -Rpass-analysis=kernel-resource-usage
+HIPTESTFLAGS	= -G -Rpass-analysis=kernel-resource-usage -ggdb
 HIPLIBS			= -L${ROCM_PATH}/lib -lroctx64 -lroctracer64
 
 ###################################################
