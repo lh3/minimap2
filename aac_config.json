@@ -3,7 +3,7 @@
     "num_streams": 1,
     "min_n": 512, 
     "//min_n": "queries with less anchors will be handled on cpu",
-    "long_seg_buffer_size": 517376000,
+    "long_seg_buffer_size": 717376000,
     "max_total_n": 2436880000, 
     "max_read": 2436880,
     "avg_read_n": 20000,

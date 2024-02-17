@@ -293,7 +293,7 @@ __global__ void score_generation_short(
                 /* Allocate space in long seg buffer */
                 long_seg_start_idx = atomicAdd((unsigned long long int*)total_n_long, (unsigned long long int)end_idx - start_idx);
                 if (long_seg_start_idx + (end_idx - start_idx) >= buffer_size_long){ // long segement buffer is full
-                    atomicAdd((unsigned long long int*)total_n_long, (unsigned long long int)end_idx - start_idx); // rollback total_n_long
+                    atomicSub((unsigned long long int*)total_n_long, (unsigned long long int)end_idx - start_idx); // rollback total_n_long
                     long_seg_start_idx = SIZE_MAX;
                     // fallback to mid kernel
                     int mid_seg_idx = atomicAdd((unsigned long long int*)mid_seg_count, 1);
@@ -390,9 +390,9 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
         // init the first batch as the size of the grid
         curr_long_segid = 0;
     }
-    #ifdef DEBUG_VERBOSE
-    auto start = clock64();
-    #endif
+    // #ifdef DEBUG_VERBOSE
+    // auto start = clock64();
+    // #endif
     unsigned int segid = atomicAdd(&curr_long_segid, 1);
     while (segid < *long_seg_count) {
         seg_t seg = long_seg[map[segid]]; // sorted
@@ -407,12 +407,12 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     //     // compute_sc_seg_one_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     //     compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     // }
-    #ifdef DEBUG_VERBOSE
-    auto end = clock64();
-    if (threadIdx.x == 0) {
-        printf("bid: %d, long kernel time: %lu\n", bid, end - start);
-    }
-    #endif
+    // #ifdef DEBUG_VERBOSE
+    // auto end = clock64();
+    // if (threadIdx.x == 0) {
+    //     printf("bid: %d, long kernel time: %lu\n", bid, end - start);
+    // }
+    // #endif
 }
 
 __global__ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
