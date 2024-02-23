@@ -441,6 +441,7 @@ void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, deviceMemPtr* d
 void plchain_debug_analysis_short(stream_ptr_t stream, int uid, float throughput[]){
     // TODO: analysis multiple or current host mems
     // TODO: this needs to be recalculated
+    cudaStreamSynchronize(stream.cudastream);
     size_t total_n = stream.host_mems[uid].total_n;
     chain_read_t* reads = stream.reads;
     deviceMemPtr* dev_mem = &stream.dev_mem;
@@ -498,6 +499,7 @@ void plchain_debug_analysis_short(stream_ptr_t stream, int uid, float throughput
     }
    
     fprintf(stderr, "[DEBUG] Total workload (sc pairs) in batch: %lu. %.2f%% work are in long segs.\n", total_sc_pairs, (float)long_seg_sc_pairs/total_sc_pairs*100);
+    assert(long_seg_sc_pairs <= total_sc_pairs); 
 
     // calculate short kernel throughput
     float short_kernel_runtime_ms = 0;
@@ -647,7 +649,7 @@ int plchain_finish_batch(streamSetup_t stream_setup, int stream_id, Misc misc, v
         // NOTE: this is the number of long segs till this microbatch
         unsigned int long_segs_num = stream_setup.streams[stream_id].host_mems[uid].long_segs_num[0];
 #ifdef DEBUG_PRINT
-    fprintf(stderr, "[Info] %s (%s:%d) MICROBATCH$%d FINISHED: long seg %lu - %lu", 
+    fprintf(stderr, "[Info] %s (%s:%d) MICROBATCH$%d FINISHED: long seg %lu - %u", 
                 __func__, __FILE__, __LINE__, uid, long_seg_idx, long_segs_num);
 #endif // DEBUG_PRINT
         size_t total_n_long_segs = 0;
@@ -700,12 +702,6 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     *reads_ = NULL;
     int n_read = *n_read_;
     *n_read_ = 0;
-#ifdef DEBUG_PRINT
-    for(int uid = 0; uid < MICRO_BATCH + 1; uid++) {
-        kernel_mem_usage[uid] = 0;
-        kernel_throughput[uid] = 0;
-    }
-#endif // DEBUG_PRINT
 
     /* sync stream and process previous batch */
     int stream_id = thread_id;
@@ -715,6 +711,14 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         *reads_ = stream_setup.streams[stream_id].reads;
         stream_setup.streams[stream_id].busy = false;
     }
+
+#ifdef DEBUG_PRINT
+    for(int uid = 0; uid < MICRO_BATCH + 1; uid++) {
+        kernel_mem_usage[uid] = 0;
+        kernel_throughput[uid] = 0;
+    }
+#endif // DEBUG_PRINT
+
 
     cudaEventRecord(stream_setup.streams[stream_id].startevent,
                     stream_setup.streams[stream_id].cudastream);
@@ -731,11 +735,23 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
                     stream_setup.streams[stream_id].cudastream);
     cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_total_n_long, 0, sizeof(size_t),
                     stream_setup.streams[stream_id].cudastream);
+    stream_setup.streams[stream_id].long_mem.total_long_segs_num[0] = 0;
+    stream_setup.streams[stream_id].long_mem.total_long_segs_n[0] = 0;
+    for(int uid = 0; uid < MICRO_BATCH; uid++) {
+        stream_setup.streams[stream_id].host_mems[uid].long_segs_num[0] = 0;
+        stream_setup.streams[stream_id].host_mems[uid].index;
+        stream_setup.streams[stream_id].host_mems[uid].griddim = 0;
+        stream_setup.streams[stream_id].host_mems[uid].size = 0;
+        stream_setup.streams[stream_id].host_mems[uid].total_n = 0;
+        stream_setup.streams[stream_id].host_mems[uid].cut_num = 0;
+    }
 
     stream_setup.streams[stream_id].reads = reads;
+    stream_setup.streams[stream_id].n_read = n_read;
     int read_start = 0;
 
     for (int uid = 0; uid < MICRO_BATCH; uid++) {
+        if (read_start == n_read) continue;
 #ifdef USEHIP
         roctxRangePushA("microbatch");
 #endif
@@ -745,7 +761,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         size_t cut_num = 0;
         int griddim = 0;
         for (read_end = read_start; read_end < n_read; read_end++) {
-            if (batch_n > (total_n - 1) / MICRO_BATCH + 1) {
+            if (batch_n + reads[read_end].n > stream_setup.max_anchors_stream) {
                 break;
             }
             batch_n += reads[read_end].n;
@@ -802,9 +818,9 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 #ifdef DEBUG_PRINT
         cudaEventRecord(stream_setup.streams[stream_id].short_kernel_stop_event[uid],
                     stream_setup.streams[stream_id].cudastream);
+#endif // DEBUG_PRINT
         // update index
         read_start = read_end;
-#endif // DEBUG_PRINT
 
 #ifdef USEHIP
         roctxRangePop();
@@ -813,6 +829,11 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 #ifdef DEBUG_CHECK
         plchain_debug_analysis_short(stream_setup.streams[stream_id], uid, kernel_throughput);
 #endif // DEBUG_CHECK
+    }
+
+// FIXME: temporary solution for microbatching
+    if (read_start < n_read) {
+        fprintf(stderr, "[WARNING] Unable to fit reads %d - %d into a microbatch. Fall back to cpu chaining\n", read_start, n_read-1);
     }
 
     // step6: copy back long_segs_og

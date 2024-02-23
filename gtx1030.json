@@ -1,11 +1,11 @@
 {
-    "//config is for": "a6000. Fits one batch + 5% x 4 long buffer avg_read_n 10k",
+    "//config is for": "AMD Radeon RX 6800 XT on amdxfx. Fits one batch + 5% x 4 long buffer avg_read_n 10k",
     "num_streams": 1,
     "min_n": 512, 
     "//min_n": "queries with less anchors will be handled on cpu",
-    "long_seg_buffer_size": 258880000,
-    "max_total_n": 893440000, 
-    "max_read": 893440,
+    "long_seg_buffer_size": 78880000,
+    "max_total_n": 493440000, 
+    "max_read": 493440,
     "avg_read_n": 20000,
     "//avg_read_n": "expect average number of anchors per read, not used if max_total_n and max_read are specified",
     "range_kernel": {

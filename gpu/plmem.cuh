@@ -93,6 +93,7 @@ typedef struct {
 
 typedef struct stream_ptr_t{
     chain_read_t *reads;
+    size_t n_read;
     hostMemPtr host_mems[MICRO_BATCH];
     longMemPtr long_mem;
     deviceMemPtr dev_mem;
