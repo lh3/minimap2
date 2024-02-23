@@ -49,7 +49,7 @@ void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
     fprintf(stderr, "[Info] Host Malloc Pinned Memory Size %.2f GB (long seg)\n", (float)host_mem_size / OneG);
 #endif
     // data array
-    cudaMallocHost((void**)&long_mem->long_segs, buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
+    cudaMallocHost((void**)&long_mem->long_segs_og_idx, buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
     cudaMallocHost((void**)&long_mem->f_long, buffer_size_long * sizeof(int32_t));
     cudaMallocHost((void**)&long_mem->p_long, buffer_size_long * sizeof(uint16_t));
     cudaMallocHost((void**)&long_mem->total_long_segs_num, sizeof(unsigned int));
@@ -72,7 +72,7 @@ void plmem_free_host_mem(hostMemPtr *host_mem) {
 }
 
 void plmem_free_long_mem(longMemPtr *long_mem) { 
-    cudaFreeHost(long_mem->long_segs);
+    cudaFreeHost(long_mem->long_segs_og_idx);
     cudaFreeHost(long_mem->f_long);
     cudaFreeHost(long_mem->p_long);
     cudaFreeHost(long_mem->total_long_segs_num);
@@ -314,7 +314,7 @@ void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
     cudaMemcpyAsync(host_mem->p, dev_mem->d_p,
                     sizeof(uint16_t) * host_mem->total_n,
                     cudaMemcpyDeviceToHost, *stream);
-    cudaMemcpyAsync(long_mem->long_segs, dev_mem->d_long_seg_og,
+    cudaMemcpyAsync(long_mem->long_segs_og_idx, dev_mem->d_long_seg_og,
                     dev_mem->buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t),
                     cudaMemcpyDeviceToHost, *stream);
     cudaMemcpyAsync(host_mem->long_segs_num, dev_mem->d_long_seg_count,
@@ -348,7 +348,7 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
     longMemPtr *long_mem = &stream_ptrs->long_mem;
     deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
     cudaStream_t *stream = &stream_ptrs->cudastream;
-    cudaMemcpyAsync(long_mem->long_segs, dev_mem->d_long_seg_og,
+    cudaMemcpyAsync(long_mem->long_segs_og_idx, dev_mem->d_long_seg_og,
                     dev_mem->buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t),
                     cudaMemcpyDeviceToHost, *stream);
     // cudaMemcpyAsync(&long_mem->total_long_segs_num, dev_mem->d_long_seg_count,

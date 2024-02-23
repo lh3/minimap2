@@ -439,8 +439,6 @@ void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, deviceMemPtr* d
 
 #ifdef DEBUG_CHECK
 void plchain_debug_analysis_short(stream_ptr_t stream, int uid, float throughput[]){
-    // TODO: analysis multiple or current host mems
-    // TODO: this needs to be recalculated
     cudaStreamSynchronize(stream.cudastream);
     size_t total_n = stream.host_mems[uid].total_n;
     chain_read_t* reads = stream.reads;
@@ -642,8 +640,9 @@ int plchain_finish_batch(streamSetup_t stream_setup, int stream_id, Misc misc, v
 #endif
 
 
-    seg_t* long_segs = stream_setup.streams[stream_id].long_mem.long_segs;
+    seg_t* long_segs = stream_setup.streams[stream_id].long_mem.long_segs_og_idx;
     size_t long_seg_idx = 0;
+    size_t long_i = 0;
     for (int uid = 0; uid < MICRO_BATCH; uid++) {
         // regorg long to each host mem ptr
         // NOTE: this is the number of long segs till this microbatch
@@ -654,7 +653,13 @@ int plchain_finish_batch(streamSetup_t stream_setup, int stream_id, Misc misc, v
 #endif // DEBUG_PRINT
         size_t total_n_long_segs = 0;
         for (; long_seg_idx < long_segs_num; long_seg_idx++) {
-            // TODO: write long_segs + long_seg_idx to f/p
+            for (size_t i = long_segs[long_seg_idx].start_idx;
+                 i < long_segs[long_seg_idx].end_idx; i++, long_i++) {
+                stream_setup.streams[stream_id].host_mems[uid].f[i] =
+                    stream_setup.streams[stream_id].long_mem.f_long[long_i];
+                stream_setup.streams[stream_id].host_mems[uid].p[i] =
+                    stream_setup.streams[stream_id].long_mem.p_long[long_i];
+            }
             total_n_long_segs += long_segs[long_seg_idx].end_idx - long_segs[long_seg_idx].start_idx;
         }
 
@@ -673,7 +678,6 @@ int plchain_finish_batch(streamSetup_t stream_setup, int stream_id, Misc misc, v
 #endif // DEBUG_PRINT
     }
 
-    
 #ifdef DEBUG_PRINT
     fprintf(stderr, "----------------------------------------------------------------------------\n             ");
     for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "       Short%d", uid);
@@ -1029,9 +1033,6 @@ void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t*
 
     n_read = plchain_finish_batch(stream_setup, t, misc, km);
     reads = stream_setup.streams[t].reads;
-#ifdef DEBUG_PRINT
-    fprintf(stderr, "[Debug] %s finish (%s:%d) n_read %d\n", __func__, __FILE__, __LINE__, n_read);
-#endif // DEBUG_PRINT
     stream_setup.streams[t].busy = false;
 
     for (int i = 0; i < n_read; i++) {
