@@ -386,22 +386,24 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
                                 int32_t* f, uint16_t* p, unsigned int* map){
     int tid = threadIdx.x;
     int bid = blockIdx.x;
+    unsigned int seg_count = 0;
     __shared__ unsigned int segid;
     if (tid == 0 && bid == 0) {
         // init the first batch as the size of the grid
-        curr_long_segid = 0;
+        curr_long_segid = gridDim.x;
     }
     if (tid == 0) {
-        segid = atomicAdd(&curr_long_segid, 1);
+        segid = bid;
     }
-    // #ifdef DEBUG_VERBOSE
-    // auto start = clock64();
-    // #endif
+    #ifdef DEBUG_VERBOSE
+    auto start = clock64();
+    #endif
     __syncthreads();
     while (segid < *long_seg_count) {
         seg_t seg = long_seg[map[segid]]; // sorted
         // seg_t seg = long_seg[segid]; // unsorted
         compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+        seg_count++;
         if (tid == 0) segid = atomicAdd(&curr_long_segid, 1);
         __syncthreads();
     }
@@ -411,12 +413,12 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     //     // seg_t seg = long_seg[segid]; // unsorted
     //     compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     // }
-    // #ifdef DEBUG_VERBOSE
-    // auto end = clock64();
-    // if (threadIdx.x == 0) {
-    //     printf("bid: %d, long kernel time: %lu\n", bid, end - start);
-    // }
-    // #endif
+    #ifdef DEBUG_VERBOSE
+    auto end = clock64();
+    if (threadIdx.x == 0) {
+        printf("bid: %d, long kernel time: %lu, process %u segs\n", bid, end - start, seg_count);
+    }
+    #endif
 }
 
 __global__ void score_generation_naive(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,

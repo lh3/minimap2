@@ -29,13 +29,14 @@ module load rocm-5.7.1
 # Replace the following line with the actual command(s) you want to run
 cd $MM2_ROOT
 make clean
-make MICRO_BATCH=7 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=100 DEBUG=1 DEBUG_ANALYSIS=1
+make MICRO_BATCH=2 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=50 DEBUG=1 DEBUG_ANALYSIS=1
+omnitrace-sample -PTDH -E all -I rocm-smi -I roctracer -I rocprofiler -I roctx -o omni_output -- ./minimap2 -K 2500000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_1GBases_100kto300k.fa
+
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_200kto300k.fa
 # rocprof --stats -o rocprof_output/long_seg.${SLURM_JOB_ID}.csv ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/short_seg_reads_from_1kto10k_distri.fa
 # rocprof --stats -o rocprof_output/long_seg.${SLURM_JOB_ID}.csv ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa 
 # omnitrace-sample -PTDH -E all -I rocm-smi -I roctracer -I rocprofiler -I roctx -o omni_output -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_200kto300k.fa
-omnitrace-sample -PTDH -E all -I rocm-smi -I roctracer -I rocprofiler -I roctx -o omni_output -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa
 # omnitrace-sample -PTDH -E all -I rocm-smi -I roctracer -I rocprofiler -I roctx -o omni_output -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_7GBases_10kto300k.fa
 # Optional: You can add post-processing commands here
 
