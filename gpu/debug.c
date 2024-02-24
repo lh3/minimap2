@@ -180,6 +180,32 @@ void debug_print_score(const int64_t *p, const int32_t *score, int64_t n) {
     read_idx++;
 }
 
+
+void debug_print_score_rel_p(const uint16_t *p, const int32_t *score, int64_t n) {
+    static FILE *fout_score = NULL;
+    static int read_idx = 0;
+    if (fout_score == NULL) {
+        char fout_score_filename[50];
+        strcpy(fout_score_filename, debug_folder);
+        strcat(fout_score_filename, ".score.out");
+        if ((fout_score = fopen(fout_score_filename, "w+")) == NULL) {
+            fprintf(stderr, "[Error]: Cannot create score output file: %s \n",
+                   fout_score_filename);
+            exit(1);
+        }
+        fprintf(stderr, "[Info] Writing score to file %s\n",
+                fout_score_filename);
+        fprintf(fout_score, "@@@<qname\tqlen\n");
+    }
+    fprintf(fout_score, "<%ld\t\n", read_idx);
+    fprintf(fout_score, "#%ld\n", n);
+    for (int i = 0; i < n; ++i) {
+        fprintf(fout_score, "%d,%u\t", score[i], (unsigned int)p[i]);
+    }
+    fprintf(fout_score, "\n");
+    read_idx++;
+}
+
 void debug_print_chain(mm128_t *a, uint64_t *u, int32_t n_u, char* qname) {
     static FILE *fout_chain = NULL;
     if (fout_chain == NULL) {

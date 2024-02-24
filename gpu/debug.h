@@ -60,6 +60,7 @@ void debug_output_meta(const char debug_folder[], input_meta_t *meta);
 void debug_print_successor_range(int32_t *range, int64_t n);
 int debug_print_cut(const size_t *cut, size_t max_cut, size_t n, size_t offset, char* qname);
 void debug_print_score(const int64_t *p, const int32_t *score, int64_t n);
+void debug_print_score_rel_p(const uint16_t *p, const int32_t *score, int64_t n);
 void debug_print_chain(mm128_t* a, uint64_t *u, int32_t n_u, char* qname);
 void debug_print_regs(mm_reg1_t *regs, int n_u, char *qname);
 void debug_print_segs(seg_t *segs, chain_read_t *reads, int num_segs, int num_reads);

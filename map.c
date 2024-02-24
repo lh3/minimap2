@@ -1031,6 +1031,12 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 				// check if the returned batch exits, and/or is the launched_batch.
 				if (kernel_batch.reads) { // if chain_stream_gpu return non NULL reads
 					assert(tr->has_launched);
+					// FIXME: temporary solution for reads fail to fit in microbatch
+					// cpu kernel
+					for (kernel_batch.count; kernel_batch.count<tr->launched_batch.count; kernel_batch.count++) {
+						fprintf(stderr, "[WARNING] Run CPU kernel for read %d\n", kernel_batch.count);
+						mm_map_chain(s->p->mi, s->p->opt, &kernel_batch.reads[kernel_batch.count], b, tr->launched_batch.km);
+					}
 					assert(kernel_batch.count == tr->launched_batch.count);
 					kernel_batch = tr->launched_batch;
 					tr->launched_batch = tr->acc_batch;
@@ -1068,6 +1074,12 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 			assert(i_in == -1 && tr->has_launched);
 			mm_batch_trbuf_t kernel_batch;
 			finish_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
+			// FIXME: temporary solution for reads fail to fit in microbatch
+			// cpu kernel
+			for (kernel_batch.count; kernel_batch.count<tr->launched_batch.count; kernel_batch.count++) {
+				fprintf(stderr, "[WARNING] Run CPU kernel for read %d\n", iread);
+				mm_map_chain(s->p->mi, s->p->opt, &kernel_batch.reads[kernel_batch.count], b, kernel_batch.km);
+			}
 			assert(kernel_batch.count == tr->launched_batch.count);
 			kernel_batch = tr->launched_batch;
 			tr->is_full = 0;
