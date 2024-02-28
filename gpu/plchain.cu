@@ -104,8 +104,6 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, 
 
     uint16_t* p_hostmem = host_mem->p;
     int32_t* f = host_mem->f;
-    // FIXME: DISABLED BACKTRACK, REMOVE THE RETURN HERE
-    return;
     for (int i = 0; i < n_read; i++) {
         int64_t* p;
         KMALLOC(km, p, reads[i].n);
