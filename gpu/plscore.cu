@@ -395,7 +395,7 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     if (tid == 0) {
         segid = bid;
     }
-    #ifdef DEBUG_VERBOSE
+    #ifdef DEBUG_CHECK
     auto start = clock64();
     #endif
     __syncthreads();
@@ -413,7 +413,7 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     //     // seg_t seg = long_seg[segid]; // unsorted
     //     compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     // }
-    #ifdef DEBUG_VERBOSE
+    #ifdef DEBUG_CHECK
     auto end = clock64();
     if (threadIdx.x == 0) {
         printf("bid: %d, long kernel time: %lu, process %u segs\n", bid, end - start, seg_count);
@@ -611,6 +611,20 @@ void plscore_async_long_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream) 
         dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long, dev_mem->d_map);
     #endif
     cudaCheck();
+
+
+    // #ifdef __LONG_BLOCK_SIZE__
+    // // fprintf(stderr, "long block size: %d\n", __LONG_BLOCK_SIZE__);
+    // score_generation_long<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+    //     dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
+    //     dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long);
+    // #else
+    // dim3 longDimBlock(score_kernel_config.long_blockdim, 1, 1);
+    // score_generation_long<<<longDimGrid, longDimBlock, 0, *stream>>>(
+    //     dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
+    //     dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long);
+    // #endif
+    // cudaCheck();
 
 #ifdef DEBUG_PRINT
     // fprintf(stderr, "[Info] %s (%s:%d) long score generation launched\n", __func__, __FILE__, __LINE__);
