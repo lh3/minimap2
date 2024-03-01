@@ -922,7 +922,7 @@ void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t
 // void chain_stream_gpu(const input_meta_t* meta, chain_read_t**in_arr_, int *n_read_) {
 //     static int batchid = 0;
 //     Misc misc = build_misc(INT64_MAX);
-//     plchain_cal_score_launch(in_arr_, n_read_, misc, stream_setup, batchid);
+//     chain_stream_gpu(in_arr_, n_read_, misc, stream_setup, batchid);
 //     batchid++;
 //     if (in_arr_){
 //         int n_read = *n_read_;

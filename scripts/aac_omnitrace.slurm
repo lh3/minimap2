@@ -28,8 +28,8 @@ module load rocm-5.7.1
 # export AMD_LOG_LEVEL=4
 # Replace the following line with the actual command(s) you want to run
 cd $MM2_ROOT
-# make clean
-# make MICRO_BATCH=2 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=50 DEBUG=1 DEBUG_ANALYSIS=1
+make clean
+make MICRO_BATCH=5 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=100 DEBUG=1 DEBUG_ANALYSIS=1
 # omnitrace-sample -PTDH -E all -I rocm-smi -I roctracer -I rocprofiler -I roctx -o omni_output -- ./minimap2 -K 2500000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_1GBases_100kto300k.fa
 omnitrace-sample -PTDH -E all -I rocm-smi -I roctracer -I rocprofiler -I roctx -o omni_output -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa
 
