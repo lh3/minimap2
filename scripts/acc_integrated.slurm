@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1           # Number of tasks (processes) per node
 #SBATCH --cpus-per-task=16             # Number of CPU cores per task
 #SBATCH --mem=500g                      # Memory per node
-#SBATCH --time=01:40:00               # Maximum execution time (HH:MM:SS)
+#SBATCH --time=10:40:00               # Maximum execution time (HH:MM:SS)
 #SBATCH --output=slurm_output/sample_sbatch_job.%j.out    # Output file
 #SBATCH --error=slurm_output/sample_sbatch_job.%j.err     # Error file
 
@@ -39,7 +39,18 @@ cd $MM2_ROOT
 # export AMD_LOG_LEVEL=4
 make clean
 make MICRO_BATCH=5 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=40 DEBUG=1 DEBUG_ANALYSIS=1
+./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/long_read_600M.fa 
+echo "Exit: $?"
+./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_10kto20k.fa
+echo "Exit: $?"
+./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_40kto50k.fa
+echo "Exit: $?"
+./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_10kto300k.fa
+echo "Exit: $?"
 ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa
+echo "Exit: $?"
+./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_100kto300k.fa
+echo "Exit: $?"
 # ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_4GBases_10kto300k.fa 
 
 

@@ -104,6 +104,8 @@ void plchain_backtracking(hostMemPtr *host_mem, chain_read_t *reads, Misc misc, 
 
     uint16_t* p_hostmem = host_mem->p;
     int32_t* f = host_mem->f;
+    // FIXME: DISABLED BACKTRACK, REMOVE THE RETURN HERE
+    return;
     for (int i = 0; i < n_read; i++) {
         int64_t* p;
         KMALLOC(km, p, reads[i].n);
@@ -803,24 +805,23 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 #ifdef USEHIP
         roctxRangePop();
 #endif
-
+        plmem_async_h2d_short_memcpy(&stream_setup.streams[stream_id], uid);
+        // step3: range selection
 #ifdef DEBUG_PRINT
         cudaEventRecord(stream_setup.streams[stream_id].short_kernel_start_event[uid],
                     stream_setup.streams[stream_id].cudastream);
 #endif // DEBUG_PRINT
-        plmem_async_h2d_short_memcpy(&stream_setup.streams[stream_id], uid);
-        // step3: range selection
         plrange_async_range_selection(&stream_setup.streams[stream_id].dev_mem,
                                     &stream_setup.streams[stream_id].cudastream);
         // step4: score generation for short and mid segs
         plscore_async_short_mid_forward_dp(&stream_setup.streams[stream_id].dev_mem,
                                     &stream_setup.streams[stream_id].cudastream);
-        // step5: copy short and mid results back
-        plmem_async_d2h_short_memcpy(&stream_setup.streams[stream_id], uid);
 #ifdef DEBUG_PRINT
         cudaEventRecord(stream_setup.streams[stream_id].short_kernel_stop_event[uid],
                     stream_setup.streams[stream_id].cudastream);
 #endif // DEBUG_PRINT
+        // step5: copy short and mid results back
+        plmem_async_d2h_short_memcpy(&stream_setup.streams[stream_id], uid);
         // update index
         read_start = read_end;
 
@@ -872,9 +873,9 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
                     stream_setup.streams[stream_id].cudastream);
     plscore_async_long_forward_dp(&stream_setup.streams[stream_id].dev_mem,
                                    &stream_setup.streams[stream_id].cudastream);
-    plmem_async_d2h_long_memcpy(&stream_setup.streams[stream_id]);
     cudaEventRecord(stream_setup.streams[stream_id].stopevent,
                     stream_setup.streams[stream_id].cudastream);
+    plmem_async_d2h_long_memcpy(&stream_setup.streams[stream_id]);
     stream_setup.streams[stream_id].busy = true;
     cudaCheck();
 }
@@ -922,7 +923,7 @@ void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t
 // void chain_stream_gpu(const input_meta_t* meta, chain_read_t**in_arr_, int *n_read_) {
 //     static int batchid = 0;
 //     Misc misc = build_misc(INT64_MAX);
-//     chain_stream_gpu(in_arr_, n_read_, misc, stream_setup, batchid);
+//     plchain_cal_score_launch(in_arr_, n_read_, misc, stream_setup, batchid);
 //     batchid++;
 //     if (in_arr_){
 //         int n_read = *n_read_;
