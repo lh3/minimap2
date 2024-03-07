@@ -6,7 +6,8 @@ INCLUDES=	-I .
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o \
 			lchain.o align.o hit.o seed.o map.o format.o pe.o esterr.o splitidx.o \
 			ksw2_ll_sse.o
-PROG=		minimap2
+# PROG=		minimap2-zerobranch-debug
+PROG=		minimap2-nobalance-debug
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread 
 
@@ -65,7 +66,7 @@ include gpu/gpu.mk
 
 
 # compile with nvcc/hipcc
-minimap2:main.o libminimap2.a
+$(PROG):main.o libminimap2.a
 		$(GPU_CC) $(CFLAGS) $(GPU_FLAGS) main.o -o $@ -L. -lminimap2 $(LIBS)
 
 minimap2-lite:example.o libminimap2.a

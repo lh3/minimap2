@@ -45,8 +45,8 @@ echo "Exit: $?"
 echo "Exit: $?"
 ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_40kto50k.fa
 echo "Exit: $?"
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_10kto300k.fa
-echo "Exit: $?"
+#./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_10kto300k.fa
+#echo "Exit: $?"
 ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa
 echo "Exit: $?"
 ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_100kto300k.fa

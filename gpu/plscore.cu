@@ -16,17 +16,22 @@ __device__ unsigned curr_long_segid;
 
 /* arithmetic functions begin */
 
-__device__ static inline float cuda_mg_log2(float x) // NB: this doesn't work when x<2
+// __device__ static inline float cuda_mg_log2(float x) // NB: this doesn't work when x<2
+// {
+// 	union { float f; uint32_t i; } z = { x };
+// 	float log_2 = ((z.i >> 23) & 255) - 128;
+// 	z.i &= ~(255 << 23);
+// 	z.i += 127 << 23;
+// 	log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
+// 	return log_2;
+// }
+
+__device__ static inline float cuda_mg_log2(int32_t x) // NB: this doesn't work when x<2
 {
-	union { float f; uint32_t i; } z = { x };
-	float log_2 = ((z.i >> 23) & 255) - 128;
-	z.i &= ~(255 << 23);
-	z.i += 127 << 23;
-	log_2 += (-0.34484843f * z.f + 2.02466578f) * z.f - 0.67487759f;
-	return log_2;
+    return 31 - __clz(x);
 }
 
-__device__ int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
+__device__ int32_t original_comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
                                 const int8_t sidi,  const int8_t sidj,
                                 int32_t max_dist_x, int32_t max_dist_y,
                                 int32_t bw, float chn_pen_gap,
@@ -63,6 +68,38 @@ __device__ int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32
     }
     return sc;
 }
+
+__device__ int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
+                                const int8_t sidi,  const int8_t sidj,
+                                int32_t max_dist_x, int32_t max_dist_y,
+                                int32_t bw, float chn_pen_gap,
+                                float chn_pen_skip, int is_cdna, int n_seg) {
+    int32_t dq = ai_y - aj_y, dr, dd, dg, sc;
+    dr = ai_x - aj_x;
+    dd = __sad(dr, dq, 0);
+
+    if (dq <= 0 || dq > max_dist_x ||
+        (sidi == sidj && (dr == 0 || 
+                        dq > max_dist_y || 
+                        dd > bw || 
+                        (n_seg > 1 && !is_cdna && dr > max_dist_y))))
+        return INT32_MIN;
+    
+    dg = dr < dq ? dr : dq; // dg = min(dr, dq)
+    sc = MM_QSPAN < dg ? MM_QSPAN : dg; // sc = min(q_span, dr, dq)
+    if (dd || dg > MM_QSPAN) {
+        int32_t log_pen = dd >= 1 ? (31 - __clz(dd+1)) : 0;
+        int32_t lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
+        // Initial conditions for modifying score based on penalties
+        bool minorBonus = is_cdna && sidi != sidj && dr == 0;
+        bool majorAdjustment = (is_cdna && dg == dq) || sidi != sidj;
+        sc += minorBonus;
+        sc -= (!minorBonus && majorAdjustment) * (int)(lin_pen < log_pen ? lin_pen : log_pen);
+        sc -= (!minorBonus && !majorAdjustment) * (int)(lin_pen + 0.5f * log_pen);
+    }
+    return sc;
+}
+
 
 /* arithmetic functions end */
 
@@ -387,6 +424,11 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     int tid = threadIdx.x;
     int bid = blockIdx.x;
     unsigned int seg_count = 0;
+
+    // #ifdef DEBUG_CHECK
+    // auto start = clock64();
+    // #endif
+
     __shared__ unsigned int segid;
     if (tid == 0 && bid == 0) {
         // init the first batch as the size of the grid
@@ -395,9 +437,7 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     if (tid == 0) {
         segid = bid;
     }
-    // #ifdef DEBUG_CHECK
-    // auto start = clock64();
-    // #endif
+
     __syncthreads();
     while (segid < *long_seg_count) {
         seg_t seg = long_seg[map[segid]]; // sorted
@@ -412,6 +452,7 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     //     seg_t seg = long_seg[map[segid]]; // sorted
     //     // seg_t seg = long_seg[segid]; // unsorted
     //     compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
+    //     seg_count++;
     // }
     // #ifdef DEBUG_CHECK
     // auto end = clock64();

@@ -5,7 +5,7 @@
 #SBATCH --nodes=1                     # Number of nodes
 #SBATCH --ntasks-per-node=1           # Number of tasks (processes) per node
 #SBATCH --cpus-per-task=16             # Number of CPU cores per task
-#SBATCH --mem=400g                      # Memory per node
+#SBATCH --mem=500g                      # Memory per node
 #SBATCH --time=06:00:00               # Maximum execution time (HH:MM:SS)
 #SBATCH --output=slurm_output/sample_sbatch_job.%j.out    # Output file
 #SBATCH --error=slurm_output/sample_sbatch_job.%j.err     # Error file
@@ -22,13 +22,14 @@ module unuse /shared/apps/modules/sles15sp4/modulefiles
 module unuse /shared/apps/modules/centos8/modulefiles
 module unuse /shared/apps/modules/rocky9/modulefiles
 
-# module load rocm-5.7.1
-module load rocm/6.0.0
+module purge
+module load rocm-5.7.1
+# module load rocm/6.0.0
 # export AMD_LOG_LEVEL=4
 # Replace the following line with the actual command(s) you want to run
 cd $MM2_ROOT
-make clean
-make MICRO_BATCH=4 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=100
+# make clean
+# make MICRO_BATCH=5 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=40
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_200kto300k.fa
 omniperf profile -p omniperf_output -n long_seg_${SLURM_JOB_ID} --device 0 -- ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa
