@@ -45,7 +45,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->alt_drop = 0.15f;
 
 	opt->a = 2, opt->b = 4, opt->q = 4, opt->e = 2, opt->q2 = 24, opt->e2 = 1;
-	opt->transition = opt->b;
+	opt->transition = 0;
 	opt->sc_ambi = 1;
 	opt->zdrop = 400, opt->zdrop_inv = 200;
 	opt->end_bonus = -1;
@@ -91,7 +91,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	if (preset == 0) {
 		mm_idxopt_init(io);
 		mm_mapopt_init(mo);
-	} else if (strcmp(preset, "map-ont") == 0) { // this is the same as the default
+	} else if (strcmp(preset, "lr") == 0 || strcmp(preset, "map-ont") == 0) { // this is the same as the default
 	} else if (strcmp(preset, "ava-ont") == 0) {
 		io->flag = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_ALL_CHAINS | MM_F_NO_DIAG | MM_F_NO_DUAL | MM_F_NO_LJOIN;
@@ -106,13 +106,14 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->min_chain_score = 100, mo->pri_ratio = 0.0f, mo->max_chain_skip = 25;
 		mo->bw_long = mo->bw;
 		mo->occ_dist = 0;
-	} else if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
+	} else if (strcmp(preset, "lr:hq") == 0 || strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->max_gap = 10000;
-		mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
-		mo->occ_dist = 500;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
-		mo->min_dp_max = 200;
+		if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
+			mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
+			mo->min_dp_max = 200;
+		}
 	} else if (strcmp(preset, "map-iclr-prerender") == 0) {
 		io->flag = 0, io->k = 15;
 		mo->b = 6, mo->transition = 1;
@@ -165,7 +166,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->junc_bonus = 9;
 		mo->zdrop = 200, mo->zdrop_inv = 100; // because mo->a is halved
 		if (strcmp(preset, "splice:hq") == 0)
-			mo->junc_bonus = 5, mo->b = 4, mo->q = 6, mo->q2 = 24;
+			mo->noncan = 5, mo->b = 4, mo->q = 6, mo->q2 = 24;
 	} else return -1;
 	return 0;
 }

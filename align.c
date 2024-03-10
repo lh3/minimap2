@@ -23,13 +23,14 @@ static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t sc
 
 static void ksw_gen_ts_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t transition, int8_t sc_ambi)
 {
-	assert(m==5);
-	ksw_gen_simple_mat(m,mat,a,b,sc_ambi);
+	assert(m == 5);
+	ksw_gen_simple_mat(m, mat, a, b, sc_ambi);
+	if (transition == 0 || transition == b) return;
 	transition = transition > 0? -transition : transition;
-	mat[0*m+2]=transition;  // A->G
-	mat[1*m+3]=transition;  // C->T
-	mat[2*m+0]=transition;  // G->A
-	mat[3*m+1]=transition;  // T->C
+	mat[0 * m + 2] = transition;  // A->G
+	mat[1 * m + 3] = transition;  // C->T
+	mat[2 * m + 0] = transition;  // G->A
+	mat[3 * m + 1] = transition;  // T->C
 }
 
 static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
@@ -334,7 +335,8 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr);
 		fputc('\n', stderr);
 	}
-	if (opt->b != opt->transition) flag |= KSW_EZ_GENERIC_SC;
+	if (opt->transition != 0 && opt->b != opt->transition)
+		flag |= KSW_EZ_GENERIC_SC;
 	if (opt->max_sw_mat > 0 && (int64_t)tlen * qlen > opt->max_sw_mat) {
 		ksw_reset_extz(ez);
 		ez->zdropped = 1;

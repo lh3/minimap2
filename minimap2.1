@@ -343,6 +343,10 @@ Matching score [2]
 .BI -B \ INT
 Mismatching penalty [4]
 .TP
+.BI -b \ INT
+Mismatching penalty for transitions [same as
+.BR -B ].
+.TP
 .BI -O \ INT1[,INT2]
 Gap open penalty [4,24]. If
 .I INT2
@@ -356,10 +360,19 @@ costs
 .RI min{ O1 + k * E1 , O2 + k * E2 }.
 In the splice mode, the second gap penalties are not used.
 .TP
+.BI -J \ INT
+Splice model [1]. 0 for the original minimap2 splice model that always penalizes non-GT-AG splicing;
+1 for the miniprot model that considers non-GT-AG. Option
+.B -C
+has no effect with the default
+.BR -J1 .
+.BR -J0 .
+.TP
 .BI -C \ INT
 Cost for a non-canonical GT-AG splicing (effective with
-.BR --splice )
-[0]
+.B --splice
+.BR -J0 )
+[0].
 .TP
 .BI -z \ INT1[,INT2]
 Truncate an alignment if the running alignment score drops too quickly along
@@ -569,15 +582,43 @@ are:
 Align noisy long reads of ~10% error rate to a reference genome. This is the
 default mode.
 .TP
+.B lr:hq
+Align accurate long reads (error rate <1%) to a reference genome
+.RB ( -k19
+.B -w19 -U50,500
+.BR -g10k ).
+This was recommended by ONT developers for recent Nanopore reads
+produced with chemistry v14 that can reach ~99% in accuracy.
+It was shown to work better for accurate Nanopore reads
+than
+.BR map-hifi .
+.TP
 .B map-hifi
 Align PacBio high-fidelity (HiFi) reads to a reference genome
-.RB ( -k19
-.B -w19 -U50,500 -g10k -A1 -B4 -O6,26 -E2,1
+.RB ( -xlr:hq
+.B -A1 -B4 -O6,26 -E2,1
 .BR -s200 ).
+It differs from
+.B lr:hq
+only in scoring. It has not been tested whether
+.B lr:hq
+would work better for PacBio HiFi reads.
 .TP
 .B map-pb
 Align older PacBio continuous long (CLR) reads to a reference genome
 .RB ( -Hk19 ).
+Note that this data type is effectively deprecated by HiFi.
+Unless you work on very old data, you probably want to use
+.B map-hifi
+or
+.BR lr:hq .
+.TP
+.B map-iclr
+Align Illumina Complete Long Reads (ICLR) to a reference genome
+.RB ( -k19
+.B -B6 -b4
+.BR -O10,50 ).
+This was recommended by Illumina developers.
 .TP
 .B asm5
 Long assembly to reference mapping
@@ -585,21 +626,21 @@ Long assembly to reference mapping
 .B -w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200
 .BR -N50 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
-divergence. Only use this preset if the average divergence is far below 5%.
+divergence. Use this preset if the average divergence is not much higher than 0.1%.
 .TP
 .B asm10
 Long assembly to reference mapping
 .RB ( -k19
 .B -w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200
 .BR -N50 ).
-Up to 10% sequence divergence.
+Use this if the average divergence is around 1%.
 .TP
 .B asm20
 Long assembly to reference mapping
 .RB ( -k19
 .B -w10 -U50,500 --rmq -r1k,100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200
 .BR -N50 ).
-Up to 20% sequence divergence.
+Use this if the average divergence is around several percent.
 .TP
 .B splice
 Long-read spliced alignment
@@ -615,13 +656,13 @@ costs are different during chaining; 4) the computation of the
 tag ignores introns to demote hits to pseudogenes.
 .TP
 .B splice:hq
-Long-read splice alignment for PacBio CCS reads
+Spliced alignment for accurate long RNA-seq reads such as PacBio iso-seq
 .RB ( -xsplice
 .B -C5 -O6,24
 .BR -B4 ).
 .TP
 .B sr
-Short single-end reads without splicing
+Short-read alignment without splicing
 .RB ( -k21
 .B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -b0 -r100 -p.5 -N20 -f1000,5000 -n2 -m25
 .B -s40 -g100 -2K50m --heap-sort=yes
