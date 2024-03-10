@@ -2076,7 +2076,7 @@ function paf_mapeval(args)
 		warn("Usage: paftools.js mapeval [options] <in.paf>|<in.sam>");
 		warn("Options:");
 		warn("  -r FLOAT   mapping correct if overlap_length/union_length>FLOAT [" + ovlp_ratio + "]");
-		warn("  -Q INT     print wrong mappings with mapQ>INT [don't print]");
+		warn("  -Q INT     print wrong mappings with mapQ>=INT [don't print]");
 		warn("  -m INT     0: eval the longest aln only; 1: first aln only; 2: all primary aln [0]");
 		exit(1);
 	}
