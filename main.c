@@ -77,6 +77,7 @@ static ko_longopt_t long_options[] = {
 	{ "print-chains",   ko_no_argument,       352 },
 	{ "no-hash-name",   ko_no_argument,       353 },
 	{ "secondary-seq",  ko_no_argument,       354 },
+	{ "ds",             ko_no_argument,       355 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -243,6 +244,7 @@ int main(int argc, char *argv[])
 		else if (c == 352) mm_dbg_flag |= MM_DBG_PRINT_CHAIN; // --print-chains
 		else if (c == 353) opt.flag |= MM_F_NO_HASH_NAME; // --no-hash-name
 		else if (c == 354) opt.flag |= MM_F_SECONDARY_SEQ; // --secondary-seq
+		else if (c == 355) opt.flag |= MM_F_OUT_DS; // --ds
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
 		} else if (c == 314) { // --frag
