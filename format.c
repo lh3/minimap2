@@ -139,10 +139,48 @@ int mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int a
 	return ret;
 }
 
+static void write_indel_ds(kstring_t *str, int64_t len, const uint8_t *seq, int64_t ll, int64_t lr) // write an indel to ds; adapted from minigraph
+{
+	int64_t i;
+	if (ll + lr >= len) {
+		mm_sprintf_lite(str, "[");
+		for (i = 0; i < len; ++i)
+			mm_sprintf_lite(str, "%c", "acgtn"[seq[i]]);
+		mm_sprintf_lite(str, "]");
+	} else {
+		int64_t k = 0;
+		if (ll > 0) {
+			mm_sprintf_lite(str, "[");
+			for (i = 0; i < ll; ++i)
+				mm_sprintf_lite(str, "%c", "acgtn"[seq[k+i]]);
+			mm_sprintf_lite(str, "]");
+			k += ll;
+		}
+		for (i = 0; i < len - lr - ll; ++i)
+			mm_sprintf_lite(str, "%c", "acgtn"[seq[k+i]]);
+		k += len - lr - ll;
+		if (lr > 0) {
+			mm_sprintf_lite(str, "[");
+			for (i = 0; i < lr; ++i)
+				mm_sprintf_lite(str, "%c", "acgtn"[seq[k+i]]);
+			mm_sprintf_lite(str, "]");
+		}
+	}
+}
+
 static void write_cs_ds_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int no_iden, int is_ds, int write_tag)
 {
-	int i, q_off, t_off;
+	int i, q_off, t_off, q_len = 0, t_len = 0;
 	if (write_tag) mm_sprintf_lite(s, "\t%cs:Z:", is_ds? 'd' : 'c');
+	for (i = 0; i < (int)r->p->n_cigar; ++i) {
+		int op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
+		if (op == MM_CIGAR_MATCH || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH)
+			q_len += len, t_len += len;
+		else if (op == MM_CIGAR_INS)
+			q_len += len;
+		else if (op == MM_CIGAR_DEL || op == MM_CIGAR_N_SKIP)
+			t_len += len;
+	}
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert((op >= MM_CIGAR_MATCH && op <= MM_CIGAR_N_SKIP) || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH);
@@ -168,14 +206,42 @@ static void write_cs_ds_core(kstring_t *s, const uint8_t *tseq, const uint8_t *q
 			}
 			q_off += len, t_off += len;
 		} else if (op == MM_CIGAR_INS) {
-			for (j = 0, tmp[len] = 0; j < len; ++j)
-				tmp[j] = "acgtn"[qseq[q_off + j]];
-			mm_sprintf_lite(s, "+%s", tmp);
+			if (is_ds) {
+				int z, ll, lr, y = q_off;
+				for (z = 1; z <= len; ++z)
+					if (y - z < 0 || qseq[y + len - z] != qseq[y - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (y + len + z >= q_len || qseq[y + len + z] != qseq[y + z])
+						break;
+				ll = z;
+				mm_sprintf_lite(s, "+");
+				write_indel_ds(s, len, &qseq[y], ll, lr);
+			} else {
+				for (j = 0, tmp[len] = 0; j < len; ++j)
+					tmp[j] = "acgtn"[qseq[q_off + j]];
+				mm_sprintf_lite(s, "+%s", tmp);
+			}
 			q_off += len;
 		} else if (op == MM_CIGAR_DEL) {
-			for (j = 0, tmp[len] = 0; j < len; ++j)
-				tmp[j] = "acgtn"[tseq[t_off + j]];
-			mm_sprintf_lite(s, "-%s", tmp);
+			if (is_ds) {
+				int z, ll, lr, x = t_off;
+				for (z = 1; z <= len; ++z)
+					if (x - z < 0 || tseq[x + len - z] != tseq[x - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (x + len + z >= t_len || tseq[x + z] != tseq[x + len + z])
+						break;
+				ll = z;
+				mm_sprintf_lite(s, "-");
+				write_indel_ds(s, len, &tseq[x], ll, lr);
+			} else {
+				for (j = 0, tmp[len] = 0; j < len; ++j)
+					tmp[j] = "acgtn"[tseq[t_off + j]];
+				mm_sprintf_lite(s, "-%s", tmp);
+			}
 			t_off += len;
 		} else { // intron
 			assert(len >= 2);

@@ -361,6 +361,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
+		fprintf(fp_help, "    --ds         output the ds tag, which is an extension to cs\n");
 		fprintf(fp_help, "    --MD         output the MD tag\n");
 		fprintf(fp_help, "    --eqx        write =/X CIGAR operators\n");
 		fprintf(fp_help, "    -Y           use soft clipping for supplementary alignments\n");
