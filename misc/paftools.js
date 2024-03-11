@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.26-r1182-dirty';
+var paftools_version = '2.26-r1189-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -163,7 +163,7 @@ function fasta_read(fn)
 			if (line[0] == ">") {
 				if (seq != null && name != null) {
 					seqlen.push([name, seq.length]);
-					h[name] = seq.toString();
+					h[name] = new Uint8Array(seq.buffer);
 					name = seq = null;
 				}
 				var m;
@@ -175,7 +175,7 @@ function fasta_read(fn)
 		}
 		if (seq != null && name != null) {
 			seqlen.push([name, seq.length]);
-			h[name] = seq.toString();
+			h[name] = new Uint8Array(seq.buffer);
 		}
 	}
 	buf.destroy();
@@ -188,6 +188,7 @@ function fasta_free(fa)
 	if (typeof k8_version == "undefined")
 		for (var name in fa)
 			fa[name].destroy();
+	// FIXME: for k8-1.0, sequences are not freed. This is ok for now but not general.
 }
 
 Bytes.prototype.reverse = function()
@@ -404,7 +405,7 @@ function paf_call(args)
 		} else if (o[1] > 0) { // shouldn't happen in theory
 			if (fa[o[0]] == null) throw Error('sequence "' + o[0] + '" is absent from the reference FASTA');
 			if (o[1] >= fa[o[0]].length) throw Error('position ' + o[1] + ' exceeds the length of sequence "' + o[0] + '"');
-			var ref = typeof k8_version == "undefined"? String.fromCharCode(fa[o[0]][o[1]-1]).toUpperCase() : fa[o[0]][o[1]-1].toUpperCase();
+			var ref = String.fromCharCode(fa[o[0]][o[1]-1]).toUpperCase();
 			if (o[5] == '-') // insertion
 				v = [o[0], o[1], '.', ref, ref + o[6].toUpperCase()];
 			else // deletion
