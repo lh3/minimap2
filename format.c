@@ -344,7 +344,7 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->id == r->parent) type = r->inv? 'I' : 'P';
 	else type = r->inv? 'i' : 'S';
 	if (r->p) {
-		mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->blen - r->mlen + r->p->n_ambi, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
+		mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->blen - r->mlen + r->p->n_ambi, r->p->dp_max0, r->p->dp_score, r->p->n_ambi);
 		if (r->p->trans_strand == 1 || r->p->trans_strand == 2)
 			mm_sprintf_lite(s, "\tts:A:%c", "?+-?"[r->p->trans_strand]);
 	}

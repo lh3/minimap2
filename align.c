@@ -295,7 +295,7 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 			toff += len;
 		}
 	}
-	p->dp_max = (int32_t)(max + .499);
+	p->dp_max = p->dp_max0 = (int32_t)(max + .499);
 	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
 	if (is_eqx) mm_update_cigar_eqx(r, qseq, tseq); // NB: it has to be called here as changes to qseq and tseq are not returned
 }
