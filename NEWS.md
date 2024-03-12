@@ -1,9 +1,42 @@
+Release 2.27-rXXXX (XX March 2024)
+----------------------------------
+
+Notable changes to minimap2:
+
+ * New feature: added the `lr:hq` preset for accurate long reads at ~1% error
+   rate. This was suggested by Oxford Nanopore developers (#1127). It is not
+   clear if this preset also works well for PacBio HiFi reads.
+
+ * New feature: added the `map-iclr` preset for Illumina Complete Long Reads
+   (#1069), provided by Illumina developers. This change also added option `-b`
+   to specify mismatch penalty for transition mutations.
+
+ * New feature: added option `--ds` to generate a new `ds:Z` tag. `ds`
+   indicates uncertainty in INDEL positions. It is an extension to `cs`. The
+   `mgutils-es6.js` script in minigraph parses `ds`.
+
+ * Bugfix: avoided a NULL pointer dereference (#1154).
+
+ * Bugfix: reverted the value of `ms:i` to pre-2.22 versions (#1146). This was
+   an oversight. See fcd4df2 for details.
+
+Notable changes to paftools.js and mappy:
+
+ * New feature: expose `bw_long` to mappy's Aligner class (#1124).
+
+ * Bugfix: fixed several compatibility issues with k8 v1.0 (#1161 and #1166).
+   Subcommands "call", "pbsim2fq" and "mason2fq" were not working with v1.0.
+
+(2.27: XX March 2024, rXXXX)
+
+
+
 Release 2.26-r1175 (29 April 2023)
 ----------------------------------
 
 Fixed the broken Python package. This is the only change.
 
-(2.25: 25 April 2023, r1173)
+(2.26: 25 April 2023, r1173)
 
 
 
