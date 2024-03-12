@@ -3,7 +3,7 @@ from libc.stdlib cimport free
 cimport cmappy
 import sys
 
-__version__ = '2.26'
+__version__ = '2.27'
 
 cmappy.mm_reset_timer()
 

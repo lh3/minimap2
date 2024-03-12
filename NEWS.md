@@ -1,4 +1,4 @@
-Release 2.27-rXXXX (XX March 2024)
+Release 2.27-r1193 (12 March 2024)
 ----------------------------------
 
 Notable changes to minimap2:
@@ -8,14 +8,17 @@ Notable changes to minimap2:
    clear if this preset also works well for PacBio HiFi reads.
 
  * New feature: added the `map-iclr` preset for Illumina Complete Long Reads
-   (#1069), provided by Illumina developers. This change also added option `-b`
-   to specify mismatch penalty for transition mutations.
+   (#1069), provided by Illumina developers.
 
- * New feature: added option `--ds` to generate a new `ds:Z` tag. `ds`
+ * New feature: added option `-b` to specify mismatch penalty for base
+   transitions (i.e. A-to-G or C-to-T changes).
+
+ * New feature: added option `--ds` to generate a new `ds:Z` tag that
    indicates uncertainty in INDEL positions. It is an extension to `cs`. The
    `mgutils-es6.js` script in minigraph parses `ds`.
 
- * Bugfix: avoided a NULL pointer dereference (#1154).
+ * Bugfix: avoided a NULL pointer dereference (#1154). This would not have an
+   effect on most systems but would still be good to fix.
 
  * Bugfix: reverted the value of `ms:i` to pre-2.22 versions (#1146). This was
    an oversight. See fcd4df2 for details.
@@ -27,7 +30,9 @@ Notable changes to paftools.js and mappy:
  * Bugfix: fixed several compatibility issues with k8 v1.0 (#1161 and #1166).
    Subcommands "call", "pbsim2fq" and "mason2fq" were not working with v1.0.
 
-(2.27: XX March 2024, rXXXX)
+Minimap2 should output identical alignments to v2.26, except the ms tag.
+
+(2.27: 12 March 2024, r1193)
 
 
 
