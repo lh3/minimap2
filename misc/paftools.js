@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.26-r1189-dirty';
+var paftools_version = '2.26-r1191-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -193,10 +193,19 @@ function fasta_free(fa)
 
 Bytes.prototype.reverse = function()
 {
-	for (var i = 0; i < this.length>>1; ++i) {
-		var tmp = this[i];
-		this[i] = this[this.length - i - 1];
-		this[this.length - i - 1] = tmp;
+	if (typeof k8_version === "undefined") { // k8-0.x
+		for (var i = 0; i < this.length>>1; ++i) {
+			var tmp = this[i];
+			this[i] = this[this.length - i - 1];
+			this[this.length - i - 1] = tmp;
+		}
+	} else { // k8-1.x
+		var buf = new Uint8Array(this.buffer);
+		for (var i = 0; i < buf.length>>1; ++i) {
+			var tmp = buf[i];
+			buf[i] = buf[buf.length - i - 1];
+			buf[buf.length - i - 1] = tmp;
+		}
 	}
 }
 
@@ -211,13 +220,24 @@ Bytes.prototype.revcomp = function()
 		for (var i = 0; i < s1.length; ++i)
 			Bytes.rctab[s1.charCodeAt(i)] = s2.charCodeAt(i);
 	}
-	for (var i = 0; i < this.length>>1; ++i) {
-		var tmp = this[this.length - i - 1];
-		this[this.length - i - 1] = Bytes.rctab[this[i]];
-		this[i] = Bytes.rctab[tmp];
+	if (typeof k8_version === "undefined") { // k8-0.x
+		for (var i = 0; i < this.length>>1; ++i) {
+			var tmp = this[this.length - i - 1];
+			this[this.length - i - 1] = Bytes.rctab[this[i]];
+			this[i] = Bytes.rctab[tmp];
+		}
+		if (this.length&1)
+			this[this.length>>1] = Bytes.rctab[this[this.length>>1]];
+	} else { // k8-1.x
+		var buf = new Uint8Array(this.buffer);
+		for (var i = 0; i < buf.length>>1; ++i) {
+			var tmp = buf[buf.length - i - 1];
+			buf[buf.length - i - 1] = Bytes.rctab[buf[i]];
+			buf[i] = Bytes.rctab[tmp];
+		}
+		if (buf.length&1)
+			buf[buf.length>>1] = Bytes.rctab[buf[buf.length>>1]];
 	}
-	if (this.length&1)
-		this[this.length>>1] = Bytes.rctab[this[this.length>>1]];
 }
 
 /********************
