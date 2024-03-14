@@ -223,10 +223,10 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id, Misc misc
         // regorg long to each host mem ptr
         // NOTE: this is the number of long segs till this microbatch
         unsigned int long_segs_num = stream_setup.streams[stream_id].host_mems[uid].long_segs_num[0];
-#ifdef DEBUG_CHECK
+#ifdef DEBUG_VERBOSE
     fprintf(stderr, "[Debug] %s (%s:%d) MICROBATCH$%d FINISHED: long seg %lu - %u", 
                 __func__, __FILE__, __LINE__, uid, long_seg_idx, long_segs_num);
-#endif // DEBUG_CHECK
+#endif // DEBUG_VERBOSE
         size_t total_n_long_segs = 0;
         for (; long_seg_idx < long_segs_num; long_seg_idx++) {
             for (size_t i = long_segs[long_seg_idx].start_idx;
@@ -249,9 +249,9 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id, Misc misc
         kernel_throughput_anchors[uid] =
             (stream_setup.streams[stream_id].host_mems[uid].total_n - total_n_long_segs) /
             kernel_runtime_ms[uid] / (float)1000;
-#ifdef DEBUG_CHECK
+#ifdef DEBUG_VERBOSE
         fprintf(stderr, ", %.2f%% anchors are in long segs. \n", (float)total_n_long_segs /  stream_setup.streams[stream_id].host_mems[uid].total_n * 100);
-#endif // DEBUG_CHECK
+#endif // DEBUG_VERBOSE
 #endif // DEBUG_PRINT
     }
 
@@ -358,10 +358,10 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
             griddim += block_num;
             cut_num += (reads[read_end].n - 1) / an_p_cut + 1;
         }
-#ifdef DEBUG_CHECK
+#ifdef DEBUG_VERBOSE
         fprintf(stderr, "[Debug] %s (%s:%d) MICROBATCH#%d batch_n %lu, read_start %d, read_end %d usage %.2f %%\n", __func__, __FILE__, __LINE__, uid, batch_n, read_start, read_end, (float)batch_n/stream_setup.max_anchors_stream*100);
         kernel_mem_usage[uid] = (float)batch_n/stream_setup.max_anchors_stream*100;
-#endif // DEBUG_CHECK
+#endif // DEBUG_VERBOSE
 
         // sanity check
         assert(stream_setup.max_anchors_stream >= batch_n);
@@ -464,7 +464,32 @@ void init_stream_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
     plscore_upload_misc(misc);
 #ifdef DEBUG_PRINT
     fprintf(stderr, "[Info::%s] gpu initialized for chaining\n", __func__);
-#endif // DEBUG_PRINT
+    fprintf(stderr, "[Info::%s] Compile time config: \n", __func__);
+#ifdef USEHIP
+    fprintf(stderr, "\t\t USE HIP\n");
+#endif // USEHIP
+#ifdef GPU_CONFIG
+    fprintf(stderr, "\t\t GPU CONFIG      \t%s\n", GPU_CONFIG);
+#endif // GPU_CONFIG
+#ifdef __LONG_BLOCK_SIZE__
+    fprintf(stderr, "\t\t LONG BLOCK SIZE  \t%d\n", __LONG_BLOCK_SIZE__);
+#endif // __LONG_BLOCK_SIZE__
+#ifdef __SHORT_BLOCK_SIZE__
+    fprintf(stderr, "\t\t SHORT BLOCK SIZE \t%d\n", __SHORT_BLOCK_SIZE__);
+#endif // __SHORT_BLOCK_SIZE__
+#ifdef __MID_BLOCK_SIZE__
+    fprintf(stderr, "\t\t MID BLOCK SIZE   \t%d\n", __MID_BLOCK_SIZE__);
+#endif // __MID_BLOCK_SIZE__
+#ifdef MM_MID_SEG_CUTOFF
+    fprintf(stderr, "\t\t MID SEG CUTOFF   \t%d\n", MM_MID_SEG_CUTOFF);
+#endif // MM_MID_SEG_CUTOFF
+#ifdef MM_LONG_SEG_CUTOFF
+    fprintf(stderr, "\t\t LONG SEG CUTOFF  \t%d\n", MM_LONG_SEG_CUTOFF);
+#endif // MM_LONG_SEG_CUTOFF
+#ifdef MICRO_BATCH
+    fprintf(stderr, "\t\t MICRO BATCH       \t%d\n", MICRO_BATCH);
+#endif // MICRO_BATCH
+#endif  // DEBUG_PRINT
 }
 
 /**

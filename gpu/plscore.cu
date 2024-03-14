@@ -529,9 +529,9 @@ void plscore_async_long_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream) 
     size_t buffer_size_long = dev_mem->buffer_size_long;
     dim3 longDimGrid(score_kernel_config.long_griddim, 1, 1);
 
-#ifdef DEBUG_CHECK
-    fprintf(stderr, "[Info] %s (%s:%d) Long Grid Dim = %d\n", __func__, __FILE__, __LINE__, longDimGrid.x);
-#endif
+#ifdef DEBUG_VERBOSE
+    fprintf(stderr, "[Debug] %s (%s:%d) Long Grid Dim = %d\n", __func__, __FILE__, __LINE__, longDimGrid.x);
+#endif // DEBUG_VERBOSE
 
     #ifdef __LONG_BLOCK_SIZE__
     // fprintf(stderr, "long block size: %d\n", __LONG_BLOCK_SIZE__);
