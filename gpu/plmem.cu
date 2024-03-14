@@ -1,3 +1,6 @@
+/* GPU memory management  */
+
+
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
@@ -6,11 +9,6 @@
 #include "plrange.cuh"
 #include "plscore.cuh"
 #include <time.h>
-
-#define OneK 1024
-#define OneM (OneK*1024)
-#define OneG (OneM*1024)
-
 void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
                            int range_grid_size, size_t buffer_size_long) {
 #ifdef DEBUG_PRINT
@@ -330,7 +328,6 @@ void plmem_async_d2h_short_memcpy(stream_ptr_t *stream_ptrs, size_t uid) {
     hostMemPtr *host_mem = &stream_ptrs->host_mems[uid];
     deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
     cudaStream_t *stream = &stream_ptrs->cudastream;
-    // TODO: aggregate f and p
     cudaMemcpyAsync(host_mem->f, dev_mem->d_f,
                     sizeof(int32_t) * host_mem->total_n, cudaMemcpyDeviceToHost,
                     *stream);
@@ -459,10 +456,6 @@ void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_, size_t m
         exit(1);
     }
 
-    fprintf(stderr,
-            "[M: %s] max_grid: %zu, max_anchors_per_stream: %zu, "
-            "max_num_cut_per_stream: %zu \n",
-            __func__, *max_range_grid_, max_total_n, *max_num_cut_);
 }
 
 
@@ -560,9 +553,6 @@ void plmem_stream_initialize(size_t *max_total_n_,
     plmem_config_kernels(json);
     size_t gpu_free_mem, gpu_total_mem;
     cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
-#ifdef DEBUG_PRINT
-    fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB\n", (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
-#endif
     plmem_config_batch<false>(json, &num_stream, min_anchors_, &max_anchors_stream,
                               max_read_, &long_seg_buffer_size);
     plmem_config_stream(&max_range_grid, &max_num_cut, max_anchors_stream,

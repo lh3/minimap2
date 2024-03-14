@@ -45,14 +45,9 @@ else
 	GPU_TESTFL	= $(CUDATESTFLAG)
 endif
 
-ifneq ($(DEBUG),)
+ifeq ($(DEBUG),analyze)
 	GPU_FLAGS	+= $(GPU_TESTFL)
 endif
-
-ifneq ($(DEBUG_ANALYSIS),)
-	GPU_FLAGS	+= $(GPU_TESTFL)
-endif 
-
 
 %.o: %.cu
 	$(GPU_CC) -c $(GPU_FLAGS) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(CONFIG) $< -o $@

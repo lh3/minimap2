@@ -8,6 +8,11 @@
 #define MICRO_BATCH 1
 #endif // MICRO_BATCH
 
+#define OneK 1024
+#define OneM (OneK*1024)
+#define OneG (OneM*1024)
+
+
 typedef struct {
     int index;       // read index / batch index
     int griddim;     // grid for range selection kernel. 

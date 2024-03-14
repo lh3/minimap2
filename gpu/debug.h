@@ -49,6 +49,14 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip,
 );
 #endif  // DEBUG_CHECK_FORCE
 
+
+
+// Analyze Distribution
+
+void debug_cal_long_seg_range_dis(size_t total_n, size_t num_cut, int32_t* range);
+void debug_cal_mid_range_dis(size_t total_n, size_t num_cut, int32_t *range);
+void debug_cal_range_dis(size_t total_n, size_t num_cut, int32_t *range);
+void debug_cal_sc_pair_density(size_t total_n, size_t num_cut, size_t* cut, int32_t* range);
 #endif  // DEBUG_CHECK
 
 #ifdef DEBUG_VERBOSE
