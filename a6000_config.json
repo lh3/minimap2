@@ -1,12 +1,13 @@
 {
+    "//config is for": "a6000. Fits one batch + 5% x 4 long buffer avg_read_n 10k",
     "num_streams": 1,
     "min_n": 512, 
     "//min_n": "queries with less anchors will be handled on cpu",
-    "long_seg_buffer_size": 7888000,
-    "max_total_n": 4934400, 
-    "max_read": 49344,
+    "long_seg_buffer_size": 258880000,
+    "max_total_n": 893440000, 
+    "max_read": 893440,
     "avg_read_n": 20000,
-    "//avg_read_n": "expect average number of anchors per read",
+    "//avg_read_n": "expect average number of anchors per read, not used if max_total_n and max_read are specified",
     "range_kernel": {
         "blockdim": 512,
         "cut_check_anchors": 10,
@@ -18,8 +19,9 @@
         "short_blockdim": 64,
         "long_blockdim": 64,
         "mid_blockdim": 64,
-        "short_griddim": 16128,
-        "long_griddim": 2016,
-        "mid_griddim": 16128
+        "//blockdim config": "options are not used: static config specified at compile time (make ... LONG_BLOCK_SIZE=1024)",
+        "short_griddim": 2688,
+        "long_griddim": 1024,
+        "mid_griddim": 2688
     }
 }

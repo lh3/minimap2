@@ -502,7 +502,6 @@ void mm_map_chain(const mm_idx_t *mi, const mm_mapopt_t *opt,
 	mm128_v mv = {0,0,0};
 	float chn_pen_gap, chn_pen_skip;
 	double *timers = b->timers;
-	double t1 = realtime();
 
 	// set max chaining gap on the query and the reference sequence
 	if (is_sr)
@@ -561,7 +560,6 @@ void mm_map_chain(const mm_idx_t *mi, const mm_mapopt_t *opt,
 		}
 	}
 	*frag_gap = max_chain_gap_ref;
-	timers[MM_TIME_CHAIN] += realtime() - t1;
 }
 
 void mm_map_align(const mm_idx_t *mi, const mm_mapopt_t *opt,
@@ -838,6 +836,8 @@ typedef struct {
 // consolidate timers from worker threads
 void mm_consolidate_timers(step_t *s, pipeline_t *p)
 {
+	// TODO: disabled for sysbio submission
+	return;
 	mm_time_seed_min = 0;
     mm_time_chain_min = 0;
     mm_time_align_min = 0;
@@ -1016,18 +1016,23 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
     // Did we accumulate enough reads or get to the last batch of reads?
     while (tr->is_full || (i_in == -1 && tr->has_launched)) {
         // Chain
-
+		double t1 = realtime();
         /* perform chaining on acc_batch and move to launched_batch. move current pending batch to acc_batch. Store results in pending batch. */
 		if (tr->is_full) {
 
 			if (s->p->opt->flag & MM_F_GPU_CHAIN){
-				double t1 = realtime();
 				// chaining on GPU
 				mm_batch_trbuf_t kernel_batch = tr->acc_batch;
 				chain_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
 				// check if the returned batch exits, and/or is the launched_batch.
 				if (kernel_batch.reads) { // if chain_stream_gpu return non NULL reads
 					assert(tr->has_launched);
+					// FIXME: temporary solution for reads fail to fit in microbatch
+					// cpu kernel
+					for (kernel_batch.count; kernel_batch.count<tr->launched_batch.count; kernel_batch.count++) {
+						fprintf(stderr, "[WARNING] Run CPU kernel for read %d\n", kernel_batch.count);
+						mm_map_chain(s->p->mi, s->p->opt, &kernel_batch.reads[kernel_batch.count], b, tr->launched_batch.km);
+					}
 					assert(kernel_batch.count == tr->launched_batch.count);
 					kernel_batch = tr->launched_batch;
 					tr->launched_batch = tr->acc_batch;
@@ -1044,9 +1049,6 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 				}
 				tr->is_full = 0;
 				tr->has_launched = 1;
-				// endof gpu kernel
-				// NOTE: Because it just submit the GPU task, this timer doesn't make sense for GPU
-				b->timers[MM_TIME_CHAIN] += realtime() - t1;
 			} else {
 				// cpu kernel
 				for (iread=0; iread<tr->acc_batch.count; iread++) {
@@ -1065,6 +1067,12 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 			assert(i_in == -1 && tr->has_launched);
 			mm_batch_trbuf_t kernel_batch;
 			finish_stream_gpu(s->p->mi, s->p->opt, &kernel_batch.reads, &kernel_batch.count, tid, tr->launched_batch.km);
+			// FIXME: temporary solution for reads fail to fit in microbatch
+			// cpu kernel
+			for (kernel_batch.count; kernel_batch.count<tr->launched_batch.count; kernel_batch.count++) {
+				fprintf(stderr, "[WARNING] Run CPU kernel for read %d\n", iread);
+				mm_map_chain(s->p->mi, s->p->opt, &kernel_batch.reads[kernel_batch.count], b, kernel_batch.km);
+			}
 			assert(kernel_batch.count == tr->launched_batch.count);
 			kernel_batch = tr->launched_batch;
 			tr->is_full = 0;
@@ -1074,6 +1082,9 @@ static void worker_for(void *_data, long i_in, int tid) // kt_for() callback
 			tr->acc_batch = tr->pending_batch;
 			tr->pending_batch = kernel_batch;
         }
+
+		// NOTE: Because it just submit the GPU task, this timer doesn't make sense for GPU
+		b->timers[MM_TIME_CHAIN] += realtime() - t1;
 
         mm_batch_trbuf_t *batch = &tr->pending_batch;
 
@@ -1297,8 +1308,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 #if defined(__AMD_SPLIT_KERNELS__)
         step_t *s = (step_t *)in;
         if (p->opt->flag & MM_F_GPU_CHAIN) {
-            s->batch_max_anchors = p->opt->gpu_chain_max_anchors;
-            s->batch_max_reads = p->opt->gpu_chain_max_reads;
+            s->batch_max_anchors = MICRO_BATCH * p->opt->gpu_chain_max_anchors;
+			// fprintf(stderr, "s->batch_max_anchors = %lu, p->opt->gpu_chain_max_anchors = %lu\n", s->batch_max_anchors, p->opt->gpu_chain_max_anchors);
+            s->batch_max_reads = MICRO_BATCH * p->opt->gpu_chain_max_reads;
             s->gpu_min_n = p->opt->gpu_chain_min_n;
         } else {
             s->batch_max_anchors = SIZE_MAX;

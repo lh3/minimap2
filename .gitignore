@@ -16,7 +16,7 @@ verf
 trace
 ncu
 nsys
-profile_output*
+*_output*
 workloads
 .cmake/**
 .depend

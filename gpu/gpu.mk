@@ -5,6 +5,7 @@ CONFIG			+= $(if $(MID_BLOCK_SIZE),-D__MID_BLOCK_SIZE__=\($(MID_BLOCK_SIZE)\))
 CONFIG			+= $(if $(SHORT_BLOCK_SIZE),-D__SHORT_BLOCK_SIZE__=\($(SHORT_BLOCK_SIZE)\))
 CONFIG			+= $(if $(MID_CUT),-DMM_MID_SEG_CUTOFF=\($(MID_CUT)\))
 CONFIG			+= $(if $(LONG_CUT),-DMM_LONG_SEG_CUTOFF=\($(LONG_CUT)\))
+CONFIG			+= $(if $(MICRO_BATCH),-DMICRO_BATCH=\($(MICRO_BATCH)\))
 
 ###################################################
 ############  	CPU Compile 	###################
@@ -27,7 +28,8 @@ CUDATESTFLAG	= -G
 ###################################################
 HIPCC			= hipcc
 HIPFLAGS		= -DUSEHIP 
-HIPTESTFLAGS	= -G -Rpass-analysis=kernel-resource-usage
+HIPTESTFLAGS	= -G -Rpass-analysis=kernel-resource-usage -ggdb
+HIPLIBS			= -L${ROCM_PATH}/lib -lroctx64 -lroctracer64
 
 ###################################################
 ############	DEBUG Options	###################
@@ -36,20 +38,16 @@ ifeq ($(GPU), AMD)
 	GPU_CC 		= $(HIPCC)
 	GPU_FLAGS	= $(HIPFLAGS)
 	GPU_TESTFL	= $(HIPTESTFLAGS)
+	LIBS		+= $(HIPLIBS)
 else
 	GPU_CC 		= $(NVCC)
 	GPU_FLAGS	= $(CUDAFLAGS)
 	GPU_TESTFL	= $(CUDATESTFLAG)
 endif
 
-ifneq ($(DEBUG),)
+ifeq ($(DEBUG),analyze)
 	GPU_FLAGS	+= $(GPU_TESTFL)
 endif
-
-ifneq ($(DEBUG_ANALYSIS),)
-	GPU_FLAGS	+= $(GPU_TESTFL)
-endif 
-
 
 %.o: %.cu
 	$(GPU_CC) -c $(GPU_FLAGS) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(CONFIG) $< -o $@

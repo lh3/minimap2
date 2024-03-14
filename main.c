@@ -12,7 +12,7 @@
 #include "plutils.h"
 #endif  // (__AMD_SPLIT_KERNELS__)
 
-#define MM_VERSION "2.24-r1122"
+#define MM_VERSION "2.24-mm2-gb-biosys"
 
 #ifdef __linux__
 #include <sys/resource.h>
@@ -364,7 +364,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -Y           use soft clipping for supplementary alignments\n");
 		fprintf(fp_help, "    -t INT       number of threads [%d]\n", n_threads);
 		fprintf(fp_help, "    -K NUM       minibatch size for mapping [500M]\n");
-//		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
+		fprintf(fp_help, "    -v INT       verbose level [%d]\n", mm_verbose);
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see minimap2.1 for details) []\n");
@@ -434,7 +434,7 @@ int main(int argc, char *argv[])
         // initialize gpu
         if (opt.flag & MM_F_GPU_CHAIN) {
             // TODO: make misc different for each read
-            Misc misc = build_misc(&mi, &opt, 0, 1);
+            Misc misc = build_misc(mi, &opt, 0, 1);
             init_stream_gpu(&opt.gpu_chain_max_anchors,
                             &opt.gpu_chain_max_reads, &opt.gpu_chain_min_n,
                             misc);
@@ -474,20 +474,21 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "[M::%s] CMD:", __func__);
 		for (i = 0; i < argc; ++i)
 			fprintf(stderr, " %s", argv[i]);
-		fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec; Peak RSS: %.3f GB\n", __func__, realtime() - mm_realtime0, cputime(), peakrss() / 1024.0 / 1024.0 / 1024.0);
-		fprintf(stderr, "----------------------------------------------------\n");
-		fprintf(stderr, "              Sum (sec)  Avg (sec)  \n");
-		fprintf(stderr, "----------------------------------------------------\n");
-        fprintf(stderr, "Seed    = %11.3f %11.3f\n", mm_time_seed_sum,
-                mm_time_seed_sum / (double)n_threads);
-        fprintf(stderr, "Chain   = %11.3f %11.3f\n", mm_time_chain_sum,
-                mm_time_chain_sum / (double)n_threads);
-        fprintf(stderr, "Align   = %11.3f %11.3f\n", mm_time_align_sum,
-                mm_time_align_sum / (double)n_threads);
-        fprintf(stderr,
-                "----------------------------------------------------\n");
-        // fprintf(stderr, "Avg (seed + chain + align) per thread = %.3f secs\n", (mm_time_seed_sum + mm_time_chain_sum + mm_time_align_sum)/(double)n_threads);
-		fprintf(stderr, "Total (seed + chain + align) for %d thread(s) = %.3f secs\n", n_threads, (mm_time_seed_sum + mm_time_chain_sum + mm_time_align_sum));
+		// TODO: disabled because timer is not updated. 
+		// fprintf(stderr, "\n[M::%s] Real time: %.3f sec; CPU: %.3f sec; Peak RSS: %.3f GB\n", __func__, realtime() - mm_realtime0, cputime(), peakrss() / 1024.0 / 1024.0 / 1024.0);
+		// fprintf(stderr, "----------------------------------------------------\n");
+		// fprintf(stderr, "              Sum (sec)  Avg (sec)  \n");
+		// fprintf(stderr, "----------------------------------------------------\n");
+        // fprintf(stderr, "Seed    = %11.3f %11.3f\n", mm_time_seed_sum,
+        //         mm_time_seed_sum / (double)n_threads);
+        // fprintf(stderr, "Chain   = %11.3f %11.3f\n", mm_time_chain_sum,
+        //         mm_time_chain_sum / (double)n_threads);
+        // fprintf(stderr, "Align   = %11.3f %11.3f\n", mm_time_align_sum,
+        //         mm_time_align_sum / (double)n_threads);
+        // fprintf(stderr,
+        //         "----------------------------------------------------\n");
+        // // fprintf(stderr, "Avg (seed + chain + align) per thread = %.3f secs\n", (mm_time_seed_sum + mm_time_chain_sum + mm_time_align_sum)/(double)n_threads);
+		// fprintf(stderr, "Total (seed + chain + align) for %d thread(s) = %.3f secs\n", n_threads, (mm_time_seed_sum + mm_time_chain_sum + mm_time_align_sum));
 	}
 	return 0;
 }
