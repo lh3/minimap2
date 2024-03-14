@@ -36,6 +36,7 @@ cdef extern from "minimap.h":
 		float alt_drop
 
 		int a, b, q, e, q2, e2
+		int transition
 		int sc_ambi
 		int noncan
 		int junc_bonus
