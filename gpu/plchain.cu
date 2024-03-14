@@ -282,78 +282,38 @@ void plchain_cal_score_launch(chain_read_t **reads_, int *n_read_, Misc misc, st
 #ifdef DEBUG_VERBOSE
 
 // find long seg range distribution
-void plchain_cal_long_seg_range_dis(size_t total_n, deviceMemPtr* dev_mem){
-    static uint64_t long_seg_range_dis[5001] = {0};
-    static unsigned int long_seg_total = 0;
-    static uint64_t long_seg_anchors_total = 0;
+void plchain_cal_long_seg_range_dis(size_t total_n, size_t num_cut, int32_t* range){
+static uint64_t range_dis[5001] = {0};
+    static size_t seg_total = 0;
+    static uint64_t anchors_total = 0;
     static FILE* fp = NULL;
-    // check range
-    int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
-    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
-                cudaMemcpyDeviceToHost);
 
-    unsigned int long_seg_count;
-    cudaMemcpy(&long_seg_count, dev_mem->d_long_seg_count, sizeof(unsigned int),
-                cudaMemcpyDeviceToHost);
-    fprintf(stderr, "[verbose] %u long segs generated\n", long_seg_count);
-    seg_t* long_seg = (seg_t*)malloc(sizeof(seg_t) * long_seg_count);
-    cudaMemcpy(long_seg, dev_mem->d_long_seg, sizeof(seg_t) * long_seg_count,
-                cudaMemcpyDeviceToHost);
-
-    static FILE* fp_all_data = NULL;
-    if (!fp_all_data){
-        fp_all_data = fopen("long_seg_range_dis_all.csv", "w+");
-        fprintf(fp_all_data, "seg_length");
-        for (int i = 0; i < 5000; i++) fprintf(fp_all_data, ",%d", i);
-        fprintf(fp_all_data, "\n");
+    for (size_t i = 0; i < total_n; i++){
+        assert(range[i] <= 5000);
+        range_dis[range[i]]++;
     }
-
-    for (int sid = 0; sid < long_seg_count; sid++) {
-        uint64_t long_seg_range_dis_all[5001] = {0};
-        for (size_t i = long_seg[sid].start_idx; i < long_seg[sid].end_idx; i++){
-            assert(range[i] <= 5000);
-            long_seg_range_dis[range[i]]++;
-            long_seg_range_dis_all[range[i]]++;
-        }
-        if (long_seg[sid].end_idx - long_seg[sid].start_idx < 530){
-            fprintf(stderr, "Found seg of length %lu, segid %lu - %lu \n",
-                    long_seg[sid].end_idx - long_seg[sid].start_idx,
-                    long_seg[sid].start_segid, long_seg[sid].end_segid);
-        }
-
-        fprintf(fp_all_data, "%lu", long_seg[sid].end_idx - long_seg[sid].start_idx);
-        for (int i = 0; i < 5000; i++){
-            fprintf(fp_all_data, ",%lu", long_seg_range_dis_all[i]);
-        }
-        fprintf(fp_all_data, "\n");
-        long_seg_anchors_total += long_seg[sid].end_idx - long_seg[sid].start_idx;
-        ++long_seg_total;
-    }   
+    anchors_total += total_n;
+    seg_total += num_cut;
     if (!fp) {
-        fp = fopen("long_seg_range_dis.csv", "w+");
+        fprintf(stderr, "[Debug] Writing to long_range_dis.csv\n");
+        fp = fopen("long_range_dis.csv", "w+");
         fprintf(fp, "num_segs,num_anchors");
-        for (int i = 0; i < 5000; i++) fprintf(fp, ",%d", i);
+        for (int i = 0; i < 5001; i++) fprintf(fp, ",%d", i);
         fprintf(fp, "\n");
     }
-    fprintf(fp, "%u segs,%lu anchors", long_seg_total, long_seg_anchors_total);
-    for (int i = 0; i < 5000; i++){
-        fprintf(fp, ",%lu", long_seg_range_dis[i]);
+    fprintf(fp, "%lusegs,%luanchors", seg_total, anchors_total);
+    for (int i = 0; i <= 5000; i++){
+        fprintf(fp, ",%lu", range_dis[i]);
     }
     fprintf(fp, "\n");
-    free(range);
-    free(long_seg);
 }
 
-// range distribution
-void plchain_cal_range_dis(size_t total_n, size_t num_cut, deviceMemPtr* dev_mem){
+
+void plchain_cal_mid_range_dis(size_t total_n, size_t num_cut, int32_t* range){
     static uint64_t range_dis[5001] = {0};
     static size_t seg_total = 0;
     static uint64_t anchors_total = 0;
     static FILE* fp = NULL;
-    // check range
-    int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
-    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n,
-                cudaMemcpyDeviceToHost);
 
     fprintf(stderr, "[verbose] %lu cuts generated\n", num_cut);
     for (size_t i = 0; i < total_n; i++){
@@ -363,29 +323,56 @@ void plchain_cal_range_dis(size_t total_n, size_t num_cut, deviceMemPtr* dev_mem
     anchors_total += total_n;
     seg_total += num_cut;
     if (!fp) {
-        fp = fopen("range_dis.csv", "w+");
+        fprintf(stderr, "[Debug] Writing to mid_range_dis.csv\n");
+        fp = fopen("mid_range_dis.csv", "w+");
         fprintf(fp, "num_segs,num_anchors");
-        for (int i = 0; i < 5000; i++) fprintf(fp, ",%d", i);
+        for (int i = 0; i < 5001; i++) fprintf(fp, ",%d", i);
         fprintf(fp, "\n");
     }
     fprintf(fp, "%lusegs,%luanchors", seg_total, anchors_total);
-    for (int i = 0; i < 5000; i++){
+    for (int i = 0; i < 5001; i++){
         fprintf(fp, ",%lu", range_dis[i]);
     }
     fprintf(fp, "\n");
-    free(range);
+}
+
+
+// range distribution
+void plchain_cal_range_dis(size_t total_n, size_t num_cut, int32_t* range){
+    static uint64_t range_dis[5001] = {0};
+    static size_t seg_total = 0;
+    static uint64_t anchors_total = 0;
+    static FILE* fp = NULL;
+
+    fprintf(stderr, "[verbose] %lu cuts generated\n", num_cut);
+    for (size_t i = 0; i < total_n; i++){
+        assert(range[i] <= 5000);
+        range_dis[range[i]]++;
+    }
+    anchors_total += total_n;
+    seg_total += num_cut;
+    if (!fp) {
+        fprintf(stderr, "[Debug] Writing to range_dis.csv\n");
+        fp = fopen("range_dis.csv", "w+");
+        fprintf(fp, "num_segs,num_anchors");
+        for (int i = 0; i < 5001; i++) fprintf(fp, ",%d", i);
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "%lusegs,%luanchors", seg_total, anchors_total);
+    for (int i = 0; i < 5001; i++){
+        fprintf(fp, ",%lu", range_dis[i]);
+    }
+    fprintf(fp, "\n");
 }
 
 // sc pair vs. seg length
-void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, deviceMemPtr* dev_mem){
+void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, size_t* cut, int32_t* range){
     // bin width: 10 cuts, max 5000 cuts
-    static uint64_t sc_pair_dis[501] = {0}; // number of sc pairs for each seg length
-    static uint64_t anchors_dis[501] = {0};
-    size_t* cut = (size_t*)malloc(sizeof(size_t) * num_cut);
-    cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * num_cut, cudaMemcpyDeviceToHost);
-
-    int32_t* range = (int32_t*)malloc(sizeof(int32_t) * total_n);
-    cudaMemcpy(range, dev_mem->d_range, sizeof(int32_t) * total_n, cudaMemcpyDeviceToHost);
+    const int fine_grind = 30;
+    static uint64_t sc_pair_dis[(500+fine_grind)] = {0}; // number of sc pairs for each seg length
+    static uint64_t anchors_dis[(500+fine_grind)] = {0};
+    static uint64_t seg_dis[(500+fine_grind)] = {0};
+    
 
     uint64_t start_idx = 0, cut_size = 0;
     for (int cid = 0; cid < num_cut; cid++) {
@@ -394,12 +381,18 @@ void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, deviceMemPtr* d
             for (uint64_t i = start_idx; i < cut[cid]; i++){
                 sc_pair_num += range[i];
             }
-            if (cut_size/10 < 500) {
-                sc_pair_dis[cut_size/10] += sc_pair_num;
-                anchors_dis[cut_size/10] += cut[cid] - start_idx;
+            if (cut_size < fine_grind){
+                sc_pair_dis[cut_size] += sc_pair_num;
+                anchors_dis[cut_size] += cut[cid] - start_idx;
+                seg_dis[cut_size]++;
+            } else if (cut_size / 10 < 500) {
+                sc_pair_dis[cut_size/10 + fine_grind/9] += sc_pair_num;
+                anchors_dis[cut_size/10 + fine_grind/9] += cut[cid] - start_idx;
+                seg_dis[cut_size / 10 + fine_grind/9]++;
             } else {
-                sc_pair_dis[500] += sc_pair_num;
-                anchors_dis[500] += cut[cid] - start_idx;
+                sc_pair_dis[518] += sc_pair_num;
+                anchors_dis[518] += cut[cid] - start_idx;
+                seg_dis[518]++;
             }
             cut_size = 0;
             start_idx = cut[cid];
@@ -407,27 +400,34 @@ void plchain_cal_sc_pair_density(size_t total_n, size_t num_cut, deviceMemPtr* d
             ++cut_size;
         }
     }
-    free(range);
-    free(cut);
 
     static FILE* f_sc_pair_dis = NULL;
     if (!f_sc_pair_dis){
         f_sc_pair_dis = fopen("sc_pair_dis.csv", "w+");
-        fprintf(f_sc_pair_dis, "seg_len,");
-        for (int i = 0; i < 500; i++){
-            fprintf(f_sc_pair_dis, "%d,", i*10);
+        fprintf(stderr, "[Verbose] writing to sc_pair_dis.csv");
+        fprintf(f_sc_pair_dis, "seg_len");
+        for(int i = 0; i < fine_grind; i++){
+            fprintf(f_sc_pair_dis, ",%d", i);
         }
-        fprintf(f_sc_pair_dis, "5000\n");
+        for (int i = fine_grind/10; i <= 500; i++){
+            fprintf(f_sc_pair_dis, ",%d", i*10);
+        }
+        fprintf(f_sc_pair_dis, "\n");
     }
     
-    fprintf(f_sc_pair_dis, "sc_pairs,");
-    for (int i = 0; i <= 500; i++){
-        fprintf(f_sc_pair_dis, "%lu,", sc_pair_dis[i]);
+    fprintf(f_sc_pair_dis, "sc_pairs");
+    for (int i = 0; i <= 500 + fine_grind; i++){
+        fprintf(f_sc_pair_dis, ",%lu", sc_pair_dis[i]);
     }
     fprintf(f_sc_pair_dis, "\n");
-    fprintf(f_sc_pair_dis, "anchors,");
-    for (int i = 0; i <= 500; i++){
-        fprintf(f_sc_pair_dis, "%lu,", anchors_dis[i]);
+    fprintf(f_sc_pair_dis, "anchors");
+    for (int i = 0; i <= 500 + fine_grind; i++){
+        fprintf(f_sc_pair_dis, ",%lu", anchors_dis[i]);
+    }
+    fprintf(f_sc_pair_dis, "\n");
+    fprintf(f_sc_pair_dis, "segs");
+    for (int i = 0; i <= 500 + fine_grind; i++){
+        fprintf(f_sc_pair_dis, ",%lu", seg_dis[i]);
     }
     fprintf(f_sc_pair_dis, "\n");
     fflush(f_sc_pair_dis);
@@ -459,6 +459,10 @@ void plchain_debug_analysis_short(stream_ptr_t stream, int uid, float throughput
                 cudaMemcpyDeviceToHost);
     size_t* cut = (size_t*)malloc(sizeof(size_t) * cut_num);
     cudaMemcpy(cut, dev_mem->d_cut, sizeof(size_t) * cut_num,
+                cudaMemcpyDeviceToHost);
+
+    seg_t* mid_segs = (seg_t*)malloc(sizeof(seg_t) * num_mid_seg);
+    cudaMemcpy(mid_segs, dev_mem->d_mid_seg, sizeof(seg_t) * num_mid_seg,
                 cudaMemcpyDeviceToHost);
 
 
@@ -537,19 +541,26 @@ void plchain_debug_analysis_short(stream_ptr_t stream, int uid, float throughput
     debug_check_anchors(host_mem->long_segs, host_mem->long_segs_num[0], ax, host_mem->ax);
 #endif
 
+//DEBUG: Calculate range distribution
+#if defined(DEBUG_VERBOSE) && 0
+        plchain_cal_range_dis(total_n, cut_num, range);
+#endif // DEBUG_VERBOSE
+
+// Calculate range distribution for mid segs
+#if defined(DEBUG_VERBOSE) && 0
+    for (int seg_id = 0; seg_id < num_mid_seg; seg_id++){
+        plchain_cal_mid_range_dis(mid_segs[seg_id].end_idx - mid_segs[seg_id].start_idx, 1, range + mid_segs[seg_id].start_idx);
+    }
+#endif // DEBUG_VERBOSE
+
+// DEBUG: Calculate workload distribution
+#if defined(DEBUG_VERBOSE) && 1
+    plchain_cal_sc_pair_density(total_n, cut_num, cut, range);
+#endif // DEBUG_VERBOSE
+
     free(cut);
     free(range);
 
-// DEBUG: Calculate workload distribution
-#if defined(DEBUG_VERBOSE) && 0
-    plchain_cal_sc_pair_density(total_n, cut_num, dev_mem);
-#endif // DEBUG_VERBOSE
-
-//DEBUG: Calculate range distribution (MAKE SURE start_segid & end_segid EXISTS: search for LONG_SEG_RANGE_DIS)
-#if defined(DEBUG_VERBOSE) && 0
-        plchain_cal_long_seg_range_dis(total_n, dev_mem);
-        plchain_cal_range_dis(total_n, cut_num, dev_mem);
-#endif // DEBUG_VERBOSE
 }
 #endif 
 
@@ -563,7 +574,7 @@ void plchain_debug_analysis_long(stream_ptr_t stream, float* throughput){
     longMemPtr* long_mem = &stream.long_mem;
 
     unsigned int num_long_seg = long_mem->total_long_segs_num[0];
-    fprintf(stderr, "[DEBUG]LONG Kernel: num of long kernels %u\n", num_long_seg);
+    fprintf(stderr, "[DEBUG]LONG Kernel: num of long segs %u\n", num_long_seg);
 
 
     seg_t* long_segs = (seg_t*)malloc(sizeof(seg_t) * num_long_seg);
@@ -571,6 +582,7 @@ void plchain_debug_analysis_long(stream_ptr_t stream, float* throughput){
                 cudaMemcpyDeviceToHost);
     int32_t* long_range = (int32_t*)malloc(sizeof(int32_t) * *(long_mem->total_long_segs_n));
     cudaMemcpy(long_range, dev_mem->d_range_long, sizeof(int32_t) * *(long_mem->total_long_segs_n), cudaMemcpyDeviceToHost);
+    fprintf(stderr, "[DEBUG] Total n of anchors in long segs %lu\n", *long_mem->total_long_segs_n);
 
 // Calculate total workload (sc pairs)
     size_t long_seg_sc_pairs = 0;
@@ -588,17 +600,14 @@ void plchain_debug_analysis_long(stream_ptr_t stream, float* throughput){
     throughput[MICRO_BATCH] = long_kernel_througput;
 
 // Check range w.r.t input (MAKE SURE INPUT RANGE EXISTS)
-#if 0
-    int64_t read_start = 0;
-    for (int i = 0; i < dev_mem->size; i++) {
-// DEBUG: print range
 #if defined(DEBUG_VERBOSE) && 0
-        debug_print_successor_range(range + read_start, reads[i].n);
-#endif
-        debug_check_range(range + read_start, input_arr[i].range, input_arr[i].n);
-        read_start += reads[i].n;
-    }
-#endif
+    debug_print_successor_range(long_range, *long_mem->total_long_segs_n);
+#endif 
+
+//DEBUG: Calculate range distribution
+#if defined(DEBUG_VERBOSE) && 0
+    plchain_cal_long_seg_range_dis(*long_mem->total_long_segs_n, num_long_seg, long_range);
+#endif // DEBUG_VERBOSE
 
     free(long_segs);
     free(long_range);
