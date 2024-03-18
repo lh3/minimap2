@@ -244,10 +244,6 @@ void plrange_async_range_selection(deviceMemPtr* dev_mem, cudaStream_t* stream) 
     dim3 DimBlock(range_kernel_config.blockdim, 1, 1);
     dim3 DimGrid(griddim, 1, 1);
 
-    // fprintf(stderr, "total_n %lu, cut_num %lu, griddim %d blockdim %d\n",
-    //         dev_mem->total_n, dev_mem->num_cut, dev_mem->griddim,
-    //         range_kernel_config.blockdim);
-
     // Run kernel
     range_selection_kernel_binary<<<DimGrid, DimBlock, 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_xrev, dev_mem->d_start_idx, dev_mem->d_read_end_idx,

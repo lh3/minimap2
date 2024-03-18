@@ -6,11 +6,11 @@
 #SBATCH --ntasks-per-node=1           # Number of tasks (processes) per node
 #SBATCH --cpus-per-task=16             # Number of CPU cores per task
 #SBATCH --mem=500g                      # Memory per node
-#SBATCH --time=10:40:00               # Maximum execution time (HH:MM:SS)
+#SBATCH --time=02:40:00               # Maximum execution time (HH:MM:SS)
 #SBATCH --output=slurm_output/sample_sbatch_job.%j.out    # Output file
 #SBATCH --error=slurm_output/sample_sbatch_job.%j.err     # Error file
 
-# salloc --partition=1CN128C8G2H_2IB_MI210_RHEL8 --gres=gpu:1 --nodes=1 --cpus-per-task=8 --time=01:00:00
+#salloc --partition=1CN128C8G2H_2IB_MI210_RHEL8 --gres=gpu:1 --nodes=1 --cpus-per-task=8 --time=01:00:00
 
 export MM2_ROOT=$HOME/minimap2
 
@@ -68,5 +68,18 @@ echo "Exit: $?"
 # ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/short_seg_reads_from_1kto10k_distri.fa
 
 # Optional: You can add post-processing commands here
+
+
+# Iterate from 2 to 10 for Mid seg length
+for ((i = 20; i <= 20; i+=30))
+do
+    make clean
+    make MICRO_BATCH=2 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=3 LONG_CUT=$i DEBUG=1 DEBUG_ANALYSIS=1
+    ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_40kto50k.fa
+    echo "Exit: $?"
+    mv range_dis.csv data/range_dis_l$i.csv
+    mv mid_range_dis.csv data/mid_range_dis_l$i.csv
+    mv long_range_dis.csv data/long_range_dis_l$i.csv
+done
 
 # End of the script

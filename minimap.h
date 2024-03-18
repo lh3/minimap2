@@ -182,6 +182,7 @@ typedef struct {
     int gpu_chain_max_reads;
     size_t gpu_chain_max_anchors;
     int gpu_chain_min_n;
+	char gpu_config_file[1024];
 } mm_mapopt_t;
 
 // index reader

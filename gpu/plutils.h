@@ -95,15 +95,12 @@ extern "C" {
 
 // <plchain.cu> gpu chaining methods
 // initialization and cleanup
-void init_blocking_gpu(size_t *max_total_n, int *max_reads,
-                       int *min_n, Misc misc);  // for blocking_gpu
 void init_stream_gpu(size_t *max_total_n, int *max_reads,
-                     int *min_n, Misc misc);  // for stream_gpu
+                     int *min_n, char gpu_config_file[],  Misc misc);  // for stream_gpu
 void finish_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **batches,
                         int *num_reads, int num_batch, void *km);  // for stream_gpu
 void free_stream_gpu(int n_threads); // for stream_gpu free pinned memory
 // chaining method
-void chain_blocking_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t *in_arr, int n_read, void* km);
 void chain_stream_gpu(const mm_idx_t *mi, const mm_mapopt_t *opt, chain_read_t **in_arr_ptr, int *n_read_ptr, int thread_id, void* km);
 
 /* <lchain.c> Chaining backtracking methods */
@@ -114,7 +111,7 @@ uint64_t *mg_chain_backtrack(void *km, int64_t n, const int32_t *f,
 mm128_t *compact_a(void *km, int32_t n_u, uint64_t *u, int32_t n_v, int32_t *v, mm128_t *a);
 
 
-/* Post Chaining helpers */
+/* <map.c> Post Chaining helpers */
 Misc build_misc(const mm_idx_t *mi, const mm_mapopt_t *opt, const int64_t qlen_sum, const int n_seg);
 void post_chaining_helper(const mm_idx_t *mi, const mm_mapopt_t *opt,
                           chain_read_t *read, Misc misc, void *km);

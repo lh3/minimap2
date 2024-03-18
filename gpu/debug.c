@@ -36,7 +36,7 @@ void debug_output_anchors(const char debug_folder[], chain_read_t *in) {
     fprintf(f_anchors, "*%d\n", in->rep_len);
 
     /* Read Number of Anchors */
-    fprintf(f_anchors, "#%d\n", in->n);
+    fprintf(f_anchors, "#%ld\n", in->n);
 
     /* Read Anchors */
     for (int i = 0; i < in->n; i++) {
@@ -118,7 +118,7 @@ void debug_print_successor_range(int32_t *range, int64_t n) {
         fprintf(stderr, "[Info] Writing successor range to file %s\n",
                 fout_range_filename);
     }
-    fprintf(fout_range, "> %ld, len: %ld ", read_idx, n);
+    fprintf(fout_range, "> %d, len: %ld ", read_idx, n);
     for (int64_t i = 0; i < n; ++i) {
         fprintf(fout_range, "#%ld: %d, ", i, range[i]);
     }
@@ -171,7 +171,7 @@ void debug_print_score(const int64_t *p, const int32_t *score, int64_t n) {
                 fout_score_filename);
         fprintf(fout_score, "@@@<qname\tqlen\n");
     }
-    fprintf(fout_score, "<%ld\t\n", read_idx);
+    fprintf(fout_score, "<%d\t\n", read_idx);
     fprintf(fout_score, "#%ld\n", n);
     for (int i = 0; i < n; ++i) {
         fprintf(fout_score, "%d,%ld\t", score[i], p[i]);
@@ -197,7 +197,7 @@ void debug_print_score_rel_p(const uint16_t *p, const int32_t *score, int64_t n)
                 fout_score_filename);
         fprintf(fout_score, "@@@<qname\tqlen\n");
     }
-    fprintf(fout_score, "<%ld\t\n", read_idx);
+    fprintf(fout_score, "<%d\t\n", read_idx);
     fprintf(fout_score, "#%ld\n", n);
     for (int i = 0; i < n; ++i) {
         fprintf(fout_score, "%d,%u\t", score[i], (unsigned int)p[i]);
@@ -223,7 +223,7 @@ void debug_print_chain(mm128_t *a, uint64_t *u, int32_t n_u, char* qname) {
     }
     fprintf(fout_chain, "<%s\n", qname);
     for (int i = 0, j = 0; i < n_u; i++) {
-        fprintf(fout_chain, "[%d] #%d: ", u[i] >> 32, (uint32_t)u[i]);
+        fprintf(fout_chain, "[%ld] #%d: ", u[i] >> 32, (uint32_t)u[i]);
         for (int new_j = j + (uint32_t)u[i]; j < new_j; j++) {
             fprintf(fout_chain, "%lx,%lx ", a[j].x, a[j].y);
         }
@@ -446,7 +446,7 @@ void debug_check_range(const int32_t* range, size_t n){
     static int read_idx = 0;
     for (size_t i = 1; i < n; i++){
         if (range[i] < range[i-1] - 1)
-        fprintf(stderr, "[debug]No realistic range sequence read #%d i %d %d %d\n", read_idx, i, range[i-1], range[i]);
+        fprintf(stderr, "[debug]No realistic range sequence read #%d i %ld %d %d\n", read_idx, i, range[i-1], range[i]);
     }
     read_idx++;
 }
@@ -462,7 +462,7 @@ int debug_check_cut(const size_t *cut, const int32_t *range, size_t max_cut,
             if (cut[cid] != 0 && range[cut[cid] - 1] != 0)
                 fprintf(
                     stderr,
-                    "[debug] Cut Error: > %ld len %d, Cut at %zu %zu (%d)\n",
+                    "[debug] Cut Error: > %d Cut at %zu %lu (%d)\n",
                     read_idx, cut[cid], offset, range[cut[cid] - 1]);
         }
         if (cid > 0 && cut[cid] != SIZE_MAX){
@@ -470,14 +470,14 @@ int debug_check_cut(const size_t *cut, const int32_t *range, size_t max_cut,
             int cut_issue = 0;
             for (size_t i = prev_cut; i < cut[cid]; i++) {
                 if (range[i] + i >= cut[cid]){
-                    fprintf(stderr, "[debug] Cut Error: > %ld cid %d , Cut %zu - %zu, i %zu, range %zu\n", 
+                    fprintf(stderr, "[debug] Cut Error: > %d cid %ld , Cut %zu - %zu, i %zu, range %u\n", 
                     read_idx, cid, prev_cut, cut[cid], i, range[i]);
                     cut_issue = 1;
                 }
             }
             if (cut_issue){
                 for (int i = prev_cut; i < cut[cid]; i++){
-                    fprintf(stderr, "%zu[%d]\t", i, range[i]);
+                    fprintf(stderr, "%u[%d]\t", i, range[i]);
                 }
                 fprintf(stderr, "\n");
             }
@@ -487,6 +487,161 @@ int debug_check_cut(const size_t *cut, const int32_t *range, size_t max_cut,
     }
     read_idx++;
     return cid;
+}
+
+
+
+
+// find long seg range distribution
+void debug_cal_long_seg_range_dis(size_t total_n, size_t num_cut, int32_t* range){
+static uint64_t range_dis[5001] = {0};
+    static size_t seg_total = 0;
+    static uint64_t anchors_total = 0;
+    static FILE* fp = NULL;
+
+    for (size_t i = 0; i < total_n; i++){
+        assert(range[i] <= 5000);
+        range_dis[range[i]]++;
+    }
+    anchors_total += total_n;
+    seg_total += num_cut;
+    if (!fp) {
+        fprintf(stderr, "[Debug] Writing to long_range_dis.csv\n");
+        fp = fopen("long_range_dis.csv", "w+");
+        fprintf(fp, "num_segs,num_anchors");
+        for (int i = 0; i < 5001; i++) fprintf(fp, ",%d", i);
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "%lusegs,%luanchors", seg_total, anchors_total);
+    for (int i = 0; i <= 5000; i++){
+        fprintf(fp, ",%lu", range_dis[i]);
+    }
+    fprintf(fp, "\n");
+}
+
+
+void debug_cal_mid_range_dis(size_t total_n, size_t num_cut, int32_t* range){
+    static uint64_t range_dis[5001] = {0};
+    static size_t seg_total = 0;
+    static uint64_t anchors_total = 0;
+    static FILE* fp = NULL;
+
+    fprintf(stderr, "[verbose] %lu cuts generated\n", num_cut);
+    for (size_t i = 0; i < total_n; i++){
+        assert(range[i] <= 5000);
+        range_dis[range[i]]++;
+    }
+    anchors_total += total_n;
+    seg_total += num_cut;
+    if (!fp) {
+        fprintf(stderr, "[Debug] Writing to mid_range_dis.csv\n");
+        fp = fopen("mid_range_dis.csv", "w+");
+        fprintf(fp, "num_segs,num_anchors");
+        for (int i = 0; i < 5001; i++) fprintf(fp, ",%d", i);
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "%lusegs,%luanchors", seg_total, anchors_total);
+    for (int i = 0; i < 5001; i++){
+        fprintf(fp, ",%lu", range_dis[i]);
+    }
+    fprintf(fp, "\n");
+}
+
+
+// range distribution
+void debug_cal_range_dis(size_t total_n, size_t num_cut, int32_t* range){
+    static uint64_t range_dis[5001] = {0};
+    static size_t seg_total = 0;
+    static uint64_t anchors_total = 0;
+    static FILE* fp = NULL;
+
+    fprintf(stderr, "[verbose] %lu cuts generated\n", num_cut);
+    for (size_t i = 0; i < total_n; i++){
+        assert(range[i] <= 5000);
+        range_dis[range[i]]++;
+    }
+    anchors_total += total_n;
+    seg_total += num_cut;
+    if (!fp) {
+        fprintf(stderr, "[Debug] Writing to range_dis.csv\n");
+        fp = fopen("range_dis.csv", "w+");
+        fprintf(fp, "num_segs,num_anchors");
+        for (int i = 0; i < 5001; i++) fprintf(fp, ",%d", i);
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "%lusegs,%luanchors", seg_total, anchors_total);
+    for (int i = 0; i < 5001; i++){
+        fprintf(fp, ",%lu", range_dis[i]);
+    }
+    fprintf(fp, "\n");
+}
+
+#define fine_grind 30
+// sc pair vs. seg length
+void debug_cal_sc_pair_density(size_t total_n, size_t num_cut, size_t* cut, int32_t* range){
+    // bin width: 10 cuts, max 5000 cuts
+    static uint64_t sc_pair_dis[(500+fine_grind)] = {0}; // number of sc pairs for each seg length
+    static uint64_t anchors_dis[(500+fine_grind)] = {0};
+    static uint64_t seg_dis[(500+fine_grind)] = {0};
+    
+
+    uint64_t start_idx = 0, cut_size = 0;
+    for (int cid = 0; cid < num_cut; cid++) {
+        if (cut[cid] != SIZE_MAX) {
+            uint64_t sc_pair_num = 0;
+            for (uint64_t i = start_idx; i < cut[cid]; i++){
+                sc_pair_num += range[i];
+            }
+            if (cut_size < fine_grind){
+                sc_pair_dis[cut_size] += sc_pair_num;
+                anchors_dis[cut_size] += cut[cid] - start_idx;
+                seg_dis[cut_size]++;
+            } else if (cut_size / 10 < 500) {
+                sc_pair_dis[cut_size/10 + fine_grind/9] += sc_pair_num;
+                anchors_dis[cut_size/10 + fine_grind/9] += cut[cid] - start_idx;
+                seg_dis[cut_size / 10 + fine_grind/9]++;
+            } else {
+                sc_pair_dis[500 + fine_grind/9] += sc_pair_num;
+                anchors_dis[500 + fine_grind/9] += cut[cid] - start_idx;
+                seg_dis[500 + fine_grind/9]++;
+            }
+            cut_size = 0;
+            start_idx = cut[cid];
+        } else {
+            ++cut_size;
+        }
+    }
+
+    static FILE* f_sc_pair_dis = NULL;
+    if (!f_sc_pair_dis){
+        f_sc_pair_dis = fopen("sc_pair_dis.csv", "w+");
+        fprintf(stderr, "[Verbose] writing to sc_pair_dis.csv");
+        fprintf(f_sc_pair_dis, "seg_len");
+        for(int i = 0; i < fine_grind; i++){
+            fprintf(f_sc_pair_dis, ",%d", i);
+        }
+        for (int i = fine_grind/10; i <= 500; i++){
+            fprintf(f_sc_pair_dis, ",%d", i*10);
+        }
+        fprintf(f_sc_pair_dis, "\n");
+    }
+    
+    fprintf(f_sc_pair_dis, "sc_pairs");
+    for (int i = 0; i < 500 + fine_grind; i++){
+        fprintf(f_sc_pair_dis, ",%lu", sc_pair_dis[i]);
+    }
+    fprintf(f_sc_pair_dis, "\n");
+    fprintf(f_sc_pair_dis, "anchors");
+    for (int i = 0; i < 500 + fine_grind; i++){
+        fprintf(f_sc_pair_dis, ",%lu", anchors_dis[i]);
+    }
+    fprintf(f_sc_pair_dis, "\n");
+    fprintf(f_sc_pair_dis, "segs");
+    for (int i = 0; i < 500 + fine_grind; i++){
+        fprintf(f_sc_pair_dis, ",%lu", seg_dis[i]);
+    }
+    fprintf(f_sc_pair_dis, "\n");
+    fflush(f_sc_pair_dis);
 }
 
 #endif  // DEBUG_CHECK
