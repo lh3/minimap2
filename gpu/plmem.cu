@@ -33,21 +33,18 @@ void plmem_malloc_host_mem(hostMemPtr *host_mem, size_t anchor_per_batch,
     cudaMallocHost((void**)&host_mem->cut_start_idx, range_grid_size * sizeof(size_t));
 
     cudaMallocHost((void**)&host_mem->long_segs_num, sizeof(unsigned int));
-    // cudaMallocHost((void**)&host_mem->long_segs, buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
-    // cudaMallocHost((void**)&host_mem->f_long, buffer_size_long * sizeof(int32_t));
-    // cudaMallocHost((void**)&host_mem->p_long, buffer_size_long * sizeof(uint16_t));
     cudaCheck();
 }
 
 void plmem_malloc_long_mem(longMemPtr *long_mem, size_t buffer_size_long) {
 #ifdef DEBUG_PRINT
     size_t host_mem_size; 
-    host_mem_size =  buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t);
+    host_mem_size =  buffer_size_long / (score_kernel_config.long_seg_cutoff * score_kernel_config.cut_unit) * sizeof(seg_t);
     host_mem_size += buffer_size_long * (sizeof(int32_t) + sizeof(uint16_t));
     fprintf(stderr, "[Info] Host Malloc Pinned Memory Size %.2f GB (long seg)\n", (float)host_mem_size / OneG);
 #endif
     // data array
-    cudaMallocHost((void**)&long_mem->long_segs_og_idx, buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
+    cudaMallocHost((void**)&long_mem->long_segs_og_idx, buffer_size_long / (score_kernel_config.long_seg_cutoff * score_kernel_config.cut_unit) * sizeof(seg_t));
     cudaMallocHost((void**)&long_mem->f_long, buffer_size_long * sizeof(int32_t));
     cudaMallocHost((void**)&long_mem->p_long, buffer_size_long * sizeof(uint16_t));
     cudaMallocHost((void**)&long_mem->total_long_segs_num, sizeof(unsigned int));
@@ -96,10 +93,10 @@ void plmem_malloc_device_mem(deviceMemPtr *dev_mem, size_t anchor_per_batch, int
     // cut
     cudaMalloc(&dev_mem->d_cut, num_cut * sizeof(size_t));
     cudaMalloc(&dev_mem->d_long_seg_count, sizeof(unsigned int));
-    cudaMalloc(&dev_mem->d_long_seg, dev_mem->buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
-    cudaMalloc(&dev_mem->d_long_seg_og, dev_mem->buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t));
+    cudaMalloc(&dev_mem->d_long_seg, dev_mem->buffer_size_long / (score_kernel_config.long_seg_cutoff * score_kernel_config.cut_unit) * sizeof(seg_t));
+    cudaMalloc(&dev_mem->d_long_seg_og, dev_mem->buffer_size_long / (score_kernel_config.long_seg_cutoff * score_kernel_config.cut_unit) * sizeof(seg_t));
     cudaMalloc(&dev_mem->d_mid_seg_count, sizeof(unsigned int));
-    cudaMalloc(&dev_mem->d_mid_seg, num_cut/(MM_MID_SEG_CUTOFF + 1) * sizeof(seg_t));
+    cudaMalloc(&dev_mem->d_mid_seg, num_cut/(score_kernel_config.mid_seg_cutoff + 1) * sizeof(seg_t));
 
     size_t gpu_free_mem, gpu_total_mem;
     cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
@@ -313,7 +310,7 @@ void plmem_async_d2h_memcpy(stream_ptr_t *stream_ptrs) {
                     sizeof(uint16_t) * host_mem->total_n,
                     cudaMemcpyDeviceToHost, *stream);
     cudaMemcpyAsync(long_mem->long_segs_og_idx, dev_mem->d_long_seg_og,
-                    dev_mem->buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t),
+                    dev_mem->buffer_size_long / (score_kernel_config.long_seg_cutoff * score_kernel_config.cut_unit) * sizeof(seg_t),
                     cudaMemcpyDeviceToHost, *stream);
     cudaMemcpyAsync(host_mem->long_segs_num, dev_mem->d_long_seg_count,
                     sizeof(unsigned int), cudaMemcpyDeviceToHost, *stream);
@@ -346,7 +343,7 @@ void plmem_async_d2h_long_memcpy(stream_ptr_t *stream_ptrs) {
     deviceMemPtr *dev_mem = &stream_ptrs->dev_mem;
     cudaStream_t *stream = &stream_ptrs->cudastream;
     cudaMemcpyAsync(long_mem->long_segs_og_idx, dev_mem->d_long_seg_og,
-                    dev_mem->buffer_size_long / (MM_LONG_SEG_CUTOFF * MM_CUT_SIZE) * sizeof(seg_t),
+                    dev_mem->buffer_size_long / (score_kernel_config.long_seg_cutoff * score_kernel_config.cut_unit) * sizeof(seg_t),
                     cudaMemcpyDeviceToHost, *stream);
     // cudaMemcpyAsync(&long_mem->total_long_segs_num, dev_mem->d_long_seg_count,
     //                 sizeof(unsigned int), cudaMemcpyDeviceToHost, *stream);
@@ -425,10 +422,10 @@ void plmem_config_kernels(cJSON *json) {
         get_json_int(range_config_json, "anchor_per_block");
 
     cJSON *score_config_json = cJSON_GetObjectItem(json, "score_kernel");
-    score_kernel_config.short_blockdim =
-        get_json_int(score_config_json, "short_blockdim");
-    score_kernel_config.long_blockdim =
-        get_json_int(score_config_json, "long_blockdim");
+    cudaDeviceProp device_prop;
+    cudaGetDeviceProperties(&device_prop, 0);
+    score_kernel_config.short_blockdim = device_prop.warpSize;
+    score_kernel_config.long_blockdim = device_prop.maxThreadsPerBlock;
     score_kernel_config.mid_blockdim =
         get_json_int(score_config_json, "mid_blockdim");
     score_kernel_config.short_griddim =
@@ -437,6 +434,20 @@ void plmem_config_kernels(cJSON *json) {
         get_json_int(score_config_json, "long_griddim");
     score_kernel_config.mid_griddim =
         get_json_int(score_config_json, "mid_griddim");
+    score_kernel_config.long_seg_cutoff =
+        get_json_int(score_config_json, "long_seg_cutoff");
+    score_kernel_config.mid_seg_cutoff =
+        get_json_int(score_config_json, "mid_seg_cutoff");
+    score_kernel_config.cut_unit = range_kernel_config.blockdim;
+    score_kernel_config.micro_batch = 
+        get_json_int(score_config_json, "micro_batch");
+    if (score_kernel_config.micro_batch > MAX_MICRO_BATCH) {
+        fprintf(stderr, "[Error: gpu config] score_kernel:micro_batch should be less than %d\n"
+                "\t\t or recompile with MAX_MICRO_BATCH=%d"
+                , MAX_MICRO_BATCH, score_kernel_config.micro_batch);
+        exit(1);
+    }
+    
 }
 
 void plmem_config_stream(size_t *max_range_grid_, size_t *max_num_cut_, size_t max_total_n, size_t max_read, size_t min_n){
@@ -541,15 +552,13 @@ void plmem_initialize(size_t *max_total_n_, int *max_read_,
 
 // initialize global variable stream_setup
 void plmem_stream_initialize(size_t *max_total_n_,
-                             int *max_read_, int *min_anchors_) {
+                             int *max_read_, int *min_anchors_, char* gpu_config_file) {
 
     int num_stream;
     size_t max_anchors_stream, max_range_grid, max_num_cut, long_seg_buffer_size;
-#ifndef GPU_CONFIG
-    cJSON *json = plmem_parse_gpu_config("gpu_config.json");
-#else 
-    cJSON *json = plmem_parse_gpu_config(GPU_CONFIG);
-#endif
+
+    cJSON *json = plmem_parse_gpu_config(gpu_config_file);
+
     plmem_config_kernels(json);
     size_t gpu_free_mem, gpu_total_mem;
     cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
@@ -579,7 +588,7 @@ void plmem_stream_initialize(size_t *max_total_n_,
         cudaCheck();
         stream_setup.streams[i].dev_mem.buffer_size_long = long_seg_buffer_size;
         // one stream has multiple host mems
-        for (int j = 0; j < MICRO_BATCH; j++) {
+        for (int j = 0; j < score_kernel_config.micro_batch; j++) {
             plmem_malloc_host_mem(&stream_setup.streams[i].host_mems[j], max_anchors_stream,
                               max_range_grid, long_seg_buffer_size);
             cudaEventCreate(&stream_setup.streams[i].short_kernel_start_event[j]);
@@ -602,7 +611,8 @@ cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
         fprintf(stderr, "[Info] GPU free mem: %f GB, total mem: %f GB\n", (float)gpu_free_mem / OneG, (float)gpu_total_mem / OneG);
 #endif
 
-    *max_total_n_ = max_anchors_stream;
+    *max_total_n_ = max_anchors_stream * score_kernel_config.micro_batch;
+    *max_read_ = *max_read_ * score_kernel_config.micro_batch;
 
     stream_setup.max_anchors_stream = max_anchors_stream;
     stream_setup.max_range_grid = max_range_grid;
@@ -618,7 +628,7 @@ void plmem_stream_cleanup() {
         cudaEventDestroy(stream_setup.streams[i].long_kernel_event);
         cudaCheck();
         // free multiple host mems
-        for (int j = 0; j < MICRO_BATCH; j++) {
+        for (int j = 0; j < score_kernel_config.micro_batch; j++) {
             plmem_free_host_mem(&stream_setup.streams[i].host_mems[j]);
         }
         plmem_free_long_mem(&stream_setup.streams[i].long_mem);

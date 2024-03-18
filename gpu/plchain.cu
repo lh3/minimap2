@@ -189,8 +189,8 @@ int plchain_schedule_stream(const streamSetup_t stream_setup, const int batchid)
 
 // Global variable for debug prints. Throughput, runtime & mem usage
 #ifdef DEBUG_PRINT
-    float kernel_mem_usage[MICRO_BATCH + 1] = {0};
-    float kernel_throughput[MICRO_BATCH + 1] = {0};
+    float kernel_mem_usage[MAX_MICRO_BATCH + 1] = {0};
+    float kernel_throughput[MAX_MICRO_BATCH + 1] = {0};
 #endif // DEBUG_PRINT
 
 /*
@@ -206,19 +206,19 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id, Misc misc
 #endif  // DEBUG_CHECK
 
 #ifdef DEBUG_PRINT
-    kernel_mem_usage[MICRO_BATCH] = (float)(*stream_setup.streams[stream_id].long_mem.total_long_segs_n)/stream_setup.long_seg_buffer_size_stream*100;
+    kernel_mem_usage[score_kernel_config.micro_batch] = (float)(*stream_setup.streams[stream_id].long_mem.total_long_segs_n)/stream_setup.long_seg_buffer_size_stream*100;
 
-    float kernel_runtime_ms[MICRO_BATCH + 1] = {0};
-    float kernel_throughput_anchors[MICRO_BATCH + 1] = {0};
-    cudaEventElapsedTime(&kernel_runtime_ms[MICRO_BATCH], stream_setup.streams[stream_id].long_kernel_event, stream_setup.streams[stream_id].stopevent);
-    kernel_throughput_anchors[MICRO_BATCH] = *stream_setup.streams[stream_id].long_mem.total_long_segs_n / kernel_runtime_ms[MICRO_BATCH] / (float)1000;
+    float kernel_runtime_ms[MAX_MICRO_BATCH + 1] = {0};
+    float kernel_throughput_anchors[MAX_MICRO_BATCH + 1] = {0};
+    cudaEventElapsedTime(&kernel_runtime_ms[score_kernel_config.micro_batch], stream_setup.streams[stream_id].long_kernel_event, stream_setup.streams[stream_id].stopevent);
+    kernel_throughput_anchors[score_kernel_config.micro_batch] = *stream_setup.streams[stream_id].long_mem.total_long_segs_n / kernel_runtime_ms[score_kernel_config.micro_batch] / (float)1000;
 #endif
 
 
     seg_t* long_segs = stream_setup.streams[stream_id].long_mem.long_segs_og_idx;
     size_t long_seg_idx = 0;
     size_t long_i = 0;
-    for (int uid = 0; uid < MICRO_BATCH; uid++) {
+    for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) {
         if (stream_setup.streams[stream_id].host_mems[uid].size == 0) continue;
         // regorg long to each host mem ptr
         // NOTE: this is the number of long segs till this microbatch
@@ -257,22 +257,27 @@ int plchain_post_gpu_helper(streamSetup_t stream_setup, int stream_id, Misc misc
 
 #ifdef DEBUG_PRINT
     fprintf(stderr, "----------------------------------------------------------------------------\n                  ");
-    for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "Short%d     ", uid);
+    for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) fprintf(stderr, "Short%d     ", uid);
     fprintf(stderr, "Long\n");
     fprintf(stderr, "----------------------------------------------------------------------------\n");
     fprintf(stderr, "Mem Usage  = ");
-    for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, " %9.2f%%", kernel_mem_usage[uid]);
-    fprintf(stderr, " %9.2f %%\n", kernel_mem_usage[MICRO_BATCH]);
+    for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) fprintf(stderr, " %9.2f%%", kernel_mem_usage[uid]);
+    fprintf(stderr, " %9.2f %%\n", kernel_mem_usage[score_kernel_config.micro_batch]);
     fprintf(stderr, "Runtime(s) = ");
-    for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "%11.2f", kernel_runtime_ms[uid] / 1000);
-    fprintf(stderr, " %11.2f\n", kernel_runtime_ms[MICRO_BATCH] / 1000);
+    for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) fprintf(stderr, "%11.2f", kernel_runtime_ms[uid] / 1000);
+    fprintf(stderr, " %11.2f\n", kernel_runtime_ms[score_kernel_config.micro_batch] / 1000);
     fprintf(stderr, "BW (Ma/s)  = ");
-    for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "%11.2f", kernel_throughput_anchors[uid]);
-    fprintf(stderr, " %11.2f\n", kernel_throughput_anchors[MICRO_BATCH]);
+    for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) fprintf(stderr, "%11.2f", kernel_throughput_anchors[uid]);
+    fprintf(stderr, " %11.2f\n", kernel_throughput_anchors[score_kernel_config.micro_batch]);
     fprintf(stderr, "BW(Mpair/s)= ");
-        for (int uid = 0; uid < MICRO_BATCH; uid++) fprintf(stderr, "%11.2f", kernel_throughput[uid]);
-    fprintf(stderr, " %11.2f\n", kernel_throughput[MICRO_BATCH]);
+        for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) fprintf(stderr, "%11.2f", kernel_throughput[uid]);
+    fprintf(stderr, " %11.2f\n", kernel_throughput[score_kernel_config.micro_batch]);
     fprintf(stderr, "----------------------------------------------------------------------------\n");
+    if (kernel_mem_usage[score_kernel_config.micro_batch] > 99){
+        fprintf(stderr,
+                "[WARNING] long segment buffer is full. Consider increase "
+                "long_seg_buffer_size to improve performance.\n");
+    }
 #endif 
 
     return n_reads;
@@ -300,7 +305,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     }
 
 #ifdef DEBUG_PRINT
-    for(int uid = 0; uid < MICRO_BATCH + 1; uid++) {
+    for(int uid = 0; uid < score_kernel_config.micro_batch + 1; uid++) {
         kernel_mem_usage[uid] = 0;
         kernel_throughput[uid] = 0;
     }
@@ -324,7 +329,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
                     stream_setup.streams[stream_id].cudastream);
     stream_setup.streams[stream_id].long_mem.total_long_segs_num[0] = 0;
     stream_setup.streams[stream_id].long_mem.total_long_segs_n[0] = 0;
-    for(int uid = 0; uid < MICRO_BATCH; uid++) {
+    for(int uid = 0; uid < score_kernel_config.micro_batch; uid++) {
         stream_setup.streams[stream_id].host_mems[uid].long_segs_num[0] = 0;
         stream_setup.streams[stream_id].host_mems[uid].index = uid;
         stream_setup.streams[stream_id].host_mems[uid].griddim = 0;
@@ -337,7 +342,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
     stream_setup.streams[stream_id].n_read = n_read;
     int read_start = 0;
 
-    for (int uid = 0; uid < MICRO_BATCH; uid++) {
+    for (int uid = 0; uid < score_kernel_config.micro_batch; uid++) {
         if (read_start == n_read) continue;
 #ifdef USEHIP
         roctxRangePushA("microbatch");
@@ -360,8 +365,11 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
         }
 #ifdef DEBUG_VERBOSE
         fprintf(stderr, "[Debug] %s (%s:%d) MICROBATCH#%d batch_n %lu, read_start %d, read_end %d usage %.2f %%\n", __func__, __FILE__, __LINE__, uid, batch_n, read_start, read_end, (float)batch_n/stream_setup.max_anchors_stream*100);
+#endif // DEBUG_VERBOS 
+
+#ifdef DEBUG_PRINT
         kernel_mem_usage[uid] = (float)batch_n/stream_setup.max_anchors_stream*100;
-#endif // DEBUG_VERBOSE
+#endif // DEBUG_PRINT
 
         // sanity check
         assert(stream_setup.max_anchors_stream >= batch_n);
@@ -458,37 +466,21 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
 extern "C" {
 #endif  // __cplusplus
 
-void init_stream_gpu(size_t* total_n, int* max_reads, int *min_n, Misc misc) {
-    plmem_stream_initialize(total_n, max_reads, min_n);
+void init_stream_gpu(size_t* total_n, int* max_reads, int *min_n, char gpu_config_file[], Misc misc) {
+    plmem_stream_initialize(total_n, max_reads, min_n, gpu_config_file);
     plrange_upload_misc(misc);
     plscore_upload_misc(misc);
 #ifdef DEBUG_PRINT
-    fprintf(stderr, "[Info::%s] gpu initialized for chaining\n", __func__);
+    fprintf(stderr, "[Info::%s] gpu initialized for chaining with config %s\n", __func__, gpu_config_file);
     fprintf(stderr, "[Info::%s] Compile time config: \n", __func__);
 #ifdef USEHIP
     fprintf(stderr, "\t\t USE HIP\n");
+#else
+    fprintf(stderr, "\t\t USE CUDA\n");
 #endif // USEHIP
-#ifdef GPU_CONFIG
-    fprintf(stderr, "\t\t GPU CONFIG      \t%s\n", GPU_CONFIG);
-#endif // GPU_CONFIG
-#ifdef __LONG_BLOCK_SIZE__
-    fprintf(stderr, "\t\t LONG BLOCK SIZE  \t%d\n", __LONG_BLOCK_SIZE__);
-#endif // __LONG_BLOCK_SIZE__
-#ifdef __SHORT_BLOCK_SIZE__
-    fprintf(stderr, "\t\t SHORT BLOCK SIZE \t%d\n", __SHORT_BLOCK_SIZE__);
-#endif // __SHORT_BLOCK_SIZE__
-#ifdef __MID_BLOCK_SIZE__
-    fprintf(stderr, "\t\t MID BLOCK SIZE   \t%d\n", __MID_BLOCK_SIZE__);
-#endif // __MID_BLOCK_SIZE__
-#ifdef MM_MID_SEG_CUTOFF
-    fprintf(stderr, "\t\t MID SEG CUTOFF   \t%d\n", MM_MID_SEG_CUTOFF);
-#endif // MM_MID_SEG_CUTOFF
-#ifdef MM_LONG_SEG_CUTOFF
-    fprintf(stderr, "\t\t LONG SEG CUTOFF  \t%d\n", MM_LONG_SEG_CUTOFF);
-#endif // MM_LONG_SEG_CUTOFF
-#ifdef MICRO_BATCH
-    fprintf(stderr, "\t\t MICRO BATCH       \t%d\n", MICRO_BATCH);
-#endif // MICRO_BATCH
+#ifdef MAX_MICRO_BATCH
+    fprintf(stderr, "\t\t MAX MICRO BATCH       \t%d\n", MAX_MICRO_BATCH);
+#endif // MAX_MICRO_BATCH
 #endif  // DEBUG_PRINT
 }
 

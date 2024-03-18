@@ -4,9 +4,9 @@
 #include "plchain.h"
 #include "plutils.h"
 
-#ifndef MICRO_BATCH
-#define MICRO_BATCH 1
-#endif // MICRO_BATCH
+#ifndef MAX_MICRO_BATCH
+#define MAX_MICRO_BATCH 8
+#endif // MAX_MICRO_BATCH
 
 #define OneK 1024
 #define OneM (OneK*1024)
@@ -99,13 +99,13 @@ typedef struct {
 typedef struct stream_ptr_t{
     chain_read_t *reads;
     size_t n_read;
-    hostMemPtr host_mems[MICRO_BATCH];
+    hostMemPtr host_mems[MAX_MICRO_BATCH];
     longMemPtr long_mem;
     deviceMemPtr dev_mem;
     cudaStream_t cudastream;
     cudaEvent_t stopevent, startevent, long_kernel_event;
-    cudaEvent_t short_kernel_start_event[MICRO_BATCH];
-    cudaEvent_t short_kernel_stop_event[MICRO_BATCH];
+    cudaEvent_t short_kernel_start_event[MAX_MICRO_BATCH];
+    cudaEvent_t short_kernel_stop_event[MAX_MICRO_BATCH];
     bool busy = false;
 } stream_ptr_t;
 
@@ -121,7 +121,7 @@ extern streamSetup_t stream_setup;
 /* memory management methods */
 // initialization and cleanup
 void plmem_initialize(size_t *max_total_n, int *max_read, int *min_n);
-void plmem_stream_initialize(size_t *max_total_n, int *max_read, int *min_n);
+void plmem_stream_initialize(size_t *max_total_n, int *max_read, int *min_n, char* gpu_config_file);
 void plmem_stream_cleanup();
 
 // alloc and free

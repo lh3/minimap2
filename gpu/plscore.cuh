@@ -8,18 +8,6 @@
 extern "C"{
 #endif
 
-#ifndef MM_MID_SEG_CUTOFF
-#define MM_MID_SEG_CUTOFF 1
-#endif
-
-#ifndef MM_LONG_SEG_CUTOFF
-#define MM_LONG_SEG_CUTOFF 10
-#endif
-
-#ifndef MM_CUT_SIZE
-#define MM_CUT_SIZE 512
-#endif
-
 #define MM_QSPAN 15 
 
 void plscore_upload_misc(Misc misc);
