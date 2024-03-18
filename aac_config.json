@@ -3,9 +3,9 @@
     "num_streams": 1,
     "min_n": 512, 
     "//min_n": "queries with less anchors will be handled on cpu",
-    "long_seg_buffer_size": 517376000,
-    "max_total_n": 2536880000, 
-    "max_read": 2536880,
+    "long_seg_buffer_size": 1117376000,
+    "max_total_n": 2036880000, 
+    "max_read": 2036880,
     "avg_read_n": 20000,
     "//avg_read_n": "expect average number of anchors per read, not used if max_total_n and max_read are specified",
     "range_kernel": {
@@ -21,7 +21,7 @@
         "mid_blockdim": 64,
         "//blockdim config": "options are not used: static config specified at compile time (make ... LONG_BLOCK_SIZE=1024)",
         "short_griddim": 16128,
-        "long_griddim": 104,
+        "long_griddim": 208,
         "mid_griddim": 16128
     }
 }

@@ -449,8 +449,8 @@ __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y
     }
     
     // for(int segid = bid; segid < *long_seg_count; segid += gridDim.x){
-    //     seg_t seg = long_seg[map[segid]]; // sorted
-    //     // seg_t seg = long_seg[segid]; // unsorted
+    //     // seg_t seg = long_seg[map[segid]]; // sorted
+    //     seg_t seg = long_seg[segid]; // unsorted
     //     compute_sc_seg_multi_wf(anchors_x, anchors_y, sid, range, seg.start_idx, seg.end_idx, f, p);
     //     seg_count++;
     // }
