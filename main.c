@@ -92,6 +92,7 @@ static ko_longopt_t long_options[] = {
 	{ "min-dp-score",   ko_required_argument, 's' },
 	{ "sam",            ko_no_argument,       'a' },
 	{ "gpu-chain", 		ko_no_argument, 	  360 }, // use gpu for chaining
+	{ "gpu-cfg", 		ko_required_argument, 361 },
 	{ 0, 0, 0 }
 };
 
@@ -308,9 +309,15 @@ int main(int argc, char *argv[])
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		} else if (c == 360) {
 			opt.flag |= MM_F_GPU_CHAIN; // use gpu for chaining
+        } else if (c == 361) {
+            strcpy(opt.gpu_config_file, o.arg);
         }
     }
-	if ((opt.flag & MM_F_SPLICE) && (opt.flag & MM_F_FRAG_MODE)) {
+	if (opt.flag & MM_F_SR) {
+        opt.max_chain_skip = INT32_MAX;
+    }
+
+    if ((opt.flag & MM_F_SPLICE) && (opt.flag & MM_F_FRAG_MODE)) {
 		fprintf(stderr, "[ERROR]\033[1;31m --splice and --frag should not be specified at the same time.\033[0m\n");
 		return 1;
 	}
@@ -437,7 +444,7 @@ int main(int argc, char *argv[])
             Misc misc = build_misc(mi, &opt, 0, 1);
             init_stream_gpu(&opt.gpu_chain_max_anchors,
                             &opt.gpu_chain_max_reads, &opt.gpu_chain_min_n,
-                            misc);
+                            opt.gpu_config_file, misc);
         }
 #endif  // (__AMD_SPLIT_KERNELS__)
 		ret = 0;

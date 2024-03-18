@@ -12,6 +12,8 @@ Parallel chaining helper functions with CUDA
 */
 
 __constant__ Misc misc;
+__constant__ int long_seg_cutoff;
+__constant__ int mid_seg_cutoff;
 __device__ unsigned curr_long_segid;
 
 /* arithmetic functions begin */
@@ -253,10 +255,9 @@ inline __device__ void compute_sc_seg_multi_wf(const int32_t* anchors_x, const i
 
 /* kernels begin */
 
-#ifdef __SHORT_BLOCK_SIZE__
+
 template <size_t short_block_size>
 __launch_bounds__(short_block_size)
-#endif
 __global__ void score_generation_short(
                                 /* Input: Anchor & Range Inputs */
                                 int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range, 
@@ -290,7 +291,7 @@ __global__ void score_generation_short(
             }
             ++end_segid;
         }
-        if (end_segid > segid + MM_LONG_SEG_CUTOFF) {
+        if (end_segid > segid + long_seg_cutoff) {
             size_t long_seg_start_idx;
             if (tid == 0) {
                 /* Allocate space in long seg buffer */
@@ -332,7 +333,7 @@ __global__ void score_generation_short(
                 // assert(start_idx + idx < total_n);
             }
             continue;
-        } else if (end_segid > segid + MM_MID_SEG_CUTOFF) {
+        } else if (end_segid > segid + mid_seg_cutoff) {
             if (tid == 0) {
                 int mid_seg_idx = atomicAdd(mid_seg_count, 1);
                 mid_seg[mid_seg_idx].start_idx = start_idx;
@@ -345,10 +346,9 @@ __global__ void score_generation_short(
     }
 }
 
-#ifdef __MID_BLOCK_SIZE__
+
 template <size_t mid_block_size>
 __launch_bounds__(mid_block_size)
-#endif
 __global__ void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p){
@@ -362,10 +362,8 @@ __global__ void score_generation_mid(int32_t* anchors_x, int32_t* anchors_y, int
     }
 }
 
-#ifdef __LONG_BLOCK_SIZE__
 template <size_t long_block_size>
 __launch_bounds__(long_block_size)
-#endif
 __global__ void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p){
@@ -380,10 +378,8 @@ __global__ void score_generation_long(int32_t* anchors_x, int32_t* anchors_y, in
 }
 
 // FIXME: merge together
-#ifdef __LONG_BLOCK_SIZE__
 template <size_t long_block_size>
 __launch_bounds__(long_block_size)
-#endif
 __global__ void score_generation_long_map(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t *range,
                                 seg_t *long_seg, unsigned int* long_seg_count,
                                 int32_t* f, uint16_t* p, unsigned int* map){
@@ -465,6 +461,8 @@ score_kernel_config_t score_kernel_config;
 void plscore_upload_misc(Misc input_misc) {
 #ifdef USEHIP
     hipMemcpyToSymbol(HIP_SYMBOL(misc), &input_misc, sizeof(Misc));
+    hipMemcpyToSymbol(HIP_SYMBOL(long_seg_cutoff), &score_kernel_config.long_seg_cutoff, sizeof(int));
+    hipMemcpyToSymbol(HIP_SYMBOL(mid_seg_cutoff), &score_kernel_config.mid_seg_cutoff, sizeof(int));
 #else
     cudaMemcpyToSymbol(misc, &input_misc, sizeof(Misc));
 #endif
@@ -483,37 +481,56 @@ void plscore_async_short_mid_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* str
     cudaMemsetAsync(dev_mem->d_mid_seg_count, 0, sizeof(unsigned int),
                     *stream);
 
-    #ifdef __SHORT_BLOCK_SIZE__
-    // fprintf(stderr, "short block size: %d\n", __SHORT_BLOCK_SIZE__);
-    score_generation_short<__SHORT_BLOCK_SIZE__><<<shortDimGrid, dim3(__SHORT_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+    if (score_kernel_config.short_blockdim == 32 ){
+    score_generation_short<32><<<shortDimGrid, dim3(32, 1, 1), 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num,
         dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long,
         dev_mem->d_total_n_long, buffer_size_long,
         dev_mem->d_long_seg, dev_mem->d_long_seg_og, dev_mem->d_long_seg_count,
         dev_mem->d_mid_seg, dev_mem->d_mid_seg_count);
-    #else
-    score_generation_short<<<shortDimGrid, shortDimBlock, 0, *stream>>>(
+    } else if (score_kernel_config.short_blockdim == 64) {
+        score_generation_short<64><<<shortDimGrid, dim3(64, 1, 1), 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range,
         dev_mem->d_cut, dev_mem->d_f, dev_mem->d_p, total_n, cut_num,
         dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long,
         dev_mem->d_total_n_long, buffer_size_long,
-        dev_mem->d_long_seg, dev_mem->d_long_seg_og, dev_mem->d_long_seg_count, 
+        dev_mem->d_long_seg, dev_mem->d_long_seg_og, dev_mem->d_long_seg_count,
         dev_mem->d_mid_seg, dev_mem->d_mid_seg_count);
-    #endif
+    } else {
+        fprintf(stderr,
+                "[ERROR] Unsupported warpsize: %d. mm2-gb only supports device "
+                "with a warpsize of 32 / 64. ",
+                score_kernel_config.short_blockdim);
+        exit(1);
+    }
     cudaCheck();
 
-    #ifdef __MID_BLOCK_SIZE__
-    // fprintf(stderr, "mid block size: %d\n", __MID_BLOCK_SIZE__);
-    score_generation_mid<__MID_BLOCK_SIZE__><<<midDimGrid, dim3(__MID_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+
+    if (score_kernel_config.mid_blockdim == 128){
+    score_generation_mid<128><<<midDimGrid, dim3(128, 1, 1), 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
         dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
-    #else
-    dim3 midDimBlock(score_kernel_config.mid_blockdim, 1, 1);
-    score_generation_mid<<<midDimGrid, midDimBlock, 0, *stream>>>(
+    } else if (score_kernel_config.mid_blockdim == 256){
+        score_generation_mid<256><<<midDimGrid, dim3(256, 1, 1), 0, *stream>>>(
         dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
         dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
-    #endif
+    } else if (score_kernel_config.mid_blockdim == 512){
+        score_generation_mid<512><<<midDimGrid, dim3(512, 1, 1), 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    } else if (score_kernel_config.mid_blockdim == 1024){
+        score_generation_mid<1024><<<midDimGrid, dim3(1024, 1, 1), 0, *stream>>>(
+        dev_mem->d_ax, dev_mem->d_ay, dev_mem->d_sid, dev_mem->d_range, dev_mem->d_mid_seg,
+        dev_mem->d_mid_seg_count, dev_mem->d_f, dev_mem->d_p);
+    } else {
+        fprintf(stderr,
+                "[ERROR] Unsupported mid_blockdim: %d. mm2-gb only supports a "
+                "blockdim of 128/256/512/1024 for mid kernel \n\n"
+                "Please adjust score_kernel:mid_blockdim in gpu config file. ",
+                score_kernel_config.mid_blockdim);
+        exit(1);
+    }
     cudaCheck();
 
 #ifdef DEBUG_PRINT
@@ -533,17 +550,18 @@ void plscore_async_long_forward_dp(deviceMemPtr* dev_mem, cudaStream_t* stream) 
     fprintf(stderr, "[Debug] %s (%s:%d) Long Grid Dim = %d\n", __func__, __FILE__, __LINE__, longDimGrid.x);
 #endif // DEBUG_VERBOSE
 
-    #ifdef __LONG_BLOCK_SIZE__
-    // fprintf(stderr, "long block size: %d\n", __LONG_BLOCK_SIZE__);
-    score_generation_long_map<__LONG_BLOCK_SIZE__><<<longDimGrid, dim3(__LONG_BLOCK_SIZE__, 1, 1), 0, *stream>>>(
+
+    if (score_kernel_config.long_blockdim == 1024){
+    score_generation_long_map<1024><<<longDimGrid, dim3(1024, 1, 1), 0, *stream>>>(
         dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
         dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long, dev_mem->d_map);
-    #else
-    dim3 longDimBlock(score_kernel_config.long_blockdim, 1, 1);
-    score_generation_long_map<<<longDimGrid, longDimBlock, 0, *stream>>>(
-        dev_mem->d_ax_long, dev_mem->d_ay_long, dev_mem->d_sid_long, dev_mem->d_range_long, dev_mem->d_long_seg,
-        dev_mem->d_long_seg_count, dev_mem->d_f_long, dev_mem->d_p_long, dev_mem->d_map);
-    #endif
+    } else {
+        fprintf(stderr,
+                "[ERROR] Unsupported MaxThreadsPerBlock: %d. mm2-gb only supports a blockdim of 1024 for long kernel ",
+                score_kernel_config.long_blockdim);
+        exit(1);
+    }
+
     cudaCheck();
 
 #ifdef DEBUG_PRINT

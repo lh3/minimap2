@@ -1308,9 +1308,9 @@ static void *worker_pipeline(void *shared, int step, void *in)
 #if defined(__AMD_SPLIT_KERNELS__)
         step_t *s = (step_t *)in;
         if (p->opt->flag & MM_F_GPU_CHAIN) {
-            s->batch_max_anchors = MICRO_BATCH * p->opt->gpu_chain_max_anchors;
+            s->batch_max_anchors = p->opt->gpu_chain_max_anchors;
 			// fprintf(stderr, "s->batch_max_anchors = %lu, p->opt->gpu_chain_max_anchors = %lu\n", s->batch_max_anchors, p->opt->gpu_chain_max_anchors);
-            s->batch_max_reads = MICRO_BATCH * p->opt->gpu_chain_max_reads;
+            s->batch_max_reads = p->opt->gpu_chain_max_reads;
             s->gpu_min_n = p->opt->gpu_chain_min_n;
         } else {
             s->batch_max_anchors = SIZE_MAX;
