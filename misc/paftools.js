@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.27-r1193';
+var paftools_version = '2.27-r1194-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -1887,7 +1887,10 @@ function paf_sam2paf(args)
 		// optional tags
 		var type = flag&0x100? 'S' : 'P';
 		var tags = ["tp:A:" + type];
-		if (NM != null) tags.push("mm:i:"+mm);
+		if (NM != null) {
+			tags.push("NM:i:"+NM);
+			tags.push("mm:i:"+mm);
+		}
 		tags.push("gn:i:"+(I[1]+D[1]), "go:i:"+(I[0]+D[0]), "cg:Z:" + t[5].replace(/\d+[SH]/g, ''));
 		if (cs_str != null) tags.push("cs:Z:" + cs_str);
 		else if (cs.length > 0) tags.push("cs:Z:" + cs.join(""));
