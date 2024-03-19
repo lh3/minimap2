@@ -310,7 +310,7 @@ static void write_cs_ds_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const 
 			}
 		}
 	}
-	if (is_MD == 1) write_MD_core(s, tseq, qseq, r, tmp, write_tag);
+	if (is_MD) write_MD_core(s, tseq, qseq, r, tmp, write_tag);
 	else write_cs_ds_core(s, tseq, qseq, r, tmp, no_iden, is_ds, write_tag);
 	kfree(km, qseq); kfree(km, tseq); kfree(km, tmp);
 }
