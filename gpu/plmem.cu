@@ -543,7 +543,7 @@ void plmem_config_batch(cJSON *json, int *num_stream_,
 void plmem_initialize(size_t *max_total_n_, int *max_read_,
                       int *min_anchors_) {
 #ifndef GPU_CONFIG
-    cJSON *json = plmem_parse_gpu_config("gpu_config.json");
+    cJSON *json = plmem_parse_gpu_config("gpu/gpu_config.json");
 #else 
     cJSON *json = plmem_parse_gpu_config(GPU_CONFIG);
 #endif

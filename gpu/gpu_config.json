@@ -1,0 +1,29 @@
+{
+    "num_streams": 1,
+    "//num_streams": "Must set to 1 for current implementation of mm2-gb",
+    "min_n": 512, 
+    "//min_n": "queries with less anchors will be handled on cpu",
+    "long_seg_buffer_size": 100000000,
+    "//long_seg_buffer_size": "maximum number of anchors to fit in the aggregated long segment buffer. ",
+    "max_total_n": 500000000, 
+    "max_read": 500000,
+     "//max_total_n, max_read": "maximum number of anchors / reads to fit in one micro batch. Make sure this fits in the device memory.",
+    "range_kernel": {
+        "blockdim": 512,
+        "cut_check_anchors": 10,
+        "//cut_check_anchors": "Number of anchors to check to attemp a cut",
+        "anchor_per_block": 32768,
+        "//anchor_per_block": "Number of anchors each block handle. Must be int * blockdim"
+    },
+    "score_kernel": {
+        "micro_batch": 4,
+        "//micro_batch": "Number of micro batches to aggregate into one long kernel. Make sure your host memory size is at least micro_batch * device mem size * 2",
+        "mid_blockdim": 512,
+        "short_griddim": 2688,
+        "long_griddim": 144,
+        "//long_griddim": "To achieve the best occupancy for the long kernel, long_griddim is usually optimal at 2* No. of CUs ",
+        "mid_griddim": 2688,
+        "long_seg_cutoff": 20,
+        "mid_seg_cutoff": 3
+    }
+}

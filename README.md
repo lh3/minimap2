@@ -46,7 +46,7 @@ Here is an example of mapping with a test data set:
 >mm2-gb currently only supports single-threaded CPU implementation (-t 1).
 
 ### GPU configuration
-We provide GPU configuration files for the GPU architectures we tested: AMD Instinct™ MI210 (`gpu/mi210_config.json`), AMD Radeon™ RX 6800 XT (`gpu/gfx1030_config.json`), and NVIDIA A6000 (`gpu/a6000_config.json`). 
+We provide GPU configuration files for the GPU architectures we tested: AMD Instinct™ MI210 (`gpu/mi210_below50k_config.json`, `gpu/mi210_over50k_config.json`), AMD Radeon™ RX 6800 XT (`gpu/gfx1030_config.json`), and NVIDIA A6000 (`gpu/a6000_config.json`). 
 
 An example config file is shown below: 
 ```
@@ -65,7 +65,7 @@ An example config file is shown below:
         "cut_check_anchors": 10,
         "//cut_check_anchors": "Number of anchors to check to attemp a cut",
         "anchor_per_block": 32768,
-        "//anchor_per_block": "Number of anchors each block handle. Must be int * blockdim"
+        "//anchor_per_block": "Number of anchors each block handle. Must be int * blockdim",
     },
     "score_kernel": {
         "micro_batch": 4,
