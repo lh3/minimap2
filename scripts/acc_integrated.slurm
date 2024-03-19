@@ -30,56 +30,20 @@ module load rocm-5.7.1
 # Replace the following line with the actual command(s) you want to run
 cd $MM2_ROOT
 # SOL exp 
-# make clean
-# make MICRO_BATCH=2 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=1 LONG_CUT=100 DEBUG=1 DEBUG_ANALYSIS=1
-# ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/reads_4f452f4a-d82a-4580-981b-32d14b997217.fa
-# long_read_600M.fa 
 
 # random data test
 # export AMD_LOG_LEVEL=4
 make clean
-make MICRO_BATCH=6 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=3 LONG_CUT=20 DEBUG=1 DEBUG_ANALYSIS=1
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_1kto10k.fa
+# debug level: N/A info analyze verbose
+make GPU=AMD DEBUG=analyze
+# ./minimap2 -K 2000000000 -t 1 --gpu-chain --gpu-cfg /shared/prod/home/liuxs/bioinfo/minimap2/mi210_over50k.json /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa > out.paf
+# echo "Exit: $?"
+./minimap2 -K 2000000000 -t 1 --gpu-chain --gpu-cfg /shared/prod/home/liuxs/bioinfo/minimap2/mi210_below50k.json /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_20kto30k.fa > out.paf
 echo "Exit: $?"
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_5kto10k.fa
+./minimap2 -K 2000000000 -t 1 --gpu-chain --gpu-cfg /shared/prod/home/liuxs/bioinfo/minimap2/mi210_below50k.json /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_60kto70k.fa > out.paf
 echo "Exit: $?"
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/long_read_600M.fa 
+./minimap2 -K 2000000000 -t 1 --gpu-chain --gpu-cfg /shared/prod/home/liuxs/bioinfo/minimap2/mi210_over50k.json /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_60kto70k.fa > out.paf
 echo "Exit: $?"
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa
-echo "Exit: $?"
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_100kto300k.fa
-echo "Exit: $?"
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_10kto20k.fa
-echo "Exit: $?"
-./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_40kto50k.fa
-echo "Exit: $?"
-#./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_10kto300k.fa
-#echo "Exit: $?"
-
-# ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_4GBases_10kto300k.fa 
-
-
-# ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/long_read_3G.fa 
-# ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/long_read_600M.fa 
-# ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_5GBases_90kto100k.fa
-# ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_90kto100k.fa
-# rocgdb --args ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi random_250reads_90kto100k.fa
-# ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_1kto300k.fa
-# ./minimap2 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/short_seg_reads_from_1kto10k_distri.fa
-
 # Optional: You can add post-processing commands here
-
-
-# Iterate from 2 to 10 for Mid seg length
-for ((i = 20; i <= 20; i+=30))
-do
-    make clean
-    make MICRO_BATCH=2 GPU_CONFIG=aac_config.json SHORT_BLOCK_SIZE=64 LONG_BLOCK_SIZE=1024 MID_BLOCK_SIZE=512 MID_CUT=3 LONG_CUT=$i DEBUG=1 DEBUG_ANALYSIS=1
-    ./minimap2 -K 2000000000 -t 1 --max-chain-skip=2147483647 --gpu-chain /shareddata/umich_folder/data/ONT/hg38.mmi /shareddata/umich_folder/data/ONT/random_500MBases_40kto50k.fa
-    echo "Exit: $?"
-    mv range_dis.csv data/range_dis_l$i.csv
-    mv mid_range_dis.csv data/mid_range_dis_l$i.csv
-    mv long_range_dis.csv data/long_range_dis_l$i.csv
-done
 
 # End of the script

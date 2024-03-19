@@ -1,11 +1,11 @@
 {
-    "//config is for": "AMD Radeon RX 6800 XT on amdxfx. Fits one batch + 5% x 4 long buffer avg_read_n 10k",
+    "//config is for": "aac cloud. Fits one batch + 5% x 4 long buffer avg_read_n 10k",
     "num_streams": 1,
     "min_n": 512, 
     "//min_n": "queries with less anchors will be handled on cpu",
-    "long_seg_buffer_size": 100000000,
-    "max_total_n": 493440000, 
-    "max_read": 493440,
+    "long_seg_buffer_size": 1117376000,
+    "max_total_n": 2036880000, 
+    "max_read": 2036880,
     "avg_read_n": 20000,
     "//avg_read_n": "expect average number of anchors per read, not used if max_total_n and max_read are specified",
     "range_kernel": {
@@ -16,12 +16,13 @@
         "//anchor_per_block": "Number of anchors each block handle. Must be int * blockdim"
     },
     "score_kernel": {
-        "micro_batch": 4,
+        "micro_batch": 6,
         "mid_blockdim": 512,
-        "//blockdim config": "options are not used: static config specified at compile time (make ... LONG_BLOCK_SIZE=1024)",
-        "short_griddim": 2688,
-        "long_griddim": 144,
-        "mid_griddim": 2688,
+        "//static options for mid_blockdim": "128/256/512/1024",
+        "short_griddim": 3328,
+        "mid_griddim": 3328,
+        "long_griddim": 208,
+        "//normal reads benefit from more blocks": "long_griddim = 2 * num of CUs",
         "long_seg_cutoff": 20,
         "mid_seg_cutoff": 3
     }
