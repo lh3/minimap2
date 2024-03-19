@@ -40,7 +40,7 @@ The usage of mm2-gb is similar to minimap2. The `--gpu-chain` flag enables GPU c
 
 Here is an example of mapping with a test data set: 
 ```
-./minimap2 -t 1 --gpu-chain --gpu-cfg gpu_config.json test/MT-human.fa test/MT-orang.fa > mm2-gb_out.paf
+./minimap2 -t 1 --gpu-chain --gpu-cfg gpu/gpu_config.json test/MT-human.fa test/MT-orang.fa > mm2-gb_out.paf
 ```
 >[!NOTE]
 >mm2-gb currently only supports single-threaded CPU implementation (-t 1).
