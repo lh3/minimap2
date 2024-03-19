@@ -1,3 +1,110 @@
+# mm2-gb
+mm2-gb is based on minimap2-v2.24 with GPU accelerated chaining kernel for high throughput accurate mapping of ultra-long reads. 
+![mm2-workflow (1)](https://github.com/Minimap2onGPU/minimap2/assets/42312167/5ae47c34-a8e0-487a-9ebf-fc2bf7d30154)
+## System Requirements
+OS: linux. tested on Ubuntu 20.04, Ubuntu 22.04
+
+GPU: mm2-gb was tested on AMD and NVIDIA GPUs, in particular: 
+  - AMD Instinct™ MI210 GPU running rocm-5.7.1
+  - AMD Radeon™ RX 6800 XT running rocm-5.4.3
+  - NVIDIA A6000 running cuda-12.3
+
+>[!WARNING]
+>We notice great performance degradation (20x - 30x) on Nvidia GPUs in the current version. This might be because Cuda can not handle many arguments at kernel launch. We are working on fixing it. 
+
+Host: We suggest a host memory size of 8x GPU memory size. For example, for AMD Redeon™ RX 6800 XT with 16GB of GPU memory, it is recommended to have at least 128GB of host memory.
+
+## Installation
+Clone the mm2-gb github repo. Build the executable with a `make` command. specify the debug level and GPU type at compile: 
+
+```
+git clone --recursive git@github.com:Minimap2onGPU/minimap2.git mm2-gb   
+cd mm2-gb
+
+# DEBUG levels:
+#   <empty>   : minimap2 prints only
+#   info      : print chaining kernel stats. (except throughput in anchor pairs/s)
+#   analyze   : calculate kernel throughput in anchor pairs / s. (require additional device synchronization)
+#   verbose   : print kernel launch / debug information.
+
+#example: build for AMD GPUs
+make GPU=AMD DEBUG=analyze
+
+#example: build for NVIDIA GPUs
+make GPU=NV GPUARCH=sm_86 DEBUG=analyze
+```
+find the cuda GPU architecture of your device [here](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-feature-list). 
+
+## Usage
+The usage of mm2-gb is similar to minimap2. The `--gpu-chain` flag enables GPU chaining. `--gpu-cfg <filename.json>` specifies the GPU configuration json file. 
+
+Here is an example of mapping with a test data set: 
+```
+./minimap2 -t 1 --gpu-chain --gpu-cfg gpu_config.json test/MT-human.fa test/MT-orang.fa > mm2-gb_out.paf
+```
+>[!NOTE]
+>mm2-gb currently only supports single-threaded CPU implementation (-t 1).
+
+### GPU configuration
+We provide GPU configuration files for the GPU architectures we tested: AMD Instinct™ MI210 (`gpu/mi210_config.json`), AMD Radeon™ RX 6800 XT (`gpu/gfx1030_config.json`), and NVIDIA A6000 (`gpu/a6000_config.json`). 
+
+An example config file is shown below: 
+```
+{
+    "num_streams": 1,
+    "//num_streams": "Must set to 1 for current implementation of mm2-gb",
+    "min_n": 512, 
+    "//min_n": "queries with less anchors will be handled on cpu",
+    "long_seg_buffer_size": 100000000,
+    "//long_seg_buffer_size": "maximum number of anchors to fit in the aggregated long segment buffer. ",
+    "max_total_n": 500000000, 
+    "max_read": 500000,
+     "//max_total_n, max_read": "maximum number of anchors / reads to fit in one micro batch. Make sure this fits in the device memory."
+    "range_kernel": {
+        "blockdim": 512,
+        "cut_check_anchors": 10,
+        "//cut_check_anchors": "Number of anchors to check to attemp a cut",
+        "anchor_per_block": 32768,
+        "//anchor_per_block": "Number of anchors each block handle. Must be int * blockdim"
+    },
+    "score_kernel": {
+        "micro_batch": 4,
+        "//micro_batch": "Number of micro batches to aggregate into one long kernel. Make sure your host memory size is at least micro_batch * device mem size * 2",
+        "mid_blockdim": 512,
+        "short_griddim": 2688,
+        "long_griddim": 144,
+        "//long_griddim": "To achieve the best occupancy for the long kernel, long_griddim is usually optimal at 2* No. of CUs ",
+        "mid_griddim": 2688,
+        "long_seg_cutoff": 20,
+        "mid_seg_cutoff": 3
+    }
+}
+```
+
+## Accuracy evaluation
+mm2-gb is an accelerated version of minimap2-v2.24, and its output can be verified against it. Note that mm2-gb requires a chaining parameter of `max-chain-skip=infinity`, which leads to higher precision. 
+```
+# run mm2-gb with gpu chaining
+./minimap2 -t 1 --gpu-chain --gpu-cfg gpu_config.json test/MT-human.fa test/MT-orang.fa > mm2-gb_out.paf # implicitly sets max-chain-skip=infinity
+# run minimap2-v2.24
+./minimap2 -t 1 --max-chain-skip=infinity test/MT-human.fa test/MT-orang.fa > mm2_out.paf
+```
+The output should match, generating an empty diff result. 
+```
+diff mm2_out.paf mm2-gb_out.paf
+```
+## Performance
+We observe that _mm2-gb_ on an AMD Instinct™ MI210 GPU achieves 2.57-5.33x performance improvement on long nanopore reads (10kb-100kb), and 1.87x performance gain on super long reads (100kb-300kb) compared to SIMD accelerated [mm2-fast](https://github.com/bwa-mem2/mm2-fast) running on an Intel® Icelake processor with 32 cores. 
+## Future Works
+#### known issue: performance degradation on Nvidia GPUs
+#### Optimizations
+- Multi-threaded CPU - GPU integration
+- Add shared memory prefetching for long-segment score generation kernel. 
+
+--------------------------------------------------------------------------------------------------
+The original README contents of minimap2 follow.
+## 
+
 [![GitHub Downloads](https://img.shields.io/github/downloads/lh3/minimap2/total.svg?style=social&logo=github&label=Download)](https://github.com/lh3/minimap2/releases)
 [![BioConda Install](https://img.shields.io/conda/dn/bioconda/minimap2.svg?style=flag&label=BioConda%20install)](https://anaconda.org/bioconda/minimap2)
 [![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
