@@ -327,6 +327,7 @@ void plchain_cal_score_async(chain_read_t **reads_, int *n_read_, Misc misc, str
                     stream_setup.streams[stream_id].cudastream);
     cudaMemsetAsync(stream_setup.streams[stream_id].dev_mem.d_total_n_long, 0, sizeof(size_t),
                     stream_setup.streams[stream_id].cudastream);
+    cudaCheck();
     stream_setup.streams[stream_id].long_mem.total_long_segs_num[0] = 0;
     stream_setup.streams[stream_id].long_mem.total_long_segs_n[0] = 0;
     for(int uid = 0; uid < score_kernel_config.micro_batch; uid++) {

@@ -603,9 +603,7 @@ void plmem_stream_initialize(size_t *max_total_n_,
         plmem_malloc_device_mem(&stream_setup.streams[i].dev_mem, max_anchors_stream,
                                 max_range_grid, max_num_cut);
         cudaMemset(stream_setup.streams[i].dev_mem.d_long_seg_count, 0, sizeof(unsigned int));
-        cudaCheck();
         cudaMemset(stream_setup.streams[i].dev_mem.d_mid_seg_count, 0, sizeof(unsigned int));
-        cudaCheck();
         cudaMemset(stream_setup.streams[i].dev_mem.d_total_n_long, 0, sizeof(size_t));
         cudaCheck();
     }
@@ -622,6 +620,7 @@ cudaMemGetInfo(&gpu_free_mem, &gpu_total_mem);
     stream_setup.max_range_grid = max_range_grid;
     stream_setup.max_num_cut = max_num_cut;
     stream_setup.long_seg_buffer_size_stream = long_seg_buffer_size;
+    cudaCheck();
 }
 
 void plmem_stream_cleanup() {

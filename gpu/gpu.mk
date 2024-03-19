@@ -1,4 +1,5 @@
 GPU				?= 		AMD
+GPUARCH 		?=		sm_86
 CONFIG			+= $(if $(MAX_MICRO_BATCH),-DMICRO_BATCH=\($(MAX_MICRO_BATCH)\))
 
 ###################################################
@@ -13,8 +14,9 @@ INCLUDES		+= -I gpu
 ###################################################
 ############  	CUDA Compile 	###################
 ###################################################
+COMPUTE_ARCH    = $(GPUARCH:sm_%=compute_%)
 NVCC 			= nvcc
-CUDAFLAGS		= -rdc=true -lineinfo
+CUDAFLAGS		= -rdc=true -gencode arch=$(COMPUTE_ARCH),code=$(GPUARCH) -diag-suppress=177 -diag-suppress=1650 # supress unused variable / func warning
 CUDATESTFLAG	= -G
 
 ###################################################
