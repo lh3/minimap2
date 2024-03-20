@@ -10,7 +10,7 @@ GPU: mm2-gb was tested on AMD and NVIDIA GPUs, in particular:
   - NVIDIA A6000 running cuda-12.3
 
 >[!Warning]
->The observed performance on NVIDIA A6000 is currently not optimal. This could be because CUDA is not able to handle many arguments at kernel launch. We are actively working on fixing it. 
+>Although mm2-gb is tested on NVIDIA A6000, the performance observed on it is currently not optimal. This could be because CUDA is not able to handle many arguments at kernel launch. We are actively working on fixing it. 
 
 Host: We recommend a host memory size of 8x GPU memory size. For example, for AMD Redeon™ RX 6800 XT with 16GB of GPU memory, it is recommended to have at least 128GB of host memory.
 
