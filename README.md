@@ -9,10 +9,10 @@ GPU: mm2-gb was tested on AMD and NVIDIA GPUs, in particular:
   - AMD Radeon™ RX 6800 XT running rocm-5.4.3
   - NVIDIA A6000 running cuda-12.3
 
->[!WARNING]
->We notice great performance degradation (20x - 30x) on Nvidia GPUs in the current version. This might be because Cuda can not handle many arguments at kernel launch. We are working on fixing it. 
+>[!Disclaimer]
+>The observed performance on NVIDIA A6000 is not currently optimal This could be because CUDA cannot handle many arguments at kernel launch. We are actively working on fixing it. 
 
-Host: We suggest a host memory size of 8x GPU memory size. For example, for AMD Redeon™ RX 6800 XT with 16GB of GPU memory, it is recommended to have at least 128GB of host memory.
+Host: We recommend a host memory size of 8x GPU memory size. For example, for AMD Redeon™ RX 6800 XT with 16GB of GPU memory, it is recommended to have at least 128GB of host memory.
 
 ## Installation
 Clone the mm2-gb github repo. Build the executable with a `make` command. specify the debug level and GPU type at compile: 
