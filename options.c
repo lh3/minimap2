@@ -114,6 +114,10 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 			mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 			mo->min_dp_max = 200;
 		}
+	} else if (strcmp(preset, "lr:hqae") == 0) { // high-quality assembly evaluation
+		io->flag = 0, io->k = 25, io->w = 51;
+		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
+		mo->rmq_inner_dist = 5000;
 	} else if (strcmp(preset, "map-iclr-prerender") == 0) {
 		io->flag = 0, io->k = 15;
 		mo->b = 6, mo->transition = 1;
