@@ -118,6 +118,9 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag = 0, io->k = 25, io->w = 51;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->rmq_inner_dist = 5000;
+		mo->occ_dist = 200;
+		mo->best_n = 100;
+		mo->chain_gap_scale = 5.0f;
 	} else if (strcmp(preset, "map-iclr-prerender") == 0) {
 		io->flag = 0, io->k = 15;
 		mo->b = 6, mo->transition = 1;
