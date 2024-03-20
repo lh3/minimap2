@@ -287,8 +287,13 @@ void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **
 			for (i = 0, n_a = 0; i < n_regs0; ++i) n_a += (int32_t)u[i];
 			kfree(b->km, u);
 			radix_sort_128x(a, a + n_a);
-			a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw_long, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
-							  chn_pen_gap, chn_pen_skip, n_a, a, &n_regs0, &u, b->km);
+			if (opt->flag & MM_F_RMQ) {
+				a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw_long, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+								  chn_pen_gap, chn_pen_skip, n_a, a, &n_regs0, &u, b->km);
+			} else {
+				a = mg_lchain_dp_rmq(opt->max_gap, opt->bw, opt->bw_long, opt->max_chain_skip, opt->max_chain_iter, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
+									 chn_pen_gap, chn_pen_skip, n_a, a, &n_regs0, &u, b->km);
+			}
 		}
 	} else if (opt->max_occ > opt->mid_occ && rep_len > 0 && !(opt->flag & MM_F_RMQ)) { // re-chain, mostly for short reads
 		int rechain = 0;

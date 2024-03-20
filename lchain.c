@@ -365,3 +365,109 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 	}
 	return compact_a(km, n_u, u, n_v, v, a);
 }
+
+mm128_t *mg_lchain_dp_rmq(int dist_s, int bw_s, int bw_l, int max_skip, int max_iter, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
+						  int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
+{
+	int32_t *f, *t, *v, n_u, n_v, mmax_f = 0;
+	int32_t dist_l = dist_s > bw_l? dist_s : bw_l;
+	int64_t *p, i, j, max_ii, st_s = 0, i0, st_l = 0;
+	uint64_t *u;
+	lc_elem_t *root = 0;
+	void *mem_mp = 0;
+	kmp_rmq_t *mp;
+
+	if (_u) *_u = 0, *n_u_ = 0;
+	if (n == 0 || a == 0) {
+		kfree(km, a);
+		return 0;
+	}
+	p = Kmalloc(km, int64_t, n);
+	f = Kmalloc(km, int32_t, n);
+	v = Kmalloc(km, int32_t, n);
+	t = Kcalloc(km, int32_t, n);
+	mem_mp = km_init2(km, 0x10000);
+	mp = kmp_init_rmq(mem_mp);
+
+	// fill the score and backtrack arrays
+	for (i = 0, max_ii = -1; i < n; ++i) {
+		int64_t max_j = -1, end_j;
+		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
+		lc_elem_t s, *q, lo, hi;
+		// add in-range anchors
+		if (i0 < i && a[i0].x != a[i].x) {
+			int64_t j;
+			for (j = i0; j < i; ++j) {
+				q = kmp_alloc_rmq(mp);
+				q->y = (int32_t)a[j].y, q->i = j, q->pri = -(f[j] + 0.25 * chn_pen_gap * ((int32_t)a[j].x + (int32_t)a[j].y));
+				krmq_insert(lc_elem, &root, q, 0);
+			}
+			i0 = i;
+		}
+		// get rid of active chains out of range
+		while (st_l < i && (a[i].x>>32 != a[st_l].x>>32 || a[i].x > a[st_l].x + dist_l || krmq_size(head, root) > cap_rmq_size)) {
+			s.y = (int32_t)a[st_l].y, s.i = st_l;
+			if ((q = krmq_find(lc_elem, root, &s, 0)) != 0) {
+				q = krmq_erase(lc_elem, &root, q, 0);
+				kmp_free_rmq(mp, q);
+			}
+			++st_l;
+		}
+		// RMQ
+		lo.i = INT32_MAX, lo.y = (int32_t)a[i].y - dist_l;
+		hi.i = 0, hi.y = (int32_t)a[i].y;
+		if ((q = krmq_rmq(lc_elem, root, &lo, &hi)) != 0) {
+			int32_t sc, exact, width;
+			int64_t j = q->i;
+			assert(q->y >= lo.y && q->y <= hi.y);
+			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact, &width);
+			if (width <= bw_l && sc > max_f) max_f = sc, max_j = j;
+		}
+		// determine st_s
+		while (st_s < i && (a[i].x>>32 != a[st_s].x>>32 || a[i].x > a[st_s].x + dist_s)) ++st_s;
+		if (i - st_s > max_iter) st_s = i - max_iter;
+		// core dp loop
+		for (j = i - 1; j >= st_s; --j) {
+			int32_t sc;
+			sc = comput_sc(&a[i], &a[j], dist_s, dist_s, bw_s, chn_pen_gap, chn_pen_skip, 0, 1);
+			if (sc == INT32_MIN) continue;
+			sc += f[j];
+			if (sc > max_f) {
+				max_f = sc, max_j = j;
+				if (n_skip > 0) --n_skip;
+			} else if (t[j] == (int32_t)i) {
+				if (++n_skip > max_skip)
+					break;
+			}
+			if (p[j] >= 0) t[p[j]] = i;
+		}
+		end_j = j;
+		if (max_ii < 0 || a[i].x - a[max_ii].x > (int64_t)dist_s) {
+			int32_t max = INT32_MIN;
+			max_ii = -1;
+			for (j = i - 1; j >= st_s; --j)
+				if (max < f[j]) max = f[j], max_ii = j;
+		}
+		if (max_ii >= 0 && max_ii < end_j) {
+			int32_t tmp;
+			tmp = comput_sc(&a[i], &a[max_ii], dist_s, dist_s, bw_s, chn_pen_gap, chn_pen_skip, 0, 1);
+			if (tmp != INT32_MIN && max_f < tmp + f[max_ii])
+				max_f = tmp + f[max_ii], max_j = max_ii;
+		}
+		f[i] = max_f, p[i] = max_j;
+		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f; // v[] keeps the peak score up to i; f[] is the score ending at i, not always the peak
+		if (max_ii < 0 || (a[i].x - a[max_ii].x <= (int64_t)dist_s && f[max_ii] < f[i]))
+			max_ii = i;
+		if (mmax_f < max_f) mmax_f = max_f;
+	}
+	km_destroy(mem_mp);
+
+	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, bw_l, &n_u, &n_v);
+	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
+	kfree(km, p); kfree(km, f); kfree(km, t);
+	if (n_u == 0) {
+		kfree(km, a); kfree(km, v);
+		return 0;
+	}
+	return compact_a(km, n_u, u, n_v, v, a);
+}
