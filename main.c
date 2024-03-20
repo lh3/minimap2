@@ -79,7 +79,7 @@ static ko_longopt_t long_options[] = {
 	{ "secondary-seq",  ko_no_argument,       354 },
 	{ "ds",             ko_no_argument,       355 },
 	{ "rmq-inner",      ko_required_argument, 356 },
-	{ "dbg-seed-freq",  ko_no_argument,       501 },
+	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -248,7 +248,7 @@ int main(int argc, char *argv[])
 		else if (c == 354) opt.flag |= MM_F_SECONDARY_SEQ; // --secondary-seq
 		else if (c == 355) opt.flag |= MM_F_OUT_DS; // --ds
 		else if (c == 356) opt.rmq_inner_dist = mm_parse_num(o.arg); // --rmq-inner
-		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-freq
+		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
 		} else if (c == 314) { // --frag
