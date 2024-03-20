@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.27-r1194-dirty';
+var paftools_version = '2.27-r1197-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -1740,15 +1740,17 @@ function paf_gff2bed(args)
 
 function paf_sam2paf(args)
 {
-	var c, pri_only = false, long_cs = false;
-	while ((c = getopt(args, "pL")) != null) {
+	var c, pri_only = false, long_cs = false, pri_pri_only = false;
+	while ((c = getopt(args, "pPL")) != null) {
 		if (c == 'p') pri_only = true;
+		else if (c == 'P') pri_pri_only = pri_only = true;
 		else if (c == 'L') long_cs = true;
 	}
 	if (args.length == getopt.ind) {
 		print("Usage: paftools.js sam2paf [options] <in.sam>");
 		print("Options:");
 		print("  -p      convert primary or supplementary alignments only");
+		print("  -P      convert primary alignments only");
 		print("  -L      output the cs tag in the long form");
 		exit(1);
 	}
@@ -1775,6 +1777,7 @@ function paf_sam2paf(args)
 			throw Error("at line " + lineno + ": inconsistent SEQ and QUAL lengths - " + t[9].length + " != " + t[10].length);
 		if (t[2] == '*' || (flag&4) || t[5] == '*') continue;
 		if (pri_only && (flag&0x100)) continue;
+		if (pri_pri_only && (flag&0x900)) continue;
 		var tlen = ctg_len[t[2]];
 		if (tlen == null) throw Error("at line " + lineno + ": can't find the length of contig " + t[2]);
 		// find tags
