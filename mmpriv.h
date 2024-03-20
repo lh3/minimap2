@@ -14,6 +14,7 @@
 #define MM_DBG_PRINT_SEED    0x4
 #define MM_DBG_PRINT_ALN_SEQ 0x8
 #define MM_DBG_PRINT_CHAIN   0x10
+#define MM_DBG_SEED_FREQ     0x20
 
 #define MM_SEED_LONG_JOIN  (1ULL<<40)
 #define MM_SEED_IGNORE     (1ULL<<41)

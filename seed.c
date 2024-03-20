@@ -112,7 +112,8 @@ mm_seed_t *mm_collect_matches(void *km, int *_n_m, int qlen, int max_occ, int ma
 	}
 	for (i = 0, n_m = 0, *rep_len = 0, *n_a = 0; i < n_m0; ++i) {
 		mm_seed_t *q = &m[i];
-		//fprintf(stderr, "X\t%d\t%d\t%d\n", q->q_pos>>1, q->n, q->flt);
+		if (mm_dbg_flag & MM_DBG_SEED_FREQ)
+			fprintf(stderr, "SF\t%d\t%d\t%d\n", q->q_pos>>1, q->n, q->flt);
 		if (q->flt) {
 			int en = (q->q_pos >> 1) + 1, st = en - q->q_span;
 			if (st > rep_en) {

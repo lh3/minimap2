@@ -149,7 +149,7 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 					  int is_cdna, int n_seg, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
 	int32_t *f, *t, *v, n_u, n_v, mmax_f = 0, max_drop = bw;
-	int64_t *p, i, j, max_ii, st = 0, n_iter = 0;
+	int64_t *p, i, j, max_ii, st = 0;
 	uint64_t *u;
 
 	if (_u) *_u = 0, *n_u_ = 0;
@@ -174,7 +174,6 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		for (j = i - 1; j >= st; --j) {
 			int32_t sc;
 			sc = comput_sc(&a[i], &a[j], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, is_cdna, n_seg);
-			++n_iter;
 			if (sc == INT32_MIN) continue;
 			sc += f[j];
 			if (sc > max_f) {
@@ -204,6 +203,7 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		if (max_ii < 0 || (a[i].x - a[max_ii].x <= (int64_t)max_dist_x && f[max_ii] < f[i]))
 			max_ii = i;
 		if (mmax_f < max_f) mmax_f = max_f;
+		//fprintf(stderr, "X1\t%ld\t%ld:%d\t%ld\t%ld:%d\t%ld\t%ld\t%ld\n", (long)i, (long)(a[i].x>>32), (int32_t)a[i].x, (long)max_j, max_j<0?-1L:(long)(a[max_j].x>>32), max_j<0?-1:(int32_t)a[max_j].x, (long)max_f, (long)v[i], (long)mmax_f);
 	}
 
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, &n_u, &n_v);
@@ -325,12 +325,11 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 				krmq_interval(lc_elem, root_inner, &s, &lo, &hi);
 				if (lo) {
 					const lc_elem_t *q;
-					int32_t width, n_rmq_iter = 0;
+					int32_t width;
 					krmq_itr_t(lc_elem) itr;
 					krmq_itr_find(lc_elem, root_inner, lo, &itr);
 					while ((q = krmq_at(&itr)) != 0) {
 						if (q->y < (int32_t)a[i].y - max_dist_inner) break;
-						++n_rmq_iter;
 						j = q->i;
 						sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0, &width);
 						if (width <= bw) {
