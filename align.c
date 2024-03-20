@@ -933,14 +933,14 @@ double mm_event_identity(const mm_reg1_t *r)
 static int32_t mm_recal_max_dp(const mm_reg1_t *r, double b2, int32_t match_sc)
 {
 	uint32_t i;
-	int32_t n_gap = 0, n_gapo = 0, n_mis;
+	int32_t n_gap = 0, n_mis;
 	double gap_cost = 0.0;
 	if (r->p == 0) return -1;
 	for (i = 0; i < r->p->n_cigar; ++i) {
 		int32_t op = r->p->cigar[i] & 0xf, len = r->p->cigar[i] >> 4;
 		if (op == MM_CIGAR_INS || op == MM_CIGAR_DEL) {
 			gap_cost += b2 + (double)mg_log2(1.0 + len);
-			++n_gapo, n_gap += len;
+			n_gap += len;
 		}
 	}
 	n_mis = r->blen + r->p->n_ambi - r->mlen - n_gap;

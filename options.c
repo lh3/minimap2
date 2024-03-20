@@ -116,6 +116,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		}
 	} else if (strcmp(preset, "lr:hqae") == 0) { // high-quality assembly evaluation
 		io->flag = 0, io->k = 25, io->w = 51;
+		mo->flag |= MM_F_RMQ;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
 		mo->rmq_inner_dist = 5000;
 		mo->occ_dist = 200;
