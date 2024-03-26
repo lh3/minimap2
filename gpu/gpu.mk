@@ -50,6 +50,7 @@ ifeq ($(DEBUG),analyze)
 	GPU_FLAGS	+= $(GPU_ANALYZE)
 endif
 ifeq ($(DEBUG),verbose)
+	GPU_FLAGS	+= $(GPU_ANALYZE)
 	GPU_FLAGS	+= $(GPU_TESTFL)
 endif
 
