@@ -9,9 +9,6 @@ GPU: mm2-gb was tested on AMD and NVIDIA GPUs, in particular:
   - AMD Radeon™ RX 6800 XT running rocm-5.4.3
   - NVIDIA A6000 running cuda-12.3
 
->[!Warning]
->Although mm2-gb is tested on NVIDIA A6000, the performance observed on it is currently not optimal. This could be because CUDA is not able to handle many arguments at kernel launch. We are actively working on fixing it. 
-
 Host: We recommend a host memory size of 8x GPU memory size. For example, for AMD Redeon™ RX 6800 XT with 16GB of GPU memory, it is recommended to have at least 128GB of host memory.
 
 ## Installation
@@ -96,7 +93,6 @@ diff mm2_out.paf mm2-gb_out.paf
 ## Performance
 We observe that _mm2-gb_ on an AMD Instinct™ MI210 GPU achieves 2.57-5.33x performance improvement on long nanopore reads (10kb-100kb), and 1.87x performance gain on super long reads (100kb-300kb) compared to SIMD accelerated [mm2-fast](https://github.com/bwa-mem2/mm2-fast) running on an Intel® Icelake processor with 32 cores. 
 ## Future Works
-#### known issue: performance degradation on Nvidia GPUs
 #### Optimizations
 - Multi-threaded CPU - GPU integration
 - Add shared memory prefetching for long-segment score generation kernel. 
