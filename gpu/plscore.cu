@@ -71,30 +71,31 @@ __device__ int32_t original_comput_sc(const int32_t ai_x, const int32_t ai_y, co
     return sc;
 }
 
-__device__ int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
-                                const int8_t sidi,  const int8_t sidj,
-                                int32_t max_dist_x, int32_t max_dist_y,
-                                int32_t bw, float chn_pen_gap,
-                                float chn_pen_skip, int is_cdna, int n_seg) {
-    int32_t dq = ai_y - aj_y, dr, dd, dg, sc;
-    dr = ai_x - aj_x;
-    dd = __sad(dr, dq, 0);
+inline __device__ int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32_t aj_x, const int32_t aj_y,
+                                const int32_t sidi,  const int32_t sidj,
+                                const int32_t max_dist_x, const int32_t max_dist_y,
+                                const int32_t bw, const float chn_pen_gap,
+                                const float chn_pen_skip, const int is_cdna, const int n_seg) {
+    const bool is_same_sid = sidi == sidj;
+    const int32_t dq = ai_y - aj_y, dr = ai_x - aj_x;
+    const int32_t dd = __sad(dr, dq, 0);
 
     if (dq <= 0 || dq > max_dist_x ||
-        (sidi == sidj && (dr == 0 || 
+        (is_same_sid && (dr == 0 || 
                         dq > max_dist_y || 
                         dd > bw || 
                         (n_seg > 1 && !is_cdna && dr > max_dist_y))))
         return INT32_MIN;
+
+    const int32_t dg = dr < dq ? dr : dq;
+    int32_t sc = MM_QSPAN < dg ? MM_QSPAN : dg;
     
-    dg = dr < dq ? dr : dq; // dg = min(dr, dq)
-    sc = MM_QSPAN < dg ? MM_QSPAN : dg; // sc = min(q_span, dr, dq)
     if (dd || dg > MM_QSPAN) {
         int32_t log_pen = dd >= 1 ? (31 - __clz(dd+1)) : 0;
         int32_t lin_pen = chn_pen_gap * (float)dd + chn_pen_skip * (float)dg;
         // Initial conditions for modifying score based on penalties
-        bool minorBonus = is_cdna && sidi != sidj && dr == 0;
-        bool majorAdjustment = (is_cdna && dg == dq) || sidi != sidj;
+        bool minorBonus = is_cdna && !is_same_sid && dr == 0;
+        bool majorAdjustment = (is_cdna && dg == dq) || !is_same_sid;
         sc += minorBonus;
         sc -= (!minorBonus && majorAdjustment) * (int)(lin_pen < log_pen ? lin_pen : log_pen);
         sc -= (!minorBonus && !majorAdjustment) * (int)(lin_pen + 0.5f * log_pen);
@@ -105,11 +106,11 @@ __device__ int32_t comput_sc(const int32_t ai_x, const int32_t ai_y, const int32
 
 /* arithmetic functions end */
 
-inline __device__ void compute_sc_seg_one_wf(int32_t* anchors_x, int32_t* anchors_y, int8_t* sid, int32_t* range, 
-                    size_t start_idx, size_t end_idx,
+inline __device__ void compute_sc_seg_one_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
+                    const size_t start_idx, const size_t end_idx,
                     int32_t* f, uint16_t* p
 ){
-    Misc blk_misc = misc;
+    const Misc blk_misc = misc;
     int tid = threadIdx.x;
     // init f and p
     for (size_t i=start_idx+tid; i < end_idx; i += blockDim.x) {
@@ -148,10 +149,10 @@ inline __device__ void compute_sc_seg_one_wf(int32_t* anchors_x, int32_t* anchor
 
 
 inline __device__ void compute_sc_seg_multi_wf(const int32_t* anchors_x, const int32_t* anchors_y, const int8_t* sid, const int32_t* range, 
-                    size_t start_idx, size_t end_idx,
+                    const size_t start_idx, const size_t end_idx,
                     int32_t* f, uint16_t* p
 ){
-    Misc blk_misc = misc;
+    const Misc blk_misc = misc;
     int tid = threadIdx.x;
     int bid = blockIdx.x;
     // init f and p
