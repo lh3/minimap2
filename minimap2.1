@@ -268,6 +268,11 @@ or more of the shorter chain [0.5]
 Use the minigraph chaining algorithm [no]. The minigraph algorithm is better
 for aligning contigs through long INDELs.
 .TP
+.BI --rmq-inner \ NUM
+Apply full dynamic programming for anchors within distance
+.I NUM
+[1000].
+.TP
 .B --hard-mask-level
 Honor option
 .B -M

@@ -282,7 +282,7 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 			int64_t j;
 			for (j = i0; j < i; ++j) {
 				q = kmp_alloc_rmq(mp);
-				q->y = (int32_t)a[j].y, q->i = j, q->pri = -(f[j] + 0.25 * chn_pen_gap * ((int32_t)a[j].x + (int32_t)a[j].y));
+				q->y = (int32_t)a[j].y, q->i = j, q->pri = -(f[j] + 0.5 * chn_pen_gap * ((int32_t)a[j].x + (int32_t)a[j].y));
 				krmq_insert(lc_elem, &root, q, 0);
 				if (max_dist_inner > 0) {
 					r = kmp_alloc_rmq(mp);
