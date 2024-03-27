@@ -3,7 +3,7 @@ from libc.stdlib cimport free
 cimport cmappy
 import sys
 
-__version__ = '2.27'
+__version__ = '2.28'
 
 cmappy.mm_reset_timer()
 
@@ -96,6 +96,7 @@ cdef class Alignment:
 		a = [str(self._q_st), str(self._q_en), strand, self._ctg, str(self._ctg_len), str(self._r_st), str(self._r_en),
 			str(self._mlen), str(self._blen), str(self._mapq), tp, ts, "cg:Z:" + self.cigar_str]
 		if self._cs != "": a.append("cs:Z:" + self._cs)
+		if self._MD != "": a.append("MD:Z:" + self._MD)
 		return "\t".join(a)
 
 cdef class ThreadBuffer:

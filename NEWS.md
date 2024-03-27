@@ -1,3 +1,32 @@
+Release 2.28-r1209 (27 March 2024)
+----------------------------------
+
+Notable changes to minimap2:
+
+ * Bugfix: `--MD` was not working properly due to the addition of `--ds` in the
+   last release (#1181 and #1182).
+
+ * New feature: added an experimental preset `lq:hqae` for aligning accurate
+   long reads back to their assembly. It has been observed that `map-hifi` and
+   `lr:hq` may produce many wrong alignments around centromeres when accurate
+   long reads (PacBio HiFi or Nanopore duplex/Q20+) are mapped to a diploid
+   assembly constructed from them. This new preset produces much more accurate
+   alignment. It is still experimental and may be subjective to changes in
+   future.
+
+ * Change: reduced the default `--cap-kalloc` to 500m to lower the peak
+   memory consumption (#855).
+
+Notable changes to mappy:
+
+ * Bugfix: mappy option struct was out of sync with minimap2 (#1177).
+
+Minimap2 should output identical alignments to v2.27.
+
+(2.28: 27 March 2024, r1209)
+
+
+
 Release 2.27-r1193 (12 March 2024)
 ----------------------------------
 
