@@ -3240,6 +3240,7 @@ function paf_sveval(args)
 			if (bed != null && bed[t[0]] == null) continue;
 			if (t[4] == '<INV>' || t[4] == '<INVDUP>') continue; // no inversion
 			if (/[\[\]]/.test(t[4])) continue; // no break points
+			if (t[6] != "." && t[6] != "PASS") continue;
 			var st = parseInt(t[1]) - 1, en = st + t[3].length;
 			// parse svlen
 			var b = _paf_get_alen(t), svlen = b[0];
