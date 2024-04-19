@@ -402,6 +402,7 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
  */
 int mm_gen_cs(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int no_iden);
 int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq);
+int mm_gen_tseq(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r);
 
 // query sequence name and sequence in the minimap2 index
 int mm_idx_index_name(mm_idx_t *mi);
