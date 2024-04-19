@@ -101,7 +101,7 @@ cdef class Alignment:
 			str(self._mlen), str(self._blen), str(self._mapq), tp, ts, "cg:Z:" + self.cigar_str]
 		if self._cs != "": a.append("cs:Z:" + self._cs)
 		if self._MD != "": a.append("MD:Z:" + self._MD)
-		if self._tseq != "": a.append("TS:Z:" + self._tseq)
+		if self._tseq != "": a.append("tq:Z:" + self._tseq)
 		return "\t".join(a)
 
 cdef class ThreadBuffer:
