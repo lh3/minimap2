@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-linux-x8664:
     name: Linux x86_64
     runs-on: ubuntu-latest
     strategy:
@@ -23,7 +23,7 @@ jobs:
         make CC=${{ matrix.compiler }}
         file minimap2 | grep x86-64
 
-  build-aarch64:
+  build-linux-aarch64:
     name: Linux aarch64
     runs-on: ubuntu-latest
     strategy:
@@ -49,3 +49,20 @@ jobs:
           cd /minimap2
           make CC=${{ matrix.compiler }}
           file minimap2 | grep aarch64
+
+  build-mac-arm64:
+    name: Mac ARM64
+    runs-on: macos-14
+    strategy:
+      matrix:
+        compiler: [clang]
+
+    steps:
+    - name: Checkout minimap2
+      uses: actions/checkout@v4
+
+    - name: Compile with ${{ matrix.compiler }}
+      run: |
+        make CC=${{ matrix.compiler }}
+        file minimap2 | grep aarch64
+        
