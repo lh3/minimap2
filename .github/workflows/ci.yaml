@@ -64,5 +64,5 @@ jobs:
     - name: Compile with ${{ matrix.compiler }}
       run: |
         make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
-        file minimap2 | grep aarch64
+        file minimap2 | grep arm64
         
