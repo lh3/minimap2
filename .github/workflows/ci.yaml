@@ -47,7 +47,7 @@ jobs:
           apt-get install -q -y make ${{ matrix.compiler }} zlib1g-dev file
         run: |
           cd /minimap2
-          make CC=${{ matrix.compiler }}
+          make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
           file minimap2 | grep aarch64
 
   build-mac-arm64:
@@ -63,6 +63,6 @@ jobs:
 
     - name: Compile with ${{ matrix.compiler }}
       run: |
-        make CC=${{ matrix.compiler }}
+        make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
         file minimap2 | grep aarch64
         
