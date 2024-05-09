@@ -20,22 +20,22 @@ else                # if sse2only is defined
 endif
 else				# if arm_neon is defined
 	OBJS+=ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
-    INCLUDES+=-Isse2neon
+	override INCLUDES+=-Isse2neon
 ifeq ($(aarch64),)	#if aarch64 is not defined
-	CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
+	override CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
 else				#if aarch64 is defined
-	CFLAGS+=-D_FILE_OFFSET_BITS=64 -fsigned-char
+	override CFLAGS+=-D_FILE_OFFSET_BITS=64 -fsigned-char
 endif
 endif
 
 ifneq ($(asan),)
-	CFLAGS+=-fsanitize=address
-	LIBS+=-fsanitize=address -ldl
+	override CFLAGS+=-fsanitize=address
+	override LIBS+=-fsanitize=address -ldl
 endif
 
 ifneq ($(tsan),)
-	CFLAGS+=-fsanitize=thread
-	LIBS+=-fsanitize=thread -ldl
+	override CFLAGS+=-fsanitize=thread
+	override LIBS+=-fsanitize=thread -ldl
 endif
 
 .PHONY:all extra clean depend
