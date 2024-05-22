@@ -2,7 +2,7 @@
 
 Without `-a`, `-c` or `--cs`, minimap2 only finds *approximate* mapping
 locations without detailed base alignment. In particular, the start and end
-positions of the alignment are impricise. With one of those options, minimap2
+positions of the alignment are imprecise. With one of those options, minimap2
 will perform base alignment, which is generally more accurate but is much
 slower.
 
