@@ -212,6 +212,7 @@ int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 
 static void worker_post(void *g, long i, int tid)
 {
+	if (i == -1) return;
 	int n, n_keys;
 	size_t j, start_a, start_p;
 	idxhash_t *h;
