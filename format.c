@@ -338,6 +338,20 @@ int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_r
 	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 1, 0, 0);
 }
 
+int mm_gen_tseq(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r)
+{
+	uint8_t *tseq;
+	kstring_t str;
+	str.s = *buf, str.l = 0, str.m = *max_len;
+	tseq = (uint8_t*)kmalloc(km, r->re - r->rs);
+	int len = mm_idx_getseq(mi, r->rid, r->rs, r->re, tseq);
+	for (int i=0; i<len; i++)
+	    mm_sprintf_lite(&str, "%c", "ACGTN"[tseq[i]]);
+	*max_len = str.m;
+	*buf = str.s;
+	return str.l;
+}
+
 static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 {
 	int type;
