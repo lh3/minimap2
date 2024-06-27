@@ -1,6 +1,11 @@
 GPU				?= 		AMD
-GPUARCH 		?=		sm_86
 CONFIG			+= $(if $(MAX_MICRO_BATCH),-DMICRO_BATCH=\($(MAX_MICRO_BATCH)\))
+
+ifeq ($(GPU), AMD)
+    GPUARCH    ?= $(strip $(shell rocminfo |grep -m 1 -E gfx[^0]{1} | sed -e 's/ *Name: *//'))
+else
+    GPUARCH    ?= sm_86
+endif
 
 ###################################################
 ############  	CPU Compile 	###################
@@ -25,7 +30,7 @@ CUDATESTFLAG	= -G
 ############	HIP Compile		###################
 ###################################################
 HIPCC			= hipcc
-HIPFLAGS		= -DUSEHIP 
+HIPFLAGS		= -DUSEHIP --offload-arch=$(GPUARCH)
 HIPANALYZEFLAG  = -Rpass-analysis=kernel-resource-usage
 HIPTESTFLAGS	= -G -ggdb
 HIPLIBS			= -L${ROCM_PATH}/lib -lroctx64 -lroctracer64
