@@ -1,0 +1,28 @@
+{
+    "//config is for": "orin32GB. Fits one micro-batch + 3% x 4 long buffer",
+    "num_streams": 1,
+    "min_n": 10, 
+    "//min_n": "queries with less anchors will be handled on cpu",
+    "long_seg_buffer_size": 10000000,
+    "max_total_n": 5000000, 
+    "max_read": 4000,
+    "avg_read_n": 4000,
+    "//avg_read_n": "expect average number of anchors per read, not used if max_total_n and max_read are specified",
+    "range_kernel": {
+        "blockdim": 128,
+        "cut_check_anchors": 12,
+        "//cut_check_anchors": "Number of anchors to check to attemp a cut",
+        "anchor_per_block": 12800,
+        "//anchor_per_block": "Number of anchors each block handle. Must be int * blockdim"
+    },
+    "score_kernel": {
+        "//host Memory Warning: ": "make sure your host memory size is at least micro_batch * 48GB * 2 ",
+        "micro_batch": 8,
+        "mid_blockdim": 256,
+        "short_griddim": 128,
+        "long_griddim": 512,
+        "mid_griddim": 256,
+        "long_seg_cutoff": 20,
+        "mid_seg_cutoff": 3
+    }
+}
