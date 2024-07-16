@@ -19,3 +19,29 @@ jobs:
 
     - name: Compile with ${{ matrix.compiler }}
       run:  make CC=${{ matrix.compiler }}
+
+  arm:
+    name: ubuntu arm
+    runs-on: ubuntu-latest
+    steps:
+    - run: docker run --rm --privileged multiarch/qemu-user-static:register --reset
+    - uses: docker://multiarch/ubuntu-core:arm64-bionic
+      with:
+        args: 'uname -a'
+    - uses: actions/checkout@v1
+    - uses: docker://multiarch/ubuntu-core:arm64-bionic
+      with:
+        args: >
+          bash -c "apt-get update &&
+          apt-get install -y zlib1g-dev gcc make &&
+          ldd --version && gcc --version &&
+          make arm_neon=1 aarch64=1
+  python:
+    name: Ubuntu 18 python
+    runs-on: ubuntu-18.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: install packages
+      run: sudo apt-get update && sudo apt-get install -y zlib1g-dev python3-pip && pip3 install --upgrade pip && pip3 install setuptools cython
+    - name: build
+      run: python3 --version && python3 setup.py build_ext
