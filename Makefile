@@ -8,6 +8,10 @@ PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
 
+ifneq ($(aarch64),)
+	arm_neon=1
+endif
+
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
 	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
@@ -26,12 +30,12 @@ endif
 
 ifneq ($(asan),)
 	CFLAGS+=-fsanitize=address
-	LIBS+=-fsanitize=address
+	LIBS+=-fsanitize=address -ldl
 endif
 
 ifneq ($(tsan),)
 	CFLAGS+=-fsanitize=thread
-	LIBS+=-fsanitize=thread
+	LIBS+=-fsanitize=thread -ldl
 endif
 
 .PHONY:all extra clean depend

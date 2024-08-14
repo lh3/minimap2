@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.24-r1122';
+var paftools_version = '2.28-r1209';
 
 /*****************************
  ***** Library functions *****
@@ -133,26 +133,50 @@ Interval.find_ovlp = function(a, st, en)
 
 function fasta_read(fn)
 {
-	var h = {}, gt = '>'.charCodeAt(0);
+	var h = {}, seqlen = [];
+	var buf = new Bytes();
 	var file = fn == '-'? new File() : new File(fn);
-	var buf = new Bytes(), seq = null, name = null, seqlen = [];
-	while (file.readline(buf) >= 0) {
-		if (buf[0] == gt) {
-			if (seq != null && name != null) {
-				seqlen.push([name, seq.length]);
-				h[name] = seq;
-				name = seq = null;
-			}
-			var m, line = buf.toString();
-			if ((m = /^>(\S+)/.exec(line)) != null) {
-				name = m[1];
-				seq = new Bytes();
-			}
-		} else seq.set(buf);
-	}
-	if (seq != null && name != null) {
-		seqlen.push([name, seq.length]);
-		h[name] = seq;
+	if (typeof k8_version == "undefined") { // for k8-0.x
+		var seq = null, name = null, gt = '>'.charCodeAt(0);
+		while (file.readline(buf) >= 0) {
+			if (buf[0] == gt) {
+				if (seq != null && name != null) {
+					seqlen.push([name, seq.length]);
+					h[name] = seq;
+					name = seq = null;
+				}
+				var m, line = buf.toString();
+				if ((m = /^>(\S+)/.exec(line)) != null) {
+					name = m[1];
+					seq = new Bytes();
+				}
+			} else seq.set(buf);
+		}
+		if (seq != null && name != null) {
+			seqlen.push([name, seq.length]);
+			h[name] = seq;
+		}
+	} else { // for k8-1.x
+		var seq = null, name = null;
+		while (file.readline(buf) >= 0) {
+			var line = buf.toString();
+			if (line[0] == ">") {
+				if (seq != null && name != null) {
+					seqlen.push([name, seq.length]);
+					h[name] = new Uint8Array(seq.buffer);
+					name = seq = null;
+				}
+				var m;
+				if ((m = /^>(\S+)/.exec(line)) != null) {
+					name = m[1];
+					seq = new Bytes();
+				}
+			} else seq.set(line);
+		}
+		if (seq != null && name != null) {
+			seqlen.push([name, seq.length]);
+			h[name] = new Uint8Array(seq.buffer);
+		}
 	}
 	buf.destroy();
 	file.close();
@@ -161,16 +185,27 @@ function fasta_read(fn)
 
 function fasta_free(fa)
 {
-	for (var name in fa)
-		fa[name].destroy();
+	if (typeof k8_version == "undefined")
+		for (var name in fa)
+			fa[name].destroy();
+	// FIXME: for k8-1.0, sequences are not freed. This is ok for now but not general.
 }
 
 Bytes.prototype.reverse = function()
 {
-	for (var i = 0; i < this.length>>1; ++i) {
-		var tmp = this[i];
-		this[i] = this[this.length - i - 1];
-		this[this.length - i - 1] = tmp;
+	if (typeof k8_version === "undefined") { // k8-0.x
+		for (var i = 0; i < this.length>>1; ++i) {
+			var tmp = this[i];
+			this[i] = this[this.length - i - 1];
+			this[this.length - i - 1] = tmp;
+		}
+	} else { // k8-1.x
+		var buf = new Uint8Array(this.buffer);
+		for (var i = 0; i < buf.length>>1; ++i) {
+			var tmp = buf[i];
+			buf[i] = buf[buf.length - i - 1];
+			buf[buf.length - i - 1] = tmp;
+		}
 	}
 }
 
@@ -185,13 +220,24 @@ Bytes.prototype.revcomp = function()
 		for (var i = 0; i < s1.length; ++i)
 			Bytes.rctab[s1.charCodeAt(i)] = s2.charCodeAt(i);
 	}
-	for (var i = 0; i < this.length>>1; ++i) {
-		var tmp = this[this.length - i - 1];
-		this[this.length - i - 1] = Bytes.rctab[this[i]];
-		this[i] = Bytes.rctab[tmp];
+	if (typeof k8_version === "undefined") { // k8-0.x
+		for (var i = 0; i < this.length>>1; ++i) {
+			var tmp = this[this.length - i - 1];
+			this[this.length - i - 1] = Bytes.rctab[this[i]];
+			this[i] = Bytes.rctab[tmp];
+		}
+		if (this.length&1)
+			this[this.length>>1] = Bytes.rctab[this[this.length>>1]];
+	} else { // k8-1.x
+		var buf = new Uint8Array(this.buffer);
+		for (var i = 0; i < buf.length>>1; ++i) {
+			var tmp = buf[buf.length - i - 1];
+			buf[buf.length - i - 1] = Bytes.rctab[buf[i]];
+			buf[i] = Bytes.rctab[tmp];
+		}
+		if (buf.length&1)
+			buf[buf.length>>1] = Bytes.rctab[buf[buf.length>>1]];
 	}
-	if (this.length&1)
-		this[this.length>>1] = Bytes.rctab[this[this.length>>1]];
 }
 
 /********************
@@ -1532,22 +1578,24 @@ function paf_view(args)
 
 function paf_gff2bed(args)
 {
-	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false, print_junc = false, output_gene = false;
-	while ((c = getopt(args, "u:sgjG")) != null) {
+	var c, fn_ucsc_fai = null, is_short = false, keep_gff = false, print_junc = false, output_gene = false, ens_canon_only = false;
+	while ((c = getopt(args, "u:sgjGe")) != null) {
 		if (c == 'u') fn_ucsc_fai = getopt.arg;
 		else if (c == 's') is_short = true;
 		else if (c == 'g') keep_gff = true;
 		else if (c == 'j') print_junc = true;
 		else if (c == 'G') output_gene = true;
+		else if (c == 'e') ens_canon_only = true;
 	}
 
 	if (getopt.ind == args.length) {
 		print("Usage: paftools.js gff2bed [options] <in.gff>");
 		print("Options:");
-		print("  -j       Output junction BED");
-		print("  -s       Print names in the short form");
+		print("  -j       output junction BED");
+		print("  -s       print names in the short form");
 		print("  -u FILE  hg38.fa.fai for chr name conversion");
-		print("  -g       Output GFF (used with -u)");
+		print("  -e       only show transcript tagged with 'Ensembl_canonical'");
+		print("  -g       output GFF (used with -u)");
 		exit(1);
 	}
 
@@ -1606,7 +1654,7 @@ function paf_gff2bed(args)
 		print(a[0][0], st, en, name, 1000, a[0][3], cds_st, cds_en, color, a.length, sizes.join(",") + ",", starts.join(",") + ",");
 	}
 
-	var re_gtf  = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name) "([^"]+)";/g;
+	var re_gtf  = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name|tag) "([^"]+)";/g;
 	var re_gff3 = /\b(transcript_id|transcript_type|transcript_biotype|gene_name|gene_id|gbkey|transcript_name)=([^;]+)/g;
 	var re_gtf_gene  = /\b(gene_id|gene_type|gene_name) "([^;]+)";/g;
 	var re_gff3_gene = /\b(gene_id|gene_type|source_gene|gene_biotype|gene_name)=([^;]+);/g;
@@ -1646,13 +1694,14 @@ function paf_gff2bed(args)
 		if (t[2] != "CDS" && t[2] != "exon") continue;
 		t[3] = parseInt(t[3]) - 1;
 		t[4] = parseInt(t[4]);
-		var id = null, type = "", name = "N/A", biotype = "", m, tname = "N/A";
+		var id = null, type = "", name = "N/A", biotype = "", m, tname = "N/A", ens_canonical = false;
 		while ((m = re_gtf.exec(t[8])) != null) {
 			if (m[1] == "transcript_id") id = m[2];
 			else if (m[1] == "transcript_type") type = m[2];
 			else if (m[1] == "transcript_biotype" || m[1] == "gbkey") biotype = m[2];
 			else if (m[1] == "gene_name" || m[1] == "gene_id") name = m[2];
 			else if (m[1] == "transcript_name") tname = m[2];
+			else if (m[1] == "tag" && m[2] == "Ensembl_canonical") ens_canonical = true;
 		}
 		while ((m = re_gff3.exec(t[8])) != null) {
 			if (m[1] == "transcript_id") id = m[2];
@@ -1661,6 +1710,7 @@ function paf_gff2bed(args)
 			else if (m[1] == "gene_name" || m[1] == "gene_id") name = m[2];
 			else if (m[1] == "transcript_name") tname = m[2];
 		}
+		if (ens_canon_only && !ens_canonical) continue;
 		if (type == "" && biotype != "") type = biotype;
 		if (id == null) throw Error("No transcript_id");
 		if (id != last_id) {
@@ -1690,15 +1740,17 @@ function paf_gff2bed(args)
 
 function paf_sam2paf(args)
 {
-	var c, pri_only = false, long_cs = false;
-	while ((c = getopt(args, "pL")) != null) {
+	var c, pri_only = false, long_cs = false, pri_pri_only = false;
+	while ((c = getopt(args, "pPL")) != null) {
 		if (c == 'p') pri_only = true;
+		else if (c == 'P') pri_pri_only = pri_only = true;
 		else if (c == 'L') long_cs = true;
 	}
 	if (args.length == getopt.ind) {
 		print("Usage: paftools.js sam2paf [options] <in.sam>");
 		print("Options:");
 		print("  -p      convert primary or supplementary alignments only");
+		print("  -P      convert primary alignments only");
 		print("  -L      output the cs tag in the long form");
 		exit(1);
 	}
@@ -1725,6 +1777,7 @@ function paf_sam2paf(args)
 			throw Error("at line " + lineno + ": inconsistent SEQ and QUAL lengths - " + t[9].length + " != " + t[10].length);
 		if (t[2] == '*' || (flag&4) || t[5] == '*') continue;
 		if (pri_only && (flag&0x100)) continue;
+		if (pri_pri_only && (flag&0x900)) continue;
 		var tlen = ctg_len[t[2]];
 		if (tlen == null) throw Error("at line " + lineno + ": can't find the length of contig " + t[2]);
 		// find tags
@@ -1837,7 +1890,10 @@ function paf_sam2paf(args)
 		// optional tags
 		var type = flag&0x100? 'S' : 'P';
 		var tags = ["tp:A:" + type];
-		if (NM != null) tags.push("mm:i:"+mm);
+		if (NM != null) {
+			tags.push("NM:i:"+NM);
+			tags.push("mm:i:"+mm);
+		}
 		tags.push("gn:i:"+(I[1]+D[1]), "go:i:"+(I[0]+D[0]), "cg:Z:" + t[5].replace(/\d+[SH]/g, ''));
 		if (cs_str != null) tags.push("cs:Z:" + cs_str);
 		else if (cs.length > 0) tags.push("cs:Z:" + cs.join(""));
@@ -2047,7 +2103,7 @@ function paf_mapeval(args)
 		warn("Usage: paftools.js mapeval [options] <in.paf>|<in.sam>");
 		warn("Options:");
 		warn("  -r FLOAT   mapping correct if overlap_length/union_length>FLOAT [" + ovlp_ratio + "]");
-		warn("  -Q INT     print wrong mappings with mapQ>INT [don't print]");
+		warn("  -Q INT     print wrong mappings with mapQ>=INT [don't print]");
 		warn("  -m INT     0: eval the longest aln only; 1: first aln only; 2: all primary aln [0]");
 		exit(1);
 	}
@@ -2341,12 +2397,15 @@ function paf_pbsim2fq(args)
 
 function paf_junceval(args)
 {
-	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false;
-	while ((c = getopt(args, "l:epc")) != null) {
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false, is_bed = false;
+	while ((c = getopt(args, "l:epcab1")) != null) {
 		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
 		else if (c == 'e') print_err_only = print_ovlp = true;
 		else if (c == 'p') print_ovlp = true;
 		else if (c == 'c') chr_only = true;
+		else if (c == 'a') aa = true;
+		else if (c == 'b') is_bed = true;
+		else if (c == '1') first_only = true;
 	}
 
 	if (args.length - getopt.ind < 1) {
@@ -2356,6 +2415,9 @@ function paf_junceval(args)
 		print("  -p        print overlapping introns");
 		print("  -e        print erroreous overlapping introns");
 		print("  -c        only consider alignments to /^(chr)?([0-9]+|X|Y)$/");
+		print("  -a        miniprot PAF as input");
+		print("  -b        BED as input");
+		print("  -1        only process the first alignment of each query");
 		exit(1);
 	}
 
@@ -2409,13 +2471,17 @@ function paf_junceval(args)
 
 	file = getopt.ind+1 >= args.length || args[getopt.ind+1] == '-'? new File() : new File(args[getopt.ind+1]);
 	var last_qname = null;
-	var re_cigar = /(\d+)([MIDNSHP=X])/g;
+	var re_cigar = /(\d+)([MIDNSHP=XFGUV])/g;
 	while (file.readline(buf) >= 0) {
 		var m, t = buf.toString().split("\t");
-		var ctg_name = null, cigar = null, pos = null, qname = t[0];
+		var ctg_name = null, cigar = null, pos = null, qname;
 
 		if (t[0].charAt(0) == '@') continue;
-		if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
+		if (t[0] == "##PAF") t.shift();
+		qname = t[0];
+		if (is_bed) {
+			ctg_name = t[0], pos = parseInt(t[1]), cigar == null;
+		} else if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
 			ctg_name = t[5], pos = parseInt(t[7]);
 			var type = 'P';
 			for (i = 12; i < t.length; ++i) {
@@ -2445,12 +2511,43 @@ function paf_junceval(args)
 		}
 
 		var intron = [];
-		while ((m = re_cigar.exec(cigar)) != null) {
-			var len = parseInt(m[1]), op = m[2];
-			if (op == 'N') {
-				intron.push([pos, pos + len]);
-				pos += len;
-			} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
+		if (is_bed) {
+			intron.push([pos, parseInt(t[2])]);
+		} else if (aa) {
+			var tmp_junc = [], tmp = 0;
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					tmp_junc.push([tmp, tmp + len]);
+					tmp += len;
+				} else if (op == 'U') {
+					tmp_junc.push([tmp + 1, tmp + len - 2]);
+					tmp += len;
+				} else if (op == 'V') {
+					tmp_junc.push([tmp + 2, tmp + len - 1]);
+					tmp += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') {
+					tmp += len * 3;
+				} else if (op == 'F' || op == 'G') {
+					tmp += len;
+				}
+			}
+			if (t[4] == '+') {
+				for (var i = 0; i < tmp_junc.length; ++i)
+					intron.push([pos + tmp_junc[i][0], pos + tmp_junc[i][1]]);
+			} else if (t[4] == '-') {
+				var glen = parseInt(t[8]) - parseInt(t[7]);
+				for (var i = tmp_junc.length - 1; i >= 0; --i)
+					intron.push([pos + (glen - tmp_junc[i][1]), pos + (glen - tmp_junc[i][0])]);
+			}
+		} else {
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					intron.push([pos, pos + len]);
+					pos += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
+			}
 		}
 		if (intron.length == 0) {
 			++n_sgl;
@@ -2506,6 +2603,276 @@ function paf_junceval(args)
 		print("# predicted introns: " + n_splice);
 		print("# non-overlapping introns: " + n_splice_novel);
 		print("# correct introns: " + n_splice_hit + " (" + (n_splice_hit / n_splice * 100).toFixed(2) + "%)");
+	}
+}
+
+function paf_exoneval(args) // adapted from paf_junceval()
+{
+	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false, is_bed = false, use_cds = false, eval_base = false;
+	while ((c = getopt(args, "l:epcab1ds")) != null) {
+		if (c == 'l') l_fuzzy = parseInt(getopt.arg);
+		else if (c == 'e') print_err_only = print_ovlp = true;
+		else if (c == 'p') print_ovlp = true;
+		else if (c == 'c') chr_only = true;
+		else if (c == 'a') aa = true, use_cds = true;
+		else if (c == 'b') is_bed = true;
+		else if (c == '1') first_only = true;
+		else if (c == 'd') use_cds = true;
+		else if (c == 's') eval_base = true;
+	}
+
+	if (args.length - getopt.ind < 1) {
+		print("Usage: paftools.js exoneval [options] <gene.gtf> <aln.sam>");
+		print("Options:");
+		print("  -l INT    tolerance of junction positions (0 for exact) [0]");
+		print("  -d        evaluate coding regions only (exon regions by default)");
+		print("  -a        miniprot PAF as input (force -d)");
+		print("  -p        print overlapping exons");
+		print("  -e        print erroreous overlapping exons");
+		print("  -c        only consider alignments to /^(chr)?([0-9]+|X|Y)$/");
+		print("  -1        only process the first alignment of each query");
+		print("  -b        BED as input");
+		print("  -s        compute base Sn and Sp (more memory)");
+		exit(1);
+	}
+
+	var file, buf = new Bytes();
+
+	warn("Reading reference GTF...");
+	var tr = {};
+	file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		if (t[0].charAt(0) == '#') continue;
+		if (use_cds) {
+			if (t[2] != "cds" && t[2] != "CDS") continue;
+		} else {
+			if (t[2] != 'exon') continue;
+		}
+		var st = parseInt(t[3]) - 1;
+		var en = parseInt(t[4]);
+		if ((m = /transcript_id "(\S+)"/.exec(t[8])) == null) continue;
+		var tid = m[1];
+		if (tr[tid] == null) tr[tid] = [t[0], t[6], 0, 0, []];
+		tr[tid][4].push([st, en]); // this keeps transcript
+	}
+	file.close();
+
+	var anno = {};
+	for (var tid in tr) { // traverse each transcript
+		var t = tr[tid];
+		Interval.sort(t[4]);
+		t[2] = t[4][0][0];
+		t[3] = t[4][t[4].length - 1][1];
+		if (anno[t[0]] == null) anno[t[0]] = [];
+		var s = t[4];
+		for (var i = 0; i < s.length; ++i) // traverse each exon
+			anno[t[0]].push([s[i][0], s[i][1]]);
+	}
+	tr = null;
+
+	for (var chr in anno) { // index exons
+		var e = anno[chr];
+		if (e.length == 0) continue;
+		Interval.sort(e);
+		var k = 0;
+		for (var i = 1; i < e.length; ++i) // dedup
+			if (e[i][0] != e[k][0] || e[i][1] != e[k][1])
+				e[++k] = e[i].slice(0);
+		e.length = k + 1;
+		Interval.index_end(e);
+	}
+
+	var n_pri = 0, n_unmapped = 0, n_mapped = 0;
+	var n_exon = 0, n_exon_hit = 0, n_exon_novel = 0;
+
+	file = getopt.ind+1 >= args.length || args[getopt.ind+1] == '-'? new File() : new File(args[getopt.ind+1]);
+	var last_qname = null, qexon = {};
+	var re_cigar = /(\d+)([MIDNSHP=XFGUV])/g;
+
+	warn("Evaluating alignments...");
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		var ctg_name = null, cigar = null, pos = null, qname;
+
+		if (t[0].charAt(0) == '@') continue;
+		if (t[0] == "##PAF") t.shift();
+		qname = t[0];
+		if (is_bed) {
+			ctg_name = t[0], pos = parseInt(t[1]), cigar == null;
+		} else if (t[4] == '+' || t[4] == '-' || t[4] == '*') { // PAF
+			ctg_name = t[5], pos = parseInt(t[7]);
+			var type = 'P';
+			for (i = 12; i < t.length; ++i) {
+				if ((m = /^(tp:A|cg:Z):(\S+)/.exec(t[i])) != null) {
+					if (m[1] == 'tp:A') type = m[2];
+					else cigar = m[2];
+				}
+			}
+			if (type == 'S') continue; // secondary
+		} else { // SAM
+			ctg_name = t[2], pos = parseInt(t[3]) - 1, cigar = t[5];
+			var flag = parseInt(t[1]);
+			if (flag&0x100) continue; // secondary
+		}
+
+		if (chr_only && !/^(chr)?([0-9]+|X|Y)$/.test(ctg_name)) continue;
+		if (first_only && last_qname == qname) continue;
+		if (ctg_name == '*') { // unmapped
+			++n_unmapped;
+			continue;
+		} else {
+			++n_pri;
+			if (last_qname != qname) {
+				++n_mapped;
+				last_qname = qname;
+			}
+		}
+
+		var exon = [];
+		if (is_bed) { // BED
+			exon.push([pos, parseInt(t[2])]);
+		} else if (aa) {
+			var tmp_exon = [], tmp = 0, tmp_st = 0;
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					tmp_exon.push([tmp_st, tmp]);
+					tmp_st = tmp + len, tmp += len;
+				} else if (op == 'U') {
+					tmp_exon.push([tmp_st, tmp + 1]);
+					tmp_st = tmp + len - 2, tmp += len;
+				} else if (op == 'V') {
+					tmp_exon.push([tmp_st, tmp + 2]);
+					tmp_st = tmp + len - 1, tmp += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') {
+					tmp += len * 3;
+				} else if (op == 'F' || op == 'G') {
+					tmp += len;
+				}
+			}
+			tmp_exon.push([tmp_st, tmp]);
+			if (t[4] == '+') {
+				for (var i = 0; i < tmp_exon.length; ++i)
+					exon.push([pos + tmp_exon[i][0], pos + tmp_exon[i][1]]);
+			} else if (t[4] == '-') { // For protein-to-genome alignment, the coordinates are on the query strand. Need to flip them.
+				var glen = parseInt(t[8]) - parseInt(t[7]);
+				for (var i = tmp_exon.length - 1; i >= 0; --i)
+					exon.push([pos + (glen - tmp_exon[i][1]), pos + (glen - tmp_exon[i][0])]);
+			}
+		} else {
+			var tmp_st = pos;
+			while ((m = re_cigar.exec(cigar)) != null) {
+				var len = parseInt(m[1]), op = m[2];
+				if (op == 'N') {
+					exon.push([tmp_st, pos]);
+					tmp_st = pos + len, pos += len;
+				} else if (op == 'M' || op == 'X' || op == '=' || op == 'D') pos += len;
+			}
+			exon.push([tmp_st, pos]);
+		}
+		n_exon += exon.length;
+
+		var chr = anno[ctg_name];
+		if (chr != null) {
+			for (var i = 0; i < exon.length; ++i) {
+				if (eval_base) {
+					if (qexon[ctg_name] == null) qexon[ctg_name] = [];
+					qexon[ctg_name].push([exon[i][0], exon[i][1]]);
+				}
+				var o = Interval.find_ovlp(chr, exon[i][0], exon[i][1]);
+				if (o.length > 0) {
+					var hit = false;
+					for (var j = 0; j < o.length; ++j) {
+						var st_diff = exon[i][0] - o[j][0];
+						var en_diff = exon[i][1] - o[j][1];
+						if (st_diff < 0) st_diff = -st_diff;
+						if (en_diff < 0) en_diff = -en_diff;
+						if (st_diff <= l_fuzzy && en_diff <= l_fuzzy)
+							++n_exon_hit, hit = true;
+						if (hit) break;
+					}
+					if (print_ovlp) {
+						var type = hit? 'C' : 'P';
+						if (hit && print_err_only) continue;
+						var x = '[';
+						for (var j = 0; j < o.length; ++j) {
+							if (j) x += ', ';
+							x += '(' + o[j][0] + "," + o[j][1] + ')';
+						}
+						x += ']';
+						print(type, qname, i+1, ctg_name, exon[i][0], exon[i][1], x);
+					}
+				} else {
+					++n_exon_novel;
+					if (print_ovlp)
+						print('N',  qname, i+1, ctg_name, exon[i][0], exon[i][1]);
+				}
+			}
+		} else {
+			n_exon_novel += exon.length;
+		}
+	}
+	file.close();
+
+	buf.destroy();
+
+	if (!print_ovlp) {
+		print("# unmapped reads: " + n_unmapped);
+		print("# mapped reads: " + n_mapped);
+		print("# primary alignments: " + n_pri);
+		print("# predicted exons: " + n_exon);
+		print("# non-overlapping exons: " + n_exon_novel);
+		print("# correct exons: " + n_exon_hit + " (" + (n_exon_hit / n_exon * 100).toFixed(2) + "%)");
+	}
+
+	function merge_and_index(ex) {
+		for (var chr in ex) {
+			var a = [];
+			e = ex[chr];
+			Interval.sort(e);
+			var st = e[0][0], en = e[0][1];
+			for (var i = 1; i < e.length; ++i) { // merge
+				if (e[i][0] > en) {
+					a.push([st, en]);
+					st = e[i][0], en = e[i][1];
+				} else {
+					en = en > e[i][1]? en : e[i][1];
+				}
+			}
+			a.push([st, en]);
+			Interval.index_end(a);
+			ex[chr] = a;
+		}
+	}
+
+	function cal_sn(a0, a1) {
+		var tot = 0, cov = 0;
+		for (var chr in a1) {
+			var e0 = a0[chr], e1 = a1[chr];
+			for (var i = 0; i < e1.length; ++i)
+				tot += e1[i][1] - e1[i][0];
+			if (e0 == null) continue;
+			for (var i = 0; i < e1.length; ++i) {
+				var o = Interval.find_ovlp(e0, e1[i][0], e1[i][1]);
+				for (var j = 0; j < o.length; ++j) { // this only works when there are no overlaps between intervals
+					var st = e1[i][0] > o[j][0]? e1[i][0] : o[j][0];
+					var en = e1[i][1] < o[j][1]? e1[i][1] : o[j][1];
+					cov += en - st;
+				}
+			}
+		}
+		return [tot, cov];
+	}
+
+	if (eval_base) {
+		warn("Computing base Sn and Sp...");
+		merge_and_index(qexon);
+		merge_and_index(anno);
+		var sn = cal_sn(qexon, anno);
+		var sp = cal_sn(anno, qexon);
+		print("Base Sn: " + sn[1] + " / " + sn[0] + " = " + (sn[1] / sn[0] * 100).toFixed(2) + "%");
+		print("Base Sp: " + sp[1] + " / " + sp[0] + " = " + (sp[1] / sp[0] * 100).toFixed(2) + "%");
 	}
 }
 
@@ -2704,6 +3071,23 @@ function paf_misjoin(args)
 		return len < (en - st) * cen_ratio? false : true;
 	}
 
+	function test_cen_point(cen, chr, x) {
+		var b = cen[chr];
+		if (b == null) return false;
+		for (var j = 0; j < b.length; ++j)
+			if (x >= b[j][0] && x < b[j][1])
+				return true;
+		return false;
+	}
+
+	if (show_err || show_long) {
+		print("C\tJ  inter-chromosomal misjoin");
+		print("C\tj  inter-chromosomal misjoin with both breakpoints ending in centromeres");
+		print("C\tG  long gap on the reference genome");
+		print("C\tg  long gap on the reference genome with both breakpoints ending in centromeres");
+		print("C\tM  closed inversion");
+		print("C");
+	}
 	function process(a) {
 		var k = 0;
 		for (var i = 0; i < a.length; ++i) {
@@ -2716,14 +3100,17 @@ function paf_misjoin(args)
 		a = a.sort(function(x,y){return x[2]-y[2]});
 		if (show_long) for (var i = 0; i < a.length; ++i) print(a[i].join("\t"));
 		for (var i = 1; i < a.length; ++i) {
-			var ov = [false, false];
+			var ov = [false, false], end_cen = [false, false];
 			ov[0] = test_cen(cen, a[i-1][5], a[i-1][7], a[i-1][8]);
 			ov[1] = test_cen(cen, a[i][5], a[i][7], a[i][8]);
+			end_cen[0] = test_cen_point(cen, a[i-1][5], a[i-1][4] == '+'? a[i-1][8] : a[i-1][7]);
+			end_cen[1] = test_cen_point(cen, a[i][5],   a[i][4] == '+'?   a[i][7]   : a[i][8]);
 			if (a[i-1][5] != a[i][5]) { // different chr
 				if (ov[0] || ov[1]) ++n_diff[1];
 				else if (show_err) {
-					print("J", a[i-1].slice(0, 12).join("\t"));
-					print("J", a[i].slice(0, 12).join("\t"));
+					var label = end_cen[0] && end_cen[1]? 'j' : 'J';
+					print(label, a[i-1].slice(0, 12).join("\t"));
+					print(label, a[i].slice(0, 12).join("\t"));
 				}
 				++n_diff[0];
 			} else if (a[i-1][4] == a[i][4]) { // a gap
@@ -2733,8 +3120,9 @@ function paf_misjoin(args)
 				if (gap > max_gap) {
 					if (ov[0] || ov[1]) ++n_gap[1];
 					else if (show_err) {
-						print("G", a[i-1].slice(0, 12).join("\t"));
-						print("G", a[i].slice(0, 12).join("\t"));
+						var label = end_cen[0] && end_cen[1]? 'g' : 'G';
+						print(label, a[i-1].slice(0, 12).join("\t"));
+						print(label, a[i].slice(0, 12).join("\t"));
 					}
 					++n_gap[0];
 				}
@@ -2852,6 +3240,7 @@ function paf_sveval(args)
 			if (bed != null && bed[t[0]] == null) continue;
 			if (t[4] == '<INV>' || t[4] == '<INVDUP>') continue; // no inversion
 			if (/[\[\]]/.test(t[4])) continue; // no break points
+			if (t[6] != "." && t[6] != "PASS") continue;
 			var st = parseInt(t[1]) - 1, en = st + t[3].length;
 			// parse svlen
 			var b = _paf_get_alen(t), svlen = b[0];
@@ -3084,6 +3473,183 @@ function paf_pafcmp(args)
 	buf.destroy();
 }
 
+function paf_longcs2seq(args) {
+	var c, opt = { query:false };
+	while ((c = getopt(args, "q")) != null)
+		if (c == 'q') opt.query = true;
+	if (args.length == getopt.ind) {
+		print("Usage: paftools.js longcs2seq [-q] <long-cs.paf>");
+		return;
+	}
+	var re_cs = /([:=*+-])(\d+|[A-Za-z]+)/g
+	var buf = new Bytes();
+	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+	while (file.readline(buf) >= 0) {
+		var m, cs = null, t = buf.toString().split("\t");
+		for (var i = 12; i < t.length; ++i)
+			if ((m = /^cs:Z:(\S+)/.exec(t[i])) != null) {
+				cs = m[1];
+				break;
+			}
+		if (cs == null) continue;
+		var ts = "", qs = "";
+		while ((m = re_cs.exec(cs)) != null) {
+			if (m[1] == "=") ts += m[2], qs += m[2];
+			else if (m[1] == "+") qs += m[2].toUpperCase();
+			else if (m[1] == "-") ts += m[2].toUpperCase();
+			else if (m[1] == "*") ts += m[2][0].toUpperCase(), qs += m[2][1].toUpperCase();
+			else if (m[1] == ":") throw Error("Long cs is required");
+		}
+		if (opt.query) {
+			print(">" + t[0] + "_" + t[2] + "_" + t[3]);
+			print(qs);
+		} else {
+			print(">" + t[5] + "_" + t[7] + "_" + t[8]);
+			print(ts);
+		}
+	}
+	file.close();
+	buf.destroy();
+}
+
+function paf_paf2gff(args) {
+	var c, opt = { aa:false };
+	var re_cigar = /(\d+)([A-Z=])/g;
+	while ((c = getopt(args, "a")) != null) {
+		if (c == 'a') opt.aa = true;
+	}
+	if (args.length == getopt.ind) {
+		print("Usage: paftools.js paf2gff [-a] <in.paf>");
+		return;
+	}
+	var buf = new Bytes();
+	var file = args[getopt.ind] == '-'? new File() : new File(args[getopt.ind]);
+	var hid = 1, last_name = null;
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		if (t[5] == '*') continue; // skip unmapped lines
+
+		if (t[0] != last_name) last_name = t[0], hid = 1;
+		else ++hid;
+		for (var i = 1; i <= 3; ++i) t[i] = parseInt(t[i]);
+		for (var i = 6; i <= 11; ++i) t[i] = parseInt(t[i]);
+		var cigar = null, score = null, np = null, dist_stop = null, dist_start = null;
+		for (var i = 12; i < t.length; ++i) {
+			if ((m = /^(cg:Z|AS:i|np:i|da:i|do:i):(\S+)/.exec(t[i])) != null) {
+				if (m[1] == 'cg:Z') cigar = m[2];
+				else if (m[1] == 'AS:i') score = parseInt(m[2]);
+				else if (m[1] == 'np:i') np = parseInt(m[2]);
+				else if (m[1] == 'do:i') dist_stop = parseInt(m[2]);
+				else if (m[1] == 'da:i') dist_start = parseInt(m[2]);
+			}
+		}
+		if (cigar == null) throw Error("failed to find the cg:Z tag");
+		if (score == null) throw Error("failed to find the AS:i tag");
+
+		var st = 0, en = 0, phase = 0, pseudo = false, fs = 0, a = [];
+		if (dist_start != null && dist_start == 0)
+			a.push([t[5], 'paf2gff', 'start_codon', 0, 3, 0, t[4], '.', 0]);
+		while ((m = re_cigar.exec(cigar)) != null) {
+			var len = parseInt(m[1]);
+			if (m[2] == 'M' || m[2] == 'D') {
+				en += opt.aa? len * 3 : len;
+			} else if (m[2] == 'F' || m[2] == 'G' || m[2] == 'R') {
+				en += len, pseudo = true, fs = 1;
+			} else if (m[2] == 'N') {
+				a.push([t[5], 'paf2gff', 'exon', st, en, 0, t[4], phase, fs]);
+				st = en + len, en += len, phase = 0, fs = 0;
+			} else if (m[2] == 'U') { // ...xGT...AGxx...
+				a.push([t[5], 'paf2gff', 'exon', st, en + 1, 0, t[4], phase, fs]);
+				st = en + len - 2, en += len, phase = 2, fs = 0;
+			} else if (m[2] == 'V') { // ...xxGT...AGx...
+				a.push([t[5], 'paf2gff', 'exon', st, en + 2, 0, t[4], phase, fs]);
+				st = en + len - 1, en += len, phase = 1, fs = 0;
+			}
+		}
+		a.push([t[5], 'paf2gff', 'exon', st, en, 0, t[4], phase, fs]);
+		if (en != t[8] - t[7]) throw Error("inconsistent cigar");
+		if (dist_stop != null && dist_stop == 0)
+			a.push([t[5], 'paf2gff', 'stop_codon', en, en + 3, 0, t[4], '.', 0]);
+		var type = pseudo? 'pseudogene' : 'protein_coding';
+		var attr = ['transcript_id=' + t[0] + '#' + hid, 'transcript_type=' + type].join(";");
+		var trans_attr = 'identity=' + (t[9] / t[10]).toFixed(4);
+		if (np != null) trans_attr += ';positive=' + (np * 3 / t[10]).toFixed(4);
+		trans_attr += ';aa_start=' + t[2];
+		trans_attr += ';aa_end=' + (t[1] - t[3]);
+		if (dist_start != null && dist_start >= 0) trans_attr += ';dist_start_codon=' + dist_start;
+		if (dist_stop != null && dist_stop >= 0) trans_attr += ';dist_stop_codon=' + dist_stop;
+		var trans_st = t[7], trans_en = t[8];
+		if (dist_stop != null && dist_stop == 0) {
+			if (t[4] == '-') trans_st -= 3;
+			else trans_en += 3;
+		}
+		print([t[5], 'paf2gff', 'transcript', trans_st + 1, trans_en, score, t[4], '.', attr + ';' + trans_attr].join("\t"));
+		if (opt.aa && t[4] == '-') {
+			var b = [], len = t[8] - t[7];
+			for (var i = a.length - 1; i >= 0; --i) {
+				var x = len - a[i][3];
+				a[i][3] = len - a[i][4];
+				a[i][4] = x;
+				//a[i][7] = a[i][7] == 0? 0 : 3 - a[i][7]; // not sure if this line is needed
+				b.push(a[i]);
+			}
+			a = b;
+		}
+		for (var i = 0; i < a.length; ++i) {
+			if (!pseudo && a[i][2] == "exon") a[i][2] = "CDS";
+			a[i][3] += t[7] + 1;
+			a[i][4] += t[7];
+			a[i][8] = attr + ";frameshift=" + a[i][8];
+			print(a[i].join("\t"));
+		}
+	}
+	file.close();
+	buf.destroy();
+}
+
+function paf_gff2junc(args) {
+	var c, feat = "CDS";
+	while ((c = getopt(args, "f:")) != null) {
+		if (c == 'f') feat = getopt.arg;
+	}
+	if (getopt.ind == args.length) {
+		print("Usage: paftools.js gff2junc [-f feature] <in.gff3>");
+		return;
+	}
+	var buf = new Bytes();
+	var file = args[getopt.ind] == "-"? new File() : new File(args[getopt.ind]);
+
+	function process_a(a) {
+		if (a.length < 2) return;
+		a = a.sort(function(x, y) { return x[4] - y[4] });
+		for (var i = 1; i < a.length; ++i)
+			print([a[i][1], a[i-1][5], a[i][4], a[i][0], 0, a[i][7]].join("\t"));
+	}
+
+	var a = [];
+	while (file.readline(buf) >= 0) {
+		var m, t = buf.toString().split("\t");
+		if (t[0][0] == '#') continue;
+		if (t[2].toLowerCase() != feat.toLowerCase()) continue;
+		//print(t.join("\t"));
+		if ((m = /\bParent=([^;]+)/.exec(t[8])) == null) {
+			warn("Can't find Parent");
+			continue;
+		}
+		t[3] = parseInt(t[3]) - 1;
+		t[4] = parseInt(t[4]);
+		t.unshift(m[1]);
+		if (a.length > 0 && a[0][0] != m[1]) {
+			process_a(a);
+			a.length = 0;
+			a.push(t);
+		} else a.push(t);
+	}
+	process_a(a);
+	file.close();
+	buf.destroy();
+}
+
 /*************************
  ***** main function *****
  *************************/
@@ -3098,6 +3664,9 @@ function main(args)
 		print("  sam2paf    convert SAM to PAF");
 		print("  delta2paf  convert MUMmer's delta to PAF");
 		print("  gff2bed    convert GTF/GFF3 to BED12");
+		print("  gff2junc   convert GFF3 to junction BED");
+		print("  longcs2seq convert long-cs PAF to sequences");
+//		print("  paf2gff    convert PAF to GFF3 (tested for miniprot only)");
 		print("");
 		print("  stat       collect basic mapping information in PAF/SAM");
 		print("  asmstat    collect basic assembly information");
@@ -3115,6 +3684,7 @@ function main(args)
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
 		print("  pbsim2fq   convert PBSIM-simulated MAF to FASTQ");
 		print("  junceval   evaluate splice junction consistency with known annotations");
+		print("  exoneval   evaluate exon-level consistency with known annotations");
 		print("  ov-eval    evaluate read overlap sensitivity using read-to-ref mapping");
 		exit(1);
 	}
@@ -3125,6 +3695,7 @@ function main(args)
 	else if (cmd == 'delta2paf') paf_delta2paf(args);
 	else if (cmd == 'splice2bed') paf_splice2bed(args);
 	else if (cmd == 'gff2bed') paf_gff2bed(args);
+	else if (cmd == 'gff2junc') paf_gff2junc(args);
 	else if (cmd == 'stat') paf_stat(args);
 	else if (cmd == 'asmstat') paf_asmstat(args);
 	else if (cmd == 'asmgene') paf_asmgene(args);
@@ -3138,10 +3709,13 @@ function main(args)
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
 	else if (cmd == 'junceval') paf_junceval(args);
+	else if (cmd == 'exoneval') paf_exoneval(args);
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
 	else if (cmd == 'vcfstat') paf_vcfstat(args);
 	else if (cmd == 'sveval') paf_sveval(args);
 	else if (cmd == 'vcfsel') paf_vcfsel(args);
+	else if (cmd == 'longcs2seq') paf_longcs2seq(args);
+	else if (cmd == 'paf2gff') paf_paf2gff(args);
 	else if (cmd == 'version') print(paftools_version);
 	else throw Error("unrecognized command: " + cmd);
 }

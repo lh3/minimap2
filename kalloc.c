@@ -40,7 +40,8 @@ void *km_init2(void *km_par, size_t min_core_size)
 	kmem_t *km;
 	km = (kmem_t*)kcalloc(km_par, 1, sizeof(kmem_t));
 	km->par = km_par;
-	km->min_core_size = min_core_size > 0? min_core_size : 0x80000;
+	if (km_par) km->min_core_size = min_core_size > 0? min_core_size : ((kmem_t*)km_par)->min_core_size - 2;
+	else km->min_core_size = min_core_size > 0? min_core_size : 0x80000;
 	return (void*)km;
 }
 
@@ -183,6 +184,16 @@ void *krealloc(void *_km, void *ap, size_t n_bytes) // TODO: this can be made mo
 	return q;
 }
 
+void *krelocate(void *km, void *ap, size_t n_bytes)
+{
+	void *p;
+	if (km == 0 || ap == 0) return ap;
+	p = kmalloc(km, n_bytes);
+	memcpy(p, ap, n_bytes);
+	kfree(km, ap);
+	return p;
+}
+
 void km_stat(const void *_km, km_stat_t *s)
 {
 	kmem_t *km = (kmem_t*)_km;
@@ -202,4 +213,12 @@ void km_stat(const void *_km, km_stat_t *s)
 		s->capacity += size;
 		s->largest = s->largest > size? s->largest : size;
 	}
+}
+
+void km_stat_print(const void *km)
+{
+	km_stat_t st;
+	km_stat(km, &st);
+	fprintf(stderr, "[km_stat] cap=%ld, avail=%ld, largest=%ld, n_core=%ld, n_block=%ld\n",
+			st.capacity, st.available, st.largest, st.n_blocks, st.n_cores);
 }

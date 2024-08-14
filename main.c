@@ -7,8 +7,6 @@
 #include "mmpriv.h"
 #include "ketopt.h"
 
-#define MM_VERSION "2.24-r1122"
-
 #ifdef __linux__
 #include <sys/resource.h>
 #include <sys/time.h>
@@ -78,6 +76,10 @@ static ko_longopt_t long_options[] = {
 	{ "chain-skip-scale",ko_required_argument,351 },
 	{ "print-chains",   ko_no_argument,       352 },
 	{ "no-hash-name",   ko_no_argument,       353 },
+	{ "secondary-seq",  ko_no_argument,       354 },
+	{ "ds",             ko_no_argument,       355 },
+	{ "rmq-inner",      ko_required_argument, 356 },
+	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
 	{ "version",        ko_no_argument,       'V' },
@@ -121,7 +123,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:b:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:J:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -179,6 +181,7 @@ int main(int argc, char *argv[])
 		else if (c == 'm') opt.min_chain_score = atoi(o.arg);
 		else if (c == 'A') opt.a = atoi(o.arg);
 		else if (c == 'B') opt.b = atoi(o.arg);
+		else if (c == 'b') opt.transition = atoi(o.arg);
 		else if (c == 's') opt.min_dp_max = atoi(o.arg);
 		else if (c == 'C') opt.noncan = atoi(o.arg);
 		else if (c == 'I') ipt.batch_size = mm_parse_num(o.arg);
@@ -187,7 +190,12 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
-		else if (c == 'o') {
+		else if (c == 'J') {
+			int t;
+			t = atoi(o.arg);
+			if (t == 0) opt.flag |= MM_F_SPLICE_OLD;
+			else if (t == 1) opt.flag &= ~MM_F_SPLICE_OLD;
+		} else if (c == 'o') {
 			if (strcmp(o.arg, "-") != 0) {
 				if (freopen(o.arg, "wb", stdout) == NULL) {
 					fprintf(stderr, "[ERROR]\033[1;31m failed to write the output to file '%s'\033[0m: %s\n", o.arg, strerror(errno));
@@ -237,6 +245,10 @@ int main(int argc, char *argv[])
 		else if (c == 350) opt.q_occ_frac = atof(o.arg); // --q-occ-frac
 		else if (c == 352) mm_dbg_flag |= MM_DBG_PRINT_CHAIN; // --print-chains
 		else if (c == 353) opt.flag |= MM_F_NO_HASH_NAME; // --no-hash-name
+		else if (c == 354) opt.flag |= MM_F_SECONDARY_SEQ; // --secondary-seq
+		else if (c == 355) opt.flag |= MM_F_OUT_DS; // --ds
+		else if (c == 356) opt.rmq_inner_dist = mm_parse_num(o.arg); // --rmq-inner
+		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
 		} else if (c == 314) { // --frag
@@ -261,7 +273,8 @@ int main(int argc, char *argv[])
 		} else if (c == 326) { // --dual
 			yes_or_no(&opt, MM_F_NO_DUAL, o.longidx, o.arg, 0);
 		} else if (c == 347) { // --rmq
-			yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
+			if (o.arg) yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
+			else opt.flag |= MM_F_RMQ;
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)
@@ -322,7 +335,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
-		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [4G]\n");
+		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [8G]\n");
 		fprintf(fp_help, "    -d FILE      dump index to FILE []\n");
 		fprintf(fp_help, "  Mapping:\n");
 		fprintf(fp_help, "    -f FLOAT     filter out top FLOAT fraction of repetitive minimizers [%g]\n", opt.mid_occ_frac);
@@ -344,6 +357,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -z INT[,INT] Z-drop score and inversion Z-drop score [%d,%d]\n", opt.zdrop, opt.zdrop_inv);
 		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
+		fprintf(fp_help, "    -J INT       splice mode. 0: original minimap2 model; 1: miniprot model [1]\n");
 		fprintf(fp_help, "  Input/Output:\n");
 		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");
@@ -351,6 +365,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -R STR       SAM read group line in a format like '@RG\\tID:foo\\tSM:bar' []\n");
 		fprintf(fp_help, "    -c           output CIGAR in PAF\n");
 		fprintf(fp_help, "    --cs[=STR]   output the cs tag; STR is 'short' (if absent) or 'long' [none]\n");
+		fprintf(fp_help, "    --ds         output the ds tag, which is an extension to cs\n");
 		fprintf(fp_help, "    --MD         output the MD tag\n");
 		fprintf(fp_help, "    --eqx        write =/X CIGAR operators\n");
 		fprintf(fp_help, "    -Y           use soft clipping for supplementary alignments\n");
@@ -360,12 +375,12 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    --version    show version number\n");
 		fprintf(fp_help, "  Preset:\n");
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see minimap2.1 for details) []\n");
-		fprintf(fp_help, "                 - map-pb/map-ont - PacBio CLR/Nanopore vs reference mapping\n");
-		fprintf(fp_help, "                 - map-hifi - PacBio HiFi reads vs reference mapping\n");
-		fprintf(fp_help, "                 - ava-pb/ava-ont - PacBio/Nanopore read overlap\n");
+		fprintf(fp_help, "                 - lr:hq - accurate long reads (error rate <1%%) against a reference genome\n");
+		fprintf(fp_help, "                 - splice/splice:hq - spliced alignment for long reads/accurate long reads\n");
 		fprintf(fp_help, "                 - asm5/asm10/asm20 - asm-to-ref mapping, for ~0.1/1/5%% sequence divergence\n");
-		fprintf(fp_help, "                 - splice/splice:hq - long-read/Pacbio-CCS spliced alignment\n");
-		fprintf(fp_help, "                 - sr - genomic short-read mapping\n");
+		fprintf(fp_help, "                 - sr - short reads against a reference\n");
+		fprintf(fp_help, "                 - map-pb/map-hifi/map-ont/map-iclr - CLR/HiFi/Nanopore/ICLR vs reference mapping\n");
+		fprintf(fp_help, "                 - ava-pb/ava-ont - PacBio CLR/Nanopore read overlap\n");
 		fprintf(fp_help, "\nSee `man ./minimap2.1' for detailed description of these and other advanced command-line options.\n");
 		return fp_help == stdout? 0 : 1;
 	}

@@ -13,6 +13,7 @@ typedef struct {
 
 void *kmalloc(void *km, size_t size);
 void *krealloc(void *km, void *ptr, size_t size);
+void *krelocate(void *km, void *ap, size_t n_bytes);
 void *kcalloc(void *km, size_t count, size_t size);
 void kfree(void *km, void *ptr);
 
@@ -20,10 +21,20 @@ void *km_init(void);
 void *km_init2(void *km_par, size_t min_core_size);
 void km_destroy(void *km);
 void km_stat(const void *_km, km_stat_t *s);
+void km_stat_print(const void *km);
 
 #ifdef __cplusplus
 }
 #endif
+
+#define Kmalloc(km, type, cnt)       ((type*)kmalloc((km), (cnt) * sizeof(type)))
+#define Kcalloc(km, type, cnt)       ((type*)kcalloc((km), (cnt), sizeof(type)))
+#define Krealloc(km, type, ptr, cnt) ((type*)krealloc((km), (ptr), (cnt) * sizeof(type)))
+
+#define Kexpand(km, type, a, m) do { \
+		(m) = (m) >= 4? (m) + ((m)>>1) : 16; \
+		(a) = Krealloc(km, type, (a), (m)); \
+	} while (0)
 
 #define KMALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kmalloc((km), (len) * sizeof(*(ptr))))
 #define KCALLOC(km, ptr, len) ((ptr) = (__typeof__(ptr))kcalloc((km), (len), sizeof(*(ptr))))
@@ -50,7 +61,7 @@ void km_stat(const void *_km, km_stat_t *s);
 	} kmp_##name##_t; \
 	SCOPE kmp_##name##_t *kmp_init_##name(void *km) { \
 		kmp_##name##_t *mp; \
-		KCALLOC(km, mp, 1); \
+		mp = Kcalloc(km, kmp_##name##_t, 1); \
 		mp->km = km; \
 		return mp; \
 	} \
@@ -66,7 +77,7 @@ void km_stat(const void *_km, km_stat_t *s);
 	} \
 	SCOPE void kmp_free_##name(kmp_##name##_t *mp, kmptype_t *p) { \
 		--mp->cnt; \
-		if (mp->n == mp->max) KEXPAND(mp->km, mp->buf, mp->max); \
+		if (mp->n == mp->max) Kexpand(mp->km, kmptype_t*, mp->buf, mp->max); \
 		mp->buf[mp->n++] = p; \
 	}
 

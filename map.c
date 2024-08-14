@@ -10,11 +10,6 @@
 #include "bseq.h"
 #include "khash.h"
 
-struct mm_tbuf_s {
-	void *km;
-	int rep_len, frag_gap;
-};
-
 mm_tbuf_t *mm_tbuf_init(void)
 {
 	mm_tbuf_t *b;

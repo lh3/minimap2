@@ -21,6 +21,18 @@ static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t sc
 		mat[(m - 1) * m + j] = sc_ambi;
 }
 
+static void ksw_gen_ts_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t transition, int8_t sc_ambi)
+{
+	assert(m == 5);
+	ksw_gen_simple_mat(m, mat, a, b, sc_ambi);
+	if (transition == 0 || transition == b) return;
+	transition = transition > 0? -transition : transition;
+	mat[0 * m + 2] = transition;  // A->G
+	mat[1 * m + 3] = transition;  // C->T
+	mat[2 * m + 0] = transition;  // G->A
+	mat[3 * m + 1] = transition;  // T->C
+}
+
 static inline void mm_seq_rev(uint32_t len, uint8_t *seq)
 {
 	uint32_t i;
@@ -283,7 +295,7 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 			toff += len;
 		}
 	}
-	p->dp_max = (int32_t)(max + .499);
+	p->dp_max = p->dp_max0 = (int32_t)(max + .499);
 	assert(qoff == r->qe - r->qs && toff == r->re - r->rs);
 	if (is_eqx) mm_update_cigar_eqx(r, qseq, tseq); // NB: it has to be called here as changes to qseq and tseq are not returned
 }
@@ -323,12 +335,16 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr);
 		fputc('\n', stderr);
 	}
+	if (opt->transition != 0 && opt->b != opt->transition)
+		flag |= KSW_EZ_GENERIC_SC;
 	if (opt->max_sw_mat > 0 && (int64_t)tlen * qlen > opt->max_sw_mat) {
 		ksw_reset_extz(ez);
 		ez->zdropped = 1;
-	} else if (opt->flag & MM_F_SPLICE)
-		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, opt->junc_bonus, flag, junc, ez);
-	else if (opt->q == opt->q2 && opt->e == opt->e2)
+	} else if (opt->flag & MM_F_SPLICE) {
+		int flag_tmp = flag;
+		if (!(opt->flag & MM_F_SPLICE_OLD)) flag_tmp |= KSW_EZ_SPLICE_CMPLX;
+		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, opt->junc_bonus, flag_tmp, junc, ez);
+	} else if (opt->q == opt->q2 && opt->e == opt->e2)
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, end_bonus, flag, ez);
 	else
 		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
@@ -584,7 +600,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 
 	r2->cnt = 0;
 	if (r->cnt == 0) return;
-	ksw_gen_simple_mat(5, mat, opt->a, opt->b, opt->sc_ambi);
+	ksw_gen_ts_mat(5, mat, opt->a, opt->b, opt->transition, opt->sc_ambi);
 	bw = (int)(opt->bw * 1.5 + 1.);
 	bw_long = (int)(opt->bw_long * 1.5 + 1.);
 	if (bw_long < bw) bw_long = bw;
@@ -842,7 +858,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	if (ql < opt->min_chain_score || ql > opt->max_gap) return 0;
 	if (tl < opt->min_chain_score || tl > opt->max_gap) return 0;
 
-	ksw_gen_simple_mat(5, mat, opt->a, opt->b, opt->sc_ambi);
+	ksw_gen_ts_mat(5, mat, opt->a, opt->b, opt->transition, opt->sc_ambi);
 	tseq = (uint8_t*)kmalloc(km, tl);
 	mm_idx_getseq(mi, r1->rid, r1->re, r2->rs, tseq);
 	qseq = r1->rev? &qseq0[0][r2->qe] : &qseq0[1][qlen - r2->qs];
@@ -917,14 +933,14 @@ double mm_event_identity(const mm_reg1_t *r)
 static int32_t mm_recal_max_dp(const mm_reg1_t *r, double b2, int32_t match_sc)
 {
 	uint32_t i;
-	int32_t n_gap = 0, n_gapo = 0, n_mis;
+	int32_t n_gap = 0, n_mis;
 	double gap_cost = 0.0;
 	if (r->p == 0) return -1;
 	for (i = 0; i < r->p->n_cigar; ++i) {
 		int32_t op = r->p->cigar[i] & 0xf, len = r->p->cigar[i] >> 4;
 		if (op == MM_CIGAR_INS || op == MM_CIGAR_DEL) {
 			gap_cost += b2 + (double)mg_log2(1.0 + len);
-			++n_gapo, n_gap += len;
+			n_gap += len;
 		}
 	}
 	n_mis = r->blen + r->p->n_ambi - r->mlen - n_gap;

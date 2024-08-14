@@ -119,6 +119,7 @@ int mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int a
 {
 	kstring_t str = {0,0,0};
 	int ret = 0;
+	mm_sprintf_lite(&str, "@HD\tVN:1.6\tSO:unsorted\tGO:query\n");
 	if (idx) {
 		uint32_t i;
 		for (i = 0; i < idx->n_seq; ++i)
@@ -138,10 +139,48 @@ int mm_write_sam_hdr(const mm_idx_t *idx, const char *rg, const char *ver, int a
 	return ret;
 }
 
-static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int no_iden, int write_tag)
+static void write_indel_ds(kstring_t *str, int64_t len, const uint8_t *seq, int64_t ll, int64_t lr) // write an indel to ds; adapted from minigraph
 {
-	int i, q_off, t_off;
-	if (write_tag) mm_sprintf_lite(s, "\tcs:Z:");
+	int64_t i;
+	if (ll + lr >= len) {
+		mm_sprintf_lite(str, "[");
+		for (i = 0; i < len; ++i)
+			mm_sprintf_lite(str, "%c", "acgtn"[seq[i]]);
+		mm_sprintf_lite(str, "]");
+	} else {
+		int64_t k = 0;
+		if (ll > 0) {
+			mm_sprintf_lite(str, "[");
+			for (i = 0; i < ll; ++i)
+				mm_sprintf_lite(str, "%c", "acgtn"[seq[k+i]]);
+			mm_sprintf_lite(str, "]");
+			k += ll;
+		}
+		for (i = 0; i < len - lr - ll; ++i)
+			mm_sprintf_lite(str, "%c", "acgtn"[seq[k+i]]);
+		k += len - lr - ll;
+		if (lr > 0) {
+			mm_sprintf_lite(str, "[");
+			for (i = 0; i < lr; ++i)
+				mm_sprintf_lite(str, "%c", "acgtn"[seq[k+i]]);
+			mm_sprintf_lite(str, "]");
+		}
+	}
+}
+
+static void write_cs_ds_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int no_iden, int is_ds, int write_tag)
+{
+	int i, q_off, t_off, q_len = 0, t_len = 0;
+	if (write_tag) mm_sprintf_lite(s, "\t%cs:Z:", is_ds? 'd' : 'c');
+	for (i = 0; i < (int)r->p->n_cigar; ++i) {
+		int op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
+		if (op == MM_CIGAR_MATCH || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH)
+			q_len += len, t_len += len;
+		else if (op == MM_CIGAR_INS)
+			q_len += len;
+		else if (op == MM_CIGAR_DEL || op == MM_CIGAR_N_SKIP)
+			t_len += len;
+	}
 	for (i = q_off = t_off = 0; i < (int)r->p->n_cigar; ++i) {
 		int j, op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
 		assert((op >= MM_CIGAR_MATCH && op <= MM_CIGAR_N_SKIP) || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH);
@@ -167,14 +206,42 @@ static void write_cs_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 			}
 			q_off += len, t_off += len;
 		} else if (op == MM_CIGAR_INS) {
-			for (j = 0, tmp[len] = 0; j < len; ++j)
-				tmp[j] = "acgtn"[qseq[q_off + j]];
-			mm_sprintf_lite(s, "+%s", tmp);
+			if (is_ds) {
+				int z, ll, lr, y = q_off;
+				for (z = 1; z <= len; ++z)
+					if (y - z < 0 || qseq[y + len - z] != qseq[y - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (y + len + z >= q_len || qseq[y + len + z] != qseq[y + z])
+						break;
+				ll = z;
+				mm_sprintf_lite(s, "+");
+				write_indel_ds(s, len, &qseq[y], ll, lr);
+			} else {
+				for (j = 0, tmp[len] = 0; j < len; ++j)
+					tmp[j] = "acgtn"[qseq[q_off + j]];
+				mm_sprintf_lite(s, "+%s", tmp);
+			}
 			q_off += len;
 		} else if (op == MM_CIGAR_DEL) {
-			for (j = 0, tmp[len] = 0; j < len; ++j)
-				tmp[j] = "acgtn"[tseq[t_off + j]];
-			mm_sprintf_lite(s, "-%s", tmp);
+			if (is_ds) {
+				int z, ll, lr, x = t_off;
+				for (z = 1; z <= len; ++z)
+					if (x - z < 0 || tseq[x + len - z] != tseq[x - z])
+						break;
+				lr = z - 1;
+				for (z = 0; z < len; ++z)
+					if (x + len + z >= t_len || tseq[x + z] != tseq[x + len + z])
+						break;
+				ll = z;
+				mm_sprintf_lite(s, "-");
+				write_indel_ds(s, len, &tseq[x], ll, lr);
+			} else {
+				for (j = 0, tmp[len] = 0; j < len; ++j)
+					tmp[j] = "acgtn"[tseq[t_off + j]];
+				mm_sprintf_lite(s, "-%s", tmp);
+			}
 			t_off += len;
 		} else { // intron
 			assert(len >= 2);
@@ -217,7 +284,7 @@ static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
 }
 
-static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD, int write_tag, int is_qstrand)
+static void write_cs_ds_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, int no_iden, int is_MD, int is_ds, int write_tag, int is_qstrand)
 {
 	extern unsigned char seq_nt4_table[256];
 	int i;
@@ -244,7 +311,7 @@ static void write_cs_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const mm_
 		}
 	}
 	if (is_MD) write_MD_core(s, tseq, qseq, r, tmp, write_tag);
-	else write_cs_core(s, tseq, qseq, r, tmp, no_iden, write_tag);
+	else write_cs_ds_core(s, tseq, qseq, r, tmp, no_iden, is_ds, write_tag);
 	kfree(km, qseq); kfree(km, tseq); kfree(km, tmp);
 }
 
@@ -255,7 +322,7 @@ int mm_gen_cs_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, cons
 	str.s = *buf, str.l = 0, str.m = *max_len;
 	t.l_seq = strlen(seq);
 	t.seq = (char*)seq;
-	write_cs_or_MD(km, &str, mi, &t, r, no_iden, is_MD, 0, is_qstrand);
+	write_cs_ds_or_MD(km, &str, mi, &t, r, no_iden, is_MD, 0, 0, is_qstrand);
 	*max_len = str.m;
 	*buf = str.s;
 	return str.l;
@@ -277,7 +344,7 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->id == r->parent) type = r->inv? 'I' : 'P';
 	else type = r->inv? 'i' : 'S';
 	if (r->p) {
-		mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->blen - r->mlen + r->p->n_ambi, r->p->dp_max, r->p->dp_score, r->p->n_ambi);
+		mm_sprintf_lite(s, "\tNM:i:%d\tms:i:%d\tAS:i:%d\tnn:i:%d", r->blen - r->mlen + r->p->n_ambi, r->p->dp_max0, r->p->dp_score, r->p->n_ambi);
 		if (r->p->trans_strand == 1 || r->p->trans_strand == 2)
 			mm_sprintf_lite(s, "\tts:A:%c", "?+-?"[r->p->trans_strand]);
 	}
@@ -325,8 +392,8 @@ void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const 
 		for (k = 0; k < r->p->n_cigar; ++k)
 			mm_sprintf_lite(s, "%d%c", r->p->cigar[k]>>4, MM_CIGAR_STR[r->p->cigar[k]&0xf]);
 	}
-	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
-		write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1, !!(opt_flag&MM_F_QSTRAND));
+	if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_DS|MM_F_OUT_MD)))
+		write_cs_ds_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), !!(opt_flag&MM_F_OUT_MD), !!(opt_flag&MM_F_OUT_DS), 1, !!(opt_flag&MM_F_QSTRAND));
 	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
 		mm_sprintf_lite(s, "\t%s", t->comment);
 }
@@ -369,14 +436,16 @@ static void write_sam_cigar(kstring_t *s, int sam_flag, int in_tag, int qlen, co
 		clip_len[0] = r->rev? qlen - r->qe : r->qs;
 		clip_len[1] = r->rev? r->qs : qlen - r->qe;
 		if (in_tag) {
-			int clip_char = (sam_flag&0x800) && !(opt_flag&MM_F_SOFTCLIP)? 5 : 4;
+			int clip_char = (((sam_flag&0x800) || ((sam_flag&0x100) && (opt_flag&MM_F_SECONDARY_SEQ))) &&
+							 !(opt_flag&MM_F_SOFTCLIP)) ? 5 : 4;
 			mm_sprintf_lite(s, "\tCG:B:I");
 			if (clip_len[0]) mm_sprintf_lite(s, ",%u", clip_len[0]<<4|clip_char);
 			for (k = 0; k < r->p->n_cigar; ++k)
 				mm_sprintf_lite(s, ",%u", r->p->cigar[k]);
 			if (clip_len[1]) mm_sprintf_lite(s, ",%u", clip_len[1]<<4|clip_char);
 		} else {
-			int clip_char = (sam_flag&0x800) && !(opt_flag&MM_F_SOFTCLIP)? 'H' : 'S';
+			int clip_char = (((sam_flag&0x800) || ((sam_flag&0x100) && (opt_flag&MM_F_SECONDARY_SEQ))) &&
+							 !(opt_flag&MM_F_SOFTCLIP)) ? 'H' : 'S';
 			assert(clip_len[0] < qlen && clip_len[1] < qlen);
 			if (clip_len[0]) mm_sprintf_lite(s, "%d%c", clip_len[0], clip_char);
 			for (k = 0; k < r->p->n_cigar; ++k)
@@ -451,7 +520,7 @@ void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 		if (cigar_in_tag) {
 			int slen;
 			if ((flag & 0x900) == 0 || (opt_flag & MM_F_SOFTCLIP)) slen = t->l_seq;
-			else if (flag & 0x100) slen = 0;
+			else if ((flag & 0x100) && !(opt_flag & MM_F_SECONDARY_SEQ)) slen = 0;
 			else slen = r->qe - r->qs;
 			mm_sprintf_lite(s, "%dS%dN", slen, r->re - r->rs);
 		} else write_sam_cigar(s, flag, 0, t->l_seq, r, opt_flag);
@@ -492,7 +561,7 @@ void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 			mm_sprintf_lite(s, "\t");
 			if (t->qual) sam_write_sq(s, t->qual, t->l_seq, r->rev, 0);
 			else mm_sprintf_lite(s, "*");
-		} else if (flag & 0x100) {
+		} else if ((flag & 0x100) && !(opt_flag & MM_F_SECONDARY_SEQ)){
 			mm_sprintf_lite(s, "*\t*");
 		} else {
 			sam_write_sq(s, t->seq + r->qs, r->qe - r->qs, r->rev, r->rev);
@@ -532,8 +601,8 @@ void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 				}
 			}
 		}
-		if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_MD)))
-			write_cs_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, 1, 0);
+		if (r->p && (opt_flag & (MM_F_OUT_CS|MM_F_OUT_DS|MM_F_OUT_MD)))
+			write_cs_ds_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), opt_flag&MM_F_OUT_MD, !!(opt_flag&MM_F_OUT_DS), 1, 0);
 		if (cigar_in_tag)
 			write_sam_cigar(s, flag, 1, t->l_seq, r, opt_flag);
 	}

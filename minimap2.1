@@ -1,4 +1,4 @@
-.TH minimap2 1 "18 December 2021" "minimap2-2.24 (r1122)" "Bioinformatics tools"
+.TH minimap2 1 "12 March 2024" "minimap2-2.28 (r1209)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -80,6 +80,19 @@ Minimizer k-mer length [15]
 Minimizer window size [10]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
 .TP
+.BI -j \ INT
+Syncmer submer size [10]. Option
+.B -j
+and
+.B -w
+will override each: if
+.B -w
+is applied after
+.BR -j ,
+.B -j
+will have no effect, and vice versa.
+
+.TP
 .B -H
 Use homopolymer-compressed (HPC) minimizers. An HPC sequence is constructed by
 contracting homopolymer runs to a single base. An HPC minimizer is a minimizer
@@ -88,16 +101,17 @@ on the HPC sequence.
 .BI -I \ NUM
 Load at most
 .I NUM
-target bases into RAM for indexing [4G]. If there are more than
+target bases into RAM for indexing [8G]. If there are more than
 .I NUM
 bases in
 .IR target.fa ,
 minimap2 needs to read
 .I query.fa
-multiple times to map it against each batch of target sequences.
+multiple times to map it against each batch of target sequences. This would create a multi-part index.
 .I NUM
 may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
-multi-part index.
+multi-part index. See also option
+.BR --split-prefix .
 .TP
 .B --idx-no-seq
 Don't store target sequences in the index. It saves disk space and memory but
@@ -254,6 +268,11 @@ or more of the shorter chain [0.5]
 Use the minigraph chaining algorithm [no]. The minigraph algorithm is better
 for aligning contigs through long INDELs.
 .TP
+.BI --rmq-inner \ NUM
+Apply full dynamic programming for anchors within distance
+.I NUM
+[1000].
+.TP
 .B --hard-mask-level
 Honor option
 .B -M
@@ -329,6 +348,10 @@ Matching score [2]
 .BI -B \ INT
 Mismatching penalty [4]
 .TP
+.BI -b \ INT
+Mismatching penalty for transitions [same as
+.BR -B ].
+.TP
 .BI -O \ INT1[,INT2]
 Gap open penalty [4,24]. If
 .I INT2
@@ -342,10 +365,19 @@ costs
 .RI min{ O1 + k * E1 , O2 + k * E2 }.
 In the splice mode, the second gap penalties are not used.
 .TP
+.BI -J \ INT
+Splice model [1]. 0 for the original minimap2 splice model that always penalizes non-GT-AG splicing;
+1 for the miniprot model that considers non-GT-AG. Option
+.B -C
+has no effect with the default
+.BR -J1 .
+.BR -J0 .
+.TP
 .BI -C \ INT
 Cost for a non-canonical GT-AG splicing (effective with
-.BR --splice )
-[0]
+.B --splice
+.BR -J0 )
+[0].
 .TP
 .BI -z \ INT1[,INT2]
 Truncate an alignment if the running alignment score drops too quickly along
@@ -436,7 +468,7 @@ Set 0 to disable [100m].
 .BI --cap-kalloc \ NUM
 Free thread-local kalloc memory reservoir if after the alignment the size of the reservoir above
 .IR NUM .
-Set 0 to disable [0].
+Set 0 to disable [500m].
 .SS Input/output options
 .TP 10
 .B -a
@@ -491,6 +523,9 @@ Output =/X CIGAR operators for sequence match/mismatch.
 .TP
 .B -Y
 In SAM output, use soft clipping for supplementary alignments.
+.TP
+.B --secondary-seq
+In SAM output, show query sequences for secondary alignments.
 .TP
 .BI --seed \ INT
 Integer seed for randomizing equally best hits. Minimap2 hashes
@@ -552,15 +587,43 @@ are:
 Align noisy long reads of ~10% error rate to a reference genome. This is the
 default mode.
 .TP
+.B lr:hq
+Align accurate long reads (error rate <1%) to a reference genome
+.RB ( -k19
+.B -w19 -U50,500
+.BR -g10k ).
+This was recommended by ONT developers for recent Nanopore reads
+produced with chemistry v14 that can reach ~99% in accuracy.
+It was shown to work better for accurate Nanopore reads
+than
+.BR map-hifi .
+.TP
 .B map-hifi
 Align PacBio high-fidelity (HiFi) reads to a reference genome
-.RB ( -k19
-.B -w19 -U50,500 -g10k -A1 -B4 -O6,26 -E2,1
+.RB ( -xlr:hq
+.B -A1 -B4 -O6,26 -E2,1
 .BR -s200 ).
+It differs from
+.B lr:hq
+only in scoring. It has not been tested whether
+.B lr:hq
+would work better for PacBio HiFi reads.
 .TP
 .B map-pb
 Align older PacBio continuous long (CLR) reads to a reference genome
 .RB ( -Hk19 ).
+Note that this data type is effectively deprecated by HiFi.
+Unless you work on very old data, you probably want to use
+.B map-hifi
+or
+.BR lr:hq .
+.TP
+.B map-iclr
+Align Illumina Complete Long Reads (ICLR) to a reference genome
+.RB ( -k19
+.B -B6 -b4
+.BR -O10,50 ).
+This was recommended by Illumina developers.
 .TP
 .B asm5
 Long assembly to reference mapping
@@ -568,26 +631,26 @@ Long assembly to reference mapping
 .B -w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200
 .BR -N50 ).
 Typically, the alignment will not extend to regions with 5% or higher sequence
-divergence. Only use this preset if the average divergence is far below 5%.
+divergence. Use this preset if the average divergence is not much higher than 0.1%.
 .TP
 .B asm10
 Long assembly to reference mapping
 .RB ( -k19
 .B -w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200
 .BR -N50 ).
-Up to 10% sequence divergence.
+Use this if the average divergence is around 1%.
 .TP
 .B asm20
 Long assembly to reference mapping
 .RB ( -k19
 .B -w10 -U50,500 --rmq -r1k,100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200
 .BR -N50 ).
-Up to 20% sequence divergence.
+Use this if the average divergence is around several percent.
 .TP
 .B splice
 Long-read spliced alignment
 .RB ( -k15
-.B -w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -b0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0
+.B -w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0
 .BR --splice-flank=yes ).
 In the splice mode, 1) long deletions are taken as introns and represented as
 the
@@ -598,13 +661,13 @@ costs are different during chaining; 4) the computation of the
 tag ignores introns to demote hits to pseudogenes.
 .TP
 .B splice:hq
-Long-read splice alignment for PacBio CCS reads
+Spliced alignment for accurate long RNA-seq reads such as PacBio iso-seq
 .RB ( -xsplice
 .B -C5 -O6,24
 .BR -B4 ).
 .TP
 .B sr
-Short single-end reads without splicing
+Short-read alignment without splicing
 .RB ( -k21
 .B -w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -b0 -r100 -p.5 -N20 -f1000,5000 -n2 -m25
 .B -s40 -g100 -2K50m --heap-sort=yes
@@ -679,7 +742,7 @@ s2	i	Chaining score of the best secondary chain
 NM	i	Total number of mismatches and gaps in the alignment
 MD	Z	To generate the ref sequence in the alignment
 AS	i	DP alignment score
-SA	Z	List of other supplementary alignments
+SA	Z	List of other supplementary alignments (with approximate CIGAR strings)
 ms	i	DP score of the max scoring segment in the alignment
 nn	i	Number of ambiguous bases in the alignment
 ts	A	Transcript strand (splice mode only)

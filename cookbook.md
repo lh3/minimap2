@@ -31,8 +31,8 @@ To acquire the data used in this cookbook and to install minimap2 and paftools,
 please follow the command lines below:
 ```sh
 # install minimap2 executables
-curl -L https://github.com/lh3/minimap2/releases/download/v2.24/minimap2-2.24_x64-linux.tar.bz2 | tar jxf -
-cp minimap2-2.24_x64-linux/{minimap2,k8,paftools.js} .  # copy executables
+curl -L https://github.com/lh3/minimap2/releases/download/v2.28/minimap2-2.28_x64-linux.tar.bz2 | tar jxf -
+cp minimap2-2.28_x64-linux/{minimap2,k8,paftools.js} .  # copy executables
 export PATH="$PATH:"`pwd`                               # put the current directory on PATH
 # download example datasets
 curl -L https://github.com/lh3/minimap2/releases/download/v2.10/cookbook-data.tgz | tar zxf -

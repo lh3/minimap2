@@ -7,7 +7,7 @@ void mm_seed_mz_flt(void *km, mm128_v *mv, int32_t q_occ_max, float q_occ_frac)
 	mm128_t *a;
 	size_t i, j, st;
 	if (mv->n <= q_occ_max || q_occ_frac <= 0.0f || q_occ_max <= 0) return;
-	KMALLOC(km, a, mv->n);
+	a = Kmalloc(km, mm128_t, mv->n);
 	for (i = 0; i < mv->n; ++i)
 		a[i].x = mv->a[i].x, a[i].y = i;
 	radix_sort_128x(a, a + mv->n);
@@ -112,7 +112,8 @@ mm_seed_t *mm_collect_matches(void *km, int *_n_m, int qlen, int max_occ, int ma
 	}
 	for (i = 0, n_m = 0, *rep_len = 0, *n_a = 0; i < n_m0; ++i) {
 		mm_seed_t *q = &m[i];
-		//fprintf(stderr, "X\t%d\t%d\t%d\n", q->q_pos>>1, q->n, q->flt);
+		if (mm_dbg_flag & MM_DBG_SEED_FREQ)
+			fprintf(stderr, "SF\t%d\t%d\t%d\n", q->q_pos>>1, q->n, q->flt);
 		if (q->flt) {
 			int en = (q->q_pos >> 1) + 1, st = en - q->q_span;
 			if (st > rep_en) {

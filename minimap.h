@@ -5,41 +5,46 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_F_NO_DIAG       0x001 // no exact diagonal hit
-#define MM_F_NO_DUAL       0x002 // skip pairs where query name is lexicographically larger than target name
-#define MM_F_CIGAR         0x004
-#define MM_F_OUT_SAM       0x008
-#define MM_F_NO_QUAL       0x010
-#define MM_F_OUT_CG        0x020
-#define MM_F_OUT_CS        0x040
-#define MM_F_SPLICE        0x080 // splice mode
-#define MM_F_SPLICE_FOR    0x100 // match GT-AG
-#define MM_F_SPLICE_REV    0x200 // match CT-AC, the reverse complement of GT-AG
-#define MM_F_NO_LJOIN      0x400
-#define MM_F_OUT_CS_LONG   0x800
-#define MM_F_SR            0x1000
-#define MM_F_FRAG_MODE     0x2000
-#define MM_F_NO_PRINT_2ND  0x4000
-#define MM_F_2_IO_THREADS  0x8000
-#define MM_F_LONG_CIGAR    0x10000
-#define MM_F_INDEPEND_SEG  0x20000
-#define MM_F_SPLICE_FLANK  0x40000
-#define MM_F_SOFTCLIP      0x80000
-#define MM_F_FOR_ONLY      0x100000
-#define MM_F_REV_ONLY      0x200000
-#define MM_F_HEAP_SORT     0x400000
-#define MM_F_ALL_CHAINS    0x800000
-#define MM_F_OUT_MD        0x1000000
-#define MM_F_COPY_COMMENT  0x2000000
-#define MM_F_EQX           0x4000000 // use =/X instead of M
-#define MM_F_PAF_NO_HIT    0x8000000 // output unmapped reads to PAF
-#define MM_F_NO_END_FLT    0x10000000
-#define MM_F_HARD_MLEVEL   0x20000000
-#define MM_F_SAM_HIT_ONLY  0x40000000
+#define MM_VERSION "2.28-r1209"
+
+#define MM_F_NO_DIAG       (0x001LL) // no exact diagonal hit
+#define MM_F_NO_DUAL       (0x002LL) // skip pairs where query name is lexicographically larger than target name
+#define MM_F_CIGAR         (0x004LL)
+#define MM_F_OUT_SAM       (0x008LL)
+#define MM_F_NO_QUAL       (0x010LL)
+#define MM_F_OUT_CG        (0x020LL)
+#define MM_F_OUT_CS        (0x040LL)
+#define MM_F_SPLICE        (0x080LL) // splice mode
+#define MM_F_SPLICE_FOR    (0x100LL) // match GT-AG
+#define MM_F_SPLICE_REV    (0x200LL) // match CT-AC, the reverse complement of GT-AG
+#define MM_F_NO_LJOIN      (0x400LL)
+#define MM_F_OUT_CS_LONG   (0x800LL)
+#define MM_F_SR            (0x1000LL)
+#define MM_F_FRAG_MODE     (0x2000LL)
+#define MM_F_NO_PRINT_2ND  (0x4000LL)
+#define MM_F_2_IO_THREADS  (0x8000LL)
+#define MM_F_LONG_CIGAR    (0x10000LL)
+#define MM_F_INDEPEND_SEG  (0x20000LL)
+#define MM_F_SPLICE_FLANK  (0x40000LL)
+#define MM_F_SOFTCLIP      (0x80000LL)
+#define MM_F_FOR_ONLY      (0x100000LL)
+#define MM_F_REV_ONLY      (0x200000LL)
+#define MM_F_HEAP_SORT     (0x400000LL)
+#define MM_F_ALL_CHAINS    (0x800000LL)
+#define MM_F_OUT_MD        (0x1000000LL)
+#define MM_F_COPY_COMMENT  (0x2000000LL)
+#define MM_F_EQX           (0x4000000LL) // use =/X instead of M
+#define MM_F_PAF_NO_HIT    (0x8000000LL) // output unmapped reads to PAF
+#define MM_F_NO_END_FLT    (0x10000000LL)
+#define MM_F_HARD_MLEVEL   (0x20000000LL)
+#define MM_F_SAM_HIT_ONLY  (0x40000000LL)
 #define MM_F_RMQ           (0x80000000LL)
 #define MM_F_QSTRAND       (0x100000000LL)
 #define MM_F_NO_INV        (0x200000000LL)
 #define MM_F_NO_HASH_NAME  (0x400000000LL)
+#define MM_F_SPLICE_OLD    (0x800000000LL)
+#define MM_F_SECONDARY_SEQ (0x1000000000LL)	//output SEQ field for seqondary alignments using hard clipping
+#define MM_F_OUT_DS        (0x2000000000LL)
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
@@ -93,6 +98,7 @@ typedef struct {
 typedef struct {
 	uint32_t capacity;                  // the capacity of cigar[]
 	int32_t dp_score, dp_max, dp_max2;  // DP score; score of the max-scoring segment; score of the best alternate mappings
+	int32_t dp_max0;                    // DP score before mm_update_dp_max() adjustment
 	uint32_t n_ambi:30, trans_strand:2; // number of ambiguous bases; transcript strand: 0 for unknown, 1 for +, 2 for -
 	uint32_t n_cigar;                   // number of cigar operations in cigar[]
 	uint32_t cigar[];
@@ -149,6 +155,7 @@ typedef struct {
 	float alt_drop;
 
 	int a, b, q, e, q2, e2; // matching score, mismatch, gap-open and gap-ext penalties
+	int transition; // transition mismatch score (A:G, C:T)
 	int sc_ambi; // score when one or both bases are "N"
 	int noncan;      // cost of non-canonical splicing sites
 	int junc_bonus;
@@ -189,6 +196,11 @@ typedef struct {
 } mm_idx_reader_t;
 
 // memory buffer for thread-local storage during mapping
+struct mm_tbuf_s {
+	void *km;
+	int rep_len, frag_gap;
+};
+
 typedef struct mm_tbuf_s mm_tbuf_t;
 
 // global variables
