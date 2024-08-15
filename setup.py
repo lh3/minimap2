@@ -21,14 +21,14 @@ class LibMM2Build(build_ext):
 	# distributed on PyPI).
 	def run(self):
 		def compile_libminimap2(*args, **kwargs):
-			cmd = ['make', 'libminimap2.a'] + list(args) + ["python=1"]
+			cmd = ['make', 'libminimap2.a'] + list(args)
 			subprocess.check_call(cmd)
-		options = []
+		options = ["python=1"]
 		if platform.machine() in ["aarch64", "arm64"]:
-			options = ["arm_neon=1", "aarch64=1"]
+			options += ["arm_neon=1", "aarch64=1"]
 		self.execute(
 			compile_libminimap2, options,
-			'Compiling libminimap2 using Makefile')
+			f'Compiling libminimap2 using Makefile with options: {options}')
 		build_ext.run(self)
 
 
