@@ -30,7 +30,11 @@ make GPU=AMD DEBUG=analyze
 #example: build for NVIDIA GPUs
 make GPU=NV GPUARCH=sm_86 DEBUG=analyze
 ```
-find the cuda GPU architecture of your device [here](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-feature-list). 
+Find the [CUDA GPU architecture of your device here](https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#gpu-feature-list). 
+Find the [GPU architecture for your AMD device here](https://rocm.docs.amd.com/en/latest/reference/gpu-arch-specs.html) or by running the following command:
+```
+rocminfo |grep -m 1 -E gfx[^0]{1} | sed -e 's/ *Name: *//'
+```
 
 ## Usage
 The usage of mm2-gb is similar to minimap2. The `--gpu-chain` flag enables GPU chaining. `--gpu-cfg <filename.json>` specifies the GPU configuration json file. 
