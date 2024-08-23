@@ -139,7 +139,7 @@ cdef class Aligner:
 				if len(scoring) >= 7:
 					self.map_opt.sc_ambi = scoring[6]
 		if sc_ambi is not None: self.map_opt.sc_ambi = sc_ambi
-		if max_chain_skip is not None: self.map_opt.max_chain_skip |= max_chain_skip
+		if max_chain_skip is not None: self.map_opt.max_chain_skip = max_chain_skip
 
 		cdef cmappy.mm_idx_reader_t *r;
 
