@@ -12,6 +12,7 @@
 #include "bseq.h"
 #include "minimap.h"
 #include "mmpriv.h"
+#include "ksw2.h"
 #include "kvec.h"
 #include "khash.h"
 
@@ -65,6 +66,7 @@ void mm_idx_destroy(mm_idx_t *mi)
 			kh_destroy(idx, (idxhash_t*)mi->B[i].h);
 		}
 	}
+	if (mi->spsc) free(mi->spsc);
 	if (mi->I) {
 		for (i = 0; i < mi->n_seq; ++i)
 			free(mi->I[i].a);
@@ -657,6 +659,10 @@ int mm_idx_alt_read(mm_idx_t *mi, const char *fn)
 	return n_alt;
 }
 
+/*******************
+ * Known junctions *
+ *******************/
+
 #define sort_key_bed(a) ((a).st)
 KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
 
@@ -773,4 +779,114 @@ int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uin
 		}
 	}
 	return left;
+}
+
+/****************
+ * splice score *
+ ****************/
+
+typedef struct mm_idx_spsc_s {
+	uint32_t n, m;
+	uint64_t *a; // pos<<56 | score<<1 | acceptor
+} mm_idx_spsc_t;
+
+int32_t mm_idx_spsc_read(mm_idx_t *idx, const char *fn, int32_t max_sc)
+{
+	gzFile fp;
+	kstring_t str = {0,0,0};
+	kstream_t *ks;
+	int32_t dret, j;
+	int64_t n_read = 0;
+
+	fp = fn && strcmp(fn, "-") != 0? gzopen(fn, "rb") : gzdopen(0, "rb");
+	if (fp == 0) return -1;
+	if (max_sc > 63) max_sc = 63;
+	idx->spsc = Kcalloc(0, mm_idx_spsc_t, idx->n_seq * 2);
+	ks = ks_init(fp);
+	while (ks_getuntil(ks, KS_SEP_LINE, &str, &dret) >= 0) {
+		mm_idx_spsc_t *s;
+		char *p, *q, *name = 0;
+		int32_t i, type = -1, strand = 0, cid = -1, score = -1;
+		int64_t pos = -1;
+		for (i = 0, p = q = str.s;; ++p) {
+			if (*p == '\t' || *p == 0) {
+				int c = *p;
+				*p = 0;
+				if (i == 0) {
+					name = q;
+				} else if (i == 1) {
+					pos = atol(q);
+				} else if (i == 2) {
+					strand = *q == '+'? 1 : '-'? -1 : 0;
+				} else if (i == 3) {
+					type = *q == 'D'? 0 : *q == 'A'? 1 : -1;
+				} else if (i == 4) {
+					score = atoi(q);
+					break;
+				}
+				if (c == 0) break;
+				q = p + 1, ++i;
+			}
+		}
+		if (i < 4) continue; // not enough fields
+		if (score > max_sc) score = max_sc;
+		if (score < -max_sc) score = -max_sc;
+		cid = mm_idx_name2id(idx, name);
+		if (cid < 0 || type < 0 || strand == 0 || pos < 0) continue; // FIXME: give a warning!
+		s = &idx->spsc[cid << 1 | (strand > 0? 0 : 1)];
+		Kgrow(0, uint64_t, s->a, s->n, s->m);
+		if (pos > 0 && pos < idx->seq[cid].len) { // ignore scores at the ends
+			s->a[s->n++] = (uint64_t)pos << 8 | (score + KSW_SPSC_OFFSET) << 1 | type;
+			++n_read;
+		}
+	}
+	ks_destroy(ks);
+	gzclose(fp);
+	for (j = 0; j < idx->n_seq * 2; ++j) {
+		mm_idx_spsc_t *s = &idx->spsc[j];
+		if (s->n > 0)
+			radix_sort_64(s->a, s->a + s->n);
+	}
+	if (mm_verbose >= 3)
+		fprintf(stderr, "[M::%s] read %ld splice scores\n", __func__, (long)n_read);
+	return 0;
+}
+
+static int32_t mm_idx_find_intv(int32_t n, const uint64_t *a, int64_t x)
+{
+	int32_t s = 0, e = n;
+	if (n == 0) return -1;
+	if (x < a[0]>>8) return -1;
+	while (s < e) {
+		int32_t mid = s + (e - s) / 2;
+		if (x >= a[mid]>>8 && (mid + 1 >= n || x < a[mid+1]>>8)) return mid;
+		else if (x < a[mid]>>8) e = mid;
+		else s = mid + 1;
+	}
+	assert(0);
+}
+
+int64_t mm_idx_spsc_get(const mm_idx_t *db, int32_t cid, int64_t st0, int64_t en0, int32_t rev, uint8_t *sc)
+{
+	int64_t st, en;
+	const mm_idx_spsc_t *s;
+	if (cid >= db->n_seq || cid < 0 || db->spsc == 0) return -1;
+	if (en0 < 0 || en0 > db->seq[cid].len) en0 = db->seq[cid].len;
+	if (!rev) st = st0, en = en0;
+	else st = db->seq[cid].len - en0, en = db->seq[cid].len - st0;
+	memset(sc, 0xff, en - st);
+	s = &db->spsc[cid << 1 | (!!rev)];
+	if (s->n > 0) {
+		int32_t j, l, r;
+		l = mm_idx_find_intv(s->n, s->a, st);
+		r = mm_idx_find_intv(s->n, s->a, en);
+		for (j = l + 1; j <= r; ++j) {
+			int64_t x = (s->a[j]>>8) - st;
+			uint8_t score = s->a[j] & 0xff;
+			assert(x <= en - st);
+			if (x == en - st) continue;
+			if (sc[x] == 0xff || sc[x] < score) sc[x] = score;
+		}
+	}
+	return en - st;
 }

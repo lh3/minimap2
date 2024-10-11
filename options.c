@@ -179,6 +179,13 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 	return 0;
 }
 
+int mm_max_spsc_bonus(const mm_mapopt_t *mo)
+{
+	int max_sc = (mo->q2 + 1) / 2 - 1;
+	max_sc = max_sc > mo->q2 - mo->q? max_sc : mo->q2 - mo->q;
+	return max_sc;
+}
+
 int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 {
 	if (mo->bw > mo->bw_long) {

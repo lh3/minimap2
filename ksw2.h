@@ -24,6 +24,8 @@
 #define KSW_CIGAR_DEL    2
 #define KSW_CIGAR_N_SKIP 3
 
+#define KSW_SPSC_OFFSET  64
+
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -79,6 +79,7 @@ static ko_longopt_t long_options[] = {
 	{ "secondary-seq",  ko_no_argument,       354 },
 	{ "ds",             ko_no_argument,       355 },
 	{ "rmq-inner",      ko_required_argument, 356 },
+	{ "spsc",           ko_required_argument, 357 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -128,7 +129,7 @@ int main(int argc, char *argv[])
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, n_parts, old_best_n = -1;
-	char *fnw = 0, *rg = 0, *junc_bed = 0, *s, *alt_list = 0;
+	char *fnw = 0, *rg = 0, *junc_bed = 0, *fn_spsc = 0, *s, *alt_list = 0;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
@@ -248,6 +249,7 @@ int main(int argc, char *argv[])
 		else if (c == 354) opt.flag |= MM_F_SECONDARY_SEQ; // --secondary-seq
 		else if (c == 355) opt.flag |= MM_F_OUT_DS; // --ds
 		else if (c == 356) opt.rmq_inner_dist = mm_parse_num(o.arg); // --rmq-inner
+		else if (c == 357) fn_spsc = o.arg; // --spsc
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
@@ -432,6 +434,7 @@ int main(int argc, char *argv[])
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
 		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
+		if (fn_spsc) mm_idx_spsc_read(mi, fn_spsc, mm_max_spsc_bonus(&opt));
 		if (alt_list) mm_idx_alt_read(mi, alt_list);
 		if (argc - (o.ind + 1) == 0) {
 			mm_idx_destroy(mi);
