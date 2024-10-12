@@ -80,6 +80,8 @@ static ko_longopt_t long_options[] = {
 	{ "ds",             ko_no_argument,       355 },
 	{ "rmq-inner",      ko_required_argument, 356 },
 	{ "spsc",           ko_required_argument, 357 },
+	{ "spsc0",          ko_required_argument, 358 },
+	{ "junc-pen",       ko_required_argument, 358 }, // an alias to --spsc0; this is not a typo
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -235,6 +237,7 @@ int main(int argc, char *argv[])
 		else if (c == 338) opt.max_qlen = mm_parse_num(o.arg); // --max-qlen
 		else if (c == 340) junc_bed = o.arg; // --junc-bed
 		else if (c == 341) opt.junc_bonus = atoi(o.arg); // --junc-bonus
+		else if (c == 358) opt.junc_pen = atoi(o.arg); // --junc-pen
 		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
 		else if (c == 343) opt.chain_gap_scale = atof(o.arg); // --chain-gap-scale
 		else if (c == 351) opt.chain_skip_scale = atof(o.arg); // --chain-skip-scale

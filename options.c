@@ -172,6 +172,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->a = 1, mo->b = 2, mo->q = 2, mo->e = 1, mo->q2 = 32, mo->e2 = 0;
 		mo->noncan = 9;
 		mo->junc_bonus = 9;
+		mo->junc_pen = 5;
 		mo->zdrop = 200, mo->zdrop_inv = 100; // because mo->a is halved
 		if (strcmp(preset, "splice:hq") == 0)
 			mo->noncan = 5, mo->b = 4, mo->q = 6, mo->q2 = 24;
