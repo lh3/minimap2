@@ -325,29 +325,31 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 	}
 }
 
-static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const uint8_t *junc, const int8_t *mat, int w, int end_bonus, int zdrop, int flag, ksw_extz_t *ez)
+static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const uint8_t *junc,
+						  const int8_t *mat, int w, int end_bonus, int zdrop, int ksw_flag, ksw_extz_t *ez)
 {
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
 		int i;
-		fprintf(stderr, "===> q=(%d,%d), e=(%d,%d), bw=%d, flag=%d, zdrop=%d <===\n", opt->q, opt->q2, opt->e, opt->e2, w, flag, opt->zdrop);
+		fprintf(stderr, "===> q=(%d,%d), e=(%d,%d), bw=%d, ksw_flag=%d, zdrop=%d <===\n", opt->q, opt->q2, opt->e, opt->e2, w, ksw_flag, opt->zdrop);
 		for (i = 0; i < tlen; ++i) fputc("ACGTN"[tseq[i]], stderr);
 		fputc('\n', stderr);
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr);
 		fputc('\n', stderr);
 	}
 	if (opt->transition != 0 && opt->b != opt->transition)
-		flag |= KSW_EZ_GENERIC_SC;
-	if (opt->max_sw_mat > 0 && (int64_t)tlen * qlen > opt->max_sw_mat) {
+		ksw_flag |= KSW_EZ_GENERIC_SC;
+	if (opt->max_sw_mat > 0 && (int64_t)tlen * qlen > opt->max_sw_mat) { // too much memory; skip alignment
 		ksw_reset_extz(ez);
 		ez->zdropped = 1;
-	} else if (opt->flag & MM_F_SPLICE) {
-		int flag_tmp = flag;
-		if (!(opt->flag & MM_F_SPLICE_OLD)) flag_tmp |= KSW_EZ_SPLICE_CMPLX;
-		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, opt->junc_bonus, opt->junc_pen, flag_tmp, junc, ez);
-	} else if (opt->q == opt->q2 && opt->e == opt->e2)
-		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, end_bonus, flag, ez);
-	else
-		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, flag, ez);
+	} else if (opt->flag & MM_F_SPLICE) { // spliced alignment
+		assert((ksw_flag & KSW_EZ_SPLICE_FOR) == 0 || (ksw_flag & KSW_EZ_SPLICE_REV) == 0);
+		if (!(opt->flag & MM_F_SPLICE_OLD)) ksw_flag |= KSW_EZ_SPLICE_CMPLX;
+		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, opt->junc_bonus, opt->junc_pen, ksw_flag, junc, ez);
+	} else if (opt->q == opt->q2 && opt->e == opt->e2) { // affine gap
+		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, end_bonus, ksw_flag, ez);
+	} else { // dual affine gap
+		ksw_extd2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->e2, w, zdrop, end_bonus, ksw_flag, ez);
+	}
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
 		int i;
 		fprintf(stderr, "score=%d, cigar=", ez->score);
@@ -586,12 +588,19 @@ static void mm_fix_bad_ends_splice(void *km, const mm_mapopt_t *opt, const mm_id
 	}
 }
 
+static inline void mm_get_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, int32_t rev, uint8_t *junc)
+{
+	if (mi->spsc) mm_idx_spsc_get(mi, ctg, st, en, rev, junc);
+	else if (mi->I) mm_idx_bed_junc(mi, ctg, st, en, junc);
+	else memset(junc, 0, en - st);
+}
+
 static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, int n_a, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
 	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE);
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
 	uint8_t *tseq, *qseq, *junc;
-	int32_t i, l, bw, bw_long, dropped = 0, extra_flag = 0, rs0, re0, qs0, qe0;
+	int32_t i, l, bw, bw_long, dropped = 0, ksw_flag = 0, rs0, re0, qs0, qe0;
 	int32_t rs, re, qs, qe;
 	int32_t rs1, qs1, re1, qe1;
 	int8_t mat[25];
@@ -626,9 +635,10 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	assert(cnt1 > 0);
 
 	if (is_splice) {
-		if (splice_flag & MM_F_SPLICE_FOR) extra_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
-		if (splice_flag & MM_F_SPLICE_REV) extra_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
-		if (opt->flag & MM_F_SPLICE_FLANK) extra_flag |= KSW_EZ_SPLICE_FLANK;
+		if (splice_flag & MM_F_SPLICE_FOR) ksw_flag |= rev? KSW_EZ_SPLICE_REV : KSW_EZ_SPLICE_FOR;
+		if (splice_flag & MM_F_SPLICE_REV) ksw_flag |= rev? KSW_EZ_SPLICE_FOR : KSW_EZ_SPLICE_REV;
+		if (opt->flag & MM_F_SPLICE_FLANK) ksw_flag |= KSW_EZ_SPLICE_FLANK;
+		if (mi->spsc) ksw_flag |= KSW_EZ_SPLICE_SCORE;
 	}
 
 	/* Look for the start and end of regions to perform DP. This sounds easy
@@ -721,11 +731,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			qseq = &qseq0[rev][qs0];
 			mm_idx_getseq(mi, rid, rs0, rs, tseq);
 		}
-		mm_idx_bed_junc(mi, rid, rs0, rs, junc);
+		mm_get_junc(mi, rid, rs0, rs, !!(ksw_flag&KSW_EZ_SPLICE_REV), junc);
 		mm_seq_rev(qs - qs0, qseq);
 		mm_seq_rev(rs - rs0, tseq);
 		mm_seq_rev(rs - rs0, junc);
-		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, junc, mat, bw, opt->end_bonus, r->split_inv? opt->zdrop_inv : opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
+		mm_align_pair(km, opt, qs - qs0, qseq, rs - rs0, tseq, junc, mat, bw, opt->end_bonus, r->split_inv? opt->zdrop_inv : opt->zdrop, ksw_flag|KSW_EZ_EXTZ_ONLY|KSW_EZ_RIGHT|KSW_EZ_REV_CIGAR, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;
@@ -756,7 +766,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				qseq = &qseq0[rev][qs];
 				mm_idx_getseq(mi, rid, rs, re, tseq);
 			}
-			mm_idx_bed_junc(mi, rid, rs, re, junc);
+			mm_get_junc(mi, rid, rs, re, !!(ksw_flag&KSW_EZ_SPLICE_REV), junc);
 			if (is_sr) { // perform ungapped alignment
 				assert(qe - qs == re - rs);
 				ksw_reset_extz(ez);
@@ -766,11 +776,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				}
 				ez->cigar = ksw_push_cigar(km, &ez->n_cigar, &ez->m_cigar, ez->cigar, MM_CIGAR_MATCH, qe - qs);
 			} else { // perform normal gapped alignment
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, extra_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
 			}
 			// test Z-drop and inversion Z-drop
 			if ((zdrop_code = mm_test_zdrop(km, opt, qseq, tseq, ez->n_cigar, ez->cigar, mat)) != 0)
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, zdrop_code == 2? opt->zdrop_inv : opt->zdrop, extra_flag, ez); // second pass: lift approximate
+				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, zdrop_code == 2? opt->zdrop_inv : opt->zdrop, ksw_flag, ez); // second pass: lift approximate
 			// update CIGAR
 			if (ez->n_cigar > 0)
 				mm_append_cigar(r, ez->n_cigar, ez->cigar);
@@ -808,8 +818,8 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			qseq = &qseq0[rev][qe];
 			mm_idx_getseq(mi, rid, re, re0, tseq);
 		}
-		mm_idx_bed_junc(mi, rid, re, re0, junc);
-		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, junc, mat, bw, opt->end_bonus, opt->zdrop, extra_flag|KSW_EZ_EXTZ_ONLY, ez);
+		mm_get_junc(mi, rid, re, re0, !!(ksw_flag&KSW_EZ_SPLICE_REV), junc);
+		mm_align_pair(km, opt, qe0 - qe, qseq, re0 - re, tseq, junc, mat, bw, opt->end_bonus, opt->zdrop, ksw_flag|KSW_EZ_EXTZ_ONLY, ez);
 		if (ez->n_cigar > 0) {
 			mm_append_cigar(r, ez->n_cigar, ez->cigar);
 			r->p->dp_score += ez->max;

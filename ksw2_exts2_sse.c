@@ -191,7 +191,7 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 		}
 	}
 
-	if (junc) {
+	if (junc && !(flag & KSW_EZ_SPLICE_SCORE)) {
 		if (!(flag & KSW_EZ_REV_CIGAR)) {
 			for (t = 0; t < tlen - 1; ++t)
 				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t+1]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t+1]&8)))
@@ -206,6 +206,10 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 			for (t = 0; t < tlen; ++t)
 				if (((flag & KSW_EZ_SPLICE_FOR) && (junc[t]&1)) || ((flag & KSW_EZ_SPLICE_REV) && (junc[t]&8)))
 					((int8_t*)acceptor)[t] += junc_bonus;
+		}
+	} else if (junc) {
+		if (!(flag & KSW_EZ_REV_CIGAR)) {
+		} else {
 		}
 	}
 

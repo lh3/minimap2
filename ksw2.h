@@ -15,7 +15,8 @@
 #define KSW_EZ_SPLICE_FOR  0x100
 #define KSW_EZ_SPLICE_REV  0x200
 #define KSW_EZ_SPLICE_FLANK 0x400
-#define KSW_EZ_SPLICE_CMPLX 0x800
+#define KSW_EZ_SPLICE_CMPLX 0x800  // use the miniprot splice model
+#define KSW_EZ_SPLICE_SCORE 0x1000 // use splice score
 
 // The subset of CIGAR operators used by ksw code.
 // Use MM_CIGAR_* from minimap.h if you need the full list.
