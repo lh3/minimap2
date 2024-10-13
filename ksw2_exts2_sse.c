@@ -192,11 +192,12 @@ void ksw_exts2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 	}
 
 	if (junc && (flag & KSW_EZ_SPLICE_SCORE)) { // junc[] keeps the donor score
-		uint8_t donor_val = !(flag & KSW_EZ_REV_CIGAR)? 0 : 1;
+		uint8_t donor_val = !!(flag & KSW_EZ_SPLICE_FOR) == !(flag & KSW_EZ_REV_CIGAR)? 0 : 1;
 		for (t = 0; t < tlen - 1; ++t)
-			((int8_t*)donor)[t]    += junc[t+1] == 0xff? -junc_pen : (junc[t+1]&1) == donor_val?  (int8_t)(junc[t+1]>>1) - (int8_t)KSW_SPSC_OFFSET : 0;
+			((int8_t*)donor)[t]    += junc[t+1] == 0xff || (junc[t+1]&1) !=  donor_val? -junc_pen : (int8_t)(junc[t+1]>>1) - (int8_t)KSW_SPSC_OFFSET;
 		for (t = 0; t < tlen - 1; ++t)
-			((int8_t*)acceptor)[t] += junc[t+1] == 0xff? -junc_pen : (junc[t+1]&1) == !donor_val? (int8_t)(junc[t+1]>>1) - (int8_t)KSW_SPSC_OFFSET : 0;
+			((int8_t*)acceptor)[t] += junc[t+1] == 0xff || (junc[t+1]&1) != !donor_val? -junc_pen : (int8_t)(junc[t+1]>>1) - (int8_t)KSW_SPSC_OFFSET;
+		//for (t = 0; t < tlen - 1; ++t) if (junc[t+1] != 0xff) fprintf(stderr, "Y2\t%d\t%d\t%c\t%d\n", ((int8_t*)donor)[t], ((int8_t*)acceptor)[t], "DA"[junc[t+1]&1], (int8_t)(junc[t+1]>>1) - (int8_t)KSW_SPSC_OFFSET);
 	} else if (junc) { // junc[] keeps the splice sites
 		if (!(flag & KSW_EZ_REV_CIGAR)) {
 			for (t = 0; t < tlen - 1; ++t)

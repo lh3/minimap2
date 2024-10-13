@@ -800,6 +800,7 @@ int32_t mm_idx_spsc_read(mm_idx_t *idx, const char *fn, int32_t max_sc)
 
 	fp = fn && strcmp(fn, "-") != 0? gzopen(fn, "rb") : gzdopen(0, "rb");
 	if (fp == 0) return -1;
+	if (idx->h == 0) mm_idx_index_name(idx);
 	if (max_sc > 63) max_sc = 63;
 	idx->spsc = Kcalloc(0, mm_idx_spsc_t, idx->n_seq * 2);
 	ks = ks_init(fp);
@@ -866,14 +867,11 @@ static int32_t mm_idx_find_intv(int32_t n, const uint64_t *a, int64_t x)
 	assert(0);
 }
 
-int64_t mm_idx_spsc_get(const mm_idx_t *db, int32_t cid, int64_t st0, int64_t en0, int32_t rev, uint8_t *sc)
+int64_t mm_idx_spsc_get(const mm_idx_t *db, int32_t cid, int64_t st, int64_t en, int32_t rev, uint8_t *sc)
 {
-	int64_t st, en;
 	const mm_idx_spsc_t *s;
 	if (cid >= db->n_seq || cid < 0 || db->spsc == 0) return -1;
-	if (en0 < 0 || en0 > db->seq[cid].len) en0 = db->seq[cid].len;
-	if (!rev) st = st0, en = en0;
-	else st = db->seq[cid].len - en0, en = db->seq[cid].len - st0;
+	if (en < 0 || en > db->seq[cid].len) en = db->seq[cid].len;
 	memset(sc, 0xff, en - st);
 	s = &db->spsc[cid << 1 | (!!rev)];
 	if (s->n > 0) {
