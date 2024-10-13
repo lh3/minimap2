@@ -80,8 +80,7 @@ static ko_longopt_t long_options[] = {
 	{ "ds",             ko_no_argument,       355 },
 	{ "rmq-inner",      ko_required_argument, 356 },
 	{ "spsc",           ko_required_argument, 357 },
-	{ "spsc0",          ko_required_argument, 358 },
-	{ "junc-pen",       ko_required_argument, 358 }, // an alias to --spsc0; this is not a typo
+	{ "junc-pen",       ko_required_argument, 358 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },

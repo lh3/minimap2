@@ -433,6 +433,21 @@ on SIRV data, please add
 .B --splice-flank=no
 to the command line.
 .TP
+.BR --spsc \ FILE
+Splice scores []. Each line consists of five fields: 1) contig, 2) offset, 3) `+' or `-', 4) `D' or `A', and 5) score,
+where offset is the number of bases before a splice junction, `D' indicates the
+line corresponds to a donor site and `A' for an acceptor site.
+A positive score suggests the junction is preferred and a negative score
+suggests the junction is not preferred.
+.TP
+.BR --junc-pen \ INT
+Penalty for a position not in FILE specified by
+.B --spsc
+[5]. Effective with
+.B --spsc
+but not
+.BR --junc-bed .
+.TP
 .BR --junc-bed \ FILE
 Gene annotations in the BED12 format (aka 12-column BED), or intron positions
 in 5-column BED. With this option, minimap2 prefers splicing in annotations.
@@ -440,9 +455,10 @@ BED12 file can be converted from GTF/GFF3 with `paftools.js gff2bed anno.gtf'
 [].
 .TP
 .BR --junc-bonus \ INT
-Score bonus for a splice donor or acceptor found in annotation (effective with
-.BR --junc-bed )
-[9].
+Score bonus for a splice donor or acceptor found in annotation [9]. Effective with
+.B --junc-bed
+but not
+.BR --spsc .
 .TP
 .BI --end-seed-pen \ INT
 Drop a terminal anchor if
