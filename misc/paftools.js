@@ -2187,7 +2187,7 @@ function paf_mapeval(args)
 	}
 
 	var lineno = 0, last = null, a = [], n_unmapped = null;
-	var re_cigar = /(\d+)([MIDSHN])/g;
+	var re_cigar = /(\d+)([MIDSHN=X])/g;
 	while (file.readline(buf) >= 0) {
 		var m, line = buf.toString();
 		++lineno;
@@ -2225,7 +2225,7 @@ function paf_mapeval(args)
 				var n_gap = 0, mlen = 0;
 				while ((m = re_cigar.exec(t[5])) != null) {
 					var len = parseInt(m[1]);
-					if (m[2] == 'M') pos_end += len, mlen += len;
+					if (m[2] == 'M' || m[2] == 'X' || m[2] == '=') pos_end += len, mlen += len;
 					else if (m[2] == 'I') n_gap += len;
 					else if (m[2] == 'D') n_gap += len, pos_end += len;
 				}
