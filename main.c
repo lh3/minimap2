@@ -435,8 +435,16 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
-		if (junc_bed) mm_idx_bed_read(mi, junc_bed, 1);
-		if (fn_spsc) mm_idx_spsc_read(mi, fn_spsc, mm_max_spsc_bonus(&opt));
+		if (junc_bed) {
+			mm_idx_bed_read(mi, junc_bed, 1);
+			if (mi->I == 0 && mm_verbose >= 2)
+				fprintf(stderr, "[WARNING] failed to load the junction BED file\n");
+		}
+		if (fn_spsc) {
+			mm_idx_spsc_read(mi, fn_spsc, mm_max_spsc_bonus(&opt));
+			if (mi->spsc == 0 && mm_verbose >= 2)
+				fprintf(stderr, "[WARNING] failed to load the splice score file\n");
+		}
 		if (alt_list) mm_idx_alt_read(mi, alt_list);
 		if (argc - (o.ind + 1) == 0) {
 			mm_idx_destroy(mi);
