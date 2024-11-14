@@ -108,6 +108,43 @@ static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const 
 	return r;
 }
 
+static inline mm_reg1_t *mm_map_aux_with_name(const mm_idx_t *mi, const char* seqname, const char *seq1, const char *seq2, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt)
+{
+	mm_reg1_t *r;
+
+	Py_BEGIN_ALLOW_THREADS
+	if (seq2 == 0) {
+		r = mm_map(mi, strlen(seq1), seq1, n_regs, b, opt, seqname);
+	} else {
+		int _n_regs[2];
+		mm_reg1_t *regs[2];
+		char *seq[2];
+		int i, len[2];
+
+		len[0] = strlen(seq1);
+		len[1] = strlen(seq2);
+		seq[0] = (char*)seq1;
+		seq[1] = strdup(seq2);
+		for (i = 0; i < len[1]>>1; ++i) {
+			int t = seq[1][len[1] - i - 1];
+			seq[1][len[1] - i - 1] = seq_comp_table[(uint8_t)seq[1][i]];
+			seq[1][i] = seq_comp_table[t];
+		}
+		if (len[1]&1) seq[1][len[1]>>1] = seq_comp_table[(uint8_t)seq[1][len[1]>>1]];
+		mm_map_frag(mi, 2, len, (const char**)seq, _n_regs, regs, b, opt, seqname);
+		for (i = 0; i < _n_regs[1]; ++i)
+			regs[1][i].rev = !regs[1][i].rev;
+		*n_regs = _n_regs[0] + _n_regs[1];
+		regs[0] = (mm_reg1_t*)realloc(regs[0], sizeof(mm_reg1_t) * (*n_regs));
+		memcpy(&regs[0][_n_regs[0]], regs[1], _n_regs[1] * sizeof(mm_reg1_t));
+		free(regs[1]);
+		r = regs[0];
+	}
+	Py_END_ALLOW_THREADS
+
+	return r;
+}
+
 static inline char *mappy_revcomp(int len, const uint8_t *seq)
 {
 	int i;
