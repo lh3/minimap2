@@ -7,7 +7,8 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-linux-x8664:
+    name: Linux x86_64
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -15,7 +16,53 @@ jobs:
 
     steps:
     - name: Checkout minimap2
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Compile with ${{ matrix.compiler }}
-      run:  make CC=${{ matrix.compiler }}
+      run: |
+        make CC=${{ matrix.compiler }}
+        file minimap2 | grep x86-64
+
+  build-linux-aarch64:
+    name: Linux aarch64
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Compile with ${{ matrix.compiler }}
+      uses: uraimo/run-on-arch-action@v2
+      with:
+        arch: aarch64
+        distro: ubuntu22.04
+        githubToken: ${{ github.token }}
+        dockerRunArgs: |
+          --volume "${PWD}:/minimap2"
+        install: |
+          apt-get update -q -y
+          apt-get install -q -y make ${{ matrix.compiler }} zlib1g-dev file
+        run: |
+          cd /minimap2
+          make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
+          file minimap2 | grep aarch64
+
+  build-mac-arm64:
+    name: Mac ARM64
+    runs-on: macos-14
+    strategy:
+      matrix:
+        compiler: [clang]
+
+    steps:
+    - name: Checkout minimap2
+      uses: actions/checkout@v4
+
+    - name: Compile with ${{ matrix.compiler }}
+      run: |
+        make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
+        file minimap2 | grep arm64
+        
