@@ -38,6 +38,13 @@ ifneq ($(tsan),)
 	LIBS+=-fsanitize=thread -ldl
 endif
 
+ifneq ($(python),)
+	# this allows us to build libminimap2.a here and then link to
+	# it in the python extension build, rather than doing
+	CFLAGS+=-fPIC
+endif
+
+
 .PHONY:all extra clean depend
 .SUFFIXES:.c .o
 
