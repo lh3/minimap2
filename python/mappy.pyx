@@ -113,7 +113,7 @@ cdef class Aligner:
 	cdef cmappy.mm_idxopt_t idx_opt
 	cdef cmappy.mm_mapopt_t map_opt
 
-	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, bw_long=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None):
+	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, bw_long=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None, sc_ambi=None, max_chain_skip=None):
 		self._idx = NULL
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
@@ -138,6 +138,8 @@ cdef class Aligner:
 				self.map_opt.q2, self.map_opt.e2 = scoring[4], scoring[5]
 				if len(scoring) >= 7:
 					self.map_opt.sc_ambi = scoring[6]
+		if sc_ambi is not None: self.map_opt.sc_ambi = sc_ambi
+		if max_chain_skip is not None: self.map_opt.max_chain_skip = max_chain_skip
 
 		cdef cmappy.mm_idx_reader_t *r;
 
