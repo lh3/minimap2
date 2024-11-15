@@ -190,15 +190,15 @@ cdef class Aligner:
 
 		if seq2 is None:
 			if name is None:
-				regs = cmappy.mm_map_aux(self._idx, _seq, NULL,  &n_regs, b._b, &map_opt)
+				regs = cmappy.mm_map_aux(self._idx, NULL, _seq, NULL,  &n_regs, b._b, &map_opt)
 			else:
-				regs = cmappy.mm_map_aux_with_name(self._idx, _name, _seq, NULL,  &n_regs, b._b, &map_opt)
+				regs = cmappy.mm_map_aux(self._idx, _name, _seq, NULL,  &n_regs, b._b, &map_opt)
 		else:
 			_seq2 = seq2 if isinstance(seq2, bytes) else seq2.encode()
 			if name is None:
-				regs = cmappy.mm_map_aux(self._idx, _seq, _seq2, &n_regs, b._b, &map_opt)
+				regs = cmappy.mm_map_aux(self._idx, NULL, _seq, _seq2, &n_regs, b._b, &map_opt)
 			else:
-				regs = cmappy.mm_map_aux_with_name(self._idx, _name, _seq, _seq2, &n_regs, b._b, &map_opt)
+				regs = cmappy.mm_map_aux(self._idx, _name, _seq, _seq2, &n_regs, b._b, &map_opt)
 
 		try:
 			i = 0
