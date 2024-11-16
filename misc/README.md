@@ -16,7 +16,8 @@ minimap2 -c test/MT-human.fa test/MT-orang.fa \
   | paftools.js liftover -l10000 - <(echo -e "MT_orang\t2000\t5000")     # liftOver
 # no test data for the following examples
 paftools.js junceval -e anno.gtf splice.sam > out.txt  # compare splice junctions to annotations
-paftools.js splice2bed anno.gtf > anno.bed             # convert GTF/GFF3 to BED12
+paftools.js splice2bed splice.sam > splice.bed             # convert PAF/SAM to BED12
+paftools.js gff2bed anno.gtf > anno.bed             # convert GTF/GFF3 to BED12
 ```
 
 ## Table of Contents

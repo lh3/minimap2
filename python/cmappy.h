@@ -71,13 +71,13 @@ static inline void mm_reset_timer(void)
 }
 
 extern unsigned char seq_comp_table[256];
-static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const char *seq2, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt)
+static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char* seqname, const char *seq1, const char *seq2, int *n_regs, mm_tbuf_t *b, const mm_mapopt_t *opt)
 {
 	mm_reg1_t *r;
 
 	Py_BEGIN_ALLOW_THREADS
 	if (seq2 == 0) {
-		r = mm_map(mi, strlen(seq1), seq1, n_regs, b, opt, NULL);
+		r = mm_map(mi, strlen(seq1), seq1, n_regs, b, opt, seqname);
 	} else {
 		int _n_regs[2];
 		mm_reg1_t *regs[2];
@@ -94,7 +94,7 @@ static inline mm_reg1_t *mm_map_aux(const mm_idx_t *mi, const char *seq1, const 
 			seq[1][i] = seq_comp_table[t];
 		}
 		if (len[1]&1) seq[1][len[1]>>1] = seq_comp_table[(uint8_t)seq[1][len[1]>>1]];
-		mm_map_frag(mi, 2, len, (const char**)seq, _n_regs, regs, b, opt, NULL);
+		mm_map_frag(mi, 2, len, (const char**)seq, _n_regs, regs, b, opt, seqname);
 		for (i = 0; i < _n_regs[1]; ++i)
 			regs[1][i].rev = !regs[1][i].rev;
 		*n_regs = _n_regs[0] + _n_regs[1];

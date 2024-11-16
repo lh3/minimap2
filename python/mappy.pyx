@@ -113,7 +113,7 @@ cdef class Aligner:
 	cdef cmappy.mm_idxopt_t idx_opt
 	cdef cmappy.mm_mapopt_t map_opt
 
-	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, bw_long=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None):
+	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, bw_long=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None, sc_ambi=None, max_chain_skip=None):
 		self._idx = NULL
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
@@ -138,6 +138,8 @@ cdef class Aligner:
 				self.map_opt.q2, self.map_opt.e2 = scoring[4], scoring[5]
 				if len(scoring) >= 7:
 					self.map_opt.sc_ambi = scoring[6]
+		if sc_ambi is not None: self.map_opt.sc_ambi = sc_ambi
+		if max_chain_skip is not None: self.map_opt.max_chain_skip = max_chain_skip
 
 		cdef cmappy.mm_idx_reader_t *r;
 
@@ -163,7 +165,7 @@ cdef class Aligner:
 	def __bool__(self):
 		return (self._idx != NULL)
 
-	def map(self, seq, seq2=None, buf=None, cs=False, MD=False, max_frag_len=None, extra_flags=None):
+	def map(self, seq, seq2=None, name=None, buf=None, cs=False, MD=False, max_frag_len=None, extra_flags=None):
 		cdef cmappy.mm_reg1_t *regs
 		cdef cmappy.mm_hitpy_t h
 		cdef ThreadBuffer b
@@ -185,11 +187,20 @@ cdef class Aligner:
 		km = cmappy.mm_tbuf_get_km(b._b)
 
 		_seq = seq if isinstance(seq, bytes) else seq.encode()
+		if name is not None:
+			_name = name if isinstance(name, bytes) else name.encode()
+
 		if seq2 is None:
-			regs = cmappy.mm_map_aux(self._idx, _seq, NULL,  &n_regs, b._b, &map_opt)
+			if name is None:
+				regs = cmappy.mm_map_aux(self._idx, NULL, _seq, NULL,  &n_regs, b._b, &map_opt)
+			else:
+				regs = cmappy.mm_map_aux(self._idx, _name, _seq, NULL,  &n_regs, b._b, &map_opt)
 		else:
 			_seq2 = seq2 if isinstance(seq2, bytes) else seq2.encode()
-			regs = cmappy.mm_map_aux(self._idx, _seq, _seq2, &n_regs, b._b, &map_opt)
+			if name is None:
+				regs = cmappy.mm_map_aux(self._idx, NULL, _seq, _seq2, &n_regs, b._b, &map_opt)
+			else:
+				regs = cmappy.mm_map_aux(self._idx, _name, _seq, _seq2, &n_regs, b._b, &map_opt)
 
 		try:
 			i = 0
