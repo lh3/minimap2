@@ -82,8 +82,62 @@ function* k8_readline(fn) {
 	buf.destroy();
 }
 
+function merge_hits(b) {
+	if (b.length == 1)
+		return { name1:b[0].name1, name2:b[0].name2, len1:b[0].len1, len2:b[0].len2, min_cov:b[0].min_cov, max_cov:b[0].max_cov, s1:b[0].s1, dv:b[0].dv };
+	b.sort(function(x, y) { return x.st1 - y.st1 });
+	let f = [], bt = [];
+	for (let i = 0; i < b.length; ++i)
+		f[i] = b[i].s1, bt[i] = -1;
+	for (let i = 0; i < b.length; ++i) {
+		for (let j = 0; j < i; ++j) {
+			if (b[j].st2 < b[i].st2) {
+				if (b[j].en1 >= b[i].en1) continue;
+				if (b[j].en2 >= b[i].en2) continue;
+				const ov1 = b[j].en1 <= b[i].st1? 0 : b[i].st1 - b[j].en1;
+				const li1 = b[i].en1 - b[i].st1;
+				const s11 = b[i].s1 / li1 * (li1 - ov1);
+				const ov2 = b[j].en2 <= b[i].st2? 0 : b[i].st2 - b[j].en2;
+				const li2 = b[i].en2 - b[i].st2;
+				const s12 = b[i].s1 / li2 * (li2 - ov2);
+				const s1 = s11 < s12? s11 : s12;
+				if (f[i] < f[j] + s1)
+					f[i] = f[j] + s1, bt[i] = j;
+			}
+		}
+	}
+	let max_i = -1, max_f = 0, d = [];
+	for (let i = 0; i < b.length; ++i)
+		if (max_f < f[i])
+			max_f = f[i], max_i = i;
+	for (let k = max_i; k >= 0; k = bt[k])
+		d.push(k);
+	d = d.reverse();
+	let dv = 0, tot = 0, cov1 = 0, cov2 = 0, st1 = 0, en1 = 0, st2 = 0, en2 = 0;
+	for (let k = 0; k < d.length; ++k) {
+		const i = d[k];
+		tot += b[i].blen;
+		dv += b[i].dv * b[i].blen;
+		if (b[i].st1 > en1) {
+			cov1 += en1 - st1;
+			st1 = b[i].st1, en1 = b[i].en1;
+		} else en1 = en1 > b[i].en1? en1 : b[i].en1;
+		if (b[i].st2 > en2) {
+			cov2 += en2 - st2;
+			st2 = b[i].st2, en2 = b[i].en2;
+		} else en2 = en2 > b[i].en2? en2 : b[i].en2;
+	}
+	dv /= tot;
+	cov1 = (cov1 + (en1 - st1)) / b[0].len1;
+	cov2 = (cov2 + (en2 - st2)) / b[0].len2;
+	const min_cov = cov1 < cov2? cov1 : cov2;
+	const max_cov = cov1 > cov2? cov1 : cov2;
+	//warn(d.length, b[0].name1, b[0].name2, min_cov, max_cov);
+	return { name1:b[0].name1, name2:b[0].name2, len1:b[0].len1, len2:b[0].len2, min_cov:min_cov, max_cov:max_cov, s1:max_f, dv:dv };
+}
+
 function main(args) {
-	let opt = { min_cov:.9, max_dv:.01 };
+	let opt = { min_cov:.8, max_dv:.015 };
 	for (const o of getopt(args, "c:d:", [])) {
 		if (o.opt == '-c') opt.min_cov = parseFloat(o.arg);
 		else if (o.opt == '-d') opt.max_dv = parseFloat(o.arg);
@@ -97,11 +151,13 @@ function main(args) {
 	}
 
 	// read
-	let a = [], len = {};
+	let a = [], len = {}, name2len = {};
 	for (const line of k8_readline(args[0])) {
 		let m, t = line.split("\t");
 		if (t[4] != "+") continue;
-		const len1 = parseInt(t[1]), len2 = parseInt(t[6]);
+		for (let i = 1; i < 4;  ++i) t[i] = parseInt(t[i]);
+		for (let i = 6; i < 11; ++i) t[i] = parseInt(t[i]);
+		const len1 = t[1], len2 = t[6];
 		let s1 = -1, dv = -1.0;
 		for (let i = 12; i < t.length; ++i) {
 			if ((m = /^(s1|dv):\S:(\S+)/.exec(t[i])) != null) {
@@ -114,26 +170,23 @@ function main(args) {
 		const cov2 = (parseInt(t[8]) - parseInt(t[7])) / len2;
 		const min_cov = cov1 < cov2? cov1 : cov2;
 		const max_cov = cov1 > cov2? cov1 : cov2;
-		a.push({ name1:t[0], name2:t[5], len1:len1, len2:len2, min_cov:min_cov, max_cov:max_cov, s1:s1, dv:dv });
+		name2len[t[0]] = len1;
+		name2len[t[5]] = len2;
+		a.push({ name1:t[0], name2:t[5], len1:len1, len2:len2, min_cov:min_cov, max_cov:max_cov, s1:s1, dv:dv, st1:t[2], en1:t[3], st2:t[7], en2:t[8], blen:t[10] });
 		len[t[0]] = len1, len[t[5]] = len2;
 	}
 	warn(`Read ${a.length} hits`);
 
-	// filter duplicated hits
-	let pair = {}, n_flt = 0, b = [];
-	a.sort(function(x, y) { return y.s1 - x.s1 });
+	// merge duplicated hits
+	let h = {};
 	for (let i = 0; i < a.length; ++i) {
 		const key = `${a[i].name1}\t${a[i].name2}`;
-		if (pair[key] != null) {
-			++n_flt;
-			continue;
-		}
-		pair[key] = 1;
-		b.push(a[i]);
+		if (h[key] == null) h[key] = [];
+		h[key].push(a[i]);
 	}
-	pair = null;
-	warn(`Filtered ${n_flt} hits`);
-	a = b;
+	a = [];
+	for (const key in h)
+		a.push(merge_hits(h[key]));
 
 	// core loop
 	while (a.length > 1) {
@@ -157,7 +210,10 @@ function main(args) {
 				h[a[i].name1] = h[a[i].name2] = 1;
 		}
 		let n = 0;
-		for (const key in h) ++n;
+		for (const key in h) {
+			++n;
+			delete name2len[key];
+		}
 		print(`SD\t${max_name}\t${n}`);
 		for (const key in h) print(`CL\t${key}\t${len[key]}`);
 		print("//");
@@ -168,6 +224,13 @@ function main(args) {
 				b.push(a[i]);
 		warn(`Reduced the number of hits from ${a.length} to ${b.length}`);
 		a = b;
+	}
+
+	// output remaining singletons
+	for (const key in name2len) {
+		print(`SD\t${key}\t1`);
+		print(`CL\t${key}\t${name2len[key]}`);
+		print(`//`);
 	}
 }
 
