@@ -84,7 +84,7 @@ function* k8_readline(fn) {
 
 function merge_hits(b) {
 	if (b.length == 1)
-		return { name1:b[0].name1, name2:b[0].name2, len1:b[0].len1, len2:b[0].len2, min_cov:b[0].min_cov, max_cov:b[0].max_cov, s1:b[0].s1, dv:b[0].dv };
+		return { name1:b[0].name1, name2:b[0].name2, len1:b[0].len1, len2:b[0].len2, min_cov:b[0].min_cov, max_cov:b[0].max_cov, cov1:b[0].cov1, cov2:b[0].cov2, s1:b[0].s1, dv:b[0].dv };
 	b.sort(function(x, y) { return x.st1 - y.st1 });
 	let f = [], bt = [];
 	for (let i = 0; i < b.length; ++i)
@@ -133,20 +133,22 @@ function merge_hits(b) {
 	const min_cov = cov1 < cov2? cov1 : cov2;
 	const max_cov = cov1 > cov2? cov1 : cov2;
 	//warn(d.length, b[0].name1, b[0].name2, min_cov, max_cov);
-	return { name1:b[0].name1, name2:b[0].name2, len1:b[0].len1, len2:b[0].len2, min_cov:min_cov, max_cov:max_cov, s1:max_f, dv:dv };
+	return { name1:b[0].name1, name2:b[0].name2, len1:b[0].len1, len2:b[0].len2, min_cov:min_cov, max_cov:max_cov, cov1:cov1, cov2:cov2, s1:max_f, dv:dv };
 }
 
 function main(args) {
-	let opt = { min_cov:.8, max_dv:.015 };
-	for (const o of getopt(args, "c:d:", [])) {
+	let opt = { min_cov:.9, max_dv:.015, max_diff:20000 };
+	for (const o of getopt(args, "c:d:e:", [])) {
 		if (o.opt == '-c') opt.min_cov = parseFloat(o.arg);
 		else if (o.opt == '-d') opt.max_dv = parseFloat(o.arg);
+		else if (o.opt == '-e') opt.max_diff = parseFloat(o.arg);
 	}
 	if (args.length == 0) {
 		print("Usage: pafcluster.js [options] <ava.paf>");
 		print("Options:");
 		print(`  -c FLOAT     min coverage [${opt.min_cov}]`);
 		print(`  -d FLOAT     max divergence [${opt.max_dv}]`);
+		print(`  -e FLOAT     max difference [${opt.max_diff}]`);
 		return;
 	}
 
@@ -172,7 +174,7 @@ function main(args) {
 		const max_cov = cov1 > cov2? cov1 : cov2;
 		name2len[t[0]] = len1;
 		name2len[t[5]] = len2;
-		a.push({ name1:t[0], name2:t[5], len1:len1, len2:len2, min_cov:min_cov, max_cov:max_cov, s1:s1, dv:dv, st1:t[2], en1:t[3], st2:t[7], en2:t[8], blen:t[10] });
+		a.push({ name1:t[0], name2:t[5], len1:len1, len2:len2, min_cov:min_cov, max_cov:max_cov, s1:s1, dv:dv, cov1:cov1, cov2:cov2, st1:t[2], en1:t[3], st2:t[7], en2:t[8], blen:t[10] });
 		len[t[0]] = len1, len[t[5]] = len2;
 	}
 	warn(`Read ${a.length} hits`);
@@ -206,7 +208,9 @@ function main(args) {
 		for (let i = 0; i < a.length; ++i) {
 			if (a[i].name1 != max_name && a[i].name2 != max_name)
 				continue;
-			if (a[i].min_cov >= opt.min_cov && a[i].dv <= opt.max_dv)
+			const diff1 = a[i].len1 * (1.0 - a[i].cov1);
+			const diff2 = a[i].len2 * (1.0 - a[i].cov2);
+			if (a[i].min_cov >= opt.min_cov && a[i].dv <= opt.max_dv && diff1 <= opt.max_diff && diff2 <= opt.max_diff)
 				h[a[i].name1] = h[a[i].name2] = 1;
 		}
 		let n = 0;
