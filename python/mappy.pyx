@@ -211,11 +211,12 @@ cdef class Aligner:
 					c = h.cigar32[k]
 					cigar.append([c>>4, c&0xf])
 				if cs or MD: # generate the cs and/or the MD tag, if requested
+					_cur_seq = _seq2 if h.seg_id > 0 and seq2 is not None else _seq
 					if cs:
-						l_cs_str = cmappy.mm_gen_cs(km, &cs_str, &m_cs_str, self._idx, &regs[i], _seq, 1)
+						l_cs_str = cmappy.mm_gen_cs(km, &cs_str, &m_cs_str, self._idx, &regs[i], _cur_seq, 1)
 						_cs = cs_str[:l_cs_str] if isinstance(cs_str, str) else cs_str[:l_cs_str].decode()
 					if MD:
-						l_cs_str = cmappy.mm_gen_MD(km, &cs_str, &m_cs_str, self._idx, &regs[i], _seq)
+						l_cs_str = cmappy.mm_gen_MD(km, &cs_str, &m_cs_str, self._idx, &regs[i], _cur_seq)
 						_MD = cs_str[:l_cs_str] if isinstance(cs_str, str) else cs_str[:l_cs_str].decode()
 				yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand, h.seg_id, _cs, _MD)
 				cmappy.mm_free_reg1(&regs[i])
