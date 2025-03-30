@@ -55,7 +55,7 @@ mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, 
 	mm_reg1_t *r;
 	int i, k;
 
-	if (n_u == 0) return 0;
+	if (n_u <= 0) return 0;
 
 	// sort by score
 	z = (mm128_t*)kmalloc(km, n_u * 16);

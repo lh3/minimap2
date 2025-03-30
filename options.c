@@ -174,8 +174,14 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->junc_bonus = 9;
 		mo->junc_pen = 5;
 		mo->zdrop = 200, mo->zdrop_inv = 100; // because mo->a is halved
-		if (strcmp(preset, "splice:hq") == 0)
+		if (strcmp(preset, "splice:hq") == 0) {
 			mo->noncan = 5, mo->b = 4, mo->q = 6, mo->q2 = 24;
+		} else if (strcmp(preset, "splice:sr") == 0) {
+			mo->flag |= MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS | MM_F_HEAP_SORT;
+			mo->noncan = 5, mo->b = 4, mo->q = 6, mo->q2 = 24;
+			mo->end_bonus = 10;
+			mo->mini_batch_size = 50000000;
+		}
 	} else return -1;
 	return 0;
 }
