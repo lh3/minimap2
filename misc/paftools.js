@@ -1,6 +1,6 @@
 #!/usr/bin/env k8
 
-var paftools_version = '2.28-r1209';
+var paftools_version = '2.28-r1230-dirty';
 
 /*****************************
  ***** Library functions *****
@@ -2494,6 +2494,10 @@ function paf_junceval(args)
 		} else { // SAM
 			ctg_name = t[2], pos = parseInt(t[3]) - 1, cigar = t[5];
 			var flag = parseInt(t[1]);
+			if (flag & 1) {
+				if (flag & 0x40) qname += '/1';
+				else if (flag & 0x80) qname += '/2';
+			}
 			if (flag&0x100) continue; // secondary
 		}
 
