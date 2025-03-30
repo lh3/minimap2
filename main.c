@@ -319,10 +319,6 @@ int main(int argc, char *argv[])
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		}
 	}
-	if ((opt.flag & MM_F_SPLICE) && (opt.flag & MM_F_FRAG_MODE)) {
-		fprintf(stderr, "[ERROR]\033[1;31m --splice and --frag should not be specified at the same time.\033[0m\n");
-		return 1;
-	}
 	if (!fnw && !(opt.flag&MM_F_CIGAR))
 		ipt.flag |= MM_I_NO_SEQ;
 	if (mm_check_opt(&ipt, &opt) < 0)
