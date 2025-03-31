@@ -1,4 +1,4 @@
-.TH minimap2 1 "12 March 2024" "minimap2-2.28 (r1209)" "Bioinformatics tools"
+.TH minimap2 1 "30 March 2025" "minimap2-2.28-dirty (r1237)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -416,6 +416,10 @@ Score bonus when alignment extends to the end of the query sequence [0].
 .BI --score-N \ INT
 Score of a mismatch involving ambiguous bases [1].
 .TP
+.BI --pe-ind-chain
+For paired-end short reads, perform chaining for each end independently.
+By default, minimap2 chains the two ends together.
+.TP
 .BR --splice-flank = yes | no
 Assume the next base to a
 .B GT
@@ -681,6 +685,12 @@ Spliced alignment for accurate long RNA-seq reads such as PacBio iso-seq
 .RB ( -xsplice
 .B -C5 -O6,24
 .BR -B4 ).
+.TP
+.B splice:sr
+Spliced alignment for short RNA-seq reads
+.RB ( -xsplice:hq
+.B --frag=yes --end-bonus=10 -2K50m --heap-sort=yes --pe-ind-chain
+.BR --secondary=no ).
 .TP
 .B sr
 Short-read alignment without splicing

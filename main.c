@@ -81,6 +81,7 @@ static ko_longopt_t long_options[] = {
 	{ "rmq-inner",      ko_required_argument, 356 },
 	{ "spsc",           ko_required_argument, 357 },
 	{ "junc-pen",       ko_required_argument, 358 },
+	{ "pe-ind-chain",   ko_no_argument,       359 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -252,6 +253,7 @@ int main(int argc, char *argv[])
 		else if (c == 355) opt.flag |= MM_F_OUT_DS; // --ds
 		else if (c == 356) opt.rmq_inner_dist = mm_parse_num(o.arg); // --rmq-inner
 		else if (c == 357) fn_spsc = o.arg; // --spsc
+		else if (c == 359) opt.flag |= MM_F_PE_IND; // --pe-ind-chain
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
@@ -378,6 +380,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -x STR       preset (always applied before other options; see minimap2.1 for details) []\n");
 		fprintf(fp_help, "                 - lr:hq - accurate long reads (error rate <1%%) against a reference genome\n");
 		fprintf(fp_help, "                 - splice/splice:hq - spliced alignment for long reads/accurate long reads\n");
+		fprintf(fp_help, "                 - splice:sr - spliced alignment for short RNA-seq reads\n");
 		fprintf(fp_help, "                 - asm5/asm10/asm20 - asm-to-ref mapping, for ~0.1/1/5%% sequence divergence\n");
 		fprintf(fp_help, "                 - sr - short reads against a reference\n");
 		fprintf(fp_help, "                 - map-pb/map-hifi/map-ont/map-iclr - CLR/HiFi/Nanopore/ICLR vs reference mapping\n");
