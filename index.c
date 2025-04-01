@@ -101,7 +101,7 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 
 void mm_idx_stat(const mm_idx_t *mi)
 {
-	int n = 0, n1 = 0;
+	int64_t n = 0, n1 = 0;
 	uint32_t i;
 	uint64_t sum = 0, len = 0;
 	fprintf(stderr, "[M::%s] kmer size: %d; skip: %d; is_hpc: %d; #seq: %d\n", __func__, mi->k, mi->w, mi->flag&MM_I_HPC, mi->n_seq);
@@ -119,8 +119,8 @@ void mm_idx_stat(const mm_idx_t *mi)
 				if (kh_key(h, k)&1) ++n1;
 			}
 	}
-	fprintf(stderr, "[M::%s::%.3f*%.2f] distinct minimizers: %d (%.2f%% are singletons); average occurrences: %.3lf; average spacing: %.3lf; total length: %ld\n",
-			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), n, 100.0*n1/n, (double)sum / n, (double)len / sum, (long)len);
+	fprintf(stderr, "[M::%s::%.3f*%.2f] distinct minimizers: %ld (%.2f%% are singletons); average occurrences: %.3lf; average spacing: %.3lf; total length: %ld\n",
+			__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), (long)n, 100.0*n1/n, (double)sum / n, (double)len / sum, (long)len);
 }
 
 int mm_idx_index_name(mm_idx_t *mi)
