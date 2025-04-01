@@ -366,15 +366,18 @@ static inline void write_tags(kstring_t *s, const mm_reg1_t *r)
 	if (r->split) mm_sprintf_lite(s, "\tzd:i:%d", r->split);
 }
 
-void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int64_t opt_flag, int rep_len)
+void mm_write_paf4(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int64_t opt_flag, int rep_len, int n_seg, int seg_idx)
 {
 	s->l = 0;
+	mm_sprintf_lite(s, "%s", t->name);
+	if ((opt_flag & MM_F_FRAG_MODE) && n_seg >= 2 && seg_idx >= 0)
+		mm_sprintf_lite(s, "/%d", seg_idx + 1);
 	if (r == 0) {
-		mm_sprintf_lite(s, "%s\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0", t->name, t->l_seq);
+		mm_sprintf_lite(s, "\t%d\t0\t0\t*\t*\t0\t0\t0\t0\t0\t0", t->l_seq);
 		if (rep_len >= 0) mm_sprintf_lite(s, "\trl:i:%d", rep_len);
 		return;
 	}
-	mm_sprintf_lite(s, "%s\t%d\t%d\t%d\t%c\t", t->name, t->l_seq, r->qs, r->qe, "+-"[r->rev]);
+	mm_sprintf_lite(s, "\t%d\t%d\t%d\t%c\t", t->l_seq, r->qs, r->qe, "+-"[r->rev]);
 	if (mi->seq[r->rid].name) mm_sprintf_lite(s, "%s", mi->seq[r->rid].name);
 	else mm_sprintf_lite(s, "%d", r->rid);
 	mm_sprintf_lite(s, "\t%d", mi->seq[r->rid].len);
@@ -396,6 +399,11 @@ void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const 
 		write_cs_ds_or_MD(km, s, mi, t, r, !(opt_flag&MM_F_OUT_CS_LONG), !!(opt_flag&MM_F_OUT_MD), !!(opt_flag&MM_F_OUT_DS), 1, !!(opt_flag&MM_F_QSTRAND));
 	if ((opt_flag & MM_F_COPY_COMMENT) && t->comment)
 		mm_sprintf_lite(s, "\t%s", t->comment);
+}
+
+void mm_write_paf3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int64_t opt_flag, int rep_len)
+{
+	mm_write_paf4(s, mi, t, r, km, opt_flag, rep_len, 0, 0);
 }
 
 void mm_write_paf(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r, void *km, int64_t opt_flag)
