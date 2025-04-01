@@ -164,7 +164,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		mo->mid_occ = 1000;
 		mo->max_occ = 5000;
 		mo->mini_batch_size = 50000000;
-	} else if (strncmp(preset, "splice", 6) == 0 || strcmp(preset, "cdna") == 0) {
+	} else if (strcmp(preset, "splice") == 0 || strcmp(preset, "splice:hq") == 0 || strcmp(preset, "splice:sr") == 0 || strcmp(preset, "cdna") == 0) {
 		io->flag = 0, io->k = 15, io->w = 5;
 		mo->flag |= MM_F_SPLICE | MM_F_SPLICE_FOR | MM_F_SPLICE_REV | MM_F_SPLICE_FLANK;
 		mo->max_sw_mat = 0;
