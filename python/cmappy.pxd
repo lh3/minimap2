@@ -94,6 +94,7 @@ cdef extern from "minimap.h":
 	void mm_idx_reader_close(mm_idx_reader_t *r)
 	void mm_idx_destroy(mm_idx_t *mi)
 	void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
+	void mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
 
 	int mm_idx_index_name(mm_idx_t *mi)
 
