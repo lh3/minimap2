@@ -249,6 +249,11 @@ int mm_check_opt(const mm_idxopt_t *io, const mm_mapopt_t *mo)
 			fprintf(stderr, "[ERROR]\033[1;31m scoring system violating ({-O}+{-E})+({-O2}+{-E2}) <= 127\033[0m\n");
 		return -1;
 	}
+	if (mo->sc_ambi < 0 || mo->sc_ambi >= mo->b) {
+		if (mm_verbose >= 1)
+			fprintf(stderr, "[ERROR]\033[1;31m --score-N should be within [0,{-B})\033[0m\n");
+		return -1;
+	}
 	if (mo->zdrop < mo->zdrop_inv) {
 		if (mm_verbose >= 1)
 			fprintf(stderr, "[ERROR]\033[1;31m Z-drop should not be less than inversion-Z-drop\033[0m\n");
