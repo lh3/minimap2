@@ -61,7 +61,7 @@ p {
     text-align: justify;
 }
 </style>
-<TITLE>Manual Page - minimap2(1)</TITLE>
+<TITLE>minimap2.1</TITLE>
 </HEAD>
 <BODY bgcolor=#F0F0F0 text=#000000 link=#0000ff vlink=#C000C0 alink=#ff0000><div id="wrap"><A NAME=top></A>
 <CENTER>
@@ -153,8 +153,17 @@ Minimizer k-mer length [15]
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-w</B><I> INT</I> </TD><TD valign=bottom>
-Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer
+Minimizer window size [10]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
+</TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-j</B><I> INT</I> </TD><TD valign=bottom>
+Syncmer submer size [10]. Option
+<B>-j</B> and
+<B>-w</B> will override each: if
+<B>-w</B> is applied after
+<B>-j</B>, <B>-j</B> will have no effect, and vice versa.
+<P>
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>-H</B> </TD><TD valign=bottom>
@@ -165,13 +174,13 @@ on the HPC sequence.
 <TR valign=top><TD width=10% nowrap>
 <B>-I</B><I> NUM</I> </TD><TD valign=bottom>
 Load at most
-<I>NUM</I> target bases into RAM for indexing [4G]. If there are more than
+<I>NUM</I> target bases into RAM for indexing [8G]. If there are more than
 <I>NUM</I> bases in
 <I>target.fa</I>, minimap2 needs to read
-<I>query.fa</I> multiple times to map it against each batch of target sequences.
+<I>query.fa</I> multiple times to map it against each batch of target sequences. This would create a multi-part index.
 <I>NUM</I> may be ending with k/K/m/M/g/G. NB: mapping quality is incorrect given a
-multi-part index.
-</TD></TR>
+multi-part index. See also option
+<B>--split-prefix</B>. </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--idx-no-seq</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Don&#146;t store target sequences in the index. It saves disk space and memory but
@@ -316,6 +325,11 @@ Use the minigraph chaining algorithm [no]. The minigraph algorithm is better
 for aligning contigs through long INDELs.
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<B>--rmq-inner</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Apply full dynamic programming for anchors within distance
+<I>NUM</I> [1000].
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <B>--hard-mask-level</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Honor option
 <B>-M</B> and disable a heurstic to save unmapped subsequences and disables
@@ -387,6 +401,10 @@ faster for short reads, but slower for long reads. [no]
 Treat two reads in a pair as independent reads. The mate related fields in SAM
 are still properly populated.
 </TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--no-hash-name</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Produce the same alignment for identical sequences regardless of their sequence names.
+</TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=6></A>
 
@@ -402,6 +420,10 @@ Matching score [2]
 <B>-B</B><I> INT</I> </TD><TD valign=bottom>
 Mismatching penalty [4]
 </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>-b</B><I> INT</I> </TD><TD valign=bottom>
+Mismatching penalty for transitions [same as
+<B>-B</B>]. </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>-O</B><I> INT1[,INT2]</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Gap open penalty [4,24]. If
@@ -414,9 +436,15 @@ Gap extension penalty [2,1]. A gap of length
 min{<I>O1</I>+<I>k</I>*<I>E1</I>,<I>O2</I>+<I>k</I>*<I>E2</I>}. In the splice mode, the second gap penalties are not used.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
+<B>-J</B><I> INT</I> </TD><TD valign=bottom>
+Splice model [1]. 0 for the original minimap2 splice model that always penalizes non-GT-AG splicing;
+1 for the miniprot model that considers non-GT-AG. Option
+<B>-C</B> has no effect with the default
+<B>-J1</B>. <B>-J0</B>. </TD></TR>
+<TR valign=top><TD width=10% nowrap>
 <B>-C</B><I> INT</I> </TD><TD valign=bottom>
 Cost for a non-canonical GT-AG splicing (effective with
-<B>--splice</B>) [0]
+<B>--splice</B> <B>-J0</B>) [0].
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>-z</B><I> INT1[,INT2]</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
@@ -454,6 +482,11 @@ Score bonus when alignment extends to the end of the query sequence [0].
 Score of a mismatch involving ambiguous bases [1].
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<B>--pe-ind-chain</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+For paired-end short reads, perform chaining for each end independently.
+By default, minimap2 chains the two ends together.
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <B>--splice-flank</B>=<B>yes</B>|<B>no</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Assume the next base to a
 <B>GT</B> donor site tends to be A/G (91% in human and 92% in mouse) and the preceding
@@ -467,6 +500,20 @@ accuracy by several percents, so it is applied by default with
 on SIRV data, please add
 <B>--splice-flank=no</B> to the command line.
 </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>--spsc</B> FILE </TD><TD valign=bottom>
+Splice scores []. Each line consists of five fields: 1) contig, 2) offset, 3) &#145;+&#146; or &#145;-&#146;, 4) &#145;D&#146; or &#145;A&#146;, and 5) score,
+where offset is the number of bases before a splice junction, &#145;D&#146; indicates the
+line corresponds to a donor site and &#145;A&#146; for an acceptor site.
+A positive score suggests the junction is preferred and a negative score
+suggests the junction is not preferred.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--junc-pen</B> INT </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+Penalty for a position not in FILE specified by
+<B>--spsc</B> [5]. Effective with
+<B>--spsc</B> but not
+<B>--junc-bed</B>. </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--junc-bed</B> FILE </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Gene annotations in the BED12 format (aka 12-column BED), or intron positions
@@ -476,9 +523,9 @@ BED12 file can be converted from GTF/GFF3 with &#145;paftools.js gff2bed anno.gt
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--junc-bonus</B> INT </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
-Score bonus for a splice donor or acceptor found in annotation (effective with
-<B>--junc-bed</B>) [9].
-</TD></TR>
+Score bonus for a splice donor or acceptor found in annotation [9]. Effective with
+<B>--junc-bed</B> but not
+<B>--spsc</B>. </TD></TR>
 <TR valign=top><TD colspan=2>
 <B>--end-seed-pen</B><I> INT</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Drop a terminal anchor if
@@ -501,7 +548,7 @@ Skip alignment if the DP matrix size is above
 <TR valign=top><TD colspan=2>
 <B>--cap-kalloc</B><I> NUM</I> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
 Free thread-local kalloc memory reservoir if after the alignment the size of the reservoir above
-<I>NUM</I>. Set 0 to disable [0].
+<I>NUM</I>. Set 0 to disable [500m].
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <A name=7></A>
@@ -565,6 +612,10 @@ Output =/X CIGAR operators for sequence match/mismatch.
 <TR valign=top><TD width=10% nowrap>
 <B>-Y</B> </TD><TD valign=bottom>
 In SAM output, use soft clipping for supplementary alignments.
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<B>--secondary-seq</B> </TD></TR><TR valign=top><TD width=10%>&nbsp;</TD><TD>
+In SAM output, show query sequences for secondary alignments.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>--seed</B><I> INT</I> </TD><TD valign=bottom>
@@ -638,33 +689,52 @@ Align noisy long reads of ~10% error rate to a reference genome. This is the
 default mode.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
+<B>lr:hq</B> </TD><TD valign=bottom>
+Align accurate long reads (error rate &lt;1%) to a reference genome
+(<B>-k19</B> <B>-w19 -U50,500</B> <B>-g10k</B>). This was recommended by ONT developers for recent Nanopore reads
+produced with chemistry v14 that can reach ~99% in accuracy.
+It was shown to work better for accurate Nanopore reads
+than
+<B>map-hifi</B>. </TD></TR>
+<TR valign=top><TD width=10% nowrap>
 <B>map-hifi</B> </TD><TD valign=bottom>
 Align PacBio high-fidelity (HiFi) reads to a reference genome
-(<B>-k19</B> <B>-w19 -U50,500 -g10k -A1 -B4 -O6,26 -E2,1</B> <B>-s200</B>). </TD></TR>
+(<B>-xlr:hq</B> <B>-A1 -B4 -O6,26 -E2,1</B> <B>-s200</B>). It differs from
+<B>lr:hq</B> only in scoring. It has not been tested whether
+<B>lr:hq</B> would work better for PacBio HiFi reads.
+</TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>map-pb</B> </TD><TD valign=bottom>
 Align older PacBio continuous long (CLR) reads to a reference genome
-(<B>-Hk19</B>). </TD></TR>
+(<B>-Hk19</B>). Note that this data type is effectively deprecated by HiFi.
+Unless you work on very old data, you probably want to use
+<B>map-hifi</B> or
+<B>lr:hq</B>. </TD></TR>
+<TR valign=top><TD width=10% nowrap>
+<B>map-iclr</B> </TD><TD valign=bottom>
+Align Illumina Complete Long Reads (ICLR) to a reference genome
+(<B>-k19</B> <B>-B6 -b4</B> <B>-O10,50</B>). This was recommended by Illumina developers.
+</TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>asm5</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -U50,500 --rmq -r100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200</B> <B>-N50</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
-divergence. Only use this preset if the average divergence is far below 5%.
+(<B>-k19</B> <B>-w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B19 -O39,81 -E3,1 -s200 -z200</B> <B>-N50</B>). Typically, the alignment will not extend to regions with 5% or higher sequence
+divergence. Use this preset if the average divergence is not much higher than 0.1%.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>asm10</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w19 -U50,500 --rmq -r100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200</B> <B>-N50</B>). Up to 10% sequence divergence.
+(<B>-k19</B> <B>-w19 -U50,500 --rmq -r1k,100k -g10k -A1 -B9 -O16,41 -E2,1 -s200 -z200</B> <B>-N50</B>). Use this if the average divergence is around 1%.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>asm20</B> </TD><TD valign=bottom>
 Long assembly to reference mapping
-(<B>-k19</B> <B>-w10 -U50,500 --rmq -r100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200</B> <B>-N50</B>). Up to 20% sequence divergence.
+(<B>-k19</B> <B>-w10 -U50,500 --rmq -r1k,100k -g10k -A1 -B4 -O6,26 -E2,1 -s200 -z200</B> <B>-N50</B>). Use this if the average divergence is around several percent.
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>splice</B> </TD><TD valign=bottom>
 Long-read spliced alignment
-(<B>-k15</B> <B>-w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -b0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0</B> <B>--splice-flank=yes</B>). In the splice mode, 1) long deletions are taken as introns and represented as
+(<B>-k15</B> <B>-w5 --splice -g2k -G200k -A1 -B2 -O2,32 -E1,0 -C9 -z200 -ub --junc-bonus=9 --cap-sw-mem=0</B> <B>--splice-flank=yes</B>). In the splice mode, 1) long deletions are taken as introns and represented as
 the
 &#145;<B>N</B>&#146; CIGAR operator; 2) long insertions are disabled; 3) deletion and insertion gap
 costs are different during chaining; 4) the computation of the
@@ -672,12 +742,16 @@ costs are different during chaining; 4) the computation of the
 </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>splice:hq</B> </TD><TD valign=bottom>
-Long-read splice alignment for PacBio CCS reads
+Spliced alignment for accurate long RNA-seq reads such as PacBio iso-seq
 (<B>-xsplice</B> <B>-C5 -O6,24</B> <B>-B4</B>). </TD></TR>
 <TR valign=top><TD width=10% nowrap>
+<B>splice:sr</B> </TD><TD valign=bottom>
+Spliced alignment for short RNA-seq reads
+(<B>-xsplice:hq</B> <B>--frag=yes --end-bonus=10 -2K50m --heap-sort=yes --pe-ind-chain</B> <B>--secondary=no</B>). </TD></TR>
+<TR valign=top><TD width=10% nowrap>
 <B>sr</B> </TD><TD valign=bottom>
-Short single-end reads without splicing
-(<B>-k21</B> <B>-w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -b0 -r100 -p.5 -N20 -f1000,5000 -n2 -m20</B> <B>-s40 -g100 -2K50m --heap-sort=yes</B> <B>--secondary=no</B>). </TD></TR>
+Short-read alignment without splicing
+(<B>-k21</B> <B>-w11 --sr --frag=yes -A2 -B8 -O12,32 -E2,1 -r100 -p.5 -N20 -f1000,5000 -n2 -m25</B> <B>-s40 -g100 -2K50m --heap-sort=yes</B> <B>--secondary=no</B>). </TD></TR>
 <TR valign=top><TD width=10% nowrap>
 <B>ava-pb</B> </TD><TD valign=bottom>
 PacBio CLR all-vs-all overlap mapping
@@ -775,7 +849,7 @@ the SAM-like typed key-value format. Minimap2 may output the following tags:
 <TR valign=top>
 <TD align=right>AS</TD><TD align=center>i</TD><TD>DP alignment score</TD></TR>
 <TR valign=top>
-<TD align=right>SA</TD><TD align=center>Z</TD><TD>List of other supplementary alignments</TD></TR>
+<TD align=right>SA</TD><TD align=center>Z</TD><TD>List of other supplementary alignments (with approximate CIGAR strings)</TD></TR>
 <TR valign=top>
 <TD align=right>ms</TD><TD align=center>i</TD><TD>DP score of the max scoring segment in the alignment</TD></TR>
 <TR valign=top>
@@ -848,4 +922,4 @@ non-SSE2/NEON support, but it would make minimap2 slower by several times.
 miniasm(1), minimap(1), bwa(1).
 </BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.23 (r1111)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>18 November 2021</I></TD> </TR></TABLE></div></BODY></HTML>
+<TABLE width=100%><TR> <TD width=33%><I>minimap2-2.28-dirty (r1237)</I></TD> <TD width=33% align=center>minimap2 (1)</TD> <TD align=right width=33%><I>30 March 2025</I></TD> </TR></TABLE></div></BODY></HTML>
