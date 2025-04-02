@@ -18,9 +18,10 @@ cd minimap2 && make
 ./minimap2 -ax lr:hq ref.fa ont-Q20.fq.gz > aln.sam       # Nanopore Q20 genomic reads (v2.27 or later)
 ./minimap2 -ax sr ref.fa read1.fa read2.fa > aln.sam      # short genomic paired-end reads
 ./minimap2 -ax splice ref.fa rna-reads.fa > aln.sam       # spliced long reads (strand unknown)
-./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore Direct RNA-seq
-./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # Final PacBio Iso-seq or traditional cDNA
+./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore direct RNA-seq
+./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # PacBio Kinnex/Iso-seq or traditional cDNA
 ./minimap2 -ax splice --junc-bed anno.bed12 ref.fa query.fa > aln.sam  # prioritize on annotated junctions
+./minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # short-read RNA-seq (r1236 or later)
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
 ./minimap2 -x ava-ont reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
@@ -39,6 +40,7 @@ man ./minimap2.1
     - [Map long mRNA/cDNA reads](#map-long-splice)
     - [Find overlaps between long reads](#long-overlap)
     - [Map short accurate genomic reads](#short-genomic)
+    - [Map short RNA-seq reads](#short-rna-seq)
     - [Full genome/assembly alignment](#full-genome)
   - [Advanced features](#advanced)
     - [Working with >65535 CIGAR operations](#long-cigar)
@@ -216,7 +218,7 @@ the overlapping mode because it is slow and may produce false positive
 overlaps. However, if performance is not a concern, you may try to add `-a` or
 `-c` anyway.
 
-#### <a name="short-genomic"></a>Map short accurate genomic reads
+#### <a name="short-genomic"></a>Map short genomic reads
 
 ```sh
 minimap2 -ax sr ref.fa reads-se.fq > aln.sam           # single-end alignment
@@ -229,8 +231,14 @@ be paired if they are adjacent in the input stream and have the same name (with
 the `/[0-9]` suffix trimmed if present). Single- and paired-end reads can be
 mixed.
 
-Minimap2 does not work well with short spliced reads. There are many capable
-RNA-seq mappers for short reads.
+#### <a name="short-rna-seq"></a>Map short RNA-seq reads
+
+```sh
+minimap2 -ax splice:sr ref.fa reads-se.fq > aln.sam     # single-end
+minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # paired-end
+```
+The new preset `splice:sr` was added between v2.28 and v2.29. It functions
+similarly to `sr` except that it performs spliced alignment.
 
 #### <a name="full-genome"></a>Full genome/assembly alignment
 
