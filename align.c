@@ -330,7 +330,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 {
 	if (mm_dbg_flag & MM_DBG_PRINT_ALN_SEQ) {
 		int i;
-		fprintf(stderr, "===> q=(%d,%d), e=(%d,%d), bw=%d, ksw_flag=%d, zdrop=%d <===\n", opt->q, opt->q2, opt->e, opt->e2, w, ksw_flag, opt->zdrop);
+		fprintf(stderr, "===> q=(%d,%d), e=(%d,%d), bw=%d, ksw_flag=%d, zdrop=%d, end_bonus=%d <===\n", opt->q, opt->q2, opt->e, opt->e2, w, ksw_flag, opt->zdrop, end_bonus);
 		for (i = 0; i < tlen; ++i) fputc("ACGTN"[tseq[i]], stderr);
 		fputc('\n', stderr);
 		for (i = 0; i < qlen; ++i) fputc("ACGTN"[qseq[i]], stderr);
@@ -344,7 +344,7 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 	} else if (opt->flag & MM_F_SPLICE) { // spliced alignment
 		assert((ksw_flag & KSW_EZ_SPLICE_FOR) == 0 || (ksw_flag & KSW_EZ_SPLICE_REV) == 0);
 		if (!(opt->flag & MM_F_SPLICE_OLD)) ksw_flag |= KSW_EZ_SPLICE_CMPLX;
-		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, opt->junc_bonus, opt->junc_pen, ksw_flag, junc, ez);
+		ksw_exts2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, end_bonus, opt->junc_bonus, opt->junc_pen, ksw_flag, junc, ez);
 	} else if (opt->q == opt->q2 && opt->e == opt->e2) { // affine gap
 		ksw_extz2_sse(km, qlen, qseq, tlen, tseq, 5, mat, opt->q, opt->e, w, zdrop, end_bonus, ksw_flag, ez);
 	} else { // dual affine gap
