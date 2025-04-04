@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_VERSION "2.28-r1249-dirty"
+#define MM_VERSION "2.28-r1251-dirty"
 
 #define MM_F_NO_DIAG       (0x001LL) // no exact diagonal hit
 #define MM_F_NO_DUAL       (0x002LL) // skip pairs where query name is lexicographically larger than target name
@@ -93,6 +93,7 @@ typedef struct {
 	struct mm_idx_bucket_s *B; // index (hidden)
 	struct mm_idx_intv_s *I;   // intervals (hidden)
 	struct mm_idx_spsc_s *spsc;// splice score (hidden)
+	struct mm_idx_jjump_s *J;  // junctions to create jumps (hidden)
 	void *km, *h;
 } mm_idx_t;
 

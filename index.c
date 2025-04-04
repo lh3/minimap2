@@ -42,6 +42,11 @@ typedef struct mm_idx_intv_s {
 	mm_idx_intv1_t *a;
 } mm_idx_intv_t;
 
+typedef struct mm_idx_jjump_s {
+	int32_t n, m;
+	mm_idx_jjump1_t *a;
+} mm_idx_jjump_t;
+
 mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 {
 	mm_idx_t *mi;
@@ -71,6 +76,11 @@ void mm_idx_destroy(mm_idx_t *mi)
 		for (i = 0; i < mi->n_seq; ++i)
 			free(mi->I[i].a);
 		free(mi->I);
+	}
+	if (mi->J) {
+		for (i = 0; i < mi->n_seq; ++i)
+			free(mi->J[i].a);
+		free(mi->J);
 	}
 	if (!mi->km) {
 		for (i = 0; i < mi->n_seq; ++i)
@@ -669,6 +679,9 @@ KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
 #define sort_key_end(a) ((a).en)
 KRADIX_SORT_INIT(end, mm_idx_intv1_t, sort_key_bed, 4)
 
+#define sort_key_jj(a) ((a).off)
+KRADIX_SORT_INIT(jj, mm_idx_jjump1_t, sort_key_jj, 4)
+
 mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn, int read_junc)
 {
 	gzFile fp;
@@ -780,11 +793,41 @@ static mm_idx_intv_t *mm_idx_bed_read_core(const mm_idx_t *mi, const char *fn, i
 	return I;
 }
 
+int mm_idx_bed_read2(mm_idx_t *mi, const char *fn, int read_junc, int for_score, int for_jump)
+{
+	int32_t i;
+	mm_idx_intv_t *I;
+	if (mi->h == 0) mm_idx_index_name(mi);
+	I = mm_idx_bed_read_core(mi, fn, read_junc);
+	if (I == 0) return 0;
+	if (for_jump) {
+		mm_idx_jjump_t *J;
+		J = CALLOC(mm_idx_jjump_t, mi->n_seq);
+		for (i = 0; i < mi->n_seq; ++i) {
+			int32_t j, k;
+			mm_idx_intv_t *intv = &I[i];
+			mm_idx_jjump_t *jj = &J[i];
+			jj->n = intv->n * 2;
+			jj->a = CALLOC(mm_idx_jjump1_t, jj->n);
+			for (j = k = 0; j < intv->n; ++j) {
+				jj->a[k].off = intv->a[j].st, jj->a[k].off2 = intv->a[j].en, jj->a[k++].strand = intv->a[j].strand;
+				jj->a[k].off = intv->a[j].en, jj->a[k].off2 = intv->a[j].st, jj->a[k++].strand = intv->a[j].strand;
+			}
+			radix_sort_jj(jj->a, jj->a + jj->n);
+		}
+		mi->J = J;
+	}
+	if (!for_score) {
+		for (i = 0; i < mi->n_seq; ++i)
+			free(I[i].a);
+		free(I);
+	} else mi->I = I;
+	return 0;
+}
+
 int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
 {
-	if (mi->h == 0) mm_idx_index_name(mi);
-	mi->I = mm_idx_bed_read_core(mi, fn, read_junc);
-	return 0;
+	return mm_idx_bed_read2(mi, fn, read_junc, 1, 0);
 }
 
 int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uint8_t *s)

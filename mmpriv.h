@@ -54,8 +54,8 @@ typedef struct {
 
 typedef struct {
 	int32_t off, off2;
-	int32_t is_rev;
-} mm_jjump1_t;
+	int32_t strand;
+} mm_idx_jjump1_t;
 
 double cputime(void);
 double realtime(void);
