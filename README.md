@@ -21,7 +21,7 @@ cd minimap2 && make
 ./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore direct RNA-seq
 ./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # PacBio Kinnex/Iso-seq (RNA-seq)
 ./minimap2 -ax splice --junc-bed anno.bed12 ref.fa query.fa > aln.sam  # use annotated junctions
-./minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # short-read RNA-seq (r1236 or later)
+./minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # short-read RNA-seq (r1236+; experimental)
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
 ./minimap2 -x ava-ont reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
@@ -40,7 +40,7 @@ man ./minimap2.1
     - [Map long mRNA/cDNA reads](#map-long-splice)
     - [Find overlaps between long reads](#long-overlap)
     - [Map short genomic reads](#short-genomic)
-    - [Map short RNA-seq reads](#short-rna-seq)
+    - [Map short RNA-seq reads (experimental & evolving)](#short-rna-seq)
     - [Full genome/assembly alignment](#full-genome)
   - [Advanced features](#advanced)
     - [Working with >65535 CIGAR operations](#long-cigar)
@@ -231,14 +231,16 @@ be paired if they are adjacent in the input stream and have the same name (with
 the `/[0-9]` suffix trimmed if present). Single- and paired-end reads can be
 mixed.
 
-#### <a name="short-rna-seq"></a>Map short RNA-seq reads
+#### <a name="short-rna-seq"></a>Map short RNA-seq reads (experimental & evolving)
 
 ```sh
 minimap2 -ax splice:sr ref.fa reads-se.fq > aln.sam     # single-end
 minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # paired-end
 ```
 The new preset `splice:sr` was added between v2.28 and v2.29. It functions
-similarly to `sr` except that it performs spliced alignment.
+similarly to `sr` except that it performs spliced alignment. Note that this
+functionality is ***experiemental*** and evolving. It is better not to use it
+for production.
 
 #### <a name="full-genome"></a>Full genome/assembly alignment
 
