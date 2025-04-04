@@ -666,6 +666,9 @@ int mm_idx_alt_read(mm_idx_t *mi, const char *fn)
 #define sort_key_bed(a) ((a).st)
 KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
 
+#define sort_key_end(a) ((a).en)
+KRADIX_SORT_INIT(end, mm_idx_intv1_t, sort_key_bed, 4)
+
 mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn, int read_junc)
 {
 	gzFile fp;
@@ -747,12 +750,33 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn, int read_junc
 
 int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
 {
+	long n = 0, n0 = 0;
 	int32_t i;
 	if (mi->h == 0) mm_idx_index_name(mi);
 	mi->I = mm_idx_read_bed(mi, fn, read_junc);
 	if (mi->I == 0) return -1;
-	for (i = 0; i < mi->n_seq; ++i) // TODO: eliminate redundant intervals
-		radix_sort_bed(mi->I[i].a, mi->I[i].a + mi->I[i].n);
+	for (i = 0; i < mi->n_seq; ++i) {
+		int32_t j, j0, k;
+		mm_idx_intv_t *intv = &mi->I[i];
+		n0 += intv->n;
+		radix_sort_bed(intv->a, intv->a + intv->n);
+		for (j = 1, j0 = 0; j <= intv->n; ++j) {
+			if (j == intv->n || intv->a[j].st != intv->a[j0].st) {
+				radix_sort_end(intv->a + j0, intv->a + j);
+				j0 = j;
+			}
+		}
+		for (j = 1, j0 = 0, k = 0; j <= intv->n; ++j) {
+			if (j == intv->n || intv->a[j].st != intv->a[j0].st || intv->a[j].en != intv->a[j0].en) {
+				intv->a[k++] = intv->a[j0];
+				j0 = j;
+			}
+		}
+		intv->n = k;
+		n += k;
+	}
+	if (mm_verbose >= 3)
+		fprintf(stderr, "[%s] read %ld introns, %ld of which are non-redundant\n", __func__, n0, n);
 	return 0;
 }
 
