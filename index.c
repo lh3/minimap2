@@ -748,16 +748,16 @@ mm_idx_intv_t *mm_idx_read_bed(const mm_idx_t *mi, const char *fn, int read_junc
 	return I;
 }
 
-int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
+static mm_idx_intv_t *mm_idx_bed_read_core(const mm_idx_t *mi, const char *fn, int read_junc)
 {
 	long n = 0, n0 = 0;
 	int32_t i;
-	if (mi->h == 0) mm_idx_index_name(mi);
-	mi->I = mm_idx_read_bed(mi, fn, read_junc);
-	if (mi->I == 0) return -1;
+	mm_idx_intv_t *I;
+	I = mm_idx_read_bed(mi, fn, read_junc);
+	if (I == 0) return 0;
 	for (i = 0; i < mi->n_seq; ++i) {
 		int32_t j, j0, k;
-		mm_idx_intv_t *intv = &mi->I[i];
+		mm_idx_intv_t *intv = &I[i];
 		n0 += intv->n;
 		radix_sort_bed(intv->a, intv->a + intv->n);
 		for (j = 1, j0 = 0; j <= intv->n; ++j) {
@@ -777,6 +777,13 @@ int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
 	}
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[%s] read %ld introns, %ld of which are non-redundant\n", __func__, n0, n);
+	return I;
+}
+
+int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
+{
+	if (mi->h == 0) mm_idx_index_name(mi);
+	mi->I = mm_idx_bed_read_core(mi, fn, read_junc);
 	return 0;
 }
 
