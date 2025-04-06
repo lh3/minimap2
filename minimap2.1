@@ -1,4 +1,4 @@
-.TH minimap2 1 "2 April 2025" "minimap2-2.28-dirty (r1248)" "Bioinformatics tools"
+.TH minimap2 1 "6 April 2025" "minimap2-2.28-dirty (r1259)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -418,7 +418,7 @@ Penalty of a mismatch involving ambiguous bases [1].
 .TP
 .BI --pe-ind-chain
 For paired-end short reads, perform chaining for each end independently.
-By default, minimap2 chains the two ends together.
+By default, minimap2 jointly chains the two ends.
 .TP
 .BR --splice-flank = yes | no
 Assume the next base to a
@@ -453,16 +453,26 @@ but not
 .BR --junc-bed .
 .TP
 .BR --junc-bed \ FILE
-Gene annotations in the BED12 format (aka 12-column BED), or intron positions
-in 5-column BED. With this option, minimap2 prefers splicing in annotations.
-BED12 file can be converted from GTF/GFF3 with `paftools.js gff2bed anno.gtf'
-[].
+Junctions to prefer during base alignment.
+.I FILE
+can be gene annotations in the BED12 format (aka 12-column BED), or intron
+positions in 5-column BED. BED12 file can be converted from GTF/GFF3 with
+`paftools.js gff2bed anno.gtf'. It is
+.I NOT
+recommended to apply this option for short RNA-seq reads. []
 .TP
 .BR --junc-bonus \ INT
 Score bonus for a splice donor or acceptor found in annotation [9]. Effective with
 .B --junc-bed
 but not
 .BR --spsc .
+.TP
+.BR --jump-bed \ FILE
+Junctions used to extend alignment towards ends of reads. Same format as with
+.BR --junc-bed .
+This option is intended for short RNA-seq reads, while
+.B --junc-bed
+for long noisy RNA-seq reads. []
 .TP
 .BI --end-seed-pen \ INT
 Drop a terminal anchor if
