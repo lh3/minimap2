@@ -20,8 +20,9 @@ cd minimap2 && make
 ./minimap2 -ax splice ref.fa rna-reads.fa > aln.sam       # spliced long reads (strand unknown)
 ./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore direct RNA-seq
 ./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # PacBio Kinnex/Iso-seq (RNA-seq)
-./minimap2 -ax splice --junc-bed anno.bed12 ref.fa query.fa > aln.sam  # use annotated junctions
+./minimap2 -ax splice --junc-bed=anno.bed12 ref.fa query.fa > aln.sam  # use annotated junctions
 ./minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # short-read RNA-seq (r1236+; experimental)
+./minimap2 -ax splice:sr -j anno.bed12 ref.fa r1.fq r2.fq > aln.sam
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
 ./minimap2 -x ava-ont reads.fa reads.fa > overlaps.paf    # Nanopore read overlap
@@ -206,6 +207,10 @@ bonus score (tuned by `--junc-bonus`) if an aligned junction matches a junction
 in the annotation. Option `--junc-bed` also takes 5-column BED, including the
 strand field. In this case, each line indicates an oriented junction.
 
+**Note:** that `--junc-bed` is intended for long noisy RNA-seq reads only.
+Applying the option to short RNA-seq reads increase run time with little
+improvement to junction accuracy.
+
 #### <a name="long-overlap"></a>Find overlaps between long reads
 
 ```sh
@@ -234,8 +239,9 @@ mixed.
 #### <a name="short-rna-seq"></a>Map short RNA-seq reads (experimental & evolving)
 
 ```sh
-minimap2 -ax splice:sr ref.fa reads-se.fq > aln.sam     # single-end
-minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # paired-end
+minimap2 -ax splice:sr ref.fa reads-se.fq.gz > aln.sam           # single-end
+minimap2 -ax splice:sr ref.fa r1.fq.gz r2.fq.gz > aln.sam        # paired-end
+minimap2 -ax splice:sr -j anno.bed ref.fa r1.fq r2.fq > aln.sam  # use annotation
 ```
 The new preset `splice:sr` was added between v2.28 and v2.29. It functions
 similarly to `sr` except that it performs spliced alignment. Note that this

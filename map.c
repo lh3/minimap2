@@ -379,7 +379,7 @@ void mm_map_frag_core(const mm_idx_t *mi, int n_segs, const int *qlens, const ch
 
 void mm_map_frag(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	if ((opt->flag & MM_F_PE_IND) && n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR)) {
+	if ((opt->flag & MM_F_WEAK_PAIRING) && n_segs == 2 && opt->pe_ori >= 0 && (opt->flag&MM_F_CIGAR)) {
 		int i;
 		for (i = 0; i < n_segs; ++i)
 			mm_map_frag_core(mi, 1, &qlens[i], &seqs[i], &n_regs[i], &regs[i], b, opt, qname);

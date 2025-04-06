@@ -80,19 +80,6 @@ Minimizer k-mer length [15]
 Minimizer window size [10]. A minimizer is the smallest k-mer
 in a window of w consecutive k-mers.
 .TP
-.BI -j \ INT
-Syncmer submer size [10]. Option
-.B -j
-and
-.B -w
-will override each: if
-.B -w
-is applied after
-.BR -j ,
-.B -j
-will have no effect, and vice versa.
-
-.TP
 .B -H
 Use homopolymer-compressed (HPC) minimizers. An HPC sequence is constructed by
 contracting homopolymer runs to a single base. An HPC minimizer is a minimizer
@@ -334,10 +321,6 @@ Only map to the reverse complement strand of the reference sequences.
 If yes, sort anchors with heap merge, instead of radix sort. Heap merge is
 faster for short reads, but slower for long reads. [no]
 .TP
-.B --no-pairing
-Treat two reads in a pair as independent reads. The mate related fields in SAM
-are still properly populated.
-.TP
 .B --no-hash-name
 Produce the same alignment for identical sequences regardless of their sequence names.
 .SS Alignment options
@@ -371,7 +354,16 @@ Splice model [1]. 0 for the original minimap2 splice model that always penalizes
 .B -C
 has no effect with the default
 .BR -J1 .
-.BR -J0 .
+.TP
+.BR -j \ FILE
+Junctions used to extend alignment towards ends of reads [].
+.I FILE
+can be gene annotations in the BED12 format (aka 12-column BED), or intron
+positions in 5-column BED. BED12 file can be converted from GTF/GFF3 with
+`paftools.js gff2bed anno.gtf'.
+This option is intended for short RNA-seq reads, while
+.B --junc-bed
+for long noisy RNA-seq reads.
 .TP
 .BI -C \ INT
 Cost for a non-canonical GT-AG splicing (effective with
@@ -416,9 +408,14 @@ Score bonus when alignment extends to the end of the query sequence [0].
 .BI --score-N \ INT
 Penalty of a mismatch involving ambiguous bases [1].
 .TP
-.BI --pe-ind-chain
-For paired-end short reads, perform chaining for each end independently.
-By default, minimap2 jointly chains the two ends.
+.BR --pairing = strong | weak | no
+How to pair paired-end reads [strong].
+.RB ` no '
+for aligning the two ends in a pair independently with no `properly paired' set.
+.RB ` weak '
+for aligning the two ends independently and then pairing the hits.
+.RB ` strong '
+for jointly aligning and pairing the two ends.
 .TP
 .BR --splice-flank = yes | no
 Assume the next base to a
@@ -453,26 +450,19 @@ but not
 .BR --junc-bed .
 .TP
 .BR --junc-bed \ FILE
-Junctions to prefer during base alignment.
-.I FILE
-can be gene annotations in the BED12 format (aka 12-column BED), or intron
-positions in 5-column BED. BED12 file can be converted from GTF/GFF3 with
-`paftools.js gff2bed anno.gtf'. It is
+Junctions to prefer during base alignment [].
+Same format as
+.BR -j .
+It is
 .I NOT
-recommended to apply this option for short RNA-seq reads. []
+recommended to apply this option to short RNA-seq reads. This would increase
+run time with little improvement to junction accuracy.
 .TP
 .BR --junc-bonus \ INT
 Score bonus for a splice donor or acceptor found in annotation [9]. Effective with
 .B --junc-bed
 but not
 .BR --spsc .
-.TP
-.BR --jump-bed \ FILE
-Junctions used to extend alignment towards ends of reads. Same format as with
-.BR --junc-bed .
-This option is intended for short RNA-seq reads, while
-.B --junc-bed
-for long noisy RNA-seq reads. []
 .TP
 .BI --end-seed-pen \ INT
 Drop a terminal anchor if
@@ -699,7 +689,7 @@ Spliced alignment for accurate long RNA-seq reads such as PacBio iso-seq
 .B splice:sr
 Spliced alignment for short RNA-seq reads
 .RB ( -xsplice:hq
-.B --frag=yes -m25 -s40 -2K50m --heap-sort=yes --pe-ind-chain
+.B --frag=yes -m25 -s40 -2K50m --heap-sort=yes --pairing=weak
 .BR --secondary=no ).
 .TP
 .B sr

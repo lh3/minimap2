@@ -179,7 +179,7 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		if (strcmp(preset, "splice:hq") == 0) {
 			mo->noncan = 5, mo->b = 4, mo->q = 6, mo->q2 = 24;
 		} else if (strcmp(preset, "splice:sr") == 0) {
-			mo->flag |= MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS | MM_F_HEAP_SORT | MM_F_FRAG_MODE | MM_F_PE_IND;
+			mo->flag |= MM_F_NO_PRINT_2ND | MM_F_2_IO_THREADS | MM_F_HEAP_SORT | MM_F_FRAG_MODE | MM_F_WEAK_PAIRING;
 			mo->noncan = 5, mo->b = 4, mo->q = 6, mo->q2 = 24;
 			mo->min_chain_score = 25;
 			mo->min_dp_max = 40;

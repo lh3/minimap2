@@ -40,7 +40,7 @@ static ko_longopt_t long_options[] = {
 	{ "secondary",      ko_required_argument, 315 },
 	{ "cs",             ko_optional_argument, 316 },
 	{ "end-bonus",      ko_required_argument, 317 },
-	{ "no-pairing",     ko_no_argument,       318 },
+	{ "no-pairing",     ko_no_argument,       318 }, // deprecated but reserved for backward compatibility
 	{ "splice-flank",   ko_required_argument, 319 },
 	{ "idx-no-seq",     ko_no_argument,       320 },
 	{ "end-seed-pen",   ko_required_argument, 321 },
@@ -81,8 +81,7 @@ static ko_longopt_t long_options[] = {
 	{ "rmq-inner",      ko_required_argument, 356 },
 	{ "spsc",           ko_required_argument, 357 },
 	{ "junc-pen",       ko_required_argument, 358 },
-	{ "pe-ind-chain",   ko_no_argument,       359 },
-	{ "jump-bed",       ko_required_argument, 360 },
+	{ "pairing",        ko_required_argument, 359 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -127,7 +126,7 @@ static inline void yes_or_no(mm_mapopt_t *opt, int64_t flag, int long_idx, const
 
 int main(int argc, char *argv[])
 {
-	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:b:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:J:";
+	const char *opt_str = "2aSDw:k:K:t:r:f:Vv:g:G:I:d:XT:s:x:Hcp:M:n:z:A:B:b:O:E:m:N:Qu:R:hF:LC:yYPo:e:U:J:j:";
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
@@ -194,6 +193,7 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
+		else if (c == 'j') jump_bed = o.arg;
 		else if (c == 'J') {
 			int t;
 			t = atoi(o.arg);
@@ -220,7 +220,7 @@ int main(int argc, char *argv[])
 		else if (c == 312) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
 		else if (c == 313) opt.flag |= MM_F_SR; // --sr
 		else if (c == 317) opt.end_bonus = atoi(o.arg); // --end-bonus
-		else if (c == 318) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing
+		else if (c == 318) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing (deprecated)
 		else if (c == 320) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
 		else if (c == 321) opt.anchor_ext_shift = atoi(o.arg); // --end-seed-pen
 		else if (c == 322) opt.flag |= MM_F_FOR_ONLY; // --for-only
@@ -254,8 +254,6 @@ int main(int argc, char *argv[])
 		else if (c == 355) opt.flag |= MM_F_OUT_DS; // --ds
 		else if (c == 356) opt.rmq_inner_dist = mm_parse_num(o.arg); // --rmq-inner
 		else if (c == 357) fn_spsc = o.arg; // --spsc
-		else if (c == 359) opt.flag |= MM_F_PE_IND; // --pe-ind-chain
-		else if (c == 360) jump_bed = o.arg; // --jump-bed
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
@@ -283,6 +281,14 @@ int main(int argc, char *argv[])
 		} else if (c == 347) { // --rmq
 			if (o.arg) yes_or_no(&opt, MM_F_RMQ, o.longidx, o.arg, 1);
 			else opt.flag |= MM_F_RMQ;
+		} else if (c == 359) { // --pairing
+			if (strcmp(o.arg, "no") == 0) opt.flag |= MM_F_INDEPEND_SEG;
+			else if (strcmp(o.arg, "weak") == 0) opt.flag |= MM_F_WEAK_PAIRING, opt.flag &= ~(uint64_t)MM_F_INDEPEND_SEG;
+			else {
+				if (strcmp(o.arg, "strong") != 0 && mm_verbose >= 2)
+					fprintf(stderr, "[WARNING]\033[1;31m unrecognized argument for --pairing; assuming 'strong'.\033[0m\n");
+				opt.flag &= ~(uint64_t)(MM_F_INDEPEND_SEG|MM_F_WEAK_PAIRING);
+			}
 		} else if (c == 'S') {
 			opt.flag |= MM_F_OUT_CS | MM_F_CIGAR | MM_F_OUT_CS_LONG;
 			if (mm_verbose >= 2)
@@ -362,6 +368,7 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "    -s INT       minimal peak DP alignment score [%d]\n", opt.min_dp_max);
 		fprintf(fp_help, "    -u CHAR      how to find GT-AG. f:transcript strand, b:both strands, n:don't match GT-AG [n]\n");
 		fprintf(fp_help, "    -J INT       splice mode. 0: original minimap2 model; 1: miniprot model [1]\n");
+		fprintf(fp_help, "    -j FILE      junctions in BED12 to extend *short* RNA-seq alignment []\n");
 		fprintf(fp_help, "  Input/Output:\n");
 		fprintf(fp_help, "    -a           output in the SAM format (PAF by default)\n");
 		fprintf(fp_help, "    -o FILE      output alignments to FILE [stdout]\n");
