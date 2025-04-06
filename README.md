@@ -207,8 +207,8 @@ bonus score (tuned by `--junc-bonus`) if an aligned junction matches a junction
 in the annotation. Option `--junc-bed` also takes 5-column BED, including the
 strand field. In this case, each line indicates an oriented junction.
 
-**Note:** that `--junc-bed` is intended for long noisy RNA-seq reads only.
-Applying the option to short RNA-seq reads increase run time with little
+**Note:** `--junc-bed` is intended for long noisy RNA-seq reads only.
+Applying the option to short RNA-seq reads would increase run time with little
 improvement to junction accuracy.
 
 #### <a name="long-overlap"></a>Find overlaps between long reads
