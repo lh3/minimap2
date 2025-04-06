@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include "mmpriv.h"
 #include "kalloc.h"
 
@@ -22,17 +23,26 @@ static int32_t mm_jump_check(void *km, const mm_idx_t *mi, int32_t qlen, const u
 
 static uint8_t *mm_jump_get_qseq_seq(void *km, int32_t qlen, const uint8_t *qseq0, const mm_reg1_t *r, int32_t is_left, int32_t ql0, uint8_t *qseq)
 {
-	int32_t i, k;
+	extern unsigned char seq_nt4_table[256];
+	int32_t i, k = 0;
 	if (!r->rev) {
-		if (is_left) memcpy(qseq, qseq0, ql0);
-		else memcpy(qseq, &qseq0[qlen - ql0], ql0);
+		if (is_left)
+			for (i = 0; i < ql0; ++i)
+				qseq[k++] = seq_nt4_table[(uint8_t)qseq0[i]];
+		else
+			for (i = qlen - ql0; i < qlen; ++i)
+				qseq[k++] = seq_nt4_table[(uint8_t)qseq0[i]];
 	} else {
 		if (is_left)
-			for (i = qlen - 1, k = 0; i >= qlen - ql0; --i)
-				qseq[k++] = qseq0[i] >= 4? qseq0[i] : 3 - qseq0[i];
+			for (i = qlen - 1; i >= qlen - ql0; --i) {
+				uint8_t c = seq_nt4_table[(uint8_t)qseq0[i]];
+				qseq[k++] = c >= 4? c : 3 - c;
+			}
 		else
-			for (i = ql0 - 1, k = 0; i >= 0; --i)
-				qseq[k++] = qseq0[i] >= 4? qseq0[i] : 3 - qseq0[i];
+			for (i = ql0 - 1; i >= 0; --i) {
+				uint8_t c = seq_nt4_table[(uint8_t)qseq0[i]];
+				qseq[k++] = c >= 4? c : 3 - c;
+			}
 	}
 	return qseq;
 }
@@ -73,7 +83,7 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 		for (mm2 = 0; j < clip + ext; ++j)
 			if (qseq[j] != tseq[j] || qseq[j] > 3 || tseq[j] > 3)
 				++mm2;
-		if (mm1 == 0 && mm2 == 1)
+		if (mm1 == 0 && mm2 <= 1)
 			i0 = i, ++m; // i0 points to the rightmost i
 	}
 	kfree(km, tseq);
@@ -113,7 +123,7 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 	for (i = 0; i < n; ++i) { // traverse possible jumps
 		const mm_idx_jjump1_t *ai = &a[i];
 		int32_t tlen, tl1, j, mm1, mm2;
-		assert(ai->off >= r->rs - extt && ai->off < r->rs + ext);
+		assert(ai->off >= r->re - ext && ai->off < r->re + extt);
 		if (ts_strand * ai->strand < 0) continue; // wrong strand
 		if (ai->off2 <= ai->off) continue; // wrong direction
 		if (ai->off2 + clip + ext > mi->seq[r->rid].len) continue; // not long enough
@@ -133,7 +143,7 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 		for (mm1 = 0; j < clip + ext; ++j)
 			if (qseq[j] != tseq[j] || qseq[j] > 3 || tseq[j] > 3)
 				++mm1;
-		if (mm1 == 0 && mm2 == 1)
+		if (mm1 == 0 && mm2 <= 1)
 			i0 = i0 >= 0? i0 : i, ++m; // i0 points to the leftmost i
 	}
 	kfree(km, tseq);

@@ -84,6 +84,7 @@ const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 int mm_idx_getseq2(const mm_idx_t *mi, int is_rev, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a, int is_qstrand);
+int mm_idx_bed_read2(mm_idx_t *mi, const char *fn, int read_junc, int for_score, int for_jump);
 const mm_idx_jjump1_t *mm_idx_jump_get(const mm_idx_t *db, int32_t cid, int32_t st, int32_t en, int32_t *n);
 
 mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
@@ -114,6 +115,8 @@ void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const
 mm_seg_t *mm_seg_gen(void *km, uint32_t hash, int n_segs, const int *qlens, int n_regs0, const mm_reg1_t *regs0, int *n_regs, mm_reg1_t **regs, const mm128_t *a);
 void mm_seg_free(void *km, int n_segs, mm_seg_t *segs);
 void mm_pair(void *km, int max_gap_ref, int dp_bonus, int sub_diff, int match_sc, const int *qlens, int *n_regs, mm_reg1_t **regs);
+
+void mm_jump_split(void *km, const mm_idx_t *mi, const mm_mapopt_t *opt, int32_t qlen, const uint8_t *qseq, mm_reg1_t *r, int32_t ts_strand);
 
 FILE *mm_split_init(const char *prefix, const mm_idx_t *mi);
 mm_idx_t *mm_split_merge_prep(const char *prefix, int n_splits, FILE **fp, uint32_t *n_seq_part);

@@ -63,7 +63,7 @@ void mm_mapopt_init(mm_mapopt_t *opt)
 	opt->pe_ori = 0; // FF
 	opt->pe_bonus = 33;
 
-	opt->jump_min_alen = 10;
+	opt->jump_min_alen = 5;
 }
 
 void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)

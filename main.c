@@ -82,6 +82,7 @@ static ko_longopt_t long_options[] = {
 	{ "spsc",           ko_required_argument, 357 },
 	{ "junc-pen",       ko_required_argument, 358 },
 	{ "pe-ind-chain",   ko_no_argument,       359 },
+	{ "jump-bed",       ko_required_argument, 360 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -131,7 +132,7 @@ int main(int argc, char *argv[])
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, n_parts, old_best_n = -1;
-	char *fnw = 0, *rg = 0, *junc_bed = 0, *fn_spsc = 0, *s, *alt_list = 0;
+	char *fnw = 0, *rg = 0, *junc_bed = 0, *jump_bed = 0, *fn_spsc = 0, *s, *alt_list = 0;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
@@ -254,6 +255,7 @@ int main(int argc, char *argv[])
 		else if (c == 356) opt.rmq_inner_dist = mm_parse_num(o.arg); // --rmq-inner
 		else if (c == 357) fn_spsc = o.arg; // --spsc
 		else if (c == 359) opt.flag |= MM_F_PE_IND; // --pe-ind-chain
+		else if (c == 360) jump_bed = o.arg; // --jump-bed
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
@@ -439,6 +441,11 @@ int main(int argc, char *argv[])
 			mm_idx_bed_read(mi, junc_bed, 1);
 			if (mi->I == 0 && mm_verbose >= 2)
 				fprintf(stderr, "[WARNING] failed to load the junction BED file\n");
+		}
+		if (jump_bed) {
+			mm_idx_bed_read2(mi, jump_bed, 1, 0, 1);
+			if (mi->J == 0 && mm_verbose >= 2)
+				fprintf(stderr, "[WARNING] failed to load the jump BED file\n");
 		}
 		if (fn_spsc) {
 			mm_idx_spsc_read(mi, fn_spsc, mm_max_spsc_bonus(&opt));

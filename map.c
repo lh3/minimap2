@@ -359,6 +359,10 @@ void mm_map_frag_core(const mm_idx_t *mi, int n_segs, const int *qlens, const ch
 	kfree(b->km, u);
 	kfree(b->km, mini_pos);
 
+	if (mi->J && n_segs == 1 && is_splice)
+		for (i = 0; i < n_regs0; ++i)
+			mm_jump_split(b->km, mi, opt, qlens[0], (const uint8_t*)seqs[0], &regs0[i], 0);
+
 	if (b->km) {
 		km_stat(b->km, &kmst);
 		if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
