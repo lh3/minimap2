@@ -83,8 +83,8 @@ void mm_idxopt_init(mm_idxopt_t *opt);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 int mm_idx_getseq2(const mm_idx_t *mi, int is_rev, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
-mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a);
 mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a, int is_qstrand);
+const mm_idx_jjump1_t *mm_idx_jump_get(const mm_idx_t *db, int32_t cid, int32_t st, int32_t en, int32_t *n);
 
 mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					  int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km);
@@ -104,6 +104,10 @@ void mm_filter_regs(const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *re
 void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r, float alt_diff_frac);
 void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr);
 void mm_update_dp_max(int qlen, int n_regs, mm_reg1_t *regs, float frac, int a, int b);
+void mm_jump_split(void *km, const mm_idx_t *mi, const mm_mapopt_t *opt, int32_t qlen, const uint8_t *qseq, mm_reg1_t *r, int32_t ts_strand);
+
+mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, const char *qstr, int *n_regs_, mm_reg1_t *regs, mm128_t *a);
+void mm_enlarge_cigar(mm_reg1_t *r, uint32_t n_cigar);
 
 void mm_est_err(const mm_idx_t *mi, int qlen, int n_regs, mm_reg1_t *regs, const mm128_t *a, int32_t n, const uint64_t *mini_pos);
 

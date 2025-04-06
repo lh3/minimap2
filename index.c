@@ -855,6 +855,35 @@ int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uin
 	return left;
 }
 
+static int32_t mm_idx_jump_get_core(int32_t n, const mm_idx_jjump1_t *a, int32_t x) // similar to mm_idx_find_intv()
+{
+	int32_t s = 0, e = n;
+	if (n == 0) return -1;
+	if (x < a[0].off) return -1;
+	while (s < e) {
+		int32_t mid = s + (e - s) / 2;
+		if (x >= a[mid].off && (mid + 1 >= n || x < a[mid+1].off)) return mid;
+		else if (x < a[mid].off) e = mid;
+		else s = mid + 1;
+	}
+	assert(0);
+}
+
+const mm_idx_jjump1_t *mm_idx_jump_get(const mm_idx_t *db, int32_t cid, int32_t st, int32_t en, int32_t *n)
+{
+	mm_idx_jjump_t *s;
+	int32_t l, r;
+	*n = 0;
+	if (cid >= db->n_seq || cid < 0 || db->J == 0) return 0;
+	if (en < 0 || en > db->seq[cid].len) en = db->seq[cid].len;
+	s = &db->J[cid];
+	if (s->n == 0) return 0;
+	l = mm_idx_jump_get_core(s->n, s->a, st);
+	r = mm_idx_jump_get_core(s->n, s->a, en);
+	*n = r - l;
+	return &s->a[l + 1];
+}
+
 /****************
  * splice score *
  ****************/

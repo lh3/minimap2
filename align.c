@@ -300,9 +300,8 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 	if (is_eqx) mm_update_cigar_eqx(r, qseq, tseq); // NB: it has to be called here as changes to qseq and tseq are not returned
 }
 
-static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // TODO: this calls the libc realloc()
+void mm_enlarge_cigar(mm_reg1_t *r, uint32_t n_cigar) // TODO: this calls the libc realloc()
 {
-	mm_extra_t *p;
 	if (n_cigar == 0) return;
 	if (r->p == 0) {
 		uint32_t capacity = n_cigar + sizeof(mm_extra_t)/4;
@@ -314,6 +313,13 @@ static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, uint32_t *cigar) // 
 		kroundup32(r->p->capacity);
 		r->p = (mm_extra_t*)realloc(r->p, r->p->capacity * 4);
 	}
+}
+
+static void mm_append_cigar(mm_reg1_t *r, uint32_t n_cigar, const uint32_t *cigar)
+{
+	mm_extra_t *p;
+	if (n_cigar == 0) return;
+	mm_enlarge_cigar(r, n_cigar);
 	p = r->p;
 	if (p->n_cigar > 0 && (p->cigar[p->n_cigar-1]&0xf) == (cigar[0]&0xf)) { // same CIGAR op at the boundary
 		p->cigar[p->n_cigar-1] += cigar[0]>>4<<4;
