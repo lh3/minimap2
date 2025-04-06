@@ -677,7 +677,7 @@ int mm_idx_alt_read(mm_idx_t *mi, const char *fn)
 KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
 
 #define sort_key_end(a) ((a).en)
-KRADIX_SORT_INIT(end, mm_idx_intv1_t, sort_key_bed, 4)
+KRADIX_SORT_INIT(end, mm_idx_intv1_t, sort_key_end, 4)
 
 #define sort_key_jj(a) ((a).off)
 KRADIX_SORT_INIT(jj, mm_idx_jjump1_t, sort_key_jj, 4)
