@@ -63,7 +63,7 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 	for (i = 0; i < n; ++i) { // traverse possible jumps
 		const mm_idx_jjump1_t *ai = &a[i];
 		int32_t tlen, tl1, j, mm1, mm2;
-		assert(ai->off >= r->rs - extt && ai->off < r->rs + ext);
+		assert(ai->off >= r->rs - extt && ai->off <= r->rs + ext);
 		if (ts_strand * ai->strand < 0) continue; // wrong strand
 		if (ai->off2 >= ai->off) continue; // wrong direction
 		if (ai->off2 < clip + ext) continue; // not long enough
@@ -125,7 +125,7 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 	for (i = 0; i < n; ++i) { // traverse possible jumps
 		const mm_idx_jjump1_t *ai = &a[i];
 		int32_t tlen, tl1, j, mm1, mm2;
-		assert(ai->off >= r->re - ext && ai->off < r->re + extt);
+		assert(ai->off >= r->re - ext && ai->off <= r->re + extt);
 		if (ts_strand * ai->strand < 0) continue; // wrong strand
 		if (ai->off2 <= ai->off) continue; // wrong direction
 		if (ai->off2 + clip + ext > mi->seq[r->rid].len) continue; // not long enough
@@ -155,7 +155,6 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 	l = m > 0? r->re - a[i0].off : 0; // may be negative
 	if (m == 1 && clip + l >= opt->jump_min_alen) { // add one more exon
 		mm_enlarge_cigar(r, 2);
-		memmove(r->p->cigar + 2, r->p->cigar, r->p->n_cigar * 4);
 		r->p->cigar[r->p->n_cigar - 1] = ((r->p->cigar[r->p->n_cigar - 1]>>4) - l) << 4 | MM_CIGAR_MATCH;
 		r->p->cigar[r->p->n_cigar] = (a[i0].off2 - a[i0].off) << 4 | MM_CIGAR_N_SKIP;
 		r->p->cigar[r->p->n_cigar + 1] = (clip + l) << 4 | MM_CIGAR_MATCH;
