@@ -50,7 +50,7 @@ static uint8_t *mm_jump_get_qseq_seq(void *km, int32_t qlen, const uint8_t *qseq
 static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *opt, int32_t qlen, const uint8_t *qseq0, mm_reg1_t *r, int32_t ts_strand)
 {
 	uint8_t *tseq = 0, *qseq = 0;
-	int32_t i, n, i0 = -1, m = 0, l;
+	int32_t i, n, i0 = -1, m = 0, mm0 = 0, l;
 	int32_t ext = 1 + (opt->b + opt->a - 1) / opt->a + 1;
 	int32_t clip = !r->rev? r->qs : qlen - r->qe;
 	int32_t extt = clip < ext? clip : ext;
@@ -84,7 +84,7 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 			if (qseq[j] != tseq[j] || qseq[j] > 3 || tseq[j] > 3)
 				++mm2;
 		if (mm1 == 0 && mm2 <= 1)
-			i0 = i, ++m; // i0 points to the rightmost i
+			i0 = i, mm0 = mm1 + mm2, ++m; // i0 points to the rightmost i
 	}
 	kfree(km, tseq);
 
@@ -99,6 +99,8 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 		r->rs = a[i0].off2 - (clip + l);
 		if (!r->rev) r->qs = 0;
 		else r->qe = qlen;
+		r->blen += clip, r->mlen += clip - mm0;
+		r->p->dp_max0 += (clip - mm0) * opt->a - mm0 * opt->b;
 	} else if (m > 0 && a[i0].off > r->rs) { // trim by l; l is always positive
 		r->p->cigar[0] -= l << 4 | MM_CIGAR_MATCH;
 		r->rs += l;
@@ -110,7 +112,7 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t *opt, int32_t qlen, const uint8_t *qseq0, mm_reg1_t *r, int32_t ts_strand)
 {
 	uint8_t *tseq = 0, *qseq = 0;
-	int32_t i, n, i0 = -1, m = 0, l;
+	int32_t i, n, i0 = -1, m = 0, mm0 = 0, l;
 	int32_t ext = 1 + (opt->b + opt->a - 1) / opt->a + 1;
 	int32_t clip = !r->rev? qlen - r->qe : r->qs;
 	int32_t extt = clip < ext? clip : ext;
@@ -143,8 +145,10 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 		for (mm1 = 0; j < clip + ext; ++j)
 			if (qseq[j] != tseq[j] || qseq[j] > 3 || tseq[j] > 3)
 				++mm1;
-		if (mm1 == 0 && mm2 <= 1)
-			i0 = i0 >= 0? i0 : i, ++m; // i0 points to the leftmost i
+		if (mm1 == 0 && mm2 <= 1) {
+			if (i0 < 0) i0 = i, mm0 = mm1 + mm2;
+			++m;
+		}
 	}
 	kfree(km, tseq);
 
@@ -159,6 +163,8 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 		r->re = a[i0].off2 + (clip + l);
 		if (!r->rev) r->qe = qlen;
 		else r->qs = 0;
+		r->blen += clip, r->mlen += clip - mm0;
+		r->p->dp_max0 += (clip - mm0) * opt->a - mm0 * opt->b;
 	} else if (m > 0 && r->re > a[i0].off) { // trim by l; l is always positive
 		r->p->cigar[r->p->n_cigar - 1] -= l << 4 | MM_CIGAR_MATCH;
 		r->re -= l;
