@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_VERSION "2.28-r1263-dirty"
+#define MM_VERSION "2.28-r1264-dirty"
 
 #define MM_F_NO_DIAG       (0x001LL) // no exact diagonal hit
 #define MM_F_NO_DUAL       (0x002LL) // skip pairs where query name is lexicographically larger than target name
@@ -175,7 +175,7 @@ typedef struct {
 
 	int pe_ori, pe_bonus;
 
-	int32_t jump_min_alen;
+	int32_t jump_min_match;
 
 	float mid_occ_frac;  // only used by mm_mapopt_update(); see below
 	float q_occ_frac;

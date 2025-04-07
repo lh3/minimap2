@@ -89,7 +89,7 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 	kfree(km, tseq);
 
 	l = m > 0? a[i0].off - r->rs : 0; // may be negative
-	if (m == 1 && clip + l >= opt->jump_min_alen) { // add one more exon
+	if (m == 1 && clip + l >= opt->jump_min_match) { // add one more exon
 		mm_enlarge_cigar(r, 2);
 		memmove(r->p->cigar + 2, r->p->cigar, r->p->n_cigar * 4);
 		r->p->cigar[0] = (clip + l) << 4 | MM_CIGAR_MATCH;
@@ -153,7 +153,7 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 	kfree(km, tseq);
 
 	l = m > 0? r->re - a[i0].off : 0; // may be negative
-	if (m == 1 && clip + l >= opt->jump_min_alen) { // add one more exon
+	if (m == 1 && clip + l >= opt->jump_min_match) { // add one more exon
 		mm_enlarge_cigar(r, 2);
 		r->p->cigar[r->p->n_cigar - 1] = ((r->p->cigar[r->p->n_cigar - 1]>>4) - l) << 4 | MM_CIGAR_MATCH;
 		r->p->cigar[r->p->n_cigar] = (a[i0].off2 - a[i0].off) << 4 | MM_CIGAR_N_SKIP;

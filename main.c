@@ -82,6 +82,7 @@ static ko_longopt_t long_options[] = {
 	{ "spsc",           ko_required_argument, 357 },
 	{ "junc-pen",       ko_required_argument, 358 },
 	{ "pairing",        ko_required_argument, 359 },
+	{ "jump-min-match", ko_required_argument, 360 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -253,6 +254,7 @@ int main(int argc, char *argv[])
 		else if (c == 355) opt.flag |= MM_F_OUT_DS; // --ds
 		else if (c == 356) opt.rmq_inner_dist = mm_parse_num(o.arg); // --rmq-inner
 		else if (c == 357) fn_spsc = o.arg; // --spsc
+		else if (c == 360) opt.jump_min_match = mm_parse_num(o.arg); // --jump-min-match
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
