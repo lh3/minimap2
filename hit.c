@@ -418,16 +418,19 @@ static void mm_set_inv_mapq(void *km, int n_regs, mm_reg1_t *regs)
 	kfree(km, aux);
 }
 
-void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr)
+void mm_set_mapq2(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr, int is_splice)
 {
 	static const float q_coef = 40.0f;
 	int64_t sum_sc = 0;
 	float uniq_ratio;
-	int i;
+	int i, n_2nd_splice = 0;
 	if (n_regs == 0) return;
-	for (i = 0; i < n_regs; ++i)
+	for (i = 0; i < n_regs; ++i) {
 		if (regs[i].parent == regs[i].id)
 			sum_sc += regs[i].score;
+		else if (regs[i].is_spliced)
+			++n_2nd_splice;
+	}
 	uniq_ratio = (float)sum_sc / (sum_sc + rep_len);
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t *r = &regs[i];
@@ -440,13 +443,18 @@ void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int ma
 			pen_cm = pen_s1 < pen_cm? pen_s1 : pen_cm;
 			subsc = r->subsc > min_chain_sc? r->subsc : min_chain_sc;
 			if (r->p && r->p->dp_max2 > 0 && r->p->dp_max > 0) {
-				float identity = (float)r->mlen / r->blen;
-				float x = (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score0;
+				float x, identity = (float)r->mlen / r->blen;
+				if (is_sr && is_splice)
+					x = (float)r->p->dp_max2 / r->p->dp_max; // ignore chaining score; for short RNA-seq reads, unspliced chaining score tends to be higher
+				else
+					x = (float)r->p->dp_max2 * subsc / r->p->dp_max / r->score0;
 				mapq = (int)(identity * pen_cm * q_coef * (1.0f - x * x) * logf((float)r->p->dp_max / match_sc));
 				if (!is_sr) {
 					int mapq_alt = (int)(6.02f * identity * identity * (r->p->dp_max - r->p->dp_max2) / match_sc + .499f); // BWA-MEM like mapQ, mostly for short reads
 					mapq = mapq < mapq_alt? mapq : mapq_alt; // in case the long-read heuristic fails
 				}
+				if (is_splice && is_sr && r->is_spliced && n_2nd_splice == 0)
+					mapq += 10;
 			} else {
 				float x = (float)subsc / r->score0;
 				if (r->p) {

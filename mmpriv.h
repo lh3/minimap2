@@ -103,7 +103,7 @@ void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int 
 int mm_filter_strand_retained(int n_regs, mm_reg1_t *r);
 void mm_filter_regs(const mm_mapopt_t *opt, int qlen, int *n_regs, mm_reg1_t *regs);
 void mm_hit_sort(void *km, int *n_regs, mm_reg1_t *r, float alt_diff_frac);
-void mm_set_mapq(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr);
+void mm_set_mapq2(void *km, int n_regs, mm_reg1_t *regs, int min_chain_sc, int match_sc, int rep_len, int is_sr, int is_splice);
 void mm_update_dp_max(int qlen, int n_regs, mm_reg1_t *regs, float frac, int a, int b);
 void mm_jump_split(void *km, const mm_idx_t *mi, const mm_mapopt_t *opt, int32_t qlen, const uint8_t *qseq, mm_reg1_t *r, int32_t ts_strand);
 
