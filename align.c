@@ -258,7 +258,7 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 	if (p == 0) return;
 	mm_fix_cigar(r, qseq, tseq, &qshift, &tshift);
 	qseq += qshift, tseq += tshift; // qseq and tseq may be shifted due to the removal of leading I/D
-	r->blen = r->mlen = 0;
+	r->blen = r->mlen = 0, r->is_spliced = 0;
 	for (k = 0; k < p->n_cigar; ++k) {
 		uint32_t op = p->cigar[k]&0xf, len = p->cigar[k]>>4;
 		if (op == MM_CIGAR_MATCH) {
@@ -292,7 +292,7 @@ static void mm_update_extra(mm_reg1_t *r, const uint8_t *qseq, const uint8_t *ts
 			if (s < 0) s = 0;
 			toff += len;
 		} else if (op == MM_CIGAR_N_SKIP) {
-			toff += len;
+			r->is_spliced = 1, toff += len;
 		}
 	}
 	p->dp_max = p->dp_max0 = (int32_t)(max + .499);
@@ -852,7 +852,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			mm_idx_getseq(mi, rid, rs1, re1, tseq);
 			qseq = &qseq0[r->rev][qs1];
 		}
-		mm_update_extra(r, qseq, tseq, mat, opt->q, opt->e, opt->flag & MM_F_EQX, !(opt->flag & MM_F_SR));
+		mm_update_extra(r, qseq, tseq, mat, opt->q, opt->e, opt->flag & MM_F_EQX, !(is_sr || is_sr_rna));
 		if (rev && r->p->trans_strand)
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
@@ -911,7 +911,7 @@ static int mm_align1_inv(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, i
 	}
 	r_inv->rs = r1->re + t_off;
 	r_inv->re = r_inv->rs + ez->max_t + 1;
-	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e, opt->flag & MM_F_EQX, !(opt->flag & MM_F_SR));
+	mm_update_extra(r_inv, &qseq[q_off], &tseq[t_off], mat, opt->q, opt->e, opt->flag & MM_F_EQX, !(opt->flag & (MM_F_SR|MM_F_SR_RNA)));
 	ret = 1;
 end_align1_inv:
 	kfree(km, tseq);
@@ -1014,7 +1014,7 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	for (i = 0; i < n_regs; ++i) {
 		mm_reg1_t r2;
 		if ((opt->flag&MM_F_SPLICE) && (opt->flag&MM_F_SPLICE_FOR) && (opt->flag&MM_F_SPLICE_REV)) { // then do two rounds of alignments for both strands
-			mm_reg1_t s[2], s2[2];
+			mm_reg1_t s[2], s2[2], *r;
 			int which, trans_strand;
 			s[0] = s[1] = regs[i];
 			mm_align1(km, opt, mi, qlen, qseq0, &s[0], &s2[0], n_a, a, &ez, MM_F_SPLICE_FOR);
@@ -1029,7 +1029,10 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 				regs[i] = s[1], r2 = s2[1];
 				free(s[0].p);
 			}
-			regs[i].p->trans_strand = trans_strand;
+			r = &regs[i];
+			r->p->trans_strand = trans_strand;
+			if (r->is_spliced && (trans_strand == 1 || trans_strand == 2))
+				r->p->dp_max += (opt->a + opt->b) + ((opt->a + opt->b) >> 1);
 		} else { // one round of alignment
 			mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, n_a, a, &ez, opt->flag);
 			if (opt->flag&MM_F_SPLICE)

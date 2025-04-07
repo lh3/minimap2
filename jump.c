@@ -101,6 +101,8 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 		else r->qe = qlen;
 		r->blen += clip, r->mlen += clip - mm0;
 		r->p->dp_max0 += (clip - mm0) * opt->a - mm0 * opt->b;
+		r->p->dp_max += (clip - mm0) * opt->a - mm0 * opt->b;
+		if (!r->is_spliced) r->is_spliced = 1, r->p->dp_max += (opt->a + opt->b) + ((opt->a + opt->b) >> 1);
 	} else if (m > 0 && a[i0].off > r->rs) { // trim by l; l is always positive
 		r->p->cigar[0] -= l << 4 | MM_CIGAR_MATCH;
 		r->rs += l;
@@ -164,6 +166,8 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 		else r->qs = 0;
 		r->blen += clip, r->mlen += clip - mm0;
 		r->p->dp_max0 += (clip - mm0) * opt->a - mm0 * opt->b;
+		r->p->dp_max += (clip - mm0) * opt->a - mm0 * opt->b;
+		if (!r->is_spliced) r->is_spliced = 1, r->p->dp_max += (opt->a + opt->b) + ((opt->a + opt->b) >> 1);
 	} else if (m > 0 && r->re > a[i0].off) { // trim by l; l is always positive
 		r->p->cigar[r->p->n_cigar - 1] -= l << 4 | MM_CIGAR_MATCH;
 		r->re -= l;

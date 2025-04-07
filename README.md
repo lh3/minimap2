@@ -174,9 +174,8 @@ or the last exons.
 
 Minimap2 rates an alignment by the score of the max-scoring sub-segment,
 *excluding* introns, and marks the best alignment as primary in SAM. When a
-spliced gene also has unspliced pseudogenes, minimap2 does not intentionally
-prefer spliced alignment, though in practice it more often marks the spliced
-alignment as the primary. By default, minimap2 outputs up to five secondary
+spliced gene also has unspliced pseudogenes, minimap2 slightly prefers
+the spliced alignment. By default, minimap2 outputs up to five secondary
 alignments (i.e. likely pseudogenes in the context of RNA-seq mapping). This
 can be tuned with option **-N**.
 
