@@ -297,11 +297,13 @@ maximum alignment gap is mostly controlled by
 .B --splice
 Enable the splice alignment mode.
 .TP
-.B --sr
-Enable short-read alignment heuristics. In the short-read mode, minimap2
-applies a second round of chaining with a higher minimizer occurrence threshold
-if no good chain is found. In addition, minimap2 attempts to patch gaps between
-seeds with ungapped alignment.
+.BR --sr [= no | dna | rna ]
+Enable short-read alignment heuristics [no]. If this option is used with no argument,
+.RB ` dna '
+is set. In the DNA short-read mode, minimap2 applies a second round of chaining
+with a higher minimizer occurrence threshold if no good chain is found. In
+addition, minimap2 attempts to patch gaps between seeds with ungapped
+alignment.
 .TP
 .BI --split-prefix \ STR
 Prefix to create temporary files. Typically used for a multi-part index.
@@ -520,20 +522,13 @@ Copy input FASTA/Q comments to output.
 .B -c
 Generate CIGAR. In PAF, the CIGAR is written to the `cg' custom tag.
 .TP
-.BI --cs[= STR ]
+.BR --cs [= short | long ]
 Output the
 .B cs
 tag.
-.I STR
-can be either
-.I short
-or
-.IR long .
-If no
-.I STR
-is given,
-.I short
-is assumed. [none]
+If no argument is given,
+.RB ` short '
+is set. [none]
 .TP
 .B --MD
 Output the MD tag (see the SAM spec).
@@ -689,7 +684,7 @@ Spliced alignment for accurate long RNA-seq reads such as PacBio iso-seq
 .B splice:sr
 Spliced alignment for short RNA-seq reads
 .RB ( -xsplice:hq
-.B --frag=yes -m25 -s40 -2K50m --heap-sort=yes --pairing=weak
+.B --frag=yes -m25 -s40 -2K100m --heap-sort=yes --pairing=weak --sr=rna
 .BR --secondary=no ).
 .TP
 .B sr

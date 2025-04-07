@@ -603,7 +603,7 @@ static inline void mm_get_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int3
 
 static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, int n_a, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
-	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE);
+	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE), is_sr_rna = (!!(opt->flag & MM_F_SR_RNA) && is_splice);
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
 	uint8_t *tseq, *qseq, *junc;
 	int32_t i, l, bw, bw_long, dropped = 0, ksw_flag = 0, rs0, re0, qs0, qe0;
@@ -773,14 +773,18 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				mm_idx_getseq(mi, rid, rs, re, tseq);
 			}
 			mm_get_junc(mi, rid, rs, re, !!(ksw_flag&KSW_EZ_SPLICE_REV), junc);
-			if (is_sr) { // perform ungapped alignment
+			if (is_sr || (is_sr_rna && qe - qs == re - rs)) { // perform ungapped alignment
+				int32_t max_gapped_score = (qe - qs - 2) * opt->a - 2 * (opt->q + opt->e);
 				assert(qe - qs == re - rs);
 				ksw_reset_extz(ez);
 				for (j = 0, ez->score = 0; j < qe - qs; ++j) {
-					if (qseq[j] >= 4 || tseq[j] >= 4) ez->score += opt->e2;
+					if (qseq[j] >= 4 || tseq[j] >= 4) ez->score += opt->sc_ambi > 0? -opt->sc_ambi : opt->sc_ambi;
 					else ez->score += qseq[j] == tseq[j]? opt->a : -opt->b;
 				}
-				ez->cigar = ksw_push_cigar(km, &ez->n_cigar, &ez->m_cigar, ez->cigar, MM_CIGAR_MATCH, qe - qs);
+				if (ez->score > max_gapped_score)
+					ez->cigar = ksw_push_cigar(km, &ez->n_cigar, &ez->m_cigar, ez->cigar, MM_CIGAR_MATCH, qe - qs);
+				else
+					mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez);
 			} else { // perform normal gapped alignment
 				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
 			}

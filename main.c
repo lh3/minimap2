@@ -35,7 +35,7 @@ static ko_longopt_t long_options[] = {
 	{ "splice",         ko_no_argument,       310 },
 	{ "cost-non-gt-ag", ko_required_argument, 'C' },
 	{ "no-long-join",   ko_no_argument,       312 },
-	{ "sr",             ko_no_argument,       313 },
+	{ "sr",             ko_optional_argument, 313 },
 	{ "frag",           ko_required_argument, 314 },
 	{ "secondary",      ko_required_argument, 315 },
 	{ "cs",             ko_optional_argument, 316 },
@@ -218,7 +218,6 @@ int main(int argc, char *argv[])
 		else if (c == 309) mm_dbg_flag |= MM_DBG_PRINT_QNAME | MM_DBG_PRINT_ALN_SEQ, n_threads = 1; // --print-aln-seq
 		else if (c == 310) opt.flag |= MM_F_SPLICE; // --splice
 		else if (c == 312) opt.flag |= MM_F_NO_LJOIN; // --no-long-join
-		else if (c == 313) opt.flag |= MM_F_SR; // --sr
 		else if (c == 317) opt.end_bonus = atoi(o.arg); // --end-bonus
 		else if (c == 318) opt.flag |= MM_F_INDEPEND_SEG; // --no-pairing (deprecated)
 		else if (c == 320) ipt.flag |= MM_I_NO_SEQ; // --idx-no-seq
@@ -257,6 +256,17 @@ int main(int argc, char *argv[])
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
+		} else if (c == 313) { // --sr
+			if (o.arg == 0 || strcmp(o.arg, "dna") == 0) {
+				opt.flag |= MM_F_SR;
+			} else if (strcmp(o.arg, "rna") == 0) {
+				opt.flag |= MM_F_SR_RNA;
+			} else if (strcmp(o.arg, "no") == 0) {
+				opt.flag &= ~(uint64_t)(MM_F_SR|MM_F_SR_RNA);
+			} else if (mm_verbose >= 2) {
+				opt.flag |= MM_F_SR;
+				fprintf(stderr, "[WARNING]\033[1;31m --sr only takes 'dna' or 'rna'. Invalid values are assumed to be 'dna'.\033[0m\n");
+			}
 		} else if (c == 314) { // --frag
 			yes_or_no(&opt, MM_F_FRAG_MODE, o.longidx, o.arg, 1);
 		} else if (c == 315) { // --secondary

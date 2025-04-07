@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 
-#define MM_VERSION "2.28-r1261-dirty"
+#define MM_VERSION "2.28-r1263-dirty"
 
 #define MM_F_NO_DIAG       (0x001LL) // no exact diagonal hit
 #define MM_F_NO_DUAL       (0x002LL) // skip pairs where query name is lexicographically larger than target name
@@ -46,6 +46,7 @@
 #define MM_F_SECONDARY_SEQ (0x1000000000LL)	//output SEQ field for seqondary alignments using hard clipping
 #define MM_F_OUT_DS        (0x2000000000LL)
 #define MM_F_WEAK_PAIRING  (0x4000000000LL)
+#define MM_F_SR_RNA        (0x8000000000LL)
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
