@@ -1031,8 +1031,12 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 			}
 			r = &regs[i];
 			r->p->trans_strand = trans_strand;
-			if (r->is_spliced && (trans_strand == 1 || trans_strand == 2))
-				r->p->dp_max += (opt->a + opt->b) + ((opt->a + opt->b) >> 1);
+			if (r->is_spliced) {
+				if (trans_strand == 1 || trans_strand == 2) // this is an *approximate* way to tell if there are splice signals.
+					r->p->dp_max += (opt->a + opt->b) + ((opt->a + opt->b) >> 1);
+				else if (trans_strand == 3)
+					r->p->dp_max -= opt->a + opt->b;
+			}
 		} else { // one round of alignment
 			mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, n_a, a, &ez, opt->flag);
 			if (opt->flag&MM_F_SPLICE)
