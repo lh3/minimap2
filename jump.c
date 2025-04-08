@@ -66,6 +66,7 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 		assert(ai->off >= r->rs - extt && ai->off <= r->rs + ext);
 		if (ts_strand * ai->strand < 0) continue; // wrong strand
 		if (ai->off2 >= ai->off) continue; // wrong direction
+		if (ai->off - ai->off2 < 6) continue; // intron too small
 		if (ai->off2 < clip + ext) continue; // not long enough
 		if (tseq == 0) {
 			tseq = Kcalloc(km, uint8_t, (clip + ext) * 2); // tseq and qseq are allocated together
@@ -130,6 +131,7 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 		assert(ai->off >= r->re - ext && ai->off <= r->re + extt);
 		if (ts_strand * ai->strand < 0) continue; // wrong strand
 		if (ai->off2 <= ai->off) continue; // wrong direction
+		if (ai->off2 - ai->off < 6) continue; // intron too small
 		if (ai->off2 + clip + ext > mi->seq[r->rid].len) continue; // not long enough
 		if (tseq == 0) {
 			tseq = Kcalloc(km, uint8_t, (clip + ext) * 2); // tseq and qseq are allocated together
