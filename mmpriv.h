@@ -33,6 +33,7 @@
 
 #define MALLOC(type, len) ((type*)malloc((len) * sizeof(type)))
 #define CALLOC(type, len) ((type*)calloc((len), sizeof(type)))
+#define REALLOC(type, ptr, cnt) ((type*)realloc((ptr), (cnt) * sizeof(type)))
 
 #ifdef __cplusplus
 extern "C" {
@@ -54,7 +55,7 @@ typedef struct {
 
 typedef struct {
 	int32_t off, off2;
-	int32_t strand;
+	int32_t cnt, strand;
 } mm_idx_jjump1_t;
 
 double cputime(void);
