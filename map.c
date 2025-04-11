@@ -463,6 +463,10 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 				r->qs = qlens[j] - r->qe;
 				r->qe = qlens[j] - t;
 				r->rev = !r->rev;
+				if (r->p) {
+					if (r->p->trans_strand == 1) r->p->trans_strand = 2;
+					else if (r->p->trans_strand == 2) r->p->trans_strand = 1;
+				}
 			}
 		}
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
