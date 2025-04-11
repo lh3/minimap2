@@ -253,6 +253,52 @@ static void write_cs_ds_core(kstring_t *s, const uint8_t *tseq, const uint8_t *q
 	assert(t_off == r->re - r->rs && q_off == r->qe - r->qs);
 }
 
+static inline void revcomp_splice(uint8_t s[2])
+{
+	uint8_t c = s[1] < 4? 3 - s[1] : 4;
+	s[1] = s[0] < 4? 3 - s[0] : 4;
+	s[0] = c;
+}
+
+void mm_write_junc(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r)
+{
+	int32_t i, t_off, swritten = 0;
+	s->l = 0;
+	if (!r->is_spliced || r->p == 0) return; // no junctions
+	if (r->p->trans_strand != 1 && r->p->trans_strand != 2) return; // no preferred strand
+	for (i = 0, t_off = r->rs; i < (int)r->p->n_cigar; ++i) {
+		int op = r->p->cigar[i]&0xf, len = r->p->cigar[i]>>4;
+		if (op == MM_CIGAR_MATCH || op == MM_CIGAR_EQ_MATCH || op == MM_CIGAR_X_MISMATCH || op == MM_CIGAR_DEL) {
+			t_off += len;
+		} else if (op == MM_CIGAR_N_SKIP) { // intron
+			uint8_t donor[2], acceptor[2];
+			int32_t score1 = 0, score2 = 0, rev;
+			assert(len >= 2);
+			rev = (r->p->trans_strand == 2) ^ r->rev;
+			if (!rev) {
+				mm_idx_getseq(mi, r->rid, t_off, t_off + 2, donor);
+				mm_idx_getseq(mi, r->rid, t_off + len - 2, t_off + len, acceptor);
+			} else {
+				mm_idx_getseq(mi, r->rid, t_off, t_off + 2, acceptor);
+				mm_idx_getseq(mi, r->rid, t_off + len - 2, t_off + len, donor);
+				revcomp_splice(donor);
+				revcomp_splice(acceptor);
+			}
+			//fprintf(stderr, "%c%c-%c%c\n", "ACGTN"[donor[0]], "ACGTN"[donor[1]], "ACGTN"[acceptor[0]], "ACGTN"[acceptor[1]]);
+			if (donor[0] == 2 && donor[1] == 3) score1 = 3;
+			else if (donor[0] == 2 && donor[1] == 1) score1 = 2;
+			else if (donor[0] == 0 && donor[1] == 3) score1 = 1;
+			if (acceptor[0] == 0 && acceptor[1] == 2) score2 = 3;
+			else if (acceptor[0] == 0 && acceptor[1] == 1) score2 = 1;
+			if (swritten) mm_sprintf_lite(s, "\n");
+			else swritten = 1;
+			mm_sprintf_lite(s, "%s\t%d\t%d\t%s\t%d\t%c", mi->seq[r->rid].name, t_off, t_off + len, t->name, score1 + score2, "+-"[rev]);
+			t_off += len;
+		}
+	}
+	assert(t_off == r->re);
+}
+
 static void write_MD_core(kstring_t *s, const uint8_t *tseq, const uint8_t *qseq, const mm_reg1_t *r, char *tmp, int write_tag)
 {
 	int i, q_off, t_off, l_MD = 0;

@@ -594,9 +594,16 @@ static void *worker_pipeline(void *shared, int step, void *in)
 							mm_err_fwrite(r->p, r->p->capacity, 4, p->fp_split);
 						}
 					}
+				} else if (p->opt->flag & MM_F_OUT_JUNC) { // extra logic for --write-junc
+					for (j = 0; j < s->n_reg[i]; ++j) {
+						const mm_reg1_t *r = &s->reg[i][j];
+						if (r->id != r->parent) continue;
+						mm_write_junc(&p->str, mi, t, r);
+						if (p->str.l > 0) mm_err_puts(p->str.s);
+					}
 				} else if (s->n_reg[i] > 0) { // the query has at least one hit
 					for (j = 0; j < s->n_reg[i]; ++j) {
-						mm_reg1_t *r = &s->reg[i][j];
+						const mm_reg1_t *r = &s->reg[i][j];
 						assert(!r->sam_pri || r->id == r->parent);
 						if ((p->opt->flag & MM_F_NO_PRINT_2ND) && r->id != r->parent)
 							continue;
