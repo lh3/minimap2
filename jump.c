@@ -10,7 +10,7 @@ static int32_t mm_jump_check(void *km, const mm_idx_t *mi, int32_t qlen, const u
 	uint32_t cigar;
 	if (!r->p || r->p->n_cigar <= 0) return -1; // only working with CIGAR
 	clip = e == 0? r->qs : qlen - r->qe;
-	cigar = r->p->cigar[e == 0? 0 : r->p->n_cigar - 1];
+	cigar = r->p->cigar[is_left? 0 : r->p->n_cigar - 1];
 	clen = (cigar&0xf) == MM_CIGAR_MATCH? cigar>>4 : 0;
 	if (clen <= ext) return -1;
 	if (is_left) {
@@ -50,7 +50,8 @@ static uint8_t *mm_jump_get_qseq_seq(void *km, int32_t qlen, const uint8_t *qseq
 static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *opt, int32_t qlen, const uint8_t *qseq0, mm_reg1_t *r, int32_t ts_strand)
 {
 	uint8_t *tseq = 0, *qseq = 0;
-	int32_t i, n, i0 = -1, m = 0, mm0 = 0, l;
+	int32_t i, n, l, i0, m, mm0;
+	int32_t i0_anno = -1, n_anno = 0, mm0_anno = 0, i0_misc = -1, n_misc = 0, mm0_misc = 0;
 	int32_t ext = 1 + (opt->b + opt->a - 1) / opt->a + 1;
 	int32_t clip = !r->rev? r->qs : qlen - r->qe;
 	int32_t extt = clip < ext? clip : ext;
@@ -84,9 +85,15 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 		for (mm2 = 0; j < clip + ext; ++j)
 			if (qseq[j] != tseq[j] || qseq[j] > 3 || tseq[j] > 3)
 				++mm2;
-		if (mm1 == 0 && mm2 <= 1)
-			i0 = i, mm0 = mm1 + mm2, ++m; // i0 points to the rightmost i
+		if (mm1 == 0 && mm2 <= 1) {
+			if (ai->flag & MM_JUNC_ANNO)
+				i0_anno = i, mm0_anno = mm1 + mm2, ++n_anno; // i0 points to the rightmost i
+			else
+				i0_misc = i, mm0_misc = mm1 + mm2, ++n_misc;
+		}
 	}
+	if (n_anno > 0) m = n_anno, i0 = i0_anno, mm0 = mm0_anno;
+	else m = n_misc, i0 = i0_misc, mm0 = mm0_misc;
 	kfree(km, tseq);
 
 	l = m > 0? a[i0].off - r->rs : 0; // may be negative
@@ -115,13 +122,14 @@ static void mm_jump_split_left(void *km, const mm_idx_t *mi, const mm_mapopt_t *
 static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t *opt, int32_t qlen, const uint8_t *qseq0, mm_reg1_t *r, int32_t ts_strand)
 {
 	uint8_t *tseq = 0, *qseq = 0;
-	int32_t i, n, i0 = -1, m = 0, mm0 = 0, l;
+	int32_t i, n, l, i0, m, mm0;
+	int32_t i0_anno = -1, n_anno = 0, mm0_anno = 0, i0_misc = -1, n_misc = 0, mm0_misc = 0;
 	int32_t ext = 1 + (opt->b + opt->a - 1) / opt->a + 1;
 	int32_t clip = !r->rev? qlen - r->qe : r->qs;
 	int32_t extt = clip < ext? clip : ext;
 	const mm_idx_jjump1_t *a;
 
-	if (mm_jump_check(km, mi, qlen, qseq0, r, ext + MM_MIN_EXON_LEN, 1) < 0) return;
+	if (mm_jump_check(km, mi, qlen, qseq0, r, ext + MM_MIN_EXON_LEN, 0) < 0) return;
 	a = mm_idx_jump_get(mi, r->rid, r->re - ext, r->re + extt, &n);
 	if (n == 0) return;
 
@@ -150,10 +158,17 @@ static void mm_jump_split_right(void *km, const mm_idx_t *mi, const mm_mapopt_t 
 			if (qseq[j] != tseq[j] || qseq[j] > 3 || tseq[j] > 3)
 				++mm1;
 		if (mm1 == 0 && mm2 <= 1) {
-			if (i0 < 0) i0 = i, mm0 = mm1 + mm2;
-			++m;
+			if (ai->flag & MM_JUNC_ANNO) {
+				if (i0_anno < 0) i0_anno = i, mm0_anno = mm1 + mm2;
+				++n_anno;
+			} else {
+				if (i0_misc < 0) i0_misc = i, mm0_misc = mm1 + mm2;
+				++n_misc;
+			}
 		}
 	}
+	if (n_anno > 0) m = n_anno, i0 = i0_anno, mm0 = mm0_anno;
+	else m = n_misc, i0 = i0_misc, mm0 = mm0_misc;
 	kfree(km, tseq);
 
 	l = m > 0? r->re - a[i0].off : 0; // may be negative

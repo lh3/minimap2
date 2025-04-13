@@ -902,7 +902,7 @@ static mm_idx_jjump_t *mm_idx_jjump_merge(const mm_idx_t *mi, const mm_idx_jjump
 
 int mm_idx_jjump_read(mm_idx_t *mi, const char *fn, int flag, int min_sc)
 {
-	int32_t i, n = 0;
+	int32_t i, j, n_anno = 0, n_misc = 0;
 	mm_idx_intv_t *I;
 	mm_idx_jjump_t *J;
 	if (mi->h == 0) mm_idx_index_name(mi);
@@ -919,10 +919,13 @@ int mm_idx_jjump_read(mm_idx_t *mi, const char *fn, int flag, int min_sc)
 		free(mi->J); free(J);
 		mi->J = J2;
 	} else mi->J = J;
-	for (i = 0; i < mi->n_seq; ++i)
-		n += mi->J[i].n;
+	for (i = 0; i < mi->n_seq; ++i) {
+		for (j = 0; j < mi->J[i].n; ++j)
+			if (mi->J[i].a[j].flag & MM_JUNC_ANNO) ++n_anno;
+			else ++n_misc;
+	}
 	if (mm_verbose >= 3)
-		fprintf(stderr, "[%s] there are %d splice positions in the index\n", __func__, n);
+		fprintf(stderr, "[%s] there are %d annotated and %d other splice positions in the index\n", __func__, n_anno, n_misc);
 	return 0;
 }
 
