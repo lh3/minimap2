@@ -84,7 +84,7 @@ static ko_longopt_t long_options[] = {
 	{ "pairing",        ko_required_argument, 359 },
 	{ "jump-min-match", ko_required_argument, 360 },
 	{ "write-junc",     ko_no_argument,       361 },
-	{ "jump-pass1",     ko_required_argument, 362 },
+	{ "pass1",          ko_required_argument, 362 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },

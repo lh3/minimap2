@@ -1,4 +1,4 @@
-.TH minimap2 1 "6 April 2025" "minimap2-2.28-dirty (r1264)" "Bioinformatics tools"
+.TH minimap2 1 "13 April 2025" "minimap2-2.28-dirty (r1274)" "Bioinformatics tools"
 .SH NAME
 .PP
 minimap2 - mapping and alignment between collections of DNA sequences
@@ -361,9 +361,9 @@ has no effect with the default
 Junctions used to extend alignment towards ends of reads [].
 .I FILE
 can be gene annotations in the BED12 format (aka 12-column BED), or intron
-positions in 5-column BED. BED12 file can be converted from GTF/GFF3 with
-`paftools.js gff2bed anno.gtf'.
-This option is intended for short RNA-seq reads, while
+positions in 5-column BED with the strand column required. BED12 file can be
+converted from GTF/GFF3 with `paftools.js gff2bed anno.gtf'. This option is
+intended for short RNA-seq reads, while
 .B --junc-bed
 for long noisy RNA-seq reads.
 .TP
@@ -546,6 +546,25 @@ In SAM output, use soft clipping for supplementary alignments.
 .TP
 .B --secondary-seq
 In SAM output, show query sequences for secondary alignments.
+.TP
+.B --write-junc
+Output splice junctions in 6-column BED: contig name, start, end,
+read name, score and strand. Score is the sum of donor and acceptor scores,
+where GT gets 3, GC gets 2 and AT gets 1 at donor sites,
+while AG gets 3 and AC gets 1 at acceptor sites.
+.TP
+.BI --pass1 \ FILE
+Junctions BED file outputted by
+.B --write-junc
+[]. Rows with scores lower than 5 are ignored. When both
+.B -j
+and
+.B --pass1
+are present, junctions in
+.B -j
+are preferred over in
+.BR --pass1
+when there is ambiguity.
 .TP
 .BI --seed \ INT
 Integer seed for randomizing equally best hits. Minimap2 hashes
