@@ -241,6 +241,9 @@ mixed.
 minimap2 -ax splice:sr ref.fa reads-se.fq.gz > aln.sam           # single-end
 minimap2 -ax splice:sr ref.fa r1.fq.gz r2.fq.gz > aln.sam        # paired-end
 minimap2 -ax splice:sr -j anno.bed ref.fa r1.fq r2.fq > aln.sam  # use annotation
+# 2-pass alignment
+minimap2 -x splice:sr -j anno.bed --write-junc ref.fa r1.fq r2.fq > junc.bed
+minimap2 -ax splice:sr -j anno.bed --pass1=junc.bed ref.fa r1.fq r2.fq > aln.sam
 ```
 The new preset `splice:sr` was added between v2.28 and v2.29. It functions
 similarly to `sr` except that it performs spliced alignment. Note that this
