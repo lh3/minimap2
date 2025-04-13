@@ -835,6 +835,33 @@ KRADIX_SORT_INIT(jj, mm_idx_jjump1_t, sort_key_jj, 4)
 #define sort_key_jj2(a) ((a).off2)
 KRADIX_SORT_INIT(jj2, mm_idx_jjump1_t, sort_key_jj2, 4)
 
+static void sort_jjump(mm_idx_jjump_t *jj2)
+{
+	int32_t j0, j, k;
+	if (jj2 == 0 || jj2->n == 0) return;
+	radix_sort_jj(jj2->a, jj2->a + jj2->n);
+	for (j0 = 0, j = 1; j <= jj2->n; ++j) {
+		if (j == jj2->n || jj2->a[j0].off != jj2->a[j].off) {
+			radix_sort_jj2(jj2->a + j0, jj2->a + j);
+			j0 = j;
+		}
+	}
+	// the actual merge
+	for (j0 = 0, j = 1, k = 0; j <= jj2->n; ++j) {
+		if (j == jj2->n || jj2->a[j0].off != jj2->a[j].off || jj2->a[j0].off2 != jj2->a[j].off2) {
+			int32_t t, cnt = 0;
+			uint16_t flag = 0;
+			for (t = j0; t < j; ++t) cnt += jj2->a[t].cnt, flag |= jj2->a[t].flag;
+			jj2->a[k] = jj2->a[j0];
+			jj2->a[k].cnt = cnt;
+			jj2->a[k++].flag = flag;
+			j0 = j;
+		}
+	}
+	jj2->n = k;
+	jj2->a = REALLOC(mm_idx_jjump1_t, jj2->a, k);
+}
+
 static mm_idx_jjump_t *mm_idx_bed2jjump(const mm_idx_t *mi, const mm_idx_intv_t *I, uint16_t flag)
 {
 	int32_t i;
@@ -850,7 +877,7 @@ static mm_idx_jjump_t *mm_idx_bed2jjump(const mm_idx_t *mi, const mm_idx_intv_t 
 			jj->a[k].off = intv->a[j].st, jj->a[k].off2 = intv->a[j].en, jj->a[k].cnt = intv->a[j].cnt, jj->a[k].strand = intv->a[j].strand, jj->a[k++].flag = flag;
 			jj->a[k].off = intv->a[j].en, jj->a[k].off2 = intv->a[j].st, jj->a[k].cnt = intv->a[j].cnt, jj->a[k].strand = intv->a[j].strand, jj->a[k++].flag = flag;
 		}
-		radix_sort_jj(jj->a, jj->a + jj->n);
+		sort_jjump(jj);
 	}
 	return J;
 }
@@ -861,41 +888,21 @@ static mm_idx_jjump_t *mm_idx_jjump_merge(const mm_idx_t *mi, const mm_idx_jjump
 	mm_idx_jjump_t *J2;
 	J2 = CALLOC(mm_idx_jjump_t, mi->n_seq);
 	for (i = 0; i < mi->n_seq; ++i) {
-		int32_t j, j0, k;
+		int32_t j, k;
 		const mm_idx_jjump_t *jj0 = &J0[i], *jj1 = &J1[i];
 		mm_idx_jjump_t *jj2 = &J2[i];
-		// merge jj0 and jj1 into jj2; faster with sorted merge but the performance difference should be negligible
 		jj2->n = jj0->n + jj1->n;
 		jj2->a = CALLOC(mm_idx_jjump1_t, jj2->n);
 		for (j = k = 0; j < jj0->n; ++j) jj2->a[k++] = jj0->a[j];
-		for (j = k = 0; j < jj1->n; ++j) jj2->a[k++] = jj1->a[j];
-		radix_sort_jj(jj2->a, jj2->a + jj2->n); // sort by a[].off
-		// sort by a[].off and then by a[].off2 such that they can be merged later
-		for (j0 = 0, j = 1; j <= jj2->n; ++j) {
-			if (j == jj2->n || jj2->a[j0].off != jj2->a[j].off) {
-				radix_sort_jj2(jj2->a + j0, jj2->a + j);
-				j0 = j;
-			}
-		}
-		// the actual merge
-		for (j0 = 0, j = 1, k = 0; j <= jj2->n; ++j) {
-			if (j == jj2->n || jj2->a[j0].off != jj2->a[j].off || jj2->a[j0].off2 != jj2->a[j].off2) {
-				int32_t t, cnt = 0;
-				uint16_t flag = 0;
-				for (t = j0; t < j; ++t) cnt += jj2->a[t].cnt, flag |= jj2->a[t].flag;
-				jj2->a[k] = jj2->a[j0];
-				jj2->a[k].cnt = cnt;
-				jj2->a[k++].flag = flag;
-				j0 = j;
-			}
-		}
+		for (j = 0; j < jj1->n; ++j) jj2->a[k++] = jj1->a[j];
+		sort_jjump(jj2);
 	}
 	return J2;
 }
 
 int mm_idx_jjump_read(mm_idx_t *mi, const char *fn, int flag, int min_sc)
 {
-	int32_t i;
+	int32_t i, n = 0;
 	mm_idx_intv_t *I;
 	mm_idx_jjump_t *J;
 	if (mi->h == 0) mm_idx_index_name(mi);
@@ -905,13 +912,17 @@ int mm_idx_jjump_read(mm_idx_t *mi, const char *fn, int flag, int min_sc)
 	free(I);
 	if (mi->J) {
 		mm_idx_jjump_t *J2;
-		J2 = mm_idx_jjump_merge(mi, mi->J, J2);
+		J2 = mm_idx_jjump_merge(mi, mi->J, J);
 		for (i = 0; i < mi->n_seq; ++i) {
 			free(mi->J[i].a); free(J[i].a);
 		}
 		free(mi->J); free(J);
 		mi->J = J2;
 	} else mi->J = J;
+	for (i = 0; i < mi->n_seq; ++i)
+		n += mi->J[i].n;
+	if (mm_verbose >= 3)
+		fprintf(stderr, "[%s] there are %d splice positions in the index\n", __func__, n);
 	return 0;
 }
 
