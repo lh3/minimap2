@@ -669,9 +669,9 @@ int mm_idx_alt_read(mm_idx_t *mi, const char *fn)
 	return n_alt;
 }
 
-/*******************
- * Known junctions *
- *******************/
+/***************
+ * BED reading *
+ ***************/
 
 #define sort_key_bed(a) ((a).st)
 KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
@@ -679,10 +679,7 @@ KRADIX_SORT_INIT(bed, mm_idx_intv1_t, sort_key_bed, 4)
 #define sort_key_end(a) ((a).en)
 KRADIX_SORT_INIT(end, mm_idx_intv1_t, sort_key_end, 4)
 
-#define sort_key_jj(a) ((a).off)
-KRADIX_SORT_INIT(jj, mm_idx_jjump1_t, sort_key_jj, 4)
-
-static mm_idx_intv_t *mm_idx_bed_read_core(const mm_idx_t *mi, const char *fn, int read_junc, int is_pass1)
+static mm_idx_intv_t *mm_idx_bed_read_core(const mm_idx_t *mi, const char *fn, int read_junc, int min_sc)
 {
 	gzFile fp;
 	kstream_t *ks;
@@ -729,7 +726,7 @@ static mm_idx_intv_t *mm_idx_bed_read_core(const mm_idx_t *mi, const char *fn, i
 			}
 		}
 		if (id < 0 || t.st < 0 || t.st >= t.en) continue; // contig ID not found, or other problems
-		if (is_pass1 && t.score < 5) continue; // for pass-1 BED, ignore junctions with weak signals; NB: paired with pass-1!
+		if (min_sc > 0 && t.score < min_sc) continue;
 		r = &I[id];
 		if (i >= 11 && read_junc) { // BED12
 			int32_t st, sz, en;
@@ -762,12 +759,12 @@ static mm_idx_intv_t *mm_idx_bed_read_core(const mm_idx_t *mi, const char *fn, i
 	return I;
 }
 
-static mm_idx_intv_t *mm_idx_bed_read_merged(const mm_idx_t *mi, const char *fn, int read_junc, int is_pass1)
+static mm_idx_intv_t *mm_idx_bed_read_merge(const mm_idx_t *mi, const char *fn, int read_junc, int min_sc)
 {
 	long n = 0, n0 = 0;
 	int32_t i;
 	mm_idx_intv_t *I;
-	I = mm_idx_bed_read_core(mi, fn, read_junc, is_pass1);
+	I = mm_idx_bed_read_core(mi, fn, read_junc, min_sc);
 	if (I == 0) return 0;
 	for (i = 0; i < mi->n_seq; ++i) {
 		int32_t j, j0, k;
@@ -796,46 +793,11 @@ static mm_idx_intv_t *mm_idx_bed_read_merged(const mm_idx_t *mi, const char *fn,
 	return I;
 }
 
-static mm_idx_jjump_t *mm_idx_bed2jjump(const mm_idx_t *mi, const mm_idx_intv_t *I)
-{
-	int32_t i;
-	mm_idx_jjump_t *J;
-	J = CALLOC(mm_idx_jjump_t, mi->n_seq);
-	for (i = 0; i < mi->n_seq; ++i) {
-		int32_t j, k;
-		const mm_idx_intv_t *intv = &I[i];
-		mm_idx_jjump_t *jj = &J[i];
-		jj->n = intv->n * 2;
-		jj->a = CALLOC(mm_idx_jjump1_t, jj->n);
-		for (j = k = 0; j < intv->n; ++j) {
-			jj->a[k].off = intv->a[j].st, jj->a[k].off2 = intv->a[j].en, jj->a[k].cnt = intv->a[j].cnt, jj->a[k].strand = intv->a[j].strand, ++k;
-			jj->a[k].off = intv->a[j].en, jj->a[k].off2 = intv->a[j].st, jj->a[k].cnt = intv->a[j].cnt, jj->a[k].strand = intv->a[j].strand, ++k;
-		}
-		radix_sort_jj(jj->a, jj->a + jj->n);
-	}
-	return J;
-}
-
-int mm_idx_bed_read2(mm_idx_t *mi, const char *fn, int read_junc, int for_score, int for_jump)
-{
-	int32_t i;
-	mm_idx_intv_t *I;
-	if (mi->h == 0) mm_idx_index_name(mi);
-	I = mm_idx_bed_read_merged(mi, fn, read_junc, 0);
-	if (I == 0) return 0;
-	if (for_jump)
-		mi->J = mm_idx_bed2jjump(mi, I);
-	if (!for_score) {
-		for (i = 0; i < mi->n_seq; ++i)
-			free(I[i].a);
-		free(I);
-	} else mi->I = I;
-	return 0;
-}
-
 int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc)
 {
-	return mm_idx_bed_read2(mi, fn, read_junc, 1, 0);
+	if (mi->h == 0) mm_idx_index_name(mi);
+	mi->I = mm_idx_bed_read_merge(mi, fn, read_junc, -1);
+	return 0;
 }
 
 int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uint8_t *s)
@@ -861,6 +823,96 @@ int mm_idx_bed_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int32_t en, uin
 		}
 	}
 	return left;
+}
+
+/*********************************
+ * Reading junctions for jumping *
+ *********************************/
+
+#define sort_key_jj(a) ((a).off)
+KRADIX_SORT_INIT(jj, mm_idx_jjump1_t, sort_key_jj, 4)
+
+#define sort_key_jj2(a) ((a).off2)
+KRADIX_SORT_INIT(jj2, mm_idx_jjump1_t, sort_key_jj2, 4)
+
+static mm_idx_jjump_t *mm_idx_bed2jjump(const mm_idx_t *mi, const mm_idx_intv_t *I, uint16_t flag)
+{
+	int32_t i;
+	mm_idx_jjump_t *J;
+	J = CALLOC(mm_idx_jjump_t, mi->n_seq);
+	for (i = 0; i < mi->n_seq; ++i) {
+		int32_t j, k;
+		const mm_idx_intv_t *intv = &I[i];
+		mm_idx_jjump_t *jj = &J[i];
+		jj->n = intv->n * 2;
+		jj->a = CALLOC(mm_idx_jjump1_t, jj->n);
+		for (j = k = 0; j < intv->n; ++j) {
+			jj->a[k].off = intv->a[j].st, jj->a[k].off2 = intv->a[j].en, jj->a[k].cnt = intv->a[j].cnt, jj->a[k].strand = intv->a[j].strand, jj->a[k++].flag = flag;
+			jj->a[k].off = intv->a[j].en, jj->a[k].off2 = intv->a[j].st, jj->a[k].cnt = intv->a[j].cnt, jj->a[k].strand = intv->a[j].strand, jj->a[k++].flag = flag;
+		}
+		radix_sort_jj(jj->a, jj->a + jj->n);
+	}
+	return J;
+}
+
+static mm_idx_jjump_t *mm_idx_jjump_merge(const mm_idx_t *mi, const mm_idx_jjump_t *J0, const mm_idx_jjump_t *J1)
+{
+	int32_t i;
+	mm_idx_jjump_t *J2;
+	J2 = CALLOC(mm_idx_jjump_t, mi->n_seq);
+	for (i = 0; i < mi->n_seq; ++i) {
+		int32_t j, j0, k;
+		const mm_idx_jjump_t *jj0 = &J0[i], *jj1 = &J1[i];
+		mm_idx_jjump_t *jj2 = &J2[i];
+		// merge jj0 and jj1 into jj2; faster with sorted merge but the performance difference should be negligible
+		jj2->n = jj0->n + jj1->n;
+		jj2->a = CALLOC(mm_idx_jjump1_t, jj2->n);
+		for (j = k = 0; j < jj0->n; ++j) jj2->a[k++] = jj0->a[j];
+		for (j = k = 0; j < jj1->n; ++j) jj2->a[k++] = jj1->a[j];
+		radix_sort_jj(jj2->a, jj2->a + jj2->n); // sort by a[].off
+		// sort by a[].off and then by a[].off2 such that they can be merged later
+		for (j0 = 0, j = 1; j <= jj2->n; ++j) {
+			if (j == jj2->n || jj2->a[j0].off != jj2->a[j].off) {
+				radix_sort_jj2(jj2->a + j0, jj2->a + j);
+				j0 = j;
+			}
+		}
+		// the actual merge
+		for (j0 = 0, j = 1, k = 0; j <= jj2->n; ++j) {
+			if (j == jj2->n || jj2->a[j0].off != jj2->a[j].off || jj2->a[j0].off2 != jj2->a[j].off2) {
+				int32_t t, cnt = 0;
+				uint16_t flag = 0;
+				for (t = j0; t < j; ++t) cnt += jj2->a[t].cnt, flag |= jj2->a[t].flag;
+				jj2->a[k] = jj2->a[j0];
+				jj2->a[k].cnt = cnt;
+				jj2->a[k++].flag = flag;
+				j0 = j;
+			}
+		}
+	}
+	return J2;
+}
+
+int mm_idx_jjump_read(mm_idx_t *mi, const char *fn, int flag, int min_sc)
+{
+	int32_t i;
+	mm_idx_intv_t *I;
+	mm_idx_jjump_t *J;
+	if (mi->h == 0) mm_idx_index_name(mi);
+	I = mm_idx_bed_read_merge(mi, fn, 1, min_sc);
+	J = mm_idx_bed2jjump(mi, I, flag);
+	for (i = 0; i < mi->n_seq; ++i) free(I[i].a);
+	free(I);
+	if (mi->J) {
+		mm_idx_jjump_t *J2;
+		J2 = mm_idx_jjump_merge(mi, mi->J, J2);
+		for (i = 0; i < mi->n_seq; ++i) {
+			free(mi->J[i].a); free(J[i].a);
+		}
+		free(mi->J); free(J);
+		mi->J = J2;
+	} else mi->J = J;
+	return 0;
 }
 
 static int32_t mm_idx_jump_get_core(int32_t n, const mm_idx_jjump1_t *a, int32_t x) // similar to mm_idx_find_intv()

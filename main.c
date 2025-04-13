@@ -84,6 +84,7 @@ static ko_longopt_t long_options[] = {
 	{ "pairing",        ko_required_argument, 359 },
 	{ "jump-min-match", ko_required_argument, 360 },
 	{ "write-junc",     ko_no_argument,       361 },
+	{ "jump-pass1",     ko_required_argument, 362 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -133,7 +134,7 @@ int main(int argc, char *argv[])
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
 	int i, c, n_threads = 3, n_parts, old_best_n = -1;
-	char *fnw = 0, *rg = 0, *junc_bed = 0, *jump_bed = 0, *fn_spsc = 0, *s, *alt_list = 0;
+	char *fnw = 0, *rg = 0, *fn_bed_junc = 0, *fn_bed_jump = 0, *fn_bed_pass1 = 0, *fn_spsc = 0, *s, *alt_list = 0;
 	FILE *fp_help = stderr;
 	mm_idx_reader_t *idx_rdr;
 	mm_idx_t *mi;
@@ -195,7 +196,7 @@ int main(int argc, char *argv[])
 		else if (c == 'R') rg = o.arg;
 		else if (c == 'h') fp_help = stdout;
 		else if (c == '2') opt.flag |= MM_F_2_IO_THREADS;
-		else if (c == 'j') jump_bed = o.arg;
+		else if (c == 'j') fn_bed_jump = o.arg;
 		else if (c == 'J') {
 			int t;
 			t = atoi(o.arg);
@@ -237,7 +238,7 @@ int main(int argc, char *argv[])
 		else if (c == 336) opt.flag |= MM_F_HARD_MLEVEL; // --hard-mask-level
 		else if (c == 337) opt.max_sw_mat = mm_parse_num(o.arg); // --cap-sw-mat
 		else if (c == 338) opt.max_qlen = mm_parse_num(o.arg); // --max-qlen
-		else if (c == 340) junc_bed = o.arg; // --junc-bed
+		else if (c == 340) fn_bed_junc = o.arg; // --junc-bed
 		else if (c == 341) opt.junc_bonus = atoi(o.arg); // --junc-bonus
 		else if (c == 358) opt.junc_pen = atoi(o.arg); // --junc-pen
 		else if (c == 342) opt.flag |= MM_F_SAM_HIT_ONLY; // --sam-hit-only
@@ -257,6 +258,7 @@ int main(int argc, char *argv[])
 		else if (c == 357) fn_spsc = o.arg; // --spsc
 		else if (c == 360) opt.jump_min_match = mm_parse_num(o.arg); // --jump-min-match
 		else if (c == 361) opt.flag |= MM_F_OUT_JUNC | MM_F_CIGAR; // --write-junc
+		else if (c == 362) fn_bed_pass1 = o.arg; // --jump-pass1
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 330) {
 			fprintf(stderr, "[WARNING] \033[1;31m --lj-min-ratio has been deprecated.\033[0m\n");
@@ -458,15 +460,20 @@ int main(int argc, char *argv[])
 					__func__, realtime() - mm_realtime0, cputime() / (realtime() - mm_realtime0), mi->n_seq);
 		if (argc != o.ind + 1) mm_mapopt_update(&opt, mi);
 		if (mm_verbose >= 3) mm_idx_stat(mi);
-		if (junc_bed) {
-			mm_idx_bed_read(mi, junc_bed, 1);
+		if (fn_bed_junc) {
+			mm_idx_bed_read(mi, fn_bed_junc, 1);
 			if (mi->I == 0 && mm_verbose >= 2)
 				fprintf(stderr, "[WARNING] failed to load the junction BED file\n");
 		}
-		if (jump_bed) {
-			mm_idx_bed_read2(mi, jump_bed, 1, 0, 1);
+		if (fn_bed_jump) {
+			mm_idx_jjump_read(mi, fn_bed_jump, MM_JUNC_ANNO, -1);
 			if (mi->J == 0 && mm_verbose >= 2)
 				fprintf(stderr, "[WARNING] failed to load the jump BED file\n");
+		}
+		if (fn_bed_pass1) {
+			mm_idx_jjump_read(mi, fn_bed_pass1, MM_JUNC_MISC, 5);
+			if (mi->J == 0 && mm_verbose >= 2)
+				fprintf(stderr, "[WARNING] failed to load the pass-1 jump BED file\n");
 		}
 		if (fn_spsc) {
 			mm_idx_spsc_read(mi, fn_spsc, mm_max_spsc_bonus(&opt));

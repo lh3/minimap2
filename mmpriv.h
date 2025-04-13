@@ -24,6 +24,9 @@
 #define MM_SEED_SEG_SHIFT  48
 #define MM_SEED_SEG_MASK   (0xffULL<<(MM_SEED_SEG_SHIFT))
 
+#define MM_JUNC_ANNO 0x1
+#define MM_JUNC_MISC 0x2
+
 #ifndef kroundup32
 #define kroundup32(x) (--(x), (x)|=(x)>>1, (x)|=(x)>>2, (x)|=(x)>>4, (x)|=(x)>>8, (x)|=(x)>>16, ++(x))
 #endif
@@ -54,8 +57,9 @@ typedef struct {
 } mm_seg_t;
 
 typedef struct {
-	int32_t off, off2;
-	int32_t cnt, strand;
+	int32_t off, off2, cnt;
+	int16_t strand;
+	uint16_t flag;
 } mm_idx_jjump1_t;
 
 double cputime(void);
@@ -81,14 +85,17 @@ void mm_write_sam2(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int se
 void mm_write_sam3(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, int seg_idx, int reg_idx, int n_seg, const int *n_regss, const mm_reg1_t *const* regss, void *km, int64_t opt_flag, int rep_len);
 void mm_write_junc(kstring_t *s, const mm_idx_t *mi, const mm_bseq1_t *t, const mm_reg1_t *r);
 
+// indexing related in index.c
 void mm_idxopt_init(mm_idxopt_t *opt);
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n);
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f);
 int mm_idx_getseq2(const mm_idx_t *mi, int is_rev, uint32_t rid, uint32_t st, uint32_t en, uint8_t *seq);
 mm_reg1_t *mm_gen_regs(void *km, uint32_t hash, int qlen, int n_u, uint64_t *u, mm128_t *a, int is_qstrand);
-int mm_idx_bed_read2(mm_idx_t *mi, const char *fn, int read_junc, int for_score, int for_jump);
+int mm_idx_bed_read(mm_idx_t *mi, const char *fn, int read_junc);
+int mm_idx_jjump_read(mm_idx_t *mi, const char *fn, int flag, int min_sc);
 const mm_idx_jjump1_t *mm_idx_jump_get(const mm_idx_t *db, int32_t cid, int32_t st, int32_t en, int32_t *n);
 
+// chaining in lchain.c
 mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					  int is_cdna, int n_segs, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km);
 mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
