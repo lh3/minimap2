@@ -1012,30 +1012,35 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	n_a = mm_squeeze_a(km, n_regs, regs, a);
 	memset(&ez, 0, sizeof(ksw_extz_t));
 	for (i = 0; i < n_regs; ++i) {
-		mm_reg1_t r2;
+		mm_reg1_t r2; // only used for inversion
 		if ((opt->flag&MM_F_SPLICE) && (opt->flag&MM_F_SPLICE_FOR) && (opt->flag&MM_F_SPLICE_REV)) { // then do two rounds of alignments for both strands
 			mm_reg1_t s[2], s2[2], *r;
-			int which, trans_strand;
 			s[0] = s[1] = regs[i];
-			mm_align1(km, opt, mi, qlen, qseq0, &s[0], &s2[0], n_a, a, &ez, MM_F_SPLICE_FOR);
-			mm_align1(km, opt, mi, qlen, qseq0, &s[1], &s2[1], n_a, a, &ez, MM_F_SPLICE_REV);
-			if (s[0].p->dp_score > s[1].p->dp_score) which = 0, trans_strand = 1;
-			else if (s[0].p->dp_score < s[1].p->dp_score) which = 1, trans_strand = 2;
-			else trans_strand = 3, which = (qlen + s[0].p->dp_score) & 1; // randomly choose a strand, effectively
-			if (which == 0) {
+			mm_align1(km, opt, mi, qlen, qseq0, &s[0], &s2[0], n_a, a, &ez, MM_F_SPLICE_FOR); // assume the transcript is on the + strand of the genome
+			if ((opt->flag&MM_F_SR_RNA) && regs[i].qe - regs[i].qs == regs[i].re - regs[i].rs && s[0].qe - s[0].qs == s[0].re - s[0].rs && s[0].qs == 0 && s[0].qe == qlen) {
 				regs[i] = s[0], r2 = s2[0];
-				free(s[1].p);
+				regs[i].p->trans_strand = 0;
 			} else {
-				regs[i] = s[1], r2 = s2[1];
-				free(s[0].p);
-			}
-			r = &regs[i];
-			r->p->trans_strand = trans_strand;
-			if (r->is_spliced) {
-				if (trans_strand == 1 || trans_strand == 2) // this is an *approximate* way to tell if there are splice signals.
-					r->p->dp_max += (opt->a + opt->b) + ((opt->a + opt->b) >> 1);
-				else if (trans_strand == 3)
-					r->p->dp_max -= opt->a + opt->b;
+				int which, trans_strand;
+				mm_align1(km, opt, mi, qlen, qseq0, &s[1], &s2[1], n_a, a, &ez, MM_F_SPLICE_REV); // assume the transcript on the - strand
+				if (s[0].p->dp_score > s[1].p->dp_score) which = 0, trans_strand = 1;
+				else if (s[0].p->dp_score < s[1].p->dp_score) which = 1, trans_strand = 2;
+				else trans_strand = 3, which = (qlen + s[0].p->dp_score) & 1; // randomly choose a strand, effectively
+				if (which == 0) {
+					regs[i] = s[0], r2 = s2[0];
+					free(s[1].p);
+				} else {
+					regs[i] = s[1], r2 = s2[1];
+					free(s[0].p);
+				}
+				r = &regs[i];
+				r->p->trans_strand = trans_strand;
+				if (r->is_spliced) {
+					if (trans_strand == 1 || trans_strand == 2) // this is an *approximate* way to tell if there are splice signals.
+						r->p->dp_max += (opt->a + opt->b) + ((opt->a + opt->b) >> 1);
+					else if (trans_strand == 3)
+						r->p->dp_max -= opt->a + opt->b;
+				}
 			}
 		} else { // one round of alignment
 			mm_align1(km, opt, mi, qlen, qseq0, &regs[i], &r2, n_a, a, &ez, opt->flag);
