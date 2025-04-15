@@ -1059,7 +1059,7 @@ mm_reg1_t *mm_align_skeleton(void *km, const mm_mapopt_t *opt, const mm_idx_t *m
 	kfree(km, qseq0[0]);
 	kfree(km, ez.cigar);
 	mm_filter_regs(opt, qlen, n_regs_, regs);
-	if (!(opt->flag&MM_F_SR) && !opt->split_prefix && qlen >= opt->rank_min_len) {
+	if (!(opt->flag&(MM_F_SR|MM_F_SR_RNA|MM_F_ALL_CHAINS)) && !opt->split_prefix && qlen >= opt->rank_min_len) {
 		mm_update_dp_max(qlen, *n_regs_, regs, opt->rank_frac, opt->a, opt->b);
 		mm_filter_regs(opt, qlen, n_regs_, regs);
 	}
