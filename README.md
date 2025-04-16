@@ -247,7 +247,7 @@ minimap2 -ax splice:sr -j anno.bed --pass1=junc.bed ref.fa r1.fq r2.fq > aln.sam
 ```
 The new preset `splice:sr` was added between v2.28 and v2.29. It functions
 similarly to `sr` except that it performs spliced alignment. Note that this
-functionality is ***experiemental*** and evolving. It is better not to use it
+functionality is ***experimental*** and evolving. It is better not to use it
 for production.
 
 #### <a name="full-genome"></a>Full genome/assembly alignment
