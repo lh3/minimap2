@@ -6,6 +6,8 @@
 #include "mmpriv.h"
 #include "ksw2.h"
 
+#define MM_MAX_QLEN_FLANK 100
+
 static void ksw_gen_simple_mat(int m, int8_t *mat, int8_t a, int8_t b, int8_t sc_ambi)
 {
 	int i, j;
@@ -365,6 +367,45 @@ static void mm_align_pair(void *km, const mm_mapopt_t *opt, int qlen, const uint
 	}
 }
 
+static int mm_align_sr_rna(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq, const uint8_t *junc, uint8_t *tseq2, uint8_t *junc2,
+							const int8_t *mat, int w, int end_bonus, int zdrop, int ksw_flag, ksw_extz_t *ez)
+{
+	int32_t ilen = opt->q2 * 2, tlen2 = qlen * 2 + ilen;
+	int32_t i, ll = 0, lr = 0, nn = 0, n_ins = 0;
+	if (!(opt->flag & MM_F_SPLICE)) return 0; // only for spliced alignment
+	if (qlen > MM_MAX_QLEN_FLANK || qlen * 2 + ilen > tlen) return 0; // the query sequence can't be too long and the target sequence must be long enough
+	for (i = 0; i < qlen; ++i) // exact match length from the left
+		if (qseq[i] == tseq[i] && qseq[i] < 4)
+			++ll;
+	for (i = 0; i < qlen; ++i) // exact match length from the right
+		if (qseq[qlen - 1 - i] == tseq[tlen - 1 - i] && qseq[qlen - 1 - i] < 4)
+			++lr;
+	if (qlen - (ll + lr) > 9) return 0; // qlen may be smaller than ll+lr
+	memcpy(tseq2, tseq, qlen);
+	memset(&tseq2[qlen], 4, ilen);
+	memcpy(&tseq2[qlen + ilen], &tseq[tlen - qlen], qlen);
+	if (junc) {
+		memcpy(junc2, junc, qlen);
+		memset(&junc2[qlen], 0, ilen);
+		memcpy(&junc2[qlen + ilen], &junc[tlen - qlen], qlen);
+	}
+	if (!(opt->flag & MM_F_SPLICE_OLD)) ksw_flag |= KSW_EZ_SPLICE_CMPLX;
+	ksw_exts2_sse(km, qlen, qseq, tlen2, tseq2, 5, mat, opt->q, opt->e, opt->q2, opt->noncan, zdrop, end_bonus, opt->junc_bonus, opt->junc_pen, ksw_flag, junc2, ez);
+	if (ez->zdropped) return 0;
+	if ((ez->cigar[0]&0xf) != KSW_CIGAR_MATCH || (ez->cigar[ez->n_cigar-1]&0xf) != KSW_CIGAR_MATCH) return 0;
+	for (i = 0; i < ez->n_cigar; ++i) { // count the number of introns in the alignment
+		if ((ez->cigar[i]&0xf) == KSW_CIGAR_N_SKIP)
+			++nn;
+		else if ((ez->cigar[i]&0xf) == KSW_CIGAR_INS)
+			++n_ins;
+	}
+	if (nn != 1 || n_ins > 0) return 0; // the heuristic only works when there is exactly one intron
+	for (i = 0; i < ez->n_cigar; ++i)
+		if ((ez->cigar[i]&0xf) == KSW_CIGAR_N_SKIP)
+			ez->cigar[i] += (tlen - tlen2) << 4;
+	return 1;
+}
+
 static inline int mm_get_hplen_back(const mm_idx_t *mi, uint32_t rid, uint32_t x)
 {
 	int64_t i, off0 = mi->seq[rid].offset, off = off0 + x;
@@ -605,7 +646,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 {
 	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE), is_sr_rna = (!!(opt->flag & MM_F_SR_RNA) && is_splice);
 	int32_t rid = a[r->as].x<<1>>33, rev = a[r->as].x>>63, as1, cnt1;
-	uint8_t *tseq, *qseq, *junc;
+	uint8_t *tseq, *qseq, *junc, *tseq2 = 0, *junc2 = 0;
 	int32_t i, l, bw, bw_long, dropped = 0, ksw_flag = 0, rs0, re0, qs0, qe0;
 	int32_t rs, re, qs, qe;
 	int32_t rs1, qs1, re1, qe1;
@@ -729,6 +770,12 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	tseq = (uint8_t*)kmalloc(km, re0 - rs0);
 	junc = (uint8_t*)kmalloc(km, re0 - rs0);
 
+	if (is_sr_rna) {
+		int32_t max_tlen2 = MM_MAX_QLEN_FLANK * 2 + opt->q2 * 2;
+		tseq2 = Kmalloc(km, uint8_t, max_tlen2 * 2);
+		junc2 = tseq2 + max_tlen2;
+	}
+
 	if (qs > 0 && rs > 0) { // left extension; probably the condition can be changed to "qs > qs0 && rs > rs0"
 		if (opt->flag & MM_F_QSTRAND) {
 			qseq = &qseq0[0][qs0];
@@ -786,7 +833,11 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				else
 					mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez);
 			} else { // perform normal gapped alignment
-				mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
+				int32_t skip_full = 0;
+				if (is_sr_rna)
+					skip_full = mm_align_sr_rna(km, opt, qe - qs, qseq, re - rs, tseq, junc, tseq2, junc2, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez);
+				if (!skip_full)
+					mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
 			}
 			// test Z-drop and inversion Z-drop
 			if ((zdrop_code = mm_test_zdrop(km, opt, qseq, tseq, ez->n_cigar, ez->cigar, mat)) != 0)
@@ -857,6 +908,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 			r->p->trans_strand ^= 3; // flip to the read strand
 	}
 
+	if (tseq2) kfree(km, tseq2);
 	kfree(km, tseq);
 	kfree(km, junc);
 }
