@@ -753,14 +753,14 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 	re1 = rs, qe1 = qs;
 	assert(qs1 >= 0 && rs1 >= 0);
 
-	for (i = is_sr? cnt1 - 1 : 1; i < cnt1; ++i) { // gap filling
+	for (i = is_sr? cnt1 - 1 : 1; i < cnt1; ++i) { // gap filling; for short genomic reads, fill from the first seed to the last
 		if ((a[as1+i].y & (MM_SEED_IGNORE|MM_SEED_TANDEM)) && i != cnt1 - 1) continue;
 		if (is_sr && !(mi->flag & MM_I_HPC)) {
 			re = (int32_t)a[as1 + i].x + 1;
 			qe = (int32_t)a[as1 + i].y + 1;
 		} else mm_adjust_minier(mi, qseq0, &a[as1 + i], &re, &qe);
 		re1 = re, qe1 = qe;
-		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || (qe - qs >= opt->min_ksw_len && re - rs >= opt->min_ksw_len)) {
+		if (i == cnt1 - 1 || (a[as1+i].y&MM_SEED_LONG_JOIN) || (qe - qs >= opt->min_ksw_len && re - rs >= opt->min_ksw_len)) { // gap filling
 			int j, bw1 = bw_long, zdrop_code;
 			if (a[as1+i].y & MM_SEED_LONG_JOIN)
 				bw1 = qe - qs > re - rs? qe - qs : re - rs;
