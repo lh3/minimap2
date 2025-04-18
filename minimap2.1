@@ -552,6 +552,7 @@ Output splice junctions in 6-column BED: contig name, start, end,
 read name, score and strand. Score is the sum of donor and acceptor scores,
 where GT gets 3, GC gets 2 and AT gets 1 at donor sites,
 while AG gets 3 and AC gets 1 at acceptor sites.
+Alignments with mapping quality below 10 are ignored.
 .TP
 .BI --pass1 \ FILE
 Junctions BED file outputted by

@@ -601,7 +601,7 @@ static void *worker_pipeline(void *shared, int step, void *in)
 				} else if (p->opt->flag & MM_F_OUT_JUNC) { // extra logic for --write-junc
 					for (j = 0; j < s->n_reg[i]; ++j) {
 						const mm_reg1_t *r = &s->reg[i][j];
-						if (r->id != r->parent) continue;
+						if (r->id != r->parent || r->mapq < 10) continue;
 						mm_write_junc(&p->str, mi, t, r);
 						if (p->str.l > 0) mm_err_puts(p->str.s);
 					}
