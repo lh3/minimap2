@@ -21,7 +21,7 @@ cd minimap2 && make
 ./minimap2 -ax splice -uf -k14 ref.fa reads.fa > aln.sam  # noisy Nanopore direct RNA-seq
 ./minimap2 -ax splice:hq -uf ref.fa query.fa > aln.sam    # PacBio Kinnex/Iso-seq (RNA-seq)
 ./minimap2 -ax splice --junc-bed=anno.bed12 ref.fa query.fa > aln.sam  # use annotated junctions
-./minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # short-read RNA-seq (r1236+; experimental)
+./minimap2 -ax splice:sr ref.fa r1.fq r2.fq > aln.sam     # short-read RNA-seq (v2.29+)
 ./minimap2 -ax splice:sr -j anno.bed12 ref.fa r1.fq r2.fq > aln.sam
 ./minimap2 -cx asm5 asm1.fa asm2.fa > aln.paf             # intra-species asm-to-asm alignment
 ./minimap2 -x ava-pb reads.fa reads.fa > overlaps.paf     # PacBio read overlap
@@ -41,7 +41,7 @@ man ./minimap2.1
     - [Map long mRNA/cDNA reads](#map-long-splice)
     - [Find overlaps between long reads](#long-overlap)
     - [Map short genomic reads](#short-genomic)
-    - [Map short RNA-seq reads (experimental & evolving)](#short-rna-seq)
+    - [Map short RNA-seq reads](#short-rna-seq)
     - [Full genome/assembly alignment](#full-genome)
   - [Advanced features](#advanced)
     - [Working with >65535 CIGAR operations](#long-cigar)
@@ -77,8 +77,8 @@ Detailed evaluations are available from the [minimap2 paper][doi] or the
 Minimap2 is optimized for x86-64 CPUs. You can acquire precompiled binaries from
 the [release page][release] with:
 ```sh
-curl -L https://github.com/lh3/minimap2/releases/download/v2.28/minimap2-2.28_x64-linux.tar.bz2 | tar -jxvf -
-./minimap2-2.28_x64-linux/minimap2
+curl -L https://github.com/lh3/minimap2/releases/download/v2.29/minimap2-2.29_x64-linux.tar.bz2 | tar -jxvf -
+./minimap2-2.29_x64-linux/minimap2
 ```
 If you want to compile from the source, you need to have a C compiler, GNU make
 and zlib development files installed. Then type `make` in the source code
@@ -235,7 +235,7 @@ be paired if they are adjacent in the input stream and have the same name (with
 the `/[0-9]` suffix trimmed if present). Single- and paired-end reads can be
 mixed.
 
-#### <a name="short-rna-seq"></a>Map short RNA-seq reads (experimental & evolving)
+#### <a name="short-rna-seq"></a>Map short RNA-seq reads
 
 ```sh
 minimap2 -ax splice:sr ref.fa reads-se.fq.gz > aln.sam           # single-end
@@ -245,10 +245,8 @@ minimap2 -ax splice:sr -j anno.bed ref.fa r1.fq r2.fq > aln.sam  # use annotatio
 minimap2 -x splice:sr -j anno.bed --write-junc ref.fa r1.fq r2.fq > junc.bed
 minimap2 -ax splice:sr -j anno.bed --pass1=junc.bed ref.fa r1.fq r2.fq > aln.sam
 ```
-The new preset `splice:sr` was added between v2.28 and v2.29. It functions
-similarly to `sr` except that it performs spliced alignment. Note that this
-functionality is ***experiemental*** and evolving. It is better not to use it
-for production.
+The new preset `splice:sr` was added in v2.29. It functions similarly to `sr`
+except that it performs spliced alignment.
 
 #### <a name="full-genome"></a>Full genome/assembly alignment
 

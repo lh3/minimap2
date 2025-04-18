@@ -1,11 +1,11 @@
 Release 2.29-r1283 (18 April 2025)
 ----------------------------------
 
-Notable changes:
+Notable changes to minimap2:
 
  * New feature: added the `splice:sr` preset for short RNA-seq read alignment.
    Users may use `-j` to specify known gene annotation to improve spliced
-   alignment close to the ends of reads. Also added `--write-junc` and
+   alignment close to the ends of short reads. Also added `--write-junc` and
    `--pass1` for 2-pass short-read RNA-seq alignment.
 
  * Experimental feature: read splice scores from a file specified by `--spsc`
@@ -14,10 +14,24 @@ Notable changes:
 
  * Change: adjusted the mapping quality calculation for spliced alignment.
 
-This release produces identical genomic long-read alignment to v2.27. Short
-genomic read alignment and the mapping quality of long RNA-seq read alignment
-may slightly differ in very rare cases. Minimap2 now supports short/long
-genomic/RNA-seq read alignment.
+ * Bugfixes: a) missing overlap alignment when base alignment is requested
+   (#969); b) incorrect summary information for long genomes (#1192); c)
+   missing parameter check for `--score-N` (#1226).
+
+ * Improvement: a) warn about absent junction files (#1229); b) report an error
+   if a wrong preset prefixed with "splice" is specified (#589).
+
+Notable changes to mappy:
+
+ * Improvement: allow passing read name (#1260)
+
+ * Improvement: exposed score for ambiguous bases (#1240)
+
+Minimap2 now supports short/long genomic/RNA-seq read alignment along with
+contig alignment and all-vs-all read overlapping. It produces identical genomic
+long-read or contig alignment to v2.27. Short genomic read alignment and the
+mapping quality of long RNA-seq read alignment may slightly differ in very rare
+cases.
 
 (2.29: 18 April 2025, r1283)
 
