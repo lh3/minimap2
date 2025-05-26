@@ -967,7 +967,7 @@ typedef struct mm_idx_spsc_s {
 	uint64_t *a; // pos<<56 | score<<1 | acceptor
 } mm_idx_spsc_t;
 
-int32_t mm_idx_spsc_read(mm_idx_t *idx, const char *fn, int32_t max_sc)
+int32_t mm_idx_spsc_read2(mm_idx_t *idx, const char *fn, int32_t max_sc, float scale)
 {
 	gzFile fp;
 	kstring_t str = {0,0,0};
@@ -1007,6 +1007,8 @@ int32_t mm_idx_spsc_read(mm_idx_t *idx, const char *fn, int32_t max_sc)
 			}
 		}
 		if (i < 4) continue; // not enough fields
+		if (scale > 0.0f && scale < 1.0f)
+			score = score > 0.0f? (int)(score * scale + .499) : (int)(score * scale - .499);
 		if (score > max_sc) score = max_sc;
 		if (score < -max_sc) score = -max_sc;
 		cid = mm_idx_name2id(idx, name);
@@ -1028,6 +1030,11 @@ int32_t mm_idx_spsc_read(mm_idx_t *idx, const char *fn, int32_t max_sc)
 	if (mm_verbose >= 3)
 		fprintf(stderr, "[M::%s] read %ld splice scores\n", __func__, (long)n_read);
 	return 0;
+}
+
+int32_t mm_idx_spsc_read(mm_idx_t *idx, const char *fn, int32_t max_sc)
+{
+	return mm_idx_spsc_read2(idx, fn, max_sc, 1.0f);
 }
 
 static int32_t mm_idx_find_intv(int32_t n, const uint64_t *a, int64_t x)
