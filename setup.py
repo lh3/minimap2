@@ -23,7 +23,7 @@ def readme():
 
 setup(
 	name = 'mappy',
-	version = '2.29',
+	version = '2.30',
 	url = 'https://github.com/lh3/minimap2',
 	description = 'Minimap2 python binding',
 	long_description = readme(),

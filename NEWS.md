@@ -1,3 +1,18 @@
+Release 2.30-r1287 (15 June 2025)
+---------------------------------
+
+Notable changes:
+
+ * Improvement: consolidated `--spsc`.
+
+ * Deprecation: subcommands `splice2bed`, `gff2bed`, `gff2junc`, `junceval` and
+   `exoneval` in `paftools.js` are deprecated by minigff. They will remain
+   indefinitely for backward compatibility.
+
+(2.30: 15 June 2025, r1287)
+
+
+
 Release 2.29-r1283 (18 April 2025)
 ----------------------------------
 
