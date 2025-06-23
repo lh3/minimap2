@@ -8,6 +8,12 @@ PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
 
+arch_uname=$(shell uname -m)
+ifeq ($(arch_uname),aarch64)
+      aarch64=1
+else
+      aarch64=
+endif
 ifneq ($(aarch64),)
 	arm_neon=1
 endif
