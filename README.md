@@ -3,6 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/mappy.svg?style=flat)](https://pypi.python.org/pypi/mappy)
 [![Build Status](https://github.com/lh3/minimap2/actions/workflows/ci.yaml/badge.svg)](https://github.com/lh3/minimap2/actions)
 ## <a name="started"></a>Getting Started
+**ALERT:** `minimap2.com` is a [phishing site](https://github.com/lh3/minimap2/issues/1316). Please don't use anything from that website.
 ```sh
 git clone https://github.com/lh3/minimap2
 cd minimap2 && make
