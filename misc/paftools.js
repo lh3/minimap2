@@ -1740,10 +1740,11 @@ function paf_gff2bed(args)
 
 function paf_sam2paf(args)
 {
-	var c, pri_only = false, long_cs = false, pri_pri_only = false;
-	while ((c = getopt(args, "pPL")) != null) {
+	var c, pri_only = false, long_cs = false, pri_pri_only = false, allow_unmapped = false;
+	while ((c = getopt(args, "pPUL")) != null) {
 		if (c == 'p') pri_only = true;
 		else if (c == 'P') pri_pri_only = pri_only = true;
+		else if (c == 'U') allow_unmapped = true;
 		else if (c == 'L') long_cs = true;
 	}
 	if (args.length == getopt.ind) {
@@ -1751,6 +1752,7 @@ function paf_sam2paf(args)
 		print("Options:");
 		print("  -p      convert primary or supplementary alignments only");
 		print("  -P      convert primary alignments only");
+		print("  -U      convert unmapped reads as well");
 		print("  -L      output the cs tag in the long form");
 		exit(1);
 	}
@@ -1775,7 +1777,15 @@ function paf_sam2paf(args)
 		var flag = parseInt(t[1]);
 		if (t[9] != '*' && t[10] != '*' && t[9].length != t[10].length)
 			throw Error("at line " + lineno + ": inconsistent SEQ and QUAL lengths - " + t[9].length + " != " + t[10].length);
-		if (t[2] == '*' || (flag&4) || t[5] == '*') continue;
+        if (t[2] == '*' || (flag&4) || t[5] == '*') {
+			if (allow_unmapped) {
+            // emit an unmapped PAF line instead of skipping
+            // fields: qname, qlen, qstart, qend, strand, tname, tlen, tstart, tend, n_match, aln_len, mapq
+            var qlen_val = (t[9] == '*' ? 0 : t[9].length);
+            print([t[0], qlen_val, 0, 0, '*', '*', 0, 0, 0, 0, 0, 0].join("\t"));
+			}
+            continue;
+        }
 		if (pri_only && (flag&0x100)) continue;
 		if (pri_pri_only && (flag&0x900)) continue;
 		var tlen = ctg_len[t[2]];
