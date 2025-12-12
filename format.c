@@ -361,22 +361,32 @@ static void write_cs_ds_or_MD(void *km, kstring_t *s, const mm_idx_t *mi, const 
 	kfree(km, qseq); kfree(km, tseq); kfree(km, tmp);
 }
 
-int mm_gen_cs_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int is_MD, int no_iden, int is_qstrand)
+int mm_gen_cs_ds_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int is_MD, int is_ds, int no_iden, int is_qstrand)
 {
 	mm_bseq1_t t;
 	kstring_t str;
 	str.s = *buf, str.l = 0, str.m = *max_len;
 	t.l_seq = strlen(seq);
 	t.seq = (char*)seq;
-	write_cs_ds_or_MD(km, &str, mi, &t, r, no_iden, is_MD, 0, 0, is_qstrand);
+	write_cs_ds_or_MD(km, &str, mi, &t, r, no_iden, is_MD, is_ds, 0, is_qstrand);
 	*max_len = str.m;
 	*buf = str.s;
 	return str.l;
 }
 
+int mm_gen_cs_or_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int is_MD, int no_iden, int is_qstrand)
+{
+	return mm_gen_cs_ds_or_MD(km, buf, max_len, mi, r, seq, is_MD, 0, no_iden, is_qstrand);
+}
+
 int mm_gen_cs(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int no_iden)
 {
 	return mm_gen_cs_or_MD(km, buf, max_len, mi, r, seq, 0, no_iden, 0);
+}
+
+int mm_gen_ds(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq, int no_iden)
+{
+	return mm_gen_cs_ds_or_MD(km, buf, max_len, mi, r, seq, 0, 1, no_iden, 0);
 }
 
 int mm_gen_MD(void *km, char **buf, int *max_len, const mm_idx_t *mi, const mm_reg1_t *r, const char *seq)

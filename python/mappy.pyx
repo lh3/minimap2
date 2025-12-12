@@ -14,9 +14,9 @@ cdef class Alignment:
 	cdef int8_t _strand, _trans_strand
 	cdef uint8_t _mapq, _is_primary
 	cdef int _seg_id
-	cdef _ctg, _cigar, _cs, _MD # these are python objects
+	cdef _ctg, _cigar, _cs, _ds, _MD # these are python objects
 
-	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, mlen, blen, NM, trans_strand, seg_id, cs_str, MD_str):
+	def __cinit__(self, ctg, cl, cs, ce, strand, qs, qe, mapq, cigar, is_primary, mlen, blen, NM, trans_strand, seg_id, cs_str, ds_str, MD_str):
 		self._ctg = ctg if isinstance(ctg, str) else ctg.decode()
 		self._ctg_len, self._r_st, self._r_en = cl, cs, ce
 		self._strand, self._q_st, self._q_en = strand, qs, qe
@@ -27,6 +27,7 @@ cdef class Alignment:
 		self._trans_strand = trans_strand
 		self._seg_id = seg_id
 		self._cs = cs_str
+		self._ds = ds_str
 		self._MD = MD_str
 
 	@property
@@ -78,6 +79,9 @@ cdef class Alignment:
 	def cs(self): return self._cs
 
 	@property
+	def ds(self): return self._ds
+
+	@property
 	def MD(self): return self._MD
 
 	@property
@@ -96,6 +100,7 @@ cdef class Alignment:
 		a = [str(self._q_st), str(self._q_en), strand, self._ctg, str(self._ctg_len), str(self._r_st), str(self._r_en),
 			str(self._mlen), str(self._blen), str(self._mapq), tp, ts, "cg:Z:" + self.cigar_str]
 		if self._cs != "": a.append("cs:Z:" + self._cs)
+		if self._ds != "": a.append("ds:Z:" + self._ds)
 		if self._MD != "": a.append("MD:Z:" + self._MD)
 		return "\t".join(a)
 
@@ -165,7 +170,7 @@ cdef class Aligner:
 	def __bool__(self):
 		return (self._idx != NULL)
 
-	def map(self, seq, seq2=None, name=None, buf=None, cs=False, MD=False, max_frag_len=None, extra_flags=None):
+	def map(self, seq, seq2=None, name=None, buf=None, cs=False, ds=False, MD=False, max_frag_len=None, extra_flags=None):
 		cdef cmappy.mm_reg1_t *regs
 		cdef cmappy.mm_hitpy_t h
 		cdef ThreadBuffer b
@@ -206,19 +211,22 @@ cdef class Aligner:
 			i = 0
 			while i < n_regs:
 				cmappy.mm_reg2hitpy(self._idx, &regs[i], &h)
-				cigar, _cs, _MD = [], '', ''
+				cigar, _cs, _ds, _MD = [], '', '', ''
 				for k in range(h.n_cigar32): # convert the 32-bit CIGAR encoding to Python array
 					c = h.cigar32[k]
 					cigar.append([c>>4, c&0xf])
-				if cs or MD: # generate the cs and/or the MD tag, if requested
+				if cs or ds or MD: # generate the cs/ds and/or the MD tag, if requested
 					_cur_seq = _seq2 if h.seg_id > 0 and seq2 is not None else _seq
 					if cs:
 						l_cs_str = cmappy.mm_gen_cs(km, &cs_str, &m_cs_str, self._idx, &regs[i], _cur_seq, 1)
 						_cs = cs_str[:l_cs_str] if isinstance(cs_str, str) else cs_str[:l_cs_str].decode()
+					if ds:
+						l_cs_str = cmappy.mm_gen_ds(km, &cs_str, &m_cs_str, self._idx, &regs[i], _cur_seq, 1)
+						_ds = cs_str[:l_cs_str] if isinstance(cs_str, str) else cs_str[:l_cs_str].decode()
 					if MD:
 						l_cs_str = cmappy.mm_gen_MD(km, &cs_str, &m_cs_str, self._idx, &regs[i], _cur_seq)
 						_MD = cs_str[:l_cs_str] if isinstance(cs_str, str) else cs_str[:l_cs_str].decode()
-				yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand, h.seg_id, _cs, _MD)
+				yield Alignment(h.ctg, h.ctg_len, h.ctg_start, h.ctg_end, h.strand, h.qry_start, h.qry_end, h.mapq, cigar, h.is_primary, h.mlen, h.blen, h.NM, h.trans_strand, h.seg_id, _cs, _ds, _MD)
 				cmappy.mm_free_reg1(&regs[i])
 				i += 1
 		finally:
