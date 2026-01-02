@@ -2,6 +2,7 @@ from libc.stdint cimport uint8_t, int8_t
 from libc.stdlib cimport free
 cimport cmappy
 import sys
+from cython.cimports.cpython.exc import PyErr_SetFromErrnoWithFilenameObject
 
 __version__ = '2.30'
 
@@ -153,7 +154,9 @@ cdef class Aligner:
 				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, NULL)
 			else:
 				r = cmappy.mm_idx_reader_open(str.encode(fn_idx_in), &self.idx_opt, str.encode(fn_idx_out))
-			if r is not NULL:
+			if r is NULL:
+				PyErr_SetFromErrnoWithFilenameObject(OSError, fn_idx_in)
+			else:
 				self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
 				cmappy.mm_idx_reader_close(r)
 				cmappy.mm_mapopt_update(&self.map_opt, self._idx)
