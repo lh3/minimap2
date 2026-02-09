@@ -1765,6 +1765,7 @@ function paf_sam2paf(args)
 	while (file.readline(buf) >= 0) {
 		var m, n_cigar = 0, line = buf.toString();
 		++lineno;
+		if (line.length == 0) continue; // fix edge case of trailing lines
 		if (line.charAt(0) == '@') {
 			if (/^@SQ/.test(line)) {
 				var name = (m = /\tSN:(\S+)/.exec(line)) != null? m[1] : null;
