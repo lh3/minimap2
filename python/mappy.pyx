@@ -189,7 +189,6 @@ cdef class Aligner:
 		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
-		km = cmappy.mm_tbuf_get_km(b._b)
 
 		_seq = seq if isinstance(seq, bytes) else seq.encode()
 		if name is not None:
@@ -216,6 +215,7 @@ cdef class Aligner:
 					c = h.cigar32[k]
 					cigar.append([c>>4, c&0xf])
 				if cs or ds or MD: # generate the cs/ds and/or the MD tag, if requested
+					km = cmappy.mm_tbuf_get_km(b._b)
 					_cur_seq = _seq2 if h.seg_id > 0 and seq2 is not None else _seq
 					if cs:
 						l_cs_str = cmappy.mm_gen_cs(km, &cs_str, &m_cs_str, self._idx, &regs[i], _cur_seq, 1)
