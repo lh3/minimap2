@@ -1,7 +1,6 @@
 from libc.stdint cimport uint8_t, int8_t
 from libc.stdlib cimport free
 cimport cmappy
-import sys
 
 __version__ = '2.30'
 
@@ -180,13 +179,12 @@ cdef class Aligner:
 		cdef void *km
 		cdef cmappy.mm_mapopt_t map_opt
 
-		if self._idx == NULL: return
-		if ((self.map_opt.flag & 4) and (self._idx.flag & 2)): return
+		if self._idx == NULL: return None
+		if ((self.map_opt.flag & 4) and (self._idx.flag & 2)): return None
 		map_opt = self.map_opt
 		if max_frag_len is not None: map_opt.max_frag_len = max_frag_len
 		if extra_flags is not None: map_opt.flag |= extra_flags
 
-		if self._idx is NULL: return None
 		if buf is None: b = ThreadBuffer()
 		else: b = buf
 
@@ -239,8 +237,8 @@ cdef class Aligner:
 	def seq(self, str name, int start=0, int end=0x7fffffff):
 		cdef int l
 		cdef char *s
-		if self._idx == NULL: return
-		if ((self.map_opt.flag & 4) and (self._idx.flag & 2)): return
+		if self._idx == NULL: return None
+		if ((self.map_opt.flag & 4) and (self._idx.flag & 2)): return None
 		s = cmappy.mappy_fetch_seq(self._idx, name.encode(), start, end, &l)
 		if l == 0: return None
 		r = s[:l] if isinstance(s, str) else s[:l].decode()
@@ -248,18 +246,24 @@ cdef class Aligner:
 		return r
 
 	@property
-	def k(self): return self._idx.k
+	def k(self):
+		if self._idx == NULL: return None
+		return self._idx.k
 
 	@property
-	def w(self): return self._idx.w
+	def w(self):
+		if self._idx == NULL: return None
+		return self._idx.w
 
 	@property
-	def n_seq(self): return self._idx.n_seq
+	def n_seq(self):
+		if self._idx == NULL: return None
+		return self._idx.n_seq
 
 	@property
 	def seq_names(self):
 		cdef char *p
-		if self._idx == NULL: return
+		if self._idx == NULL: return None
 		sn = []
 		for i in range(self._idx.n_seq):
 			p = self._idx.seq[i].name
