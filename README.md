@@ -96,6 +96,12 @@ implementation to the different SIMD instruction sets. To compile using SIMDe,
 use `make -f Makefile.simde`. To compile for ARM CPUs, use `Makefile.simde`
 with the ARM related command lines given above.
 
+Minimap2 optionally supports [jemalloc][jemalloc] for improved memory
+management. This can reduce heap fragmentation and peak memory usage when
+loading and destroying many indexes. To compile with jemalloc, install
+libjemalloc-dev (or equivalent) and type `make jemalloc=1`. The `--version`
+output will show `+jemalloc` when built with this option.
+
 ### <a name="general"></a>General usage
 
 Without any options, minimap2 takes a reference database and a query sequence
@@ -426,4 +432,5 @@ mappy` or [from BioConda][mappyconda] via `conda install -c bioconda mappy`.
 [doi]: https://doi.org/10.1093/bioinformatics/bty191
 [doi2]: https://doi.org/10.1093/bioinformatics/btab705
 [simde]: https://github.com/nemequ/simde
+[jemalloc]: https://github.com/jemalloc/jemalloc
 [unimap]: https://github.com/lh3/unimap

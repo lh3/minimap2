@@ -23,6 +23,22 @@ jobs:
         make CC=${{ matrix.compiler }}
         file minimap2 | grep x86-64
 
+  build-linux-jemalloc:
+    name: Linux x86_64 (jemalloc)
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout minimap2
+      uses: actions/checkout@v4
+
+    - name: Install jemalloc
+      run: sudo apt-get update && sudo apt-get install -y libjemalloc-dev
+
+    - name: Compile with jemalloc
+      run: |
+        make jemalloc=1
+        ./minimap2 --version | grep +jemalloc
+
   build-linux-aarch64:
     name: Linux aarch64
     runs-on: ubuntu-latest

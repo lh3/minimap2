@@ -38,6 +38,11 @@ ifneq ($(tsan),)
 	LIBS+=-fsanitize=thread -ldl
 endif
 
+ifneq ($(jemalloc),)
+	CPPFLAGS+=-DUSE_JEMALLOC
+	LIBS+=-ljemalloc
+endif
+
 .PHONY:all extra clean depend
 .SUFFIXES:.c .o
 
