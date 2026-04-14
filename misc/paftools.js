@@ -3750,6 +3750,7 @@ function main(args)
 		print("  pafcmp     compare two PAF files");
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
 		print("  pbsim2fq   convert PBSIM-simulated MAF to FASTQ");
+		print("  badread2fa convert Baderead FASTQ to FASTA");
 		print("  junceval   evaluate splice junction consistency with known annotations");
 		print("  exoneval   evaluate exon-level consistency with known annotations");
 		print("  ov-eval    evaluate read overlap sensitivity using read-to-ref mapping");
