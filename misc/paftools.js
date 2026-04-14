@@ -2405,6 +2405,52 @@ function paf_pbsim2fq(args)
 	buf2.destroy();
 }
 
+function paf_badread2fa(args)
+{
+	if (args.length < 2) {
+		print("Usage: paftools.js badread2fa <ref.fa.fai> <badread.fq>");
+		exit(1);
+	}
+
+	var len = {}, file, buf = new Bytes();
+	file = new File(args[0]);
+	while (file.readline(buf) >= 0) {
+		var t = buf.toString().split("\t");
+		len[t[0]] = parseInt(t[1]);
+	}
+	file.close();
+
+	var id = 0, n_discard = 0;
+	file = new File(args[1]);
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		var m, a = null, is_fq = line[0] == '@'? true : false;
+		if (!/\schimera\s/.test(line) && (m = /\s(\S+),([+-])strand,(\d+)-(\d+)/.exec(line)) != null) {
+			if (len[m[1]] == null) throw Error("failed to find the contig length of " + m[1]);
+			m[3] = parseInt(m[3]);
+			m[4] = parseInt(m[4]);
+			if (m[2] == '+')
+				a = [ "S" + (id+1), m[1], m[3], m[4], m[2] ];
+			else
+				a = [ "S" + (id+1), m[1], len[m[1]] - m[4], len[m[1]] - m[3], m[2] ];
+		}
+		file.readline(buf);
+		var seq = buf.toString();
+		if (is_fq) {
+			file.readline(buf);
+			file.readline(buf);
+		}
+		if (a != null) {
+			print(">" + a.join("!"));
+			print(seq);
+		} else ++n_discard;
+		++id;
+	}
+	file.close();
+	buf.destroy();
+	warn("WARNING: discarded " + n_discard + " reads");
+}
+
 function paf_junceval(args)
 {
 	var c, l_fuzzy = 0, print_ovlp = false, print_err_only = false, first_only = false, chr_only = false, aa = false, is_bed = false;
@@ -3729,6 +3775,7 @@ function main(args)
 	else if (cmd == 'bedcov') paf_bedcov(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
+	else if (cmd == 'badread2fa') paf_badread2fa(args);
 	else if (cmd == 'junceval') paf_junceval(args);
 	else if (cmd == 'exoneval') paf_exoneval(args);
 	else if (cmd == 'ov-eval') paf_ov_eval(args);
