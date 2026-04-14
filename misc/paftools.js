@@ -2424,8 +2424,8 @@ function paf_badread2fa(args)
 	file = new File(args[1]);
 	while (file.readline(buf) >= 0) {
 		var line = buf.toString();
-		var m, a = null, is_fq = line[0] == '@'? true : false;
-		if (!/\schimera\s/.test(line) && (m = /\s(\S+),([+-])strand,(\d+)-(\d+)/.exec(line)) != null) {
+		var m, tag = '', a = null, is_fq = line[0] == '@'? true : false;
+		if (!/\schimera\s/.test(line) && (m = /\s(\S+),([+-])strand,(\d+)-(\d+).*read_identity=([0-9\.]+)%/.exec(line)) != null) {
 			if (len[m[1]] == null) throw Error("failed to find the contig length of " + m[1]);
 			m[3] = parseInt(m[3]);
 			m[4] = parseInt(m[4]);
@@ -2433,6 +2433,7 @@ function paf_badread2fa(args)
 				a = [ "S" + (id+1), m[1], m[3], m[4], m[2] ];
 			else
 				a = [ "S" + (id+1), m[1], len[m[1]] - m[4], len[m[1]] - m[3], m[2] ];
+			tag = "ri:f:" + m[5];
 		}
 		file.readline(buf);
 		var seq = buf.toString();
@@ -2441,7 +2442,7 @@ function paf_badread2fa(args)
 			file.readline(buf);
 		}
 		if (a != null) {
-			print(">" + a.join("!"));
+			print(">" + a.join("!"), tag);
 			print(seq);
 		} else ++n_discard;
 		++id;
