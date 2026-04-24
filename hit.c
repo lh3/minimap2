@@ -256,19 +256,25 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int chec
 {
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
-		for (i = k = 0; i < n; ++i) {
+		uint8_t *keep = (uint8_t*)kmalloc(km, n);
+		for (i = 0; i < n; ++i) {
 			int p = r[i].parent;
+			keep[i] = 0;
 			if (p == i || r[i].inv) { // primary or inversion
-				r[k++] = r[i];
+				keep[i] = 1;
 			} else if ((r[i].score >= r[p].score * pri_ratio || r[i].score + min_diff >= r[p].score) && n_2nd < best_n) {
 				if (!(r[i].qs == r[p].qs && r[i].qe == r[p].qe && r[i].rid == r[p].rid && r[i].rs == r[p].rs && r[i].re == r[p].re)) // not identical hits
-					r[k++] = r[i], ++n_2nd;
-				else if (r[i].p) free(r[i].p);
+					keep[i] = 1, ++n_2nd;
 			} else if (check_strand && n_2nd < best_n && r[i].score > min_strand_sc && r[i].rev != r[p].rev) {
 				r[i].strand_retained = 1;
-				r[k++] = r[i], ++n_2nd;
-			} else if (r[i].p) free(r[i].p);
+				keep[i] = 1, ++n_2nd;
+			}
 		}
+		for (i = k = 0; i < n; ++i) {
+			if (keep[i]) r[k++] = r[i];
+			else if (r[i].p) free(r[i].p);
+		}
+		kfree(km, keep);
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
 		*n_ = k;
 	}
@@ -277,13 +283,18 @@ void mm_select_sub(void *km, float pri_ratio, int min_diff, int best_n, int chec
 int mm_filter_strand_retained(int n_regs, mm_reg1_t *r)
 {
 	int i, k;
-	for (i = k = 0; i < n_regs; ++i) {
+	uint8_t *keep = (uint8_t*)malloc(n_regs);
+	for (i = 0; i < n_regs; ++i) {
 		int p = r[i].parent;
-		if (!r[i].strand_retained || r[i].div < r[p].div * 5.0f || r[i].div < 0.01f) {
+		keep[i] = (!r[i].strand_retained || r[i].div < r[p].div * 5.0f || r[i].div < 0.01f);
+	}
+	for (i = k = 0; i < n_regs; ++i) {
+		if (keep[i]) {
 			if (k < i) r[k++] = r[i];
 			else ++k;
 		}
 	}
+	free(keep);
 	return k;
 }
 

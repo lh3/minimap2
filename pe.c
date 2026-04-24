@@ -8,7 +8,8 @@ void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int 
 	if (pri_ratio > 0.0f && *n_ > 0) {
 		int i, k, n = *n_, n_2nd = 0;
 		int max_dist = n_segs == 2? qlens[0] + qlens[1] + max_gap_ref : 0;
-		for (i = k = 0; i < n; ++i) {
+		uint8_t *keep = (uint8_t*)kmalloc(km, n);
+		for (i = 0; i < n; ++i) {
 			int to_keep = 0;
 			if (r[i].parent == i) { // primary
 				to_keep = 1;
@@ -34,9 +35,13 @@ void mm_select_sub_multi(void *km, float pri_ratio, float pri1, float pri2, int 
 			if (to_keep && r[i].parent != i) {
 				if (n_2nd++ >= best_n) to_keep = 0; // don't keep if there are too many secondary hits
 			}
-			if (to_keep) r[k++] = r[i];
+			keep[i] = to_keep;
+		}
+		for (i = k = 0; i < n; ++i) {
+			if (keep[i]) r[k++] = r[i];
 			else if (r[i].p) free(r[i].p);
 		}
+		kfree(km, keep);
 		if (k != n) mm_sync_regs(km, k, r); // removing hits requires sync()
 		*n_ = k;
 	}
