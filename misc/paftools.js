@@ -2348,6 +2348,44 @@ function paf_mason2fq(args)
 	buf2.destroy();
 }
 
+// convert Mason read names to BED
+function paf_sim2bed(args)
+{
+	if (args.length == 0) {
+		print("Usage: paftools.js sim2bed <sim.txt>");
+		exit(1);
+	}
+	var buf = new Bytes();
+	var file = new File(args[0]);
+	var seen = {};
+	while (file.readline(buf) >= 0) {
+		var line = buf.toString();
+		var t = line.split("!");
+		if (t.length < 5) continue;
+		var chr = t[1], st, en, strand;
+		if (t[2].indexOf("_") >= 0) { // mason paired-end
+			var pos = t[2].split("_");
+			var end = t[3].split("_");
+			var m = /^(.)(.)\/([12])$/.exec(t[4]);
+			if (m == null) continue;
+			strand = m[3] == "1" ? m[1] : m[2];
+			var read_no = parseInt(m[3]) - 1;
+			st = parseInt(pos[read_no]);
+			en = parseInt(end[read_no]);
+		} else { // badread/pbsim long reads
+			st = parseInt(t[2]);
+			en = parseInt(t[3]);
+			strand = t[4];
+		}
+		if (st > en) { var tmp = st; st = en; en = tmp; }
+		if (seen[line]) continue;
+		seen[line] = 1;
+		print([chr, st, en, line, 0, strand].join("\t"));
+	}
+	file.close();
+	buf.destroy();
+}
+
 // convert pbsim MAF to FASTQ
 function paf_pbsim2fq(args)
 {
@@ -3750,6 +3788,7 @@ function main(args)
 		print("  mapeval    evaluate mapping accuracy using mason2/PBSIM-simulated FASTQ");
 		print("  pafcmp     compare two PAF files");
 		print("  mason2fq   convert mason2-simulated SAM to FASTQ");
+	print("  sim2bed    convert mason2-simulated read names to BED");
 		print("  pbsim2fq   convert PBSIM-simulated MAF to FASTQ");
 		print("  badread2fa convert Baderead FASTQ to FASTA");
 		print("  junceval   evaluate splice junction consistency with known annotations");
@@ -3776,6 +3815,7 @@ function main(args)
 	else if (cmd == 'pafcmp') paf_pafcmp(args);
 	else if (cmd == 'bedcov') paf_bedcov(args);
 	else if (cmd == 'mason2fq') paf_mason2fq(args);
+	else if (cmd == 'sim2bed') paf_sim2bed(args);
 	else if (cmd == 'pbsim2fq') paf_pbsim2fq(args);
 	else if (cmd == 'badread2fa') paf_badread2fa(args);
 	else if (cmd == 'junceval') paf_junceval(args);
