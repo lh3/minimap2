@@ -118,12 +118,16 @@ cdef class Aligner:
 	cdef cmappy.mm_idxopt_t idx_opt
 	cdef cmappy.mm_mapopt_t map_opt
 
-	def __cinit__(self, fn_idx_in=None, preset=None, k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, bw_long=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None, sc_ambi=None, max_chain_skip=None):
+
+	def __cinit__(self, fn_idx_in=None, preset=None, uf=None ,k=None, w=None, min_cnt=None, min_chain_score=None, min_dp_score=None, bw=None, bw_long=None, best_n=None, n_threads=3, fn_idx_out=None, max_frag_len=None, extra_flags=None, seq=None, scoring=None, sc_ambi=None, max_chain_skip=None, junc_bed=None):
 		self._idx = NULL
 		cmappy.mm_set_opt(NULL, &self.idx_opt, &self.map_opt) # set the default options
 		if preset is not None:
 			cmappy.mm_set_opt(str.encode(preset), &self.idx_opt, &self.map_opt) # apply preset
 		self.map_opt.flag |= 4 # always perform alignment
+		if uf is not None: 
+			self.map_opt.flag |= 0x100
+			self.map_opt.flag &= ~0x200
 		self.idx_opt.batch_size = 0x7fffffffffffffffL # always build a uni-part index
 		if k is not None: self.idx_opt.k = k
 		if w is not None: self.idx_opt.w = w
@@ -157,6 +161,7 @@ cdef class Aligner:
 				self._idx = cmappy.mm_idx_reader_read(r, n_threads) # NB: ONLY read the first part
 				cmappy.mm_idx_reader_close(r)
 				cmappy.mm_mapopt_update(&self.map_opt, self._idx)
+				if junc_bed is not None: cmappy.mm_idx_bed_read(self._idx, str.encode(junc_bed), 1)
 				cmappy.mm_idx_index_name(self._idx)
 		else:
 			self._idx = cmappy.mappy_idx_seq(self.idx_opt.w, self.idx_opt.k, self.idx_opt.flag&1, self.idx_opt.bucket_bits, str.encode(seq), len(seq))
