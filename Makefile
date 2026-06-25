@@ -2,8 +2,7 @@ CFLAGS=		-g -Wall -O2 -Wc++-compat #-Wextra
 CPPFLAGS=	-DHAVE_KALLOC
 INCLUDES=
 OBJS=		kthread.o kalloc.o misc.o bseq.o sketch.o sdust.o options.o index.o \
-			lchain.o align.o hit.o seed.o jump.o map.o format.o pe.o esterr.o splitidx.o \
-			ksw2_ll_sse.o
+			lchain.o align.o hit.o seed.o jump.o map.o format.o pe.o esterr.o splitidx.o
 PROG=		minimap2
 PROG_EXTRA=	sdust minimap2-lite
 LIBS=		-lm -lz -lpthread
@@ -14,12 +13,14 @@ endif
 
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
-	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o ksw2_dispatch.o
+	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o \
+		ksw2_extz2_sse2.o ksw2_extd2_sse2.o ksw2_exts2_sse2.o \
+		ksw2_dispatch.o ksw2_ll_sse.o
 else                # if sse2only is defined
-	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o
+	OBJS+=ksw2_extz2_sse.o ksw2_extd2_sse.o ksw2_exts2_sse.o ksw2_ll_sse.o
 endif
 else				# if arm_neon is defined
-	OBJS+=ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o
+	OBJS+=ksw2_extz2_neon.o ksw2_extd2_neon.o ksw2_exts2_neon.o ksw2_ll_neon.o
     INCLUDES+=-Isse2neon
 ifeq ($(aarch64),)	#if aarch64 is not defined
 	CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
@@ -62,10 +63,8 @@ sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h ketopt.h sdust.h
 
 # SSE-specific targets on x86/x86_64
 
-ifeq ($(arm_neon),)   # if arm_neon is defined, compile this target with the default setting (i.e. no -msse2)
 ksw2_ll_sse.o:ksw2_ll_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -msse2 $(CPPFLAGS) $(INCLUDES) $< -o $@
-endif
 
 ksw2_extz2_sse41.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
@@ -89,6 +88,9 @@ ksw2_dispatch.o:ksw2_dispatch.c ksw2.h
 		$(CC) -c $(CFLAGS) -msse4.1 $(CPPFLAGS) -DKSW_CPU_DISPATCH $(INCLUDES) $< -o $@
 
 # NEON-specific targets on ARM
+
+ksw2_ll_neon.o:ksw2_ll_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) -D__SSE2__ $(INCLUDES) $< -o $@
 
 ksw2_extz2_neon.o:ksw2_extz2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
@@ -122,7 +124,6 @@ kalloc.o: kalloc.h
 ksw2_extd2_sse.o: ksw2.h kalloc.h
 ksw2_exts2_sse.o: ksw2.h kalloc.h
 ksw2_extz2_sse.o: ksw2.h kalloc.h
-ksw2_ll_sse.o: ksw2.h kalloc.h
 kthread.o: kthread.h
 lchain.o: mmpriv.h minimap.h bseq.h kseq.h kalloc.h krmq.h
 main.o: bseq.h minimap.h mmpriv.h kseq.h ketopt.h
