@@ -11,6 +11,7 @@ ifneq ($(aarch64),)
 	arm_neon=1
 endif
 
+ifeq ($(simde),)    # if simde is not defined
 ifeq ($(arm_neon),) # if arm_neon is not defined
 ifeq ($(sse2only),) # if sse2only is not defined
 	OBJS+=ksw2_extz2_sse41.o ksw2_extd2_sse41.o ksw2_exts2_sse41.o \
@@ -26,6 +27,15 @@ ifeq ($(aarch64),)	#if aarch64 is not defined
 	CFLAGS+=-D_FILE_OFFSET_BITS=64 -mfpu=neon -fsigned-char
 else				#if aarch64 is defined
 	CFLAGS+=-D_FILE_OFFSET_BITS=64 -fsigned-char
+endif
+endif
+else                # if simde is defined
+	CPPFLAGS+=-DUSE_SIMDE -DSIMDE_ENABLE_NATIVE_ALIASES
+	INCLUDES+=-Ilib/simde
+	OBJS+=ksw2_extz2_simde.o ksw2_extd2_simde.o ksw2_exts2_simde.o ksw2_ll_simde.o
+	SIMDE_FLAGS=-D__SSE2__
+ifeq ($(sse2only),) # if sse2only is not defined
+	SIMDE_FLAGS+=-D__SSE4_1__
 endif
 endif
 
@@ -100,6 +110,20 @@ ksw2_extd2_neon.o:ksw2_extd2_sse.c ksw2.h kalloc.h
 
 ksw2_exts2_neon.o:ksw2_exts2_sse.c ksw2.h kalloc.h
 		$(CC) -c $(CFLAGS) $(CPPFLAGS) -DKSW_SSE2_ONLY -D__SSE2__ $(INCLUDES) $< -o $@
+
+# SIMDe targets
+
+ksw2_ll_simde.o:ksw2_ll_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(SIMDE_FLAGS) $(INCLUDES) $< -o $@
+
+ksw2_extz2_simde.o:ksw2_extz2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(SIMDE_FLAGS) $(INCLUDES) $< -o $@
+
+ksw2_extd2_simde.o:ksw2_extd2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(SIMDE_FLAGS) $(INCLUDES) $< -o $@
+
+ksw2_exts2_simde.o:ksw2_exts2_sse.c ksw2.h kalloc.h
+		$(CC) -c $(CFLAGS) $(CPPFLAGS) $(SIMDE_FLAGS) $(INCLUDES) $< -o $@
 
 # other non-file targets
 
