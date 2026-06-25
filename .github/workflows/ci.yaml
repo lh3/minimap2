@@ -20,7 +20,10 @@ jobs:
 
     - name: Compile with ${{ matrix.compiler }}
       run: |
-        make CC=${{ matrix.compiler }}
+        make CC=${{ matrix.compiler }} -j
+        file minimap2 | grep x86-64
+        make clean
+        make CC=${{ matrix.compiler }} simde=1 -j
         file minimap2 | grep x86-64
 
   build-linux-aarch64:
@@ -47,7 +50,10 @@ jobs:
           apt-get install -q -y make ${{ matrix.compiler }} zlib1g-dev file
         run: |
           cd /minimap2
-          make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
+          make CC=${{ matrix.compiler }} aarch64=1 -j
+          file minimap2 | grep aarch64
+          make clean
+          make CC=${{ matrix.compiler }} simde=1 -j
           file minimap2 | grep aarch64
 
   build-mac-arm64:
@@ -63,6 +69,9 @@ jobs:
 
     - name: Compile with ${{ matrix.compiler }}
       run: |
-        make CC=${{ matrix.compiler }} arm_neon=1 aarch64=1 -j
+        make CC=${{ matrix.compiler }} aarch64=1 -j
+        file minimap2 | grep arm64
+        make clean
+        make CC=${{ matrix.compiler }} simde=1 -j
         file minimap2 | grep arm64
         
