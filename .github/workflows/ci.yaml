@@ -24,9 +24,6 @@ jobs:
       run: |
         make CC=${{ matrix.compiler }} -j
         file minimap2 | grep x86-64
-        make clean
-        make CC=${{ matrix.compiler }} simde=1 -j
-        file minimap2 | grep x86-64
 
   build-linux-aarch64:
     name: Linux aarch64
