@@ -17,6 +17,8 @@ jobs:
     steps:
     - name: Checkout minimap2
       uses: actions/checkout@v4
+      with:
+        submodules: 'true'
 
     - name: Compile with ${{ matrix.compiler }}
       run: |
@@ -36,6 +38,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        submodules: 'true'
 
     - name: Compile with ${{ matrix.compiler }}
       uses: uraimo/run-on-arch-action@v3
@@ -66,6 +70,8 @@ jobs:
     steps:
     - name: Checkout minimap2
       uses: actions/checkout@v4
+      with:
+        submodules: 'true'
 
     - name: Compile with ${{ matrix.compiler }}
       run: |
