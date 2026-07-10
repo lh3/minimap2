@@ -115,8 +115,8 @@ This is because minimap2 models one additional evolutionarily conserved base
 around a canonical junction, but SIRV doesn't honor this signal. Option
 `--splice-flank=no` asks minimap2 no to model this additional base.
 
-In the output a tag `ts:A:+` indicates that the read strand is the same as the
-transcript strand; `ts:A:-` indicates the read strand is opposite to the
+In the output a tag `TS:A:+` indicates that the read strand is the same as the
+transcript strand; `TS:A:-` indicates the read strand is opposite to the
 transcript strand. This tag is inferred from the GT-AG signal and is thus only
 available to spliced reads.
 

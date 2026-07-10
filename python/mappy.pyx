@@ -94,9 +94,9 @@ cdef class Alignment:
 		else: strand = '?'
 		if self._is_primary != 0: tp = 'tp:A:P'
 		else: tp = 'tp:A:S'
-		if self._trans_strand > 0: ts = 'ts:A:+'
-		elif self._trans_strand < 0: ts = 'ts:A:-'
-		else: ts = 'ts:A:.'
+		if self._trans_strand > 0: ts = 'TS:A:+'
+		elif self._trans_strand < 0: ts = 'TS:A:-'
+		else: ts = 'TS:A:.'
 		a = [str(self._q_st), str(self._q_en), strand, self._ctg, str(self._ctg_len), str(self._r_st), str(self._r_en),
 			str(self._mlen), str(self._blen), str(self._mapq), tp, ts, "cg:Z:" + self.cigar_str]
 		if self._cs != "": a.append("cs:Z:" + self._cs)

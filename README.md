@@ -166,7 +166,7 @@ full-length cDNA, EST, PacBio Iso-seq, Nanopore 2D cDNA-seq and Direct RNA-seq.
 They produce data of varying quality and properties. By default, `-x splice`
 assumes the read orientation relative to the transcript strand is unknown. It
 tries two rounds of alignment to infer the orientation and write the strand to
-the `ts` SAM/PAF tag if possible. For Iso-seq, Direct RNA-seq and tranditional
+the `TS` SAM/PAF tag if possible. For Iso-seq, Direct RNA-seq and tranditional
 full-length cDNAs, it would be desired to apply `-u f` to force minimap2 to
 consider the forward transcript strand only. This speeds up alignment with
 slight improvement to accuracy. For noisy Nanopore Direct RNA-seq reads, it is
