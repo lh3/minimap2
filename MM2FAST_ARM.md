@@ -2,9 +2,19 @@
 
 This fork ports the [mm2-fast](https://github.com/bwa-mem2/mm2-fast) optimizations
 (Kalikar et al., *Nature Comput. Sci.* 2022) onto minimap2 v2.31 and adds tuning
-for Apple Silicon / AArch64. **Every option below produces byte-identical output
-to stock minimap2 v2.31** (verified by `cmp` on PAF and SAM, single- and
-multi-thread, across presets and on real human HiFi reads mapped to GRCh38).
+for Apple Silicon / AArch64.
+
+**Byte-identity (important):**
+- The **Apple Silicon tuning** (`arm_tune=1` + modern sse2neon) and the **AVX2/AVX-512
+  alignment** kernels are byte-identical to stock v2.31, verified by `cmp` on PAF and
+  SAM, single/multi-thread, across presets and on real human HiFi reads → GRCh38 (the
+  AVX kernels additionally validated over 120k random cases).
+- The **vectorized chaining** (`vchain`/`neonchain`) is byte-identical on small/simple
+  inputs but **NOT on all real data**: it must drop the `max_skip` heuristic (a
+  loop-carried dependency), computing the `max_skip=∞` result. On real HiFi this changes
+  a small fraction of records (~0.6% of lines: mostly secondary-chain scores). This is
+  the same limitation as upstream mm2-fast. Kept off by default; enable only if you
+  accept mm2-fast's `max_skip=∞` chaining semantics.
 
 ## Build options
 
@@ -36,21 +46,23 @@ everything else falls back to the scalar loop.
 
 - **x86**: native AVX2 (8-wide) / AVX-512 (16-wide) — a real speedup (paper: up to 3.1x
   chaining vs default).
-- **Apple M-series**: **regresses**. Left **off by default on ARM**. Root-cause
-  measured on real HiFi (chaining-only, isolated):
+- **Apple M-series**: **regresses**. Left **off by default on ARM**. Measured on real
+  HiFi (chr1 index, 5k reads, single-thread CPU time, chaining-dominated PAF):
 
-  | chaining | time | vs scalar default |
+  | chaining kernel | time | vs scalar |
   |---|---|---|
-  | scalar default (`max_skip=25`) | 8.97s | 1.00x |
-  | scalar `max_skip=∞` | 23.74s | 0.38x |
-  | vchain (SIMDe→NEON) | 13.65s | 0.66x |
+  | scalar (`max_skip=25`) | 9.35s | 1.00x |
+  | vchain (SIMDe→NEON) | 13.00s | 0.72x |
+  | `neonchain` (hand-written native 4-wide NEON) | 12.83s | 0.73x |
 
-  The vectorized kernel must drop `max_skip` (a loop-carried dependency), so it does
-  the full `max_skip=∞` work (2.6x more than the scalar default). SIMDe already
-  vectorizes that ~1.74x, but NEON's 4-wide width can't recoup the extra work. A
-  hand-written native NEON kernel (removing SIMDe's 8→4 AVX2 splitting) could plausibly
-  reach ~break-even on this workload, but not a clear win; and chaining is only ~1/3 of
-  map-hifi mapping time. Not pursued as a default.
+  Root cause: the vectorized kernel must drop `max_skip` (a loop-carried dependency),
+  so it does the full `max_skip=∞` work (~2.6x more than the scalar default). NEON's
+  4-wide int32 width cannot recoup that. A hand-written native NEON kernel
+  (`neon_chain.c`, `neonchain=1`) was implemented to remove SIMDe's 8→4 AVX2 lowering
+  overhead — it is byte-identical to the SIMDe kernel (verified) but only ~1% faster
+  than it (clang already lowers SIMDe well); the bottleneck is algorithmic, not SIMD
+  width. **Conclusion: vectorized chaining does not help on Apple Silicon.** Both
+  kernels are kept as opt-in for x86 (where wide AVX-512 does win) and for reference.
 
 ### 2. AVX2 / AVX-512 two-piece extension alignment (mm2-fast, `avx=1`/`avx512=1`)
 `ksw2_extd2_avx.c` widens the default dual-affine extension DP from 128-bit SSE to

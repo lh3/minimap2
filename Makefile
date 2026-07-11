@@ -71,6 +71,14 @@ else
 endif
 endif
 
+# Native NEON DP chaining kernel (hand-written 4-wide), ARM only. Opt-in:
+# `make aarch64=1 neonchain=1`. Alternative to vchain that avoids SIMDe's 8->4
+# AVX2 lowering overhead. Byte-identical; plain C (no C++/SIMDe).
+ifneq ($(neonchain),)
+	OBJS+=neon_chain.o
+	CPPFLAGS+=-DMM_VECT_CHAIN
+endif
+
 # Aggressive host-specific tuning for Apple Silicon / other AArch64 CPUs.
 # Opt-in: `make aarch64=1 arm_tune=1`. Byte-identical output; ~1.1x end-to-end
 # on Apple M-series (the alignment/NEON path benefits from -O3 + native uarch).
@@ -114,6 +122,11 @@ sdust:sdust.c kalloc.o kalloc.h kdq.h kvec.h kseq.h ketopt.h sdust.h
 # Vectorized chaining wrapper (C++). Built only when vchain=1.
 mm2fast_chain.o:mm2fast_chain.cpp contrib/parallel_chaining_v2_22.h mmpriv.h minimap.h
 		$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) $(VCHAIN_CXXFLAGS) -Icontrib $(VCHAIN_INCLUDES) $(INCLUDES) $< -o $@
+
+# Native NEON chaining kernel (C). Built only when neonchain=1. -ffp-contract=off
+# keeps float rounding identical to the reference (no FMA contraction).
+neon_chain.o:neon_chain.c mmpriv.h minimap.h
+		$(CC) -c $(CFLAGS) -ffp-contract=off $(CPPFLAGS) $(INCLUDES) $< -o $@
 
 # SSE-specific targets on x86/x86_64
 
