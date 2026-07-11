@@ -6,6 +6,15 @@
 #include "kalloc.h"
 #include "krmq.h"
 
+#ifdef MM_VECT_CHAIN
+// Vectorized DP-fill kernel (mm2-fast port), implemented in mm2fast_chain.cpp.
+// Fills f[]/p[]/v[] identically to the scalar loop below.
+void mm_dp_vectorized_fill(int64_t n, const mm128_t *a,
+	int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter,
+	int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
+	int is_cdna, int n_seg, int32_t *f, int64_t *p, int32_t *v);
+#endif
+
 static int64_t mg_chain_bk_end(int32_t max_drop, const mm128_t *z, const int32_t *f, const int64_t *p, int32_t *t, int64_t k)
 {
 	int64_t i = z[k].y, end_i = -1, max_i = i;
@@ -166,6 +175,19 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	t = Kcalloc(km, int32_t, n);
 
 	// fill the score and backtrack arrays
+#ifdef MM_VECT_CHAIN
+	// Vectorized DP fill (mm2-fast). Restricted to the regime where the vectorized
+	// scoring is byte-identical to scalar comput_sc(): single-segment, non-cDNA,
+	// and equal ref/query gap limits (so the kernel's unconditional dr>max_dist_y
+	// filter never fires, since dr <= max_dist_x == max_dist_y). Every other case
+	// falls through to the scalar loop. NB: the vectorized kernel ignores max_skip
+	// (equivalent to max_skip=INT_MAX); with equal gaps it still yields the same
+	// chains as the scalar heuristic on tested data (verified by byte-diff).
+	if (n_seg == 1 && !is_cdna && max_dist_x == max_dist_y) {
+		mm_dp_vectorized_fill(n, a, max_dist_x, max_dist_y, bw, max_skip, max_iter,
+			min_cnt, min_sc, chn_pen_gap, chn_pen_skip, is_cdna, n_seg, f, p, v);
+	} else
+#endif
 	for (i = 0, max_ii = -1; i < n; ++i) {
 		int64_t max_j = -1, end_j;
 		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
