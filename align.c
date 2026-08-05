@@ -776,7 +776,7 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 		junc2 = tseq2 + max_tlen2;
 	}
 
-	if (qs > 0 && rs > 0) { // left extension; probably the condition can be changed to "qs > qs0 && rs > rs0"
+	if (qs > qs0 && rs > rs0) { // left extension
 		if (opt->flag & MM_F_QSTRAND) {
 			qseq = &qseq0[0][qs0];
 			mm_idx_getseq2(mi, rev, rid, rs0, rs, tseq);
