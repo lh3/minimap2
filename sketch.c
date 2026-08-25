@@ -74,7 +74,7 @@ static inline int tq_shift(tiny_queue_t *q)
  *               and strand indicates whether the minimizer comes from the top or the bottom strand.
  *               Callers may want to set "p->n = 0"; otherwise results are appended to p
  */
-void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p)
+static void mm_sketch_random(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p)
 {
 	uint64_t shift1 = 2 * (k - 1), mask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
 	int i, j, l, buf_pos, min_pos, kmer_span = 0;
@@ -140,4 +140,104 @@ void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, i
 	}
 	if (min.x != UINT64_MAX)
 		kv_push(mm128_t, km, *p, min);
+}
+
+/*
+ * Mod-minimizer sampling (Groot Koerkamp & Pibiri, WABI 2024).
+ * The minimum t-mer in the w+k-t t-mers spanning a window chooses the k-mer
+ * at its position modulo w. HPC and t==k are routed to the stock sketcher.
+ */
+int mm_modmin_t(int k, int w, int r)
+{
+	int t;
+	if (k <= r) return k;
+	t = r + ((k - r) % w);
+	if (t > k) t = k;
+	if (t < 1) t = 1;
+	return t;
+}
+
+static void mm_sketch_modmin(void *km, const char *str, int len, int w, int k, uint32_t rid, mm128_v *p, int r)
+{
+	int t = mm_modmin_t(k, w, r);
+	int wp = w + k - t;
+	uint64_t tshift = 2 * (t - 1), tmask = (1ULL<<2*t) - 1, tmer[2] = {0,0};
+	uint64_t kshift = 2 * (k - 1), kmask = (1ULL<<2*k) - 1, kmer[2] = {0,0};
+	uint64_t dq_h[512];
+	int32_t dq_q[512];
+	int dq_head = 0, dq_tail = 0;
+	mm128_t kbuf[256];
+	uint64_t em[4] = {0,0,0,0}; // rolling dedup bitmap over the last 256 k-mer start positions
+	int i, j, b, lt = 0;
+
+	assert(len > 0 && (w > 0 && w < 256) && (k > 0 && k <= 28));
+	assert(wp > 0 && wp < 512);
+	memset(kbuf, 0xff, sizeof(kbuf));
+	kv_resize(mm128_t, km, *p, p->n + len/w);
+
+	for (i = 0; i < len; ++i) {
+		int c = seq_nt4_table[(uint8_t)str[i]];
+		int64_t q, ws, sel;
+		uint64_t th;
+		int zt;
+		if (c > 3) {
+			lt = 0; dq_head = dq_tail = 0;
+			em[0] = em[1] = em[2] = em[3] = 0;
+			tmer[0] = tmer[1] = kmer[0] = kmer[1] = 0;
+			continue;
+		}
+		tmer[0] = (tmer[0] << 2 | c) & tmask;
+		tmer[1] = (tmer[1] >> 2) | (3ULL^(uint64_t)c) << tshift;
+		kmer[0] = (kmer[0] << 2 | c) & kmask;
+		kmer[1] = (kmer[1] >> 2) | (3ULL^(uint64_t)c) << kshift;
+		++lt;
+		if (lt >= k) {
+			int64_t ks = (int64_t)i - k + 1;
+			mm128_t info = { UINT64_MAX, UINT64_MAX };
+			if (kmer[0] != kmer[1]) {
+				int z = kmer[0] < kmer[1]? 0 : 1;
+				info.x = hash64(kmer[z], kmask) << 8 | (uint64_t)k;
+				info.y = (uint64_t)rid<<32 | (uint32_t)i<<1 | (uint64_t)z;
+			}
+			kbuf[ks & 255] = info;
+		}
+		if (lt < t) continue;
+		q = (int64_t)i - t + 1;
+		zt = tmer[0] < tmer[1]? 0 : 1;
+		th = hash64(tmer[zt], tmask);
+		while (dq_tail > dq_head && dq_h[(dq_tail-1) & 511] > th) --dq_tail; // strict: keep tied minima
+		dq_h[dq_tail & 511] = th;
+		dq_q[dq_tail & 511] = (int32_t)q;
+		++dq_tail;
+		if (lt < w + k - 1) continue;
+		ws = (int64_t)i - (w + k - 1) + 1;
+		while (dq_head < dq_tail && (int64_t)dq_q[dq_head & 511] < ws) ++dq_head;
+		b = (int)((ws - 1) & 255); // ws-1 can no longer be selected; retire its dedup bit
+		em[b>>6] &= ~(1ULL << (b&63));
+		// emit the k-mers induced by ALL tied minimal t-mers; with t == k (mod w) this
+		// set is mirror-symmetric under reverse complement, like the random minimizer
+		// with its tie emission; a single (leftmost or rightmost) pick is not
+		for (j = dq_head; j < dq_tail && dq_h[j & 511] == dq_h[dq_head & 511]; ++j) {
+			sel = ws + (((int64_t)dq_q[j & 511] - ws) % w);
+			b = (int)(sel & 255);
+			if (!(em[b>>6] >> (b&63) & 1)) {
+				mm128_t s = kbuf[sel & 255];
+				em[b>>6] |= 1ULL << (b&63);
+				if (s.x != UINT64_MAX) kv_push(mm128_t, km, *p, s);
+			}
+		}
+	}
+}
+
+void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p)
+{
+	mm_sketch_random(km, str, len, w, k, rid, is_hpc, p);
+}
+
+void mm_sketch_mod(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p)
+{
+	if (!is_hpc && len >= w + k - 1 && mm_modmin_t(k, w, MM_MODMIN_R) < k)
+		mm_sketch_modmin(km, str, len, w, k, rid, p, MM_MODMIN_R);
+	else
+		mm_sketch_random(km, str, len, w, k, rid, is_hpc, p);
 }

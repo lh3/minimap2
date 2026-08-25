@@ -87,6 +87,7 @@ static ko_longopt_t long_options[] = {
 	{ "pass1",          ko_required_argument, 362 },
 	{ "spsc-scale",     ko_required_argument, 363 },
 	{ "spsc0",          ko_required_argument, 364 },
+	{ "mod-minimizer",  ko_no_argument,       365 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -167,6 +168,7 @@ int main(int argc, char *argv[])
 		if (c == 'w') ipt.w = atoi(o.arg);
 		else if (c == 'k') ipt.k = atoi(o.arg);
 		else if (c == 'H') ipt.flag |= MM_I_HPC;
+		else if (c == 365) ipt.flag |= MM_I_MOD_MINIMIZER; // --mod-minimizer
 		else if (c == 'd') fnw = o.arg; // the above are indexing related options, except -I
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'v') mm_verbose = atoi(o.arg);
@@ -353,6 +355,17 @@ int main(int argc, char *argv[])
 		ipt.flag |= MM_I_NO_SEQ;
 	if (mm_check_opt(&ipt, &opt) < 0)
 		return 1;
+	if (ipt.flag & MM_I_MOD_MINIMIZER) {
+		if (ipt.flag & MM_I_HPC) {
+			ipt.flag &= ~MM_I_MOD_MINIMIZER;
+			if (mm_verbose >= 2)
+				fprintf(stderr, "[WARNING]\033[1;31m --mod-minimizer ignored: homopolymer-compressed k-mers (-H) are not supported by the mod-minimizer; using the random minimizer.\033[0m\n");
+		} else if (mm_modmin_t(ipt.k, ipt.w, MM_MODMIN_R) >= ipt.k) {
+			ipt.flag &= ~MM_I_MOD_MINIMIZER;
+			if (mm_verbose >= 2)
+				fprintf(stderr, "[WARNING]\033[1;31m --mod-minimizer ignored: sampling degenerates to the random minimizer for -k %d -w %d (t == k); using the random minimizer.\033[0m\n", ipt.k, ipt.w);
+		}
+	}
 	if (opt.best_n == 0) {
 		fprintf(stderr, "[WARNING]\033[1;31m changed '-N 0' to '-N %d --secondary=no'.\033[0m\n", old_best_n);
 		opt.best_n = old_best_n, opt.flag |= MM_F_NO_PRINT_2ND;
@@ -363,6 +376,12 @@ int main(int argc, char *argv[])
 		fprintf(fp_help, "Options:\n");
 		fprintf(fp_help, "  Indexing:\n");
 		fprintf(fp_help, "    -H           use homopolymer-compressed k-mer (preferrable for PacBio)\n");
+		fprintf(fp_help, "    --mod-minimizer\n");
+		fprintf(fp_help, "                 use experimental mod-minimizer sampling (Groot Koerkamp & Pibiri, WABI 2024).\n");
+		fprintf(fp_help, "                 Sketch-time only for FASTA/FASTQ targets; index persistence and reuse\n");
+		fprintf(fp_help, "                 are unavailable in this contribution (no -d or prebuilt .mmi).\n");
+		fprintf(fp_help, "                 Falls back to the random minimizer with -H or when t == k (r=4).\n");
+		fprintf(fp_help, "                 asm5 (k=19,w=19) falls back; sr (k=21,w=11,t=10) remains active.\n");
 		fprintf(fp_help, "    -k INT       k-mer size (no larger than 28) [%d]\n", ipt.k);
 		fprintf(fp_help, "    -w INT       minimizer window size [%d]\n", ipt.w);
 		fprintf(fp_help, "    -I NUM       split index for every ~NUM input bases [8G]\n");
@@ -420,6 +439,10 @@ int main(int argc, char *argv[])
 
 	if ((opt.flag & MM_F_SR) && argc - o.ind > 3) {
 		fprintf(stderr, "[ERROR] incorrect input: in the sr mode, please specify no more than two query files.\n");
+		return 1;
+	}
+	if ((ipt.flag & MM_I_MOD_MINIMIZER) && (fnw || mm_idx_is_idx(argv[o.ind]) > 0)) {
+		fprintf(stderr, "[ERROR] --mod-minimizer is sketch-time only; mod-minimizer index persistence and reuse are unavailable in this contribution (do not use -d or a prebuilt .mmi).\n");
 		return 1;
 	}
 	idx_rdr = mm_idx_reader_open(argv[o.ind], &ipt, fnw);
