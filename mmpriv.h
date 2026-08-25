@@ -16,6 +16,9 @@
 #define MM_DBG_PRINT_CHAIN   0x10
 #define MM_DBG_SEED_FREQ     0x20
 
+#define MM_I_MOD_MINIMIZER   0x8 // process-local sketch dispatch; unsupported with persisted indexes
+#define MM_MODMIN_R          4
+
 #define MM_SEED_LONG_JOIN  (1ULL<<40)
 #define MM_SEED_IGNORE     (1ULL<<41)
 #define MM_SEED_TANDEM     (1ULL<<42)
@@ -71,6 +74,8 @@ void radix_sort_64(uint64_t *beg, uint64_t *end);
 uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
 
 void mm_sketch(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p);
+void mm_sketch_mod(void *km, const char *str, int len, int w, int k, uint32_t rid, int is_hpc, mm128_v *p);
+int mm_modmin_t(int k, int w, int r);
 
 mm_seed_t *mm_collect_matches(void *km, int *_n_m, int qlen, int max_occ, int max_max_occ, int dist, const mm_idx_t *mi, const mm128_v *mv, int64_t *n_a, int *rep_len, int *n_mini_pos, uint64_t **mini_pos);
 void mm_seed_mz_flt(void *km, mm128_v *mv, int32_t q_occ_max, float q_occ_frac);

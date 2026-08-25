@@ -370,9 +370,12 @@ static void *worker_pipeline(void *shared, int step, void *in)
         step_t *s = (step_t*)in;
 		for (i = 0; i < s->n_seq; ++i) {
 			mm_bseq1_t *t = &s->seq[i];
-			if (t->l_seq > 0)
-				mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a);
-			else if (mm_verbose >= 2)
+			if (t->l_seq > 0) {
+				if (p->mi->flag & MM_I_MOD_MINIMIZER)
+					mm_sketch_mod(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a);
+				else
+					mm_sketch(0, t->seq, t->l_seq, p->mi->w, p->mi->k, t->rid, p->mi->flag&MM_I_HPC, &s->a);
+			} else if (mm_verbose >= 2)
 				fprintf(stderr, "[WARNING] the length database sequence '%s' is 0\n", t->name);
 			free(t->seq); free(t->name);
 		}
