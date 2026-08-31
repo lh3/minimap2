@@ -4,18 +4,29 @@ except ImportError:
 	from distutils.core import setup
 	from distutils.extension import Extension
 
-import sys, platform
+import sys, platform, os, re, sysconfig
 
 sys.path.append('python')
 
 extra_compile_args = ['-DHAVE_KALLOC']
 include_dirs = ["."]
 
-if platform.machine() in ["aarch64", "arm64"]:
-	include_dirs.append("sse2neon/")
-	extra_compile_args.extend(['-ftree-vectorize', '-DKSW_SSE2_ONLY', '-D__SSE2__'])
+def simd_args(machine):
+	if machine.startswith(('aarch64', 'arm64')):
+		return ['-ftree-vectorize', '-DKSW_SSE2_ONLY', '-D__SSE2__', '-Isse2neon/']
+	return ['-msse4.1'] # WARNING: ancient x86_64 CPUs don't have SSE4
+
+# on macOS ARCHFLAGS/CFLAGS say what we are compiling for, which is not always the host
+archs = []
+if sys.platform == 'darwin':
+	archs = sorted(set(re.findall(r'-arch\s+(\S+)',
+		os.environ.get('ARCHFLAGS', sysconfig.get_config_var('CFLAGS') or ''))))
+if len(archs) > 1: # universal build: give each slice its own SIMD flags
+	for arch in archs:
+		for flag in simd_args(arch):
+			extra_compile_args.extend(['-Xarch_' + arch, flag])
 else:
-	extra_compile_args.append('-msse4.1') # WARNING: ancient x86_64 CPUs don't have SSE4
+	extra_compile_args.extend(simd_args(archs[0] if archs else platform.machine()))
 
 def readme():
 	with open('python/README.rst') as f:
