@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <pthread.h>
 #include "kthread.h"
 #include "kvec.h"
 #include "kalloc.h"
@@ -165,6 +166,8 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 	return a;
 }
 
+#define MM_HIT_PF 16 // the prefetch distance of collect_seed_hits(), in seeds
+
 static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, uint64_t **mini_pos)
 {
@@ -173,10 +176,12 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 	mm128_t *a;
 	m = mm_collect_matches(km, &n_m, qlen, max_occ, opt->max_max_occ, opt->occ_dist, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
+	for (i = 0; i < MM_HIT_PF && i < n_m; ++i) __builtin_prefetch(m[i].cr);
 	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mm_seed_t *q = &m[i];
 		const uint64_t *r = q->cr;
 		uint32_t k;
+		if (i + MM_HIT_PF < n_m) __builtin_prefetch(m[i + MM_HIT_PF].cr); // the reference positions of a later seed
 		for (k = 0; k < q->n; ++k) {
 			int32_t is_self, rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
@@ -420,6 +425,7 @@ typedef struct {
 	int *n_reg, *seg_off, *n_seg, *rep_len, *frag_gap;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
+	int32_t *order; // the fragments by total length, longest first: the order in which the workers take them
 } step_t;
 
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
@@ -471,6 +477,26 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		}
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 		fprintf(stderr, "QT\t%s\t%d\t%.6f\n", s->seq[off].name, tid, realtime() - t);
+}
+
+static void worker_for_lpt(void *_data, long i, int tid)
+{ // worker_for() on the i-th longest fragment; the results go to the slots of the fragment, so the output order stays
+	worker_for(_data, ((step_t*)_data)->order[i], tid);
+}
+
+static void mm_lpt_order(step_t *s)
+{ // longest fragments first: the last fragments of a batch are short, so the threads finish at about the same time
+	int32_t k, j;
+	uint64_t *key = (uint64_t*)malloc(s->n_frag * 8);
+	for (k = 0; k < s->n_frag; ++k) {
+		uint32_t len = 0;
+		for (j = 0; j < s->n_seg[k]; ++j) len += s->seq[s->seg_off[k] + j].l_seq;
+		key[k] = (uint64_t)(UINT32_MAX - len) << 32 | (uint32_t)k; // ascending key = descending length
+	}
+	radix_sort_64(key, key + s->n_frag);
+	s->order = (int32_t*)malloc(s->n_frag * 4);
+	for (k = 0; k < s->n_frag; ++k) s->order[k] = (uint32_t)key[k];
+	free(key);
 }
 
 static void merge_hits(step_t *s)
@@ -573,7 +599,12 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		} else free(s);
     } else if (step == 1) { // step 1: map
 		if (p->n_parts > 0) merge_hits((step_t*)in);
-		else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
+		else if (p->n_threads > 1 && ((step_t*)in)->n_frag > 1) {
+			mm_lpt_order((step_t*)in);
+			kt_for(p->n_threads, worker_for_lpt, in, ((step_t*)in)->n_frag);
+			free(((step_t*)in)->order);
+			((step_t*)in)->order = 0;
+		} else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
 		return in;
     } else if (step == 2) { // step 2: output
 		void *km = 0;
@@ -660,6 +691,133 @@ static mm_bseq_file_t **open_bseqs(int n, const char **fn)
 	return fp;
 }
 
+/* With more than one thread, batches overlap. A reader thread keeps up to OVL_MAX batches read and not written;
+ * the workers take the fragments of the oldest batch that has some left (longest first), then go on to the next
+ * batch, so no worker waits for the last fragments of a batch; the calling thread writes the batches in input
+ * order. Steps 0 and 2 of worker_pipeline() read and write; the records are the same as with kt_pipeline(). */
+#define OVL_MAX 3
+
+typedef struct ovl_batch_s {
+	step_t *s;                 // 0: the end of the input
+	long n, next, n_done;      // fragments; the next one to hand out; the ones mapped
+	struct ovl_batch_s *nxt;
+} ovl_batch_t;
+
+typedef struct {
+	pipeline_t *p;
+	pthread_mutex_t mtx;
+	pthread_cond_t cv;
+	ovl_batch_t *head, *tail;  // batches not written yet, oldest first
+	ovl_batch_t *work;         // the oldest batch with fragments to hand out
+	int n_live;                // batches read and not written
+} ovl_t;
+
+typedef struct {
+	ovl_t *o;
+	int tid;
+} ovl_worker_t;
+
+static void *ovl_reader(void *data)
+{
+	ovl_t *o = (ovl_t*)data;
+	for (;;) {
+		ovl_batch_t *b;
+		pthread_mutex_lock(&o->mtx);
+		while (o->n_live >= OVL_MAX) pthread_cond_wait(&o->cv, &o->mtx);
+		pthread_mutex_unlock(&o->mtx);
+		b = (ovl_batch_t*)calloc(1, sizeof(ovl_batch_t));
+		b->s = (step_t*)worker_pipeline(o->p, 0, 0);
+		if (b->s) {
+			b->n = b->s->n_frag;
+			if (b->n > 1) mm_lpt_order(b->s);
+		}
+		pthread_mutex_lock(&o->mtx);
+		if (o->tail) o->tail->nxt = b;
+		else o->head = b;
+		o->tail = b;
+		if (o->work == 0) o->work = b;
+		++o->n_live;
+		pthread_cond_broadcast(&o->cv);
+		pthread_mutex_unlock(&o->mtx);
+		if (b->s == 0) break;
+	}
+	return 0;
+}
+
+static void *ovl_worker(void *data)
+{
+	ovl_t *o = ((ovl_worker_t*)data)->o;
+	int tid = ((ovl_worker_t*)data)->tid;
+	for (;;) {
+		ovl_batch_t *b;
+		long i;
+		pthread_mutex_lock(&o->mtx);
+		for (;;) {
+			while (o->work && o->work->s && o->work->next == o->work->n) o->work = o->work->nxt;
+			if (o->work) break;
+			pthread_cond_wait(&o->cv, &o->mtx);
+		}
+		b = o->work;
+		if (b->s == 0) { // the end of the input
+			pthread_mutex_unlock(&o->mtx);
+			break;
+		}
+		i = b->next++;
+		if (b->next == b->n) o->work = b->nxt; // the writer may free b once it is done: work never points to it
+		pthread_mutex_unlock(&o->mtx);
+		if (b->s->order) worker_for_lpt(b->s, i, tid);
+		else worker_for(b->s, i, tid);
+		pthread_mutex_lock(&o->mtx);
+		if (++b->n_done == b->n) pthread_cond_broadcast(&o->cv);
+		pthread_mutex_unlock(&o->mtx);
+	}
+	return 0;
+}
+
+static void mm_map_overlap(pipeline_t *p)
+{
+	ovl_t o;
+	pthread_t rd, *wk;
+	ovl_worker_t *wa;
+	int i;
+	memset(&o, 0, sizeof(ovl_t));
+	o.p = p;
+	pthread_mutex_init(&o.mtx, 0);
+	pthread_cond_init(&o.cv, 0);
+	wk = (pthread_t*)calloc(p->n_threads, sizeof(pthread_t));
+	wa = (ovl_worker_t*)calloc(p->n_threads, sizeof(ovl_worker_t));
+	pthread_create(&rd, 0, ovl_reader, &o);
+	for (i = 0; i < p->n_threads; ++i) {
+		wa[i].o = &o, wa[i].tid = i;
+		pthread_create(&wk[i], 0, ovl_worker, &wa[i]);
+	}
+	for (;;) { // this thread writes
+		ovl_batch_t *b;
+		pthread_mutex_lock(&o.mtx);
+		while (o.head == 0 || (o.head->s && o.head->n_done < o.head->n)) pthread_cond_wait(&o.cv, &o.mtx);
+		b = o.head;
+		pthread_mutex_unlock(&o.mtx);
+		if (b->s == 0) break;
+		free(b->s->order);
+		b->s->order = 0;
+		worker_pipeline(p, 2, b->s);
+		pthread_mutex_lock(&o.mtx);
+		if (o.work == b) o.work = b->nxt;
+		if (o.tail == b) o.tail = 0; // the reader links the next batch to the head then
+		o.head = b->nxt;
+		--o.n_live;
+		pthread_cond_broadcast(&o.cv);
+		pthread_mutex_unlock(&o.mtx);
+		free(b);
+	}
+	for (i = 0; i < p->n_threads; ++i) pthread_join(wk[i], 0);
+	pthread_join(rd, 0);
+	free(o.head); // the end marker
+	free(wk); free(wa);
+	pthread_cond_destroy(&o.cv);
+	pthread_mutex_destroy(&o.mtx);
+}
+
 int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads)
 {
 	int i, pl_threads;
@@ -675,7 +833,8 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 	if (opt->split_prefix)
 		pl.fp_split = mm_split_init(opt->split_prefix, idx);
 	pl_threads = n_threads == 1? 1 : (opt->flag&MM_F_2_IO_THREADS)? 3 : 2;
-	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
+	if (n_threads > 1 && !opt->split_prefix) mm_map_overlap(&pl); // the same records as kt_pipeline()
+	else kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
 
 	free(pl.str.s);
 	if (pl.fp_split) fclose(pl.fp_split);

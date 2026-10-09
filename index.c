@@ -47,6 +47,48 @@ typedef struct mm_idx_jjump_s {
 	mm_idx_jjump1_t *a;
 } mm_idx_jjump_t;
 
+// The key occurrence counts of the index that mm_idx_load() loaded last with several threads, taken while it built
+// the hashes: mid_occ (mm_idx_cal_max_occ()) and mm_idx_stat() use them instead of a pass over all hashes.
+#define IDX_HIST 65536
+typedef struct {
+	int64_t n, n1;
+	uint64_t sum;
+	uint64_t *hist;        // the number of keys with c occurrences, c < IDX_HIST
+	size_t n_big, m_big;
+	uint32_t *big;         // occurrence counts >= IDX_HIST
+	char pad[64];          // one cache line between the slots of two threads
+} idx_occ_t;
+
+static const mm_idx_t *idx_occ_mi; // the index of the counts
+static idx_occ_t *idx_occ;          // one slot per thread; slot 0 holds the sums
+static int idx_occ_n;
+
+static inline void idx_occ_add(idx_occ_t *t, uint32_t c, int is_single)
+{
+	++t->n, t->sum += c, t->n1 += is_single;
+	if (c < IDX_HIST) ++t->hist[c];
+	else {
+		if (t->n_big == t->m_big) {
+			t->m_big = t->m_big? t->m_big<<1 : 16;
+			t->big = (uint32_t*)realloc(t->big, t->m_big * 4);
+		}
+		t->big[t->n_big++] = c;
+	}
+}
+
+static void idx_occ_free(void)
+{
+	int t;
+	for (t = 0; t < idx_occ_n; ++t) free(idx_occ[t].hist), free(idx_occ[t].big);
+	free(idx_occ);
+	idx_occ = 0, idx_occ_n = 0, idx_occ_mi = 0;
+}
+
+static const idx_occ_t *idx_occ_get(const mm_idx_t *mi)
+{
+	return idx_occ_mi == mi && idx_occ? &idx_occ[0] : 0;
+}
+
 mm_idx_t *mm_idx_init(int w, int k, int b, int flag)
 {
 	mm_idx_t *mi;
@@ -63,6 +105,7 @@ void mm_idx_destroy(mm_idx_t *mi)
 {
 	uint32_t i;
 	if (mi == 0) return;
+	if (idx_occ_mi == mi) idx_occ_free();
 	if (mi->h) kh_destroy(str, (khash_t(str)*)mi->h);
 	if (mi->B) {
 		for (i = 0; i < 1U<<mi->b; ++i) {
@@ -88,6 +131,25 @@ void mm_idx_destroy(mm_idx_t *mi)
 		free(mi->seq);
 	} else km_destroy(mi->km);
 	free(mi->B); free(mi->S); free(mi);
+}
+
+void mm_idx_prefetch_hdr(const mm_idx_t *mi, uint64_t minier)
+{ // prefetch the hash header that mm_idx_prefetch() reads for minier (one stage earlier)
+	const mm_idx_bucket_t *b = &mi->B[minier & ((1<<mi->b) - 1)];
+	if (b->h) __builtin_prefetch(b->h);
+}
+
+void mm_idx_prefetch(const mm_idx_t *mi, uint64_t minier)
+{ // prefetch the first hash slot that mm_idx_get() reads for minier
+	int mask = (1<<mi->b) - 1;
+	const mm_idx_bucket_t *b = &mi->B[minier&mask];
+	const idxhash_t *h = (const idxhash_t*)b->h;
+	khint_t i;
+	if (h == 0 || h->n_buckets == 0) return;
+	i = (khint_t)idx_hash(minier>>mi->b<<1) & (h->n_buckets - 1);
+	__builtin_prefetch(&h->keys[i]);
+	__builtin_prefetch(&h->vals[i]);
+	__builtin_prefetch(&h->flags[i>>4]);
 }
 
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
@@ -117,9 +179,12 @@ void mm_idx_stat(const mm_idx_t *mi)
 	fprintf(stderr, "[M::%s] kmer size: %d; skip: %d; is_hpc: %d; #seq: %d\n", __func__, mi->k, mi->w, mi->flag&MM_I_HPC, mi->n_seq);
 	for (i = 0; i < mi->n_seq; ++i)
 		len += mi->seq[i].len;
-	for (i = 0; i < 1U<<mi->b; ++i)
+	if (idx_occ_get(mi)) {
+		const idx_occ_t *c = idx_occ_get(mi);
+		n = c->n, n1 = c->n1, sum = c->sum;
+	} else for (i = 0; i < 1U<<mi->b; ++i)
 		if (mi->B[i].h) n += kh_size((idxhash_t*)mi->B[i].h);
-	for (i = 0; i < 1U<<mi->b; ++i) {
+	if (!idx_occ_get(mi)) for (i = 0; i < 1U<<mi->b; ++i) {
 		idxhash_t *h = (idxhash_t*)mi->B[i].h;
 		khint_t k;
 		if (h == 0) continue;
@@ -195,6 +260,33 @@ int mm_idx_getseq2(const mm_idx_t *mi, int is_rev, uint32_t rid, uint32_t st, ui
 	else return mm_idx_getseq(mi, rid, st, en, seq);
 }
 
+static int idx_cmp_u32(const void *a, const void *b)
+{
+	uint32_t x = *(const uint32_t*)a, y = *(const uint32_t*)b;
+	return (x > y) - (x < y);
+}
+
+static int32_t mm_idx_cal_max_occ_cached(const idx_occ_t *c, float f)
+{ // the count of rank (1-f)*n, as ks_ksmall_uint32_t() picks it, plus 1
+	uint64_t rank, cum = 0;
+	uint32_t v, thres = 0, *big;
+	if (c->n == 0) return INT32_MAX;
+	rank = (uint32_t)((1. - f) * (size_t)c->n);
+	for (v = 0; v < IDX_HIST; ++v) {
+		if (cum + c->hist[v] > rank) break;
+		cum += c->hist[v];
+	}
+	if (v < IDX_HIST) thres = v;
+	else { // the rank is among the large counts (sorted in a copy)
+		big = (uint32_t*)malloc(c->n_big * 4);
+		memcpy(big, c->big, c->n_big * 4);
+		qsort(big, c->n_big, 4, idx_cmp_u32);
+		thres = big[rank - cum];
+		free(big);
+	}
+	return thres + 1;
+}
+
 int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 {
 	int i;
@@ -202,6 +294,7 @@ int32_t mm_idx_cal_max_occ(const mm_idx_t *mi, float f)
 	uint32_t thres;
 	khint_t *a, k;
 	if (f <= 0.) return INT32_MAX;
+	if (idx_occ_get(mi)) return mm_idx_cal_max_occ_cached(idx_occ_get(mi), f);
 	for (i = 0; i < 1<<mi->b; ++i)
 		if (mi->B[i].h) n += kh_size((idxhash_t*)mi->B[i].h);
 	if (n == 0) return INT32_MAX;
@@ -513,7 +606,87 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 	fflush(fp);
 }
 
+typedef struct {
+	mm_idx_t *mi;
+	uint32_t b0;      // the first bucket of the group
+	uint32_t *size;   // the number of hash entries of each bucket of the group
+	uint64_t **kv;    // the (key, value) pairs of each bucket, in file order
+} idx_load_t;
+
+static void worker_idx_hash(void *data, long i, int tid)
+{ // build the hash of one bucket with the inserts of the stock loop, in the same order (the same table); count the keys
+	idx_load_t *g = (idx_load_t*)data;
+	mm_idx_bucket_t *b = &g->mi->B[g->b0 + i];
+	uint32_t j, size = g->size[i];
+	idxhash_t *h;
+	if (size == 0) return;
+	b->h = h = kh_init(idx);
+	kh_resize(idx, h, size);
+	for (j = 0; j < size; ++j) {
+		int absent;
+		khint_t k = kh_put(idx, h, g->kv[i][j<<1], &absent);
+		assert(absent);
+		kh_val(h, k) = g->kv[i][j<<1|1];
+	}
+	for (j = 0; j < size; ++j) {
+		int single = g->kv[i][j<<1]&1;
+		idx_occ_add(&idx_occ[tid], single? 1 : (uint32_t)g->kv[i][j<<1|1], single);
+	}
+	free(g->kv[i]);
+}
+
+static void mm_idx_load_buckets_mt(mm_idx_t *mi, FILE *fp, int n_threads)
+{ // the bucket loop of mm_idx_load(): one fread per array; the hashes of 1024 buckets at a time in parallel
+	const uint32_t n_b = 1U<<mi->b, G = 1024;
+	idx_load_t g;
+	uint32_t b0, i;
+	int t;
+	size_t c;
+	if (idx_occ) idx_occ_free();
+	idx_occ_n = n_threads;
+	idx_occ = (idx_occ_t*)calloc(n_threads, sizeof(idx_occ_t));
+	for (t = 0; t < n_threads; ++t) idx_occ[t].hist = (uint64_t*)calloc(IDX_HIST, 8);
+	g.mi = mi;
+	g.size = (uint32_t*)calloc(G, 4);
+	g.kv = (uint64_t**)calloc(G, sizeof(uint64_t*));
+	for (b0 = 0; b0 < n_b; b0 += G) {
+		uint32_t n = n_b - b0 < G? n_b - b0 : G;
+		for (i = 0; i < n; ++i) {
+			mm_idx_bucket_t *b = &mi->B[b0 + i];
+			fread(&b->n, 4, 1, fp);
+			b->p = (uint64_t*)malloc(b->n * 8);
+			fread(b->p, 8, b->n, fp);
+			fread(&g.size[i], 4, 1, fp);
+			g.kv[i] = 0;
+			if (g.size[i] == 0) continue;
+			g.kv[i] = (uint64_t*)malloc((size_t)g.size[i] * 16);
+			fread(g.kv[i], 16, g.size[i], fp);
+		}
+		g.b0 = b0;
+		kt_for(n_threads, worker_idx_hash, &g, n);
+	}
+	free(g.size); free(g.kv);
+	for (t = 1; t < n_threads; ++t) { // add the slots up in slot 0
+		idx_occ_t *a = &idx_occ[0], *b = &idx_occ[t];
+		a->n += b->n, a->n1 += b->n1, a->sum += b->sum;
+		for (c = 0; c < IDX_HIST; ++c) a->hist[c] += b->hist[c];
+		for (c = 0; c < b->n_big; ++c) {
+			if (a->n_big == a->m_big) {
+				a->m_big = a->m_big? a->m_big<<1 : 16;
+				a->big = (uint32_t*)realloc(a->big, a->m_big * 4);
+			}
+			a->big[a->n_big++] = b->big[c];
+		}
+	}
+	idx_occ_mi = mi;
+}
+
 mm_idx_t *mm_idx_load(FILE *fp)
+{
+	return mm_idx_load2(fp, 1);
+}
+
+mm_idx_t *mm_idx_load2(FILE *fp, int n_threads)
 {
 	char magic[4];
 	uint32_t x[5], i;
@@ -540,7 +713,8 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		s->is_alt = 0;
 		sum_len += s->len;
 	}
-	for (i = 0; i < 1<<mi->b; ++i) {
+	if (n_threads > 1) mm_idx_load_buckets_mt(mi, fp, n_threads);
+	else for (i = 0; i < 1<<mi->b; ++i) {
 		mm_idx_bucket_t *b = &mi->B[i];
 		uint32_t j, size;
 		khint_t k;
@@ -622,7 +796,7 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 {
 	mm_idx_t *mi;
 	if (r->is_idx) {
-		mi = mm_idx_load(r->fp.idx);
+		mi = mm_idx_load2(r->fp.idx, n_threads);
 		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || (mi->flag&MM_I_HPC) != (r->opt.flag&MM_I_HPC)))
 			fprintf(stderr, "[WARNING]\033[1;31m Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\033[0m\n");
 	} else

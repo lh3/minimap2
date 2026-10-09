@@ -1,0 +1,722 @@
+/* Extracted from mm2-fast (https://github.com/bwa-mem2/mm2-fast, commit 14fe36c), ksw2_extd2_avx.c:
+   the AVX2 kernel only. Changes: includes, removed the unused global stack allocator (kcalloc_, kmalloc_). */
+/* The MIT License
+
+Copyright (c) 2018-     Dana-Farber Cancer Institute
+              2017-2018 Broad Institute, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
+BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+Modified Copyright (C) 2021 Intel Corporation
+   Contacts: Saurabh Kalikar <saurabh.kalikar@intel.com>; 
+	Vasimuddin Md <vasimuddin.md@intel.com>; Sanchit Misra <sanchit.misra@intel.com>; 
+	Chirag Jain <chirag@iisc.ac.in>; Heng Li <hli@jimmy.harvard.edu>
+*/
+#include <string.h>
+#include <immintrin.h>
+#include "ksw2.h"
+
+#ifdef __AVX2__
+/*
+__m256i get_mask_store(__m256i msk, void* addr){
+	return _mm256_or_si256(msk , _mm256_loadu_si256((__m256i*)addr));
+}
+*/
+__m256i get_mask_store(__m256i msk, void* addr, __m256i store_data){
+	return _mm256_blendv_epi8(_mm256_loadu_si256((__m256i*)addr), store_data, msk);
+}
+
+
+    
+// The masked stores of mm2-fast at the end of a band: msk_ar2_v[ind] keeps the low 16 bytes for ind < 2 and
+// all 32 for ind == 2. Plain stores of those bytes do the same; unlike vpmaskmovd, loads can forward from them.
+static inline void ksw_store_band(void *p, int ind, __m256i v)
+{
+	if (ind == 2) _mm256_storeu_si256((__m256i*)p, v);
+	else _mm_storeu_si128((__m128i*)p, _mm256_castsi256_si128(v));
+}
+
+void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
+                   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
+{
+
+
+    
+    int8_t index[32] __attribute((aligned(64)));
+
+    for (int i=0; i<32; i++) 
+        index[i] = i%16 - 1;
+
+    index[0]  = 15;
+    index[16] = 31;
+//    index[32] = 47;
+//    index[48] = 63;
+    
+    __m256i shf256a, shf256b, slli256, xp = _mm256_setzero_si256(), vp = xp, x2p = xp;
+    __m256i ind256_slli = _mm256_load_si256((__m256i*) index);
+    //__mmask8 mska = 0x00;//0x90
+    //__mmask32 mskb = 0x00010000;//0000 0000 0000 0001 0000 0000 0000 0000
+    //__mmask32 mskc = 0x1;
+	
+    __m256i mskb_v = _mm256_set_epi32(0,0,0,255,0,0,0,0);
+
+    //__mmask32 mskc_ar[2] = {0x1, 0x10000};
+    __m256i mskc_ar_v[2];// = {0x1, 0x10000};
+    mskc_ar_v[0] = _mm256_set_epi32(0,0,0,0,0,0,0,255); 
+    mskc_ar_v[1] = _mm256_set_epi32(0,0,0,255,0,0,0,0); 
+
+
+
+    /* x[r-1], v[r-1] and x2[r-1] shifted by one byte (byte 0 from the block before). The first block of a
+       row inserts the boundary values x1_, v1_ and x21_ at st0 as mm2-fast does; the next blocks take
+       byte 31 of the block before with permute2x128 + alignr (xp, vp, x2p: the blocks before, unchanged) */
+    #define __dp_code_block1_pcl                                        \
+        z = _mm256_load_si256(&s[t]);                                   \
+        xt1 = _mm256_load_si256(&x[t]);                                 \
+        vt1 = _mm256_load_si256(&v[t]);                                 \
+        x2t1= _mm256_load_si256(&x2[t]);                                \
+        if (t == st_) {                                                 \
+            __m256i mskc_ = mskc_ar_v[(st0 - t*32)/16], xr = xt1, vr = vt1, x2r = x2t1; \
+            shf256a = _mm256_shuffle_epi8(xt1, ind256_slli);            \
+            shf256b = _mm256_permute2x128_si256(shf256a, shf256a, 0);   \
+            slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);     \
+            xt1 = _mm256_blendv_epi8(slli256, x1_, mskc_);              \
+            shf256a = _mm256_shuffle_epi8(vt1, ind256_slli);            \
+            shf256b = _mm256_permute2x128_si256(shf256a, shf256a, 0);   \
+            slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);     \
+            vt1 = _mm256_blendv_epi8(slli256, v1_, mskc_);              \
+            shf256a = _mm256_shuffle_epi8(x2t1, ind256_slli);           \
+            shf256b = _mm256_permute2x128_si256(shf256a, shf256a, 0);   \
+            slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);     \
+            x2t1 = _mm256_blendv_epi8(slli256, x21_, mskc_);            \
+            xp = xr, vp = vr, x2p = x2r;                                \
+        } else {                                                        \
+            __m256i xr = xt1, vr = vt1, x2r = x2t1;                     \
+            xt1 = _mm256_alignr_epi8(xr, _mm256_permute2x128_si256(xp, xr, 0x21), 15); \
+            vt1 = _mm256_alignr_epi8(vr, _mm256_permute2x128_si256(vp, vr, 0x21), 15); \
+            x2t1 = _mm256_alignr_epi8(x2r, _mm256_permute2x128_si256(x2p, x2r, 0x21), 15); \
+            xp = xr, vp = vr, x2p = x2r;                                \
+        }                                                               \
+        a = _mm256_add_epi8(xt1, vt1);                      /* a <- x[r-1][t-1..t+14] + v[r-1][t-1..t+14] */ \
+        ut = _mm256_load_si256(&u[t]);                      /* ut <- u[t..t+15] */ \
+        b = _mm256_add_epi8(_mm256_load_si256(&y[t]), ut);     /* b <- y[r-1][t..t+15] + u[r-1][t..t+15] */ \
+        a2= _mm256_add_epi8(x2t1, vt1);                                 \
+        b2= _mm256_add_epi8(_mm256_load_si256(&y2[t]), ut);
+
+    
+    #define __dp_code_block2_pcl                                        \
+        _mm256_storeu_si256(&u[t], _mm256_sub_epi8(z, vt1));    /* u[r][t..t+15] <- z - v[r-1][t-1..t+14] */ \
+        _mm256_storeu_si256(&v[t], _mm256_sub_epi8(z, ut));     /* v[r][t..t+15] <- z - u[r-1][t..t+15] */ \
+        tmp = _mm256_sub_epi8(z, q_);                                   \
+        a = _mm256_sub_epi8(a, tmp);                                    \
+        b = _mm256_sub_epi8(b, tmp);                                    \
+        tmp = _mm256_sub_epi8(z, q2_);                                  \
+        a2= _mm256_sub_epi8(a2, tmp);                                   \
+        b2= _mm256_sub_epi8(b2, tmp);
+
+ 
+
+    
+    int r, t, qe = q + e, n_col_, *off = 0, *off_end = 0, tlen_, qlen_, last_st, last_en, wl, wr, max_sc, min_sc, long_thres, long_diff;
+    int with_cigar = !(flag&KSW_EZ_SCORE_ONLY), approx_max = !!(flag&KSW_EZ_APPROX_MAX);
+    int32_t *H = 0, H0 = 0, last_H0_t = 0;
+    uint8_t *qr, *sf, *mem, *mem2 = 0;
+    
+    __m256i q_, q2_, qe_, qe2_, zero_, sc_mch_, sc_mis_, m1_, sc_N_;
+    __m256i *u, *v, *x, *y, *x2, *y2, *s, *p = 0;
+    __m256i one_, two_, three_, four_, s1_, s2_, s3_, s4_;
+        
+    ksw_reset_extz(ez);
+    if (m <= 1 || qlen <= 0 || tlen <= 0) return;
+
+    if (q2 + e2 < q + e) t = q, q = q2, q2 = t, t = e, e = e2, e2 = t; // make sure q+e no larger than q2+e2
+    s1_   = _mm256_set1_epi8(0x08);
+    s2_   = _mm256_set1_epi8(0x10);
+    s3_   = _mm256_set1_epi8(0x20);
+    s4_   = _mm256_set1_epi8(0x40);
+    
+    one_   = _mm256_set1_epi8(1);
+    two_   = _mm256_set1_epi8(2);
+    three_   = _mm256_set1_epi8(3);
+    four_   = _mm256_set1_epi8(4);
+    
+    zero_   = _mm256_set1_epi8(0);
+    q_      = _mm256_set1_epi8(q);
+    q2_     = _mm256_set1_epi8(q2);
+    qe_     = _mm256_set1_epi8(q + e);
+    qe2_    = _mm256_set1_epi8(q2 + e2);
+    sc_mch_ = _mm256_set1_epi8(mat[0]);
+    sc_mis_ = _mm256_set1_epi8(mat[1]);
+    sc_N_   = mat[m*m-1] == 0? _mm256_set1_epi8(-e2) : _mm256_set1_epi8(mat[m*m-1]);
+    m1_     = _mm256_set1_epi8(m - 1); // wildcard
+
+    if (w < 0) w = tlen > qlen? tlen : qlen;
+    wl = wr = w;
+    tlen_ = (tlen + 31) / 32;
+    n_col_ = qlen < tlen? qlen : tlen;
+    n_col_ = ((n_col_ < w + 1? n_col_ : w + 1) + 31) / 32 + 1;
+    qlen_ = (qlen + 31) / 32;
+    for (t = 1, max_sc = mat[0], min_sc = mat[1]; t < m * m; ++t) {
+        max_sc = max_sc > mat[t]? max_sc : mat[t];
+        min_sc = min_sc < mat[t]? min_sc : mat[t];
+    }
+    if (-min_sc > 2 * (q + e)) return; // otherwise, we won't see any mismatches
+
+    long_thres = e != e2? (q2 - q) / (e - e2) - 1 : 0;
+    if (q2 + e2 + long_thres * e2 > q + e + long_thres * e)
+        ++long_thres;
+    long_diff = long_thres * (e - e2) - (q2 - q) - e2;
+
+    //mem = (uint8_t*)kcalloc_(km1, tlen_ * 8 + qlen_ + 1 + 63, 64); 
+    mem = (uint8_t*)kcalloc(km, tlen_ * 8 + qlen_ + 1 + 63, 64); 
+    u = (__m256i*)(((size_t)mem + 31) >> 5 << 5); // 16-byte aligned 
+    v = u + tlen_, x = v + tlen_, y = x + tlen_, x2 = y + tlen_, y2 = x2 + tlen_;
+    s = y2 + tlen_, sf = (uint8_t*)(s + tlen_), qr = sf + tlen_ * 32;
+    memset(u,  -q  - e,  tlen_ * 32);
+    memset(v,  -q  - e,  tlen_ * 32);
+    memset(x,  -q  - e,  tlen_ * 32);
+    memset(y,  -q  - e,  tlen_ * 32);
+    memset(x2, -q2 - e2, tlen_ * 32);
+    memset(y2, -q2 - e2, tlen_ * 32);
+    if (!approx_max) {
+        //H = (int32_t*)kmalloc_(km1, tlen_ * 32 * 4);
+        H = (int32_t*)kmalloc(km, tlen_ * 32 * 4);
+        for (t = 0; t < tlen_ * 32; ++t) H[t] = KSW_NEG_INF;
+    }
+    if (with_cigar) {
+        //mem2 = (uint8_t*)kmalloc_(km1, ((size_t)(qlen + tlen - 1) * n_col_ + 1) * 32);
+        //klocwork fix
+	mem2 = (uint8_t*)kmalloc(km, ((size_t)((size_t)qlen + tlen - 1) * n_col_ + 1) * 32);
+        p = (__m256i*)(((size_t)mem2 + 31) >> 5 << 5);
+        //off = (int*)kmalloc_(km1, (qlen + tlen - 1) * sizeof(int) * 2);
+        off = (int*)kmalloc(km, (qlen + tlen - 1) * sizeof(int) * 2);
+        off_end = off + qlen + tlen - 1;
+    }
+//	for(uint64_t itr = 0; itr < ((qlen + tlen - 1) * n_col_ + 1) * 1; itr ++){
+//		avg+= mem2[itr];
+//	}
+#ifdef MANUAL_PROFILING
+//	uint64_t align_start = __rdtsc();
+#endif
+	
+
+    for (t = 0; t < qlen; ++t) qr[t] = query[qlen - 1 - t];
+    memcpy(sf, target, tlen);
+
+    
+    for (r = 0, last_st = last_en = -1; r < qlen + tlen - 1; ++r) {
+        int st = 0, en = tlen - 1, st0, en0, st_, en_;
+        int8_t x1, x21, v1;
+        uint8_t *qrr = qr + (qlen - 1 - r);
+        int8_t *u8 = (int8_t*)u, *v8 = (int8_t*)v, *x8 = (int8_t*)x, *x28 = (int8_t*)x2;
+        __m256i x1_, x21_, v1_;
+        // find the boundaries
+        if (st < r - qlen + 1) st = r - qlen + 1;
+        if (en > r) en = r;
+        if (st < (r-wr+1)>>1) st = (r-wr+1)>>1; // take the ceil
+        if (en > (r+wl)>>1) en = (r+wl)>>1; // take the floor
+        if (st > en) {
+            ez->zdropped = 1;
+            break;
+        }
+        st0 = st, en0 = en;
+        int st_new = st / 16 * 16, en_new = (en + 16) / 16 * 16 - 1;
+        // int st_new = st / 64 * 64, en_new = (en + 64) / 64 * 64 - 1;
+        //int stb = st, enb = en;
+        st = st / 32 * 32, en = (en + 32) / 32 * 32 - 1;
+        //int stn = stb / 16 * 16, enn = (enb + 16) / 16 * 16 - 1;
+        // set boundary conditions
+        if (st_new > 0) {
+            if (st_new - 1 >= last_st && st_new - 1 <= last_en) {
+                x1 = x8[st_new - 1], x21 = x28[st_new - 1], v1 = v8[st_new - 1]; // (r-1,s-1) calculated in the last round
+            } else {
+                x1 = -q - e, x21 = -q2 - e2;
+                v1 = -q - e;
+            }
+        } else {
+            x1 = -q - e, x21 = -q2 - e2;
+            v1 = r == 0? -q - e : r < long_thres? -e : r == long_thres? long_diff : -e2;
+        }
+        if (en_new >= r) {
+            ((int8_t*)y)[r] = -q - e, ((int8_t*)y2)[r] = -q2 - e2;
+            u8[r] = r == 0? -q - e : r < long_thres? -e : r == long_thres? long_diff : -e2;
+        }
+        
+        // loop fission: set scores first 
+        if (!(flag & KSW_EZ_GENERIC_SC)) {
+            for (t = st0; t <= en0; t += 32) {
+                __m256i sq, st, tmp_256, mask_256;
+                sq = _mm256_loadu_si256((__m256i*)&sf[t]);
+                st = _mm256_loadu_si256((__m256i*)&qrr[t]);
+//              mask = (_mm256_cmpeq_epi8_mask(sq, m1_) | _mm256_cmpeq_epi8_mask(st, m1_));
+                mask_256 = _mm256_or_si256(_mm256_cmpeq_epi8(sq, m1_), _mm256_cmpeq_epi8(st, m1_));
+                
+		tmp_256 = _mm256_cmpeq_epi8(sq, st);
+                
+                tmp_256 = _mm256_blendv_epi8(sc_mis_, sc_mch_, tmp_256);
+                tmp_256 = _mm256_blendv_epi8(tmp_256, sc_N_, mask_256);
+                if (t + 32 > en0)
+                {
+                    int ind = (en0 - t + 16)/16;
+                    //assert(ind >= 0 && ind < 3);
+		    //__m256i str = (get_mask_store(msk_v, ((int8_t*)s + t), tmp_256));// msk_ar2_v[ind];
+		    //__m256i str =_mm256_and_si256(get_mask_store(msk_v,(int8_t*)s + t), tmp_256);// msk_ar2_v[ind];
+
+			
+                    //_mm256_storeu_si256((__m256i*)((int8_t*)s + t), str);
+		    
+                    ksw_store_band(((int8_t*)s + t), ind, tmp_256);
+                }
+                else
+                    _mm256_storeu_si256((__m256i*)((int8_t*)s + t), tmp_256);
+                
+            }
+        } else {
+            for (t = st0; t <= en0; ++t)
+                ((uint8_t*)s)[t] = mat[sf[t] * m + qrr[t]];
+        }
+        
+        // core loop 
+        // fprintf(stderr, "- r: %d, x1: %d, x21: %d, v1: %d, en_new: %d, e: %d, q: %d\n",
+        //r, x1, x21, v1, en_new, e, q);
+        x1_  = _mm256_set1_epi8((uint8_t)x1);
+        x21_ = _mm256_set1_epi8((uint8_t)x21);
+        v1_  = _mm256_set1_epi8((uint8_t)v1);
+        
+        //st_ = st / 16, en_ = en / 16;     
+        st_ = st / 32, en_ = en / 32;
+        //assert(en_ - st_ + 1 <= n_col_);
+        if (!with_cigar) { // score only
+            for (t = st_; t <= en_; ++t) {
+                __m256i z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
+                __dp_code_block1_pcl;
+                
+                z = _mm256_max_epi8(z, a);
+                z = _mm256_max_epi8(z, b);
+                z = _mm256_max_epi8(z, a2);
+                z = _mm256_max_epi8(z, b2);
+                z = _mm256_min_epi8(z, sc_mch_);
+                // __dp_code_block2_pcl; // save u[] and v[]; update a, b, a2 and b2
+                if (t == en_) {
+                    int ind = (en0 - t*32 + 16)/16;//doubt
+                    // fprintf(stderr, "en0: %d, t: %d, ind: %d, msk: %d\n", en0, t, ind, msk);
+                    //_mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
+                    ksw_store_band(&u[t], ind, _mm256_sub_epi8(z, vt1));
+                    //_mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind], &v[t], _mm256_sub_epi8(z, ut))));
+                    ksw_store_band(&v[t], ind, _mm256_sub_epi8(z, ut));
+                    tmp = _mm256_sub_epi8(z, q_);                   
+                    a = _mm256_sub_epi8(a, tmp);                    
+                    b = _mm256_sub_epi8(b, tmp);                    
+                    tmp = _mm256_sub_epi8(z, q2_);                  
+                    a2= _mm256_sub_epi8(a2, tmp);                   
+                    b2= _mm256_sub_epi8(b2, tmp);
+                    
+                }
+                else {
+                    _mm256_storeu_si256(&u[t], _mm256_sub_epi8(z, vt1));
+                    _mm256_storeu_si256(&v[t], _mm256_sub_epi8(z, ut));
+                    tmp = _mm256_sub_epi8(z, q_);                   
+                    a = _mm256_sub_epi8(a, tmp);                    
+                    b = _mm256_sub_epi8(b, tmp);                    
+                    tmp = _mm256_sub_epi8(z, q2_);                  
+                    a2= _mm256_sub_epi8(a2, tmp);                   
+                    b2= _mm256_sub_epi8(b2, tmp);
+                }
+                
+                if (t == en_) {
+                    //__mmask32 msk;
+                    int ind = (en0 - t*32 + 16)/16;//doubt
+                    //assert(ind >= 0);
+                    //msk = msk_ar2[ind];
+                    // fprintf(stderr, "en0: %d, t: %d, ind: %d, msk: %d\n", en0, t, ind, msk);
+                    //_mm256_storeu_si256(&x[t], (get_mask_store(msk_ar2_v[ind], &x[t], _mm256_sub_epi8(_mm256_max_epi8(a,  zero_), qe_))));
+                    ksw_store_band(&x[t], ind, _mm256_sub_epi8(_mm256_max_epi8(a,  zero_), qe_));
+                    //_mm256_storeu_si256(&y[t], (get_mask_store(msk_ar2_v[ind],&y[t],  _mm256_sub_epi8(_mm256_max_epi8(b,  zero_), qe_))));
+                    ksw_store_band(&y[t], ind, _mm256_sub_epi8(_mm256_max_epi8(b,  zero_), qe_));
+                    //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_ar2_v[ind], &x2[t] ,  _mm256_sub_epi8(_mm256_max_epi8(a2, zero_), qe2_))));
+                    ksw_store_band(&x2[t], ind, _mm256_sub_epi8(_mm256_max_epi8(a2,  zero_), qe2_));
+                    //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_ar2_v[ind], &y2[t], _mm256_sub_epi8(_mm256_max_epi8(b2, zero_), qe2_))));                    
+                    ksw_store_band(&y2[t], ind, _mm256_sub_epi8(_mm256_max_epi8(b2,  zero_), qe2_));
+                }
+                else
+                {
+                    _mm256_storeu_si256(&x[t],  _mm256_sub_epi8(_mm256_max_epi8(a,  zero_), qe_));
+                    _mm256_storeu_si256(&y[t],  _mm256_sub_epi8(_mm256_max_epi8(b,  zero_), qe_));
+                    _mm256_storeu_si256(&x2[t], _mm256_sub_epi8(_mm256_max_epi8(a2, zero_), qe2_));
+                    _mm256_storeu_si256(&y2[t], _mm256_sub_epi8(_mm256_max_epi8(b2, zero_), qe2_));
+                }
+                // for (int l=0; l<64; l++)
+                //    fprintf(stderr, "%d ", ((int8_t*)x)[l]);
+
+            }
+            
+        } else if (!(flag&KSW_EZ_RIGHT)) { // gap left-alignment
+            __m256i *pr = p + (size_t)r * n_col_ - st_;
+            off[r] = st, off_end[r] = en;
+
+           
+            _mm_prefetch(pr + 4, _MM_HINT_T0); 
+            for (t = st_; t < en_; ++t) {
+                __m256i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
+            //    __mmask32 tmp_mask;
+             	__m256i tmp_mask;
+		__dp_code_block1_pcl;                
+
+                d = _mm256_and_si256(_mm256_cmpgt_epi8(a, z), one_);       // d = a  > z? 1 : 0
+                z = _mm256_max_epi8(z, a);              
+                d = _mm256_blendv_epi8(d, two_,_mm256_cmpgt_epi8(b,  z)); // d = b  > z? 2 : d
+                z = _mm256_max_epi8(z, b);
+                d = _mm256_blendv_epi8(d, three_,_mm256_cmpgt_epi8(a2, z)); // d = a2 > z? 3 : d
+                z = _mm256_max_epi8(z, a2);
+                d = _mm256_blendv_epi8(d, four_,_mm256_cmpgt_epi8(b2, z)); // d = b2 > z? 4 : d
+                z = _mm256_max_epi8(z, b2);
+                z = _mm256_min_epi8(z, sc_mch_);
+                // __dp_code_block2_pcl;                
+                    _mm256_storeu_si256(&u[t], _mm256_sub_epi8(z, vt1));
+                    _mm256_storeu_si256(&v[t], _mm256_sub_epi8(z, ut));
+                    tmp = _mm256_sub_epi8(z, q_);                   
+                    a = _mm256_sub_epi8(a, tmp);                    
+                    b = _mm256_sub_epi8(b, tmp);                    
+                    tmp = _mm256_sub_epi8(z, q2_);                  
+                    a2= _mm256_sub_epi8(a2, tmp);                   
+                    b2= _mm256_sub_epi8(b2, tmp);
+                    tmp_mask = _mm256_cmpgt_epi8(a, zero_);
+                    _mm256_storeu_si256(&x[t],  _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a),  qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(b, zero_);
+                    _mm256_storeu_si256(&y[t],  _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b),  qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(a2, zero_);
+                    _mm256_storeu_si256(&x2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(b2, zero_);
+                    _mm256_storeu_si256(&y2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0             
+                    _mm256_storeu_si256(&pr[t], d);
+            	    _mm_prefetch(pr + 4, _MM_HINT_T0); 
+            }
+            {
+                __m256i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
+                //__mmask32 tmp_mask;
+             	__m256i tmp_mask;
+                __dp_code_block1_pcl;                
+
+                d = _mm256_and_si256(_mm256_cmpgt_epi8(a, z), one_);       // d = a  > z? 1 : 0
+                z = _mm256_max_epi8(z, a);              
+                d = _mm256_blendv_epi8(d, two_, _mm256_cmpgt_epi8(b,  z)); // d = b  > z? 2 : d
+                z = _mm256_max_epi8(z, b);
+                d = _mm256_blendv_epi8(d, three_, _mm256_cmpgt_epi8(a2, z)); // d = a2 > z? 3 : d
+                z = _mm256_max_epi8(z, a2);
+                d = _mm256_blendv_epi8(d, four_, _mm256_cmpgt_epi8(b2, z)); // d = b2 > z? 3 : d
+                z = _mm256_max_epi8(z, b2);
+                z = _mm256_min_epi8(z, sc_mch_);
+                // __dp_code_block2_pcl;                
+                {
+                    //__mmask32 msk;
+                    int ind = (en0 - t*32 + 16)/16;//doubt
+                  //  //assert(ind >= 0 && ind < 5);
+                    //msk = msk_ar2[ind];
+                    
+                    //_mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
+                    //_mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind],&v[t], _mm256_sub_epi8(z, ut))));
+                    ksw_store_band(&u[t], ind, _mm256_sub_epi8(z, vt1));
+                    ksw_store_band(&v[t], ind, _mm256_sub_epi8(z, ut));
+                    
+
+		    tmp = _mm256_sub_epi8(z, q_);                   
+                    a = _mm256_sub_epi8(a, tmp);                    
+                    b = _mm256_sub_epi8(b, tmp);                    
+                    tmp = _mm256_sub_epi8(z, q2_);                  
+                    a2= _mm256_sub_epi8(a2, tmp);                   
+                    b2= _mm256_sub_epi8(b2, tmp);
+                }
+                
+                {
+                    //__mmask32 msk;
+                    int ind = (en0 - t*32 + 16)/16;//doubt
+                    //msk = msk_ar2[ind];
+                    off_end[r] -= (2-ind)*16;//doubt
+                    
+                    tmp_mask = _mm256_cmpgt_epi8(a, zero_);
+                    //_mm256_storeu_si256(&x[t], (get_mask_store(msk_v, &x[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a), qe_))));
+                    ksw_store_band(&x[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a), qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
+                    
+                    tmp_mask = _mm256_cmpgt_epi8(b, zero_);
+                    //_mm256_storeu_si256(&y[t], (get_mask_store(msk_v,&y[t] , _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b), qe_))));
+                    ksw_store_band(&y[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b), qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0                    
+                    tmp_mask = _mm256_cmpgt_epi8(a2, zero_);
+                    //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_v,&x2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a2), qe2_))));
+                    ksw_store_band(&x2[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0                    
+                    tmp_mask = _mm256_cmpgt_epi8(b2, zero_);
+                    //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_v,&y2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b2), qe2_))));
+                    ksw_store_band(&y2[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0
+                    //_mm256_storeu_si256(&pr[t], (get_mask_store(msk_v, &pr[t], d)));
+                    ksw_store_band(&pr[t], ind, d);
+                    //_mm256_mask_storeu_epi8(&pr[t], msk, d);
+                }
+            }
+
+
+        } else { // gap right-alignment
+            __m256i *pr = p + (size_t)r * n_col_ - st_;
+            off[r] = st, off_end[r] = en;
+            // off[r] = stn, off_end[r] = enn;
+            // fprintf(stderr, "t: %d, st0: %d\n", st_, st0);
+            for (t = st_; t < en_; ++t) {
+                __m256i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
+                //__mmask32 tmp_mask;
+                __m256i tmp_mask;
+                
+                __dp_code_block1_pcl;
+                
+                d = _mm256_andnot_si256(_mm256_cmpgt_epi8(z, a), one_);
+                z = _mm256_max_epi8(z, a);
+                // d = _mm256_blendv_epi8(_mm256_cmpgt_epi8(z, b), _mm256_set1_epi8(2), d);  
+                // d = z > b?  d : 2
+                d = _mm256_blendv_epi8(two_, d,_mm256_cmpgt_epi8(z, b) );  // d = z > b?  d : 2
+                z = _mm256_max_epi8(z, b);
+                // d = z > a2? d : 3
+                d = _mm256_blendv_epi8(three_, d, _mm256_cmpgt_epi8(z, a2)); // d = z > a2? d : 3
+                z = _mm256_max_epi8(z, a2);
+                // d = z > b2? d : 4
+                d = _mm256_blendv_epi8(four_, d, _mm256_cmpgt_epi8(z, b2)); // d = z > b2? d : 4
+                z = _mm256_max_epi8(z, b2);                
+                z = _mm256_min_epi8(z, sc_mch_);
+
+                // __dp_code_block2_pcl;
+                
+                //__mmask32 msk;
+                {
+                    _mm256_storeu_si256(&u[t], _mm256_sub_epi8(z, vt1));
+                    _mm256_storeu_si256(&v[t], _mm256_sub_epi8(z, ut));
+                    tmp = _mm256_sub_epi8(z, q_);                   
+                    a = _mm256_sub_epi8(a, tmp);                    
+                    b = _mm256_sub_epi8(b, tmp);                    
+                    tmp = _mm256_sub_epi8(z, q2_);                  
+                    a2= _mm256_sub_epi8(a2, tmp);                   
+                    b2= _mm256_sub_epi8(b2, tmp);
+                }
+                
+                {
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, a);
+                    _mm256_storeu_si256(&x[t],  _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a),  qe_));
+                    // d = a > 0? 1<<3 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, b);
+                    _mm256_storeu_si256(&y[t],  _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b),  qe_));
+                    // d = b > 0? 1<<4 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, a2);
+                    _mm256_storeu_si256(&x2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a2), qe2_));
+                    // d = a > 0? 1<<5 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, b2);
+                    _mm256_storeu_si256(&y2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b2), qe2_));
+                    // d = b > 0? 1<<6 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0
+                    _mm256_storeu_si256(&pr[t], d);
+                    
+                }
+            }
+            //for (t = st_; t <= en_; ++t)// Last iteration unrolled 
+	    {
+                __m256i d, z, a, b, a2, b2, xt1, x2t1, vt1, ut, tmp;
+                //__mmask32 tmp_mask;
+                __m256i tmp_mask;
+                
+                __dp_code_block1_pcl;
+                
+                d = _mm256_andnot_si256(_mm256_cmpgt_epi8(z, a), one_);
+                z = _mm256_max_epi8(z, a);
+                // d = z > b?  d : 2
+                d = _mm256_blendv_epi8( two_, d, _mm256_cmpgt_epi8(z, b));  // d = z > b?  d : 2
+                z = _mm256_max_epi8(z, b);
+                // d = z > a2? d : 3
+                d = _mm256_blendv_epi8( three_, d, _mm256_cmpgt_epi8(z, a2)); // d = z > a2? d : 3
+                z = _mm256_max_epi8(z, a2);
+                // d = z > b2? d : 4
+                d = _mm256_blendv_epi8(four_, d, _mm256_cmpgt_epi8(z, b2)); // d = z > b2? d : 4
+                z = _mm256_max_epi8(z, b2);                
+                z = _mm256_min_epi8(z, sc_mch_);
+
+                // __dp_code_block2_pcl;
+                
+                //__mmask32 msk;
+                
+                    // __mmask64 msk;
+                    int ind = (en0 - t*32 + 16)/16;//doubt
+                    //msk = msk_ar2[ind];
+                    off_end[r] -= (2-ind)*16;//doubt
+                    
+                    //_mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
+                    //_mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind], &v[t], _mm256_sub_epi8(z, ut))));
+                    ksw_store_band(&u[t], ind, _mm256_sub_epi8(z, vt1));
+                    ksw_store_band(&v[t], ind, _mm256_sub_epi8(z, ut));
+                    
+
+		    tmp = _mm256_sub_epi8(z, q_);                   
+                    a = _mm256_sub_epi8(a, tmp);                    
+                    b = _mm256_sub_epi8(b, tmp);                    
+                    tmp = _mm256_sub_epi8(z, q2_);                  
+                    a2= _mm256_sub_epi8(a2, tmp);                   
+                    b2= _mm256_sub_epi8(b2, tmp);                    
+                
+                
+                
+                    
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, a);
+                    //_mm256_storeu_si256(&x[t], (get_mask_store(msk_ar2_v[ind],&x[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a), qe_))));
+                    ksw_store_band(&x[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a), qe_));
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, b);
+                    //_mm256_storeu_si256(&y[t], (get_mask_store(msk_ar2_v[ind], &y[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b), qe_))));
+                    ksw_store_band(&y[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b), qe_));
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, a2);
+                    //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_ar2_v[ind], &x2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a2), qe2_))));
+                    ksw_store_band(&x2[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0
+                    tmp_mask = _mm256_cmpgt_epi8(zero_, b2);
+                    //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_ar2_v[ind], &y2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b2), qe2_))));
+                    ksw_store_band(&y2[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b2), qe2_));
+              
+	      		d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0
+                    // _mm256_storeu_si256(&pr[t], d);
+//                    _mm256_storeu_si256(&pr[t], (get_mask_store(msk_ar2_v[ind], &pr[t], d)));
+                    ksw_store_band(&pr[t], ind, d);
+
+                
+            }
+        }
+
+        if (!approx_max) { // find the exact max with a 32-bit score array
+            int32_t max_H, max_t;
+            // compute H[], max_H and max_t
+            if (r > 0) {
+                int32_t HH[8], tt[8], en1 = st0 + (en0 - st0) / 8 * 8, i;
+                __m256i max_H_, max_t_;
+                max_H = H[en0] = en0 > 0? H[en0-1] + u8[en0] : H[en0] + v8[en0]; // special casing the last element
+                max_t = en0;
+                max_H_ = _mm256_set1_epi32(max_H);
+                // 8 lanes, each with its first maximum (strict >), then lanes i and i+4 folded: the result of
+                // the 4-lane loop of mm2-fast (lane i = positions t with (t - st0) % 4 == i, the first maximum)
+                {
+                    __m256i t_ = _mm256_add_epi32(_mm256_set1_epi32(st0), _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+                    const __m256i eight_ = _mm256_set1_epi32(8);
+                    max_t_ = _mm256_set1_epi32(en0);
+                    for (t = st0; t < en1; t += 8) {
+                        __m256i H1 = _mm256_loadu_si256((__m256i*)&H[t]);
+                        H1 = _mm256_add_epi32(H1, _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i*)&v8[t])));
+                        _mm256_storeu_si256((__m256i*)&H[t], H1);
+                        __m256i gt = _mm256_cmpgt_epi32(H1, max_H_);
+                        max_H_ = _mm256_max_epi32(max_H_, H1);
+                        max_t_ = _mm256_blendv_epi8(max_t_, t_, gt);
+                        t_ = _mm256_add_epi32(t_, eight_);
+                    }
+                    int32_t H8[8], t8[8];
+                    _mm256_storeu_si256((__m256i*)H8, max_H_);
+                    _mm256_storeu_si256((__m256i*)t8, max_t_);
+                    for (i = 0; i < 4; ++i) {
+                        int lo = H8[i] > H8[i + 4] || (H8[i] == H8[i + 4] && t8[i] <= t8[i + 4]);
+                        HH[i] = lo? H8[i] : H8[i + 4], tt[i] = lo? t8[i] : t8[i + 4];
+                    }
+                }
+                int rem = (en0 - t) / 4;
+                for (int l = 0; l < rem; l++) {
+                    for (int j = 0; j < 4; j++) {
+                        H[t] += (int32_t)v8[t];
+                        if (H[t] > HH[j]) HH[j] = H[t], tt[j] = t;
+                        t++;
+                    }
+                }
+                for (i = 0; i < 4; ++i)
+                    if (max_H < HH[i]) max_H = HH[i], max_t = tt[i];
+                for (; t < en0; ++t) { // the rest
+                    H[t] += (int32_t)v8[t];
+                    if (H[t] > max_H) max_H = H[t], max_t = t;
+                }
+            } else H[0] = v8[0] - qe, max_H = H[0], max_t = 0; // special casing r==0
+
+            // update ez
+            if (en0 == tlen - 1 && H[en0] > ez->mte) {
+                ez->mte = H[en0], ez->mte_q = r - en_new;
+            }
+            if (r - st0 == qlen - 1 && H[st0] > ez->mqe) {
+                ez->mqe = H[st0], ez->mqe_t = st0;
+            }
+            
+            if (ksw_apply_zdrop(ez, 1, max_H, r, max_t, zdrop, e2)) {
+                break;
+            }
+            if (r == qlen + tlen - 2 && en0 == tlen - 1) {                
+                ez->score = H[tlen - 1];
+            }
+        } else { // find approximate max; Z-drop might be inaccurate, too.
+            if (r > 0) {
+                if (last_H0_t >= st0 && last_H0_t <= en0 && last_H0_t + 1 >= st0 && last_H0_t + 1 <= en0) {
+                    int32_t d0 = v8[last_H0_t];
+                    int32_t d1 = u8[last_H0_t + 1];
+                    if (d0 > d1) H0 += d0;
+                    else H0 += d1, ++last_H0_t;
+                } else if (last_H0_t >= st0 && last_H0_t <= en0) {
+                    H0 += v8[last_H0_t];
+                } else {
+                    ++last_H0_t, H0 += u8[last_H0_t];
+                }
+            } else H0 = v8[0] - qe, last_H0_t = 0;
+            if ((flag & KSW_EZ_APPROX_DROP) && ksw_apply_zdrop(ez, 1, H0, r, last_H0_t, zdrop, e2)) {
+                break;
+            }
+            if (r == qlen + tlen - 2 && en0 == tlen - 1) {
+                ez->score = H0;
+            }
+        }
+        // last_st = st, last_en = en;
+        last_st = st_new, last_en = en_new;
+
+    }
+#ifdef MANUAL_PROFILING
+//	alignment_time += (__rdtsc() - align_start);
+#endif
+    
+    kfree(km, mem);
+    if (!approx_max) kfree(km, H);
+    if (with_cigar) { // backtrack
+        int rev_cigar = !!(flag & KSW_EZ_REV_CIGAR);
+        if (!ez->zdropped && !(flag&KSW_EZ_EXTZ_ONLY)) {
+            ksw_backtrack(km, 1, rev_cigar, 0, (uint8_t*)p, off, off_end, n_col_*32, tlen-1, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+        } else if (!ez->zdropped && (flag&KSW_EZ_EXTZ_ONLY) && ez->mqe + end_bonus > (int)ez->max) {
+            ez->reach_end = 1;
+            ksw_backtrack(km, 1, rev_cigar, 0, (uint8_t*)p, off, off_end, n_col_*32, ez->mqe_t, qlen-1, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+        } else if (ez->max_t >= 0 && ez->max_q >= 0) {
+            ksw_backtrack(km, 1, rev_cigar, 0, (uint8_t*)p, off, off_end, n_col_*32, ez->max_t, ez->max_q, &ez->m_cigar, &ez->n_cigar, &ez->cigar);
+        }
+        kfree(km, mem2); kfree(km, off);
+    }
+//	kfree_all();
+#undef __dp_code_block1_pcl
+#undef __dp_code_block2_pcl
+}
+
+#endif

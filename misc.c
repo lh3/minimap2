@@ -152,11 +152,75 @@ void mm_err_fread(void *p, size_t size, size_t nitems, FILE *fp)
 
 #include "ksort.h"
 
+// KRADIX_SORT_INIT of ksort.h with one change: rs_sort first finds the digits on which all keys of the range
+// agree and starts at the highest digit that varies. A pass on a digit that all keys share puts every element
+// in one bucket and moves nothing, so the result (also the order of equal keys) is the same as before.
+// The anchors of one read share the strand, the chromosome and the high position bytes: most passes were such
+// no-ops.
+#define KRADIX_SORT_INIT_SKIP(name, rstype_t, rskey, sizeof_key) \
+	typedef struct { \
+		rstype_t *b, *e; \
+	} rsbucket_##name##_t; \
+	void rs_insertsort_##name(rstype_t *beg, rstype_t *end) \
+	{ \
+		rstype_t *i; \
+		for (i = beg + 1; i < end; ++i) \
+			if (rskey(*i) < rskey(*(i - 1))) { \
+				rstype_t *j, tmp = *i; \
+				for (j = i; j > beg && rskey(tmp) < rskey(*(j-1)); --j) \
+					*j = *(j - 1); \
+				*j = tmp; \
+			} \
+	} \
+	void rs_sort_##name(rstype_t *beg, rstype_t *end, int n_bits, int s) \
+	{ \
+		rstype_t *i; \
+		int size = 1<<n_bits, m = size - 1; \
+		rsbucket_##name##_t *k, b[1<<RS_MAX_BITS], *be = b + size; \
+		assert(n_bits <= RS_MAX_BITS); \
+		{ \
+			uint64_t x0 = rskey(*beg), v = 0; \
+			for (i = beg + 1; i != end; ++i) v |= rskey(*i) ^ x0; \
+			if (v == 0) return; \
+			while (s && (v >> s & m) == 0) s = s > n_bits? s - n_bits : 0; \
+		} \
+		for (k = b; k != be; ++k) k->b = k->e = beg; \
+		for (i = beg; i != end; ++i) ++b[rskey(*i)>>s&m].e; \
+		for (k = b + 1; k != be; ++k) \
+			k->e += (k-1)->e - beg, k->b = (k-1)->e; \
+		for (k = b; k != be;) { \
+			if (k->b != k->e) { \
+				rsbucket_##name##_t *l; \
+				if ((l = b + (rskey(*k->b)>>s&m)) != k) { \
+					rstype_t tmp = *k->b, swap; \
+					do { \
+						swap = tmp; tmp = *l->b; *l->b++ = swap; \
+						l = b + (rskey(tmp)>>s&m); \
+					} while (l != k); \
+					*k->b++ = tmp; \
+				} else ++k->b; \
+			} else ++k; \
+		} \
+		for (b->b = beg, k = b + 1; k != be; ++k) k->b = (k-1)->e; \
+		if (s) { \
+			s = s > n_bits? s - n_bits : 0; \
+			for (k = b; k != be; ++k) \
+				if (k->e - k->b > RS_MIN_SIZE) rs_sort_##name(k->b, k->e, n_bits, s); \
+				else if (k->e - k->b > 1) rs_insertsort_##name(k->b, k->e); \
+		} \
+	} \
+	void radix_sort_##name(rstype_t *beg, rstype_t *end) \
+	{ \
+		if (end - beg <= RS_MIN_SIZE) rs_insertsort_##name(beg, end); \
+		else rs_sort_##name(beg, end, RS_MAX_BITS, (sizeof_key - 1) * RS_MAX_BITS); \
+	}
+
+
 #define sort_key_128x(a) ((a).x)
-KRADIX_SORT_INIT(128x, mm128_t, sort_key_128x, 8) 
+KRADIX_SORT_INIT_SKIP(128x, mm128_t, sort_key_128x, 8)
 
 #define sort_key_64(x) (x)
-KRADIX_SORT_INIT(64, uint64_t, sort_key_64, 8)
+KRADIX_SORT_INIT_SKIP(64, uint64_t, sort_key_64, 8)
 
 KSORT_INIT_GENERIC(uint32_t)
 KSORT_INIT_GENERIC(uint64_t)
