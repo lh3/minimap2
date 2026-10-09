@@ -44,9 +44,14 @@ static int x86_simd(void)
 	if (cpuid[2]>>19&1) flag |= SIMD_SSE4_1;
 	if (cpuid[2]>>20&1) flag |= SIMD_SSE4_2;
 	if (cpuid[2]>>28&1) flag |= SIMD_AVX;
+	if (cpuid[2]>>27&1) { // OSXSAVE: the OS saves the AVX registers only if XCR0 has the SSE and AVX state bits
+		uint32_t xcr0_lo, xcr0_hi;
+		__asm__ volatile ("xgetbv" : "=a" (xcr0_lo), "=d" (xcr0_hi) : "c" (0));
+		if ((xcr0_lo & 6) != 6) flag &= ~SIMD_AVX;
+	} else flag &= ~SIMD_AVX;
 	if (max_id >= 7) {
 		__cpuidex(cpuid, 7, 0);
-		if (cpuid[1]>>5 &1) flag |= SIMD_AVX2;
+		if ((flag & SIMD_AVX) && (cpuid[1]>>5&1)) flag |= SIMD_AVX2;
 		if (cpuid[1]>>16&1) flag |= SIMD_AVX512F;
 	}
 	return flag;
@@ -71,8 +76,12 @@ void ksw_extd2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uin
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 	extern void ksw_extd2_sse41(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
 				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
+	extern void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
+				   int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);
 	if (ksw_simd < 0) ksw_simd = x86_simd();
-	if (ksw_simd & SIMD_SSE4_1)
+	if (ksw_simd & SIMD_AVX2) // the same results as the SSE4.1 kernel
+		ksw_extd2_avx2(km, qlen, query, tlen, target, m, mat, q, e, q2, e2, w, zdrop, end_bonus, flag, ez);
+	else if (ksw_simd & SIMD_SSE4_1)
 		ksw_extd2_sse41(km, qlen, query, tlen, target, m, mat, q, e, q2, e2, w, zdrop, end_bonus, flag, ez);
 	else if (ksw_simd & SIMD_SSE2)
 		ksw_extd2_sse2(km, qlen, query, tlen, target, m, mat, q, e, q2, e2, w, zdrop, end_bonus, flag, ez);
