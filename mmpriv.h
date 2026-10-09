@@ -69,6 +69,7 @@ long peakrss(void);
 void radix_sort_128x(mm128_t *beg, mm128_t *end);
 void mm_idx_prefetch_hdr(const mm_idx_t *mi, uint64_t minier);
 void mm_idx_prefetch(const mm_idx_t *mi, uint64_t minier);
+mm_idx_t *mm_idx_load2(FILE *fp, int n_threads); // mm_idx_load() with n_threads to build the hashes
 void radix_sort_64(uint64_t *beg, uint64_t *end);
 uint32_t ks_ksmall_uint32_t(size_t n, uint32_t arr[], size_t kk);
 
