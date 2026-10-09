@@ -650,6 +650,59 @@ static inline void mm_get_junc(const mm_idx_t *mi, int32_t ctg, int32_t st, int3
 	else memset(junc, 0, en - st);
 }
 
+static int64_t mm_gap_cost(const mm_mapopt_t *opt, int64_t l)
+{ // the score cost of one gap of length l
+	int64_t c1 = opt->q + l * opt->e, c2 = opt->q2 + l * opt->e2;
+	return c1 < c2? c1 : c2;
+}
+
+static int64_t mm_band_ub(const mm_mapopt_t *opt, int64_t qlen, int64_t tlen, int64_t w)
+{ // a bound of the score of any global path that leaves the ksw2 band w (-w+1 <= j-i <= w); INT64_MAX if the band misses the end
+	int64_t d = tlen - qlen, U, D, ub1, ub2;
+	if (d > w || d < -w + 1) return INT64_MAX;
+	U = w + 1, D = w + 1 - d; // reach j-i = w+1, then come back to d
+	ub1 = opt->a * ((qlen + tlen - U - D) / 2) - mm_gap_cost(opt, U) - mm_gap_cost(opt, D);
+	D = w, U = w + d; // reach j-i = -w, then come back to d
+	ub2 = U > 0? opt->a * ((qlen + tlen - U - D) / 2) - mm_gap_cost(opt, U) - mm_gap_cost(opt, D) : INT64_MIN;
+	return ub1 > ub2? ub1 : ub2;
+}
+
+// Exact fast paths of the gap fill. Returns 1 if ez holds the result of the full DP, 0 if the caller
+// must run it. (1) An ungapped alignment whose score beats any gapped path is the unique optimum.
+// (2) A narrow band whose score beats any path that leaves the band holds the optimum.
+static int mm_gapfill_fast(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq,
+						   const uint8_t *junc, const int8_t *mat, int w, int zdrop, int flag, ksw_extz_t *ez)
+{
+	int32_t i, d = tlen - qlen, w0;
+	if (qlen <= 0 || tlen <= 0) return 0;
+	if (opt->max_sw_mat > 0 && (int64_t)tlen * qlen > opt->max_sw_mat) return 0; // mm_align_pair() skips it
+	if (mat[24] == 0) return 0; // ksw2 then scores N as -e2, not as mat[]
+	if (qlen == tlen) {
+		int64_t sc = 0, ub;
+		for (i = 0; i < qlen; ++i) sc += mat[qseq[i] * 5 + tseq[i]];
+		ub = opt->a * (int64_t)(qlen - 1) - 2 * mm_gap_cost(opt, 1); // one insertion and one deletion at least
+		if (sc > ub) {
+			ksw_reset_extz(ez);
+			ez->score = (int)sc;
+			ez->cigar = ksw_push_cigar(km, &ez->n_cigar, &ez->m_cigar, ez->cigar, MM_CIGAR_MATCH, qlen);
+			return 1;
+		}
+	}
+	w0 = (d > 0? d : -d) + 16;
+	if (w0 >= w || (int64_t)(2 * w0 + 1) * 4 > (qlen < tlen? qlen : tlen)) return 0; // no saving
+	mm_align_pair(km, opt, qlen, qseq, tlen, tseq, junc, mat, w0, -1, zdrop, flag, ez);
+	if (!ez->zdropped && ez->score > KSW_NEG_INF && mm_band_ub(opt, qlen, tlen, w0) < ez->score)
+		return 1;
+	return 0;
+}
+
+static void mm_gapfill(void *km, const mm_mapopt_t *opt, int qlen, const uint8_t *qseq, int tlen, const uint8_t *tseq,
+					   const uint8_t *junc, const int8_t *mat, int w, int zdrop, int flag, ksw_extz_t *ez)
+{ // the first pass of a gap fill in mm_align1(): a fast path if one is exact, else the full DP
+	if (!mm_gapfill_fast(km, opt, qlen, qseq, tlen, tseq, junc, mat, w, zdrop, flag, ez))
+		mm_align_pair(km, opt, qlen, qseq, tlen, tseq, junc, mat, w, -1, zdrop, flag, ez);
+}
+
 static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int qlen, uint8_t *qseq0[2], mm_reg1_t *r, mm_reg1_t *r2, int n_a, mm128_t *a, ksw_extz_t *ez, int splice_flag)
 {
 	int is_sr = !!(opt->flag & MM_F_SR), is_splice = !!(opt->flag & MM_F_SPLICE), is_sr_rna = (!!(opt->flag & MM_F_SR_RNA) && is_splice);
@@ -844,7 +897,9 @@ static void mm_align1(void *km, const mm_mapopt_t *opt, const mm_idx_t *mi, int 
 				int32_t skip_full = 0;
 				if (is_sr_rna)
 					skip_full = mm_align_sr_rna(km, opt, qe - qs, qseq, re - rs, tseq, junc, tseq2, junc2, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez);
-				if (!skip_full)
+				if (!skip_full && !is_sr_rna && !(opt->flag & MM_F_SPLICE))
+					mm_gapfill(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
+				else if (!skip_full)
 					mm_align_pair(km, opt, qe - qs, qseq, re - rs, tseq, junc, mat, bw1, -1, opt->zdrop, ksw_flag|KSW_EZ_APPROX_MAX, ez); // first pass: with approximate Z-drop
 			}
 			// test Z-drop and inversion Z-drop
