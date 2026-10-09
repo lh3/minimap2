@@ -424,6 +424,7 @@ typedef struct {
 	int *n_reg, *seg_off, *n_seg, *rep_len, *frag_gap;
 	mm_reg1_t **reg;
 	mm_tbuf_t **buf;
+	int32_t *order; // the fragments by total length, longest first: the order in which the workers take them
 } step_t;
 
 static void worker_for(void *_data, long i, int tid) // kt_for() callback
@@ -475,6 +476,26 @@ static void worker_for(void *_data, long i, int tid) // kt_for() callback
 		}
 	if (mm_dbg_flag & MM_DBG_PRINT_QNAME)
 		fprintf(stderr, "QT\t%s\t%d\t%.6f\n", s->seq[off].name, tid, realtime() - t);
+}
+
+static void worker_for_lpt(void *_data, long i, int tid)
+{ // worker_for() on the i-th longest fragment; the results go to the slots of the fragment, so the output order stays
+	worker_for(_data, ((step_t*)_data)->order[i], tid);
+}
+
+static void mm_lpt_order(step_t *s)
+{ // longest fragments first: the last fragments of a batch are short, so the threads finish at about the same time
+	int32_t k, j;
+	uint64_t *key = (uint64_t*)malloc(s->n_frag * 8);
+	for (k = 0; k < s->n_frag; ++k) {
+		uint32_t len = 0;
+		for (j = 0; j < s->n_seg[k]; ++j) len += s->seq[s->seg_off[k] + j].l_seq;
+		key[k] = (uint64_t)(UINT32_MAX - len) << 32 | (uint32_t)k; // ascending key = descending length
+	}
+	radix_sort_64(key, key + s->n_frag);
+	s->order = (int32_t*)malloc(s->n_frag * 4);
+	for (k = 0; k < s->n_frag; ++k) s->order[k] = (uint32_t)key[k];
+	free(key);
 }
 
 static void merge_hits(step_t *s)
@@ -577,7 +598,12 @@ static void *worker_pipeline(void *shared, int step, void *in)
 		} else free(s);
     } else if (step == 1) { // step 1: map
 		if (p->n_parts > 0) merge_hits((step_t*)in);
-		else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
+		else if (p->n_threads > 1 && ((step_t*)in)->n_frag > 1) {
+			mm_lpt_order((step_t*)in);
+			kt_for(p->n_threads, worker_for_lpt, in, ((step_t*)in)->n_frag);
+			free(((step_t*)in)->order);
+			((step_t*)in)->order = 0;
+		} else kt_for(p->n_threads, worker_for, in, ((step_t*)in)->n_frag);
 		return in;
     } else if (step == 2) { // step 2: output
 		void *km = 0;
