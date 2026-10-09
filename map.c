@@ -165,6 +165,8 @@ static mm128_t *collect_seed_hits_heap(void *km, const mm_mapopt_t *opt, int max
 	return a;
 }
 
+#define MM_HIT_PF 16 // the prefetch distance of collect_seed_hits(), in seeds
+
 static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ, const mm_idx_t *mi, const char *qname, const mm128_v *mv, int qlen, int64_t *n_a, int *rep_len,
 								  int *n_mini_pos, uint64_t **mini_pos)
 {
@@ -173,10 +175,12 @@ static mm128_t *collect_seed_hits(void *km, const mm_mapopt_t *opt, int max_occ,
 	mm128_t *a;
 	m = mm_collect_matches(km, &n_m, qlen, max_occ, opt->max_max_occ, opt->occ_dist, mi, mv, n_a, rep_len, n_mini_pos, mini_pos);
 	a = (mm128_t*)kmalloc(km, *n_a * sizeof(mm128_t));
+	for (i = 0; i < MM_HIT_PF && i < n_m; ++i) __builtin_prefetch(m[i].cr);
 	for (i = 0, *n_a = 0; i < n_m; ++i) {
 		mm_seed_t *q = &m[i];
 		const uint64_t *r = q->cr;
 		uint32_t k;
+		if (i + MM_HIT_PF < n_m) __builtin_prefetch(m[i + MM_HIT_PF].cr); // the reference positions of a later seed
 		for (k = 0; k < q->n; ++k) {
 			int32_t is_self, rpos = (uint32_t)r[k] >> 1;
 			mm128_t *p;
