@@ -145,6 +145,85 @@ static inline int32_t comput_sc(const mm128_t *ai, const mm128_t *aj, int32_t ma
  *   u[]: score<<32 | #anchors (sum of lower 32 bits of u[] is the returned length of a[])
  * input a[] is deallocated on return
  */
+#ifdef MM_AVX2_DISPATCH
+#include "ksw2.h"
+#include <immintrin.h>
+#define MM_CB 8
+// The fill loop of mg_lchain_dp() for n_seg == 1 and !is_cdna (the mask is from the fast-hifi fork). Most predecessors fail the
+// distance or band test of comput_sc() and leave the DP state unchanged. An AVX2 mask finds the valid predecessors
+// 8 at a time; the scalar code then runs on them in the original order, so f, p, v and t stay the same.
+__attribute__((target("avx2"))) static void mg_lchain_dp_fill_avx2(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, float chn_pen_gap, float chn_pen_skip,
+								  int64_t n, const mm128_t *a, int32_t *f, int64_t *p, int32_t *v, int32_t *t, void *km)
+{
+	int64_t i, j, max_ii, st = 0;
+	int32_t *x32 = Kmalloc(km, int32_t, n + MM_CB), *y32 = Kmalloc(km, int32_t, n + MM_CB);
+	for (i = 0; i < n; ++i) x32[i + MM_CB] = (int32_t)a[i].x, y32[i + MM_CB] = (int32_t)a[i].y;
+	for (i = 0; i < MM_CB; ++i) x32[i] = y32[i] = 0;
+	const __m256i lane = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7), zero = _mm256_setzero_si256();
+	const __m256i vmx = _mm256_set1_epi32(max_dist_x), vmy = _mm256_set1_epi32(max_dist_y), vbw = _mm256_set1_epi32(bw);
+	for (i = 0, max_ii = -1; i < n; ++i) {
+		int64_t max_j = -1, end_j, brk_j = -1;
+		int32_t max_f = a[i].y>>32&0xff, n_skip = 0;
+		int stop = 0;
+		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist_x)) ++st;
+		if (i - st > max_iter) st = i - max_iter;
+		const __m256i vxi = _mm256_set1_epi32((int32_t)a[i].x), vyi = _mm256_set1_epi32((int32_t)a[i].y);
+		for (j = i - 1; j >= st && !stop; j -= 8) {
+			const int64_t b = j - 7; // lanes 0..7 = anchors j-7..j; lanes below st are masked off
+			__m256i vx = _mm256_loadu_si256((const __m256i*)&x32[b + MM_CB]), vy = _mm256_loadu_si256((const __m256i*)&y32[b + MM_CB]);
+			__m256i dq = _mm256_sub_epi32(vyi, vy), dr = _mm256_sub_epi32(vxi, vx);
+			__m256i dd = _mm256_abs_epi32(_mm256_sub_epi32(dr, dq));
+			__m256i ok = _mm256_cmpgt_epi32(dq, zero);
+			__m256i bad = _mm256_or_si256(_mm256_or_si256(_mm256_cmpgt_epi32(dq, vmx), _mm256_cmpgt_epi32(dq, vmy)),
+										  _mm256_or_si256(_mm256_cmpeq_epi32(dr, zero), _mm256_cmpgt_epi32(dd, vbw)));
+			unsigned m;
+			if (b < st) bad = _mm256_or_si256(bad, _mm256_cmpgt_epi32(_mm256_set1_epi32((int32_t)(st - b)), lane));
+			m = (unsigned)_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_andnot_si256(bad, ok)));
+			while (m) {
+				int k = 31 - __builtin_clz(m); // the highest lane is the largest j: the scalar order
+				int64_t jj = b + k;
+				int32_t sc, dq_j = (int32_t)a[i].y - (int32_t)a[jj].y, dr_j = (int32_t)(a[i].x - a[jj].x);
+				int32_t q_span = a[jj].y>>32&0xff, dg = dr_j < dq_j? dr_j : dq_j;
+				m &= ~(1u << k);
+				// comput_sc() <= min(q_span, dg) as its gap penalty is >= 0: if that bound cannot beat max_f,
+				// the float score is not needed (the lane passed all tests, so comput_sc() is not INT32_MIN)
+				if (f[jj] + (q_span < dg? q_span : dg) <= max_f) sc = INT32_MIN;
+				else {
+					sc = comput_sc(&a[i], &a[jj], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, 0, 1);
+					if (sc == INT32_MIN) continue;
+					sc += f[jj];
+				}
+				if (sc > max_f) {
+					max_f = sc, max_j = jj;
+					if (n_skip > 0) --n_skip;
+				} else if (t[jj] == (int32_t)i) {
+					if (++n_skip > max_skip) { stop = 1, brk_j = jj; break; }
+				}
+				if (p[jj] >= 0) t[p[jj]] = i;
+			}
+		}
+		end_j = stop? brk_j : st - 1;
+		if (max_ii < 0 || a[i].x - a[max_ii].x > (int64_t)max_dist_x) { // argmax of f[st..i-1]; ties to the largest j
+			int32_t max = INT32_MIN;
+			max_ii = -1;
+			for (j = i - 1; j >= st; --j)
+				if (max < f[j]) max = f[j], max_ii = j;
+		}
+		if (max_ii >= 0 && max_ii < end_j) {
+			int32_t tmp;
+			tmp = comput_sc(&a[i], &a[max_ii], max_dist_x, max_dist_y, bw, chn_pen_gap, chn_pen_skip, 0, 1);
+			if (tmp != INT32_MIN && max_f < tmp + f[max_ii])
+				max_f = tmp + f[max_ii], max_j = max_ii;
+		}
+		f[i] = max_f, p[i] = max_j;
+		v[i] = max_j >= 0 && v[max_j] > max_f? v[max_j] : max_f;
+		if (max_ii < 0 || (a[i].x - a[max_ii].x <= (int64_t)max_dist_x && f[max_ii] < f[i]))
+			max_ii = i;
+	}
+	kfree(km, x32); kfree(km, y32);
+}
+#endif
+
 mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int max_iter, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					  int is_cdna, int n_seg, int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 { // TODO: make sure this works when n has more than 32 bits
@@ -165,6 +244,12 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 	v = Kmalloc(km, int32_t, n);
 	t = Kcalloc(km, int32_t, n);
 
+#ifdef MM_AVX2_DISPATCH
+	if (n_seg == 1 && !is_cdna && ksw_cpu_avx2()) { // the same f, p, v and t as the loop below
+		mg_lchain_dp_fill_avx2(max_dist_x, max_dist_y, bw, max_skip, max_iter, chn_pen_gap, chn_pen_skip, n, a, f, p, v, t, km);
+		goto fill_done;
+	}
+#endif
 	// fill the score and backtrack arrays
 	for (i = 0, max_ii = -1; i < n; ++i) {
 		int64_t max_j = -1, end_j;
@@ -206,6 +291,9 @@ mm128_t *mg_lchain_dp(int max_dist_x, int max_dist_y, int bw, int max_skip, int 
 		//fprintf(stderr, "X1\t%ld\t%ld:%d\t%ld\t%ld:%d\t%ld\t%ld\n", (long)i, (long)(a[i].x>>32), (int32_t)a[i].x, (long)max_j, max_j<0?-1L:(long)(a[max_j].x>>32), max_j<0?-1:(int32_t)a[max_j].x, (long)max_f, (long)v[i]);
 	}
 
+#ifdef MM_AVX2_DISPATCH
+fill_done:
+#endif
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
 	kfree(km, p); kfree(km, f); kfree(km, t);
