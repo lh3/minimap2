@@ -2,6 +2,8 @@
 #include "kalloc.h"
 #include "ksort.h"
 
+#define MM_SEED_PF 16 // the prefetch distance of mm_seed_collect_all(), in minimizers
+
 void mm_seed_mz_flt(void *km, mm128_v *mv, int32_t q_occ_max, float q_occ_frac)
 {
 	mm128_t *a;
@@ -33,10 +35,14 @@ mm_seed_t *mm_seed_collect_all(void *km, const mm_idx_t *mi, const mm128_v *mv, 
 	size_t i;
 	int32_t k;
 	m = (mm_seed_t*)kmalloc(km, mv->n * sizeof(mm_seed_t));
+	for (i = 0; i < 2 * MM_SEED_PF && i < mv->n; ++i) mm_idx_prefetch_hdr(mi, mv->a[i].x>>8);
+	for (i = 0; i < MM_SEED_PF && i < mv->n; ++i) mm_idx_prefetch(mi, mv->a[i].x>>8);
 	for (i = k = 0; i < mv->n; ++i) {
 		const uint64_t *cr;
 		mm_seed_t *q;
 		mm128_t *p = &mv->a[i];
+		if (i + 2 * MM_SEED_PF < mv->n) mm_idx_prefetch_hdr(mi, mv->a[i + 2 * MM_SEED_PF].x>>8); // the hash header
+		if (i + MM_SEED_PF < mv->n) mm_idx_prefetch(mi, mv->a[i + MM_SEED_PF].x>>8); // the hash slot
 		uint32_t q_pos = (uint32_t)p->y, q_span = p->x & 0xff;
 		int t;
 		cr = mm_idx_get(mi, p->x>>8, &t);

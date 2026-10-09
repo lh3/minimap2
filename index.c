@@ -90,6 +90,25 @@ void mm_idx_destroy(mm_idx_t *mi)
 	free(mi->B); free(mi->S); free(mi);
 }
 
+void mm_idx_prefetch_hdr(const mm_idx_t *mi, uint64_t minier)
+{ // prefetch the hash header that mm_idx_prefetch() reads for minier (one stage earlier)
+	const mm_idx_bucket_t *b = &mi->B[minier & ((1<<mi->b) - 1)];
+	if (b->h) __builtin_prefetch(b->h);
+}
+
+void mm_idx_prefetch(const mm_idx_t *mi, uint64_t minier)
+{ // prefetch the first hash slot that mm_idx_get() reads for minier
+	int mask = (1<<mi->b) - 1;
+	const mm_idx_bucket_t *b = &mi->B[minier&mask];
+	const idxhash_t *h = (const idxhash_t*)b->h;
+	khint_t i;
+	if (h == 0 || h->n_buckets == 0) return;
+	i = (khint_t)idx_hash(minier>>mi->b<<1) & (h->n_buckets - 1);
+	__builtin_prefetch(&h->keys[i]);
+	__builtin_prefetch(&h->vals[i]);
+	__builtin_prefetch(&h->flags[i>>4]);
+}
+
 const uint64_t *mm_idx_get(const mm_idx_t *mi, uint64_t minier, int *n)
 {
 	int mask = (1<<mi->b) - 1;
