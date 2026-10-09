@@ -45,12 +45,19 @@ __m256i get_mask_store(__m256i msk, void* addr, __m256i store_data){
 
 
     
+// The masked stores of mm2-fast at the end of a band: msk_ar2_v[ind] keeps the low 16 bytes for ind < 2 and
+// all 32 for ind == 2. Plain stores of those bytes do the same; unlike vpmaskmovd, loads can forward from them.
+static inline void ksw_store_band(void *p, int ind, __m256i v)
+{
+	if (ind == 2) _mm256_storeu_si256((__m256i*)p, v);
+	else _mm_storeu_si128((__m128i*)p, _mm256_castsi256_si128(v));
+}
+
 void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat,
                    int8_t q, int8_t e, int8_t q2, int8_t e2, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
 {
 
 
-    __m256i bt32_ = _mm256_setr_epi32(0,0,0,0,4,4,4,4);//8,8,8,8,12,12,12,12);
     
     int8_t index[32] __attribute((aligned(64)));
 
@@ -62,14 +69,13 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
 //    index[32] = 47;
 //    index[48] = 63;
     
-    __m256i shf256a, shf256b, slli256;
+    __m256i shf256a, shf256b, slli256, xp = _mm256_setzero_si256(), vp = xp, x2p = xp;
     __m256i ind256_slli = _mm256_load_si256((__m256i*) index);
     //__mmask8 mska = 0x00;//0x90
     //__mmask32 mskb = 0x00010000;//0000 0000 0000 0001 0000 0000 0000 0000
     //__mmask32 mskc = 0x1;
 	
     __m256i mskb_v = _mm256_set_epi32(0,0,0,255,0,0,0,0);
-    __m256i mskc_v = _mm256_set_epi32(0,0,0,0,0,0,0,255);
 
     //__mmask32 mskc_ar[2] = {0x1, 0x10000};
     __m256i mskc_ar_v[2];// = {0x1, 0x10000};
@@ -78,44 +84,39 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
 
 
 
+    /* x[r-1], v[r-1] and x2[r-1] shifted by one byte (byte 0 from the block before). The first block of a
+       row inserts the boundary values x1_, v1_ and x21_ at st0 as mm2-fast does; the next blocks take
+       byte 31 of the block before with permute2x128 + alignr (xp, vp, x2p: the blocks before, unchanged) */
     #define __dp_code_block1_pcl                                        \
-       /* __mmask32 mskc_ = (t == st_) ? mskc_ar[(st0 - t*32)/16]:mskc;     */               \
-        __m256i mskc_ = (t == st_) ? mskc_ar_v[(st0 - t*32)/16]:mskc_v;                    \
         z = _mm256_load_si256(&s[t]);                                   \
-        xt1 = _mm256_load_si256(&x[t]);                     /* xt1 <- x[r-1][t..t+15] */ \
-        /*  tmp = _mm_srli_si128(xt1, 15);   */                /* tmp <- x[r-1][t+15] */ \
-        tmp = _mm256_set1_epi8(((int8_t*)x)[t*32 + 31]); \
-	/*  xt1 = _mm_or_si128(_mm_slli_si128(xt1, 1), x1_);*/ /* xt1 <- x[r-1][t-1..t+14] */ \
-        shf256a = _mm256_shuffle_epi8(xt1, ind256_slli);                \
-        /*shf256b = _mm256_shuffle_i32x4(shf256a, shf256a, 0x00);   */      \
-        shf256b = _mm256_permute2x128_si256(shf256a, shf256a, 0);         \
-/*        slli256 = _mm256_mask_blend_epi8(mskb, shf256a, shf256b);  */     \
-        slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);       \
-        xt1 = _mm256_blendv_epi8(slli256, x1_, mskc_);               \
-        x1_ = tmp;                                                      \
-        vt1 = _mm256_load_si256(&v[t]);                     /* vt1 <- v[r-1][t..t+15] */ \
-        /*    tmp = _mm_srli_si128(vt1, 15);             */      /* tmp <- v[r-1][t+15] */ \
-        tmp = _mm256_set1_epi8(((int8_t*)v)[t*32 + 31]); \
-        /*    vt1 = _mm_or_si128(_mm_slli_si128(vt1, 1), v1_); *//* vt1 <- v[r-1][t-1..t+14] */ \
-        shf256a = _mm256_shuffle_epi8(vt1, ind256_slli);                \
-        /*shf256b = _mm256_shuffle_i32x4(shf256a, shf256a, 0x00); */        \
-        shf256b =  _mm256_permute2x128_si256(shf256a, shf256a, 0);         \
-/*        slli256 = _mm256_mask_blend_epi8(mskb, shf256a, shf256b);    */   \
-        slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);       \
-        vt1 = _mm256_blendv_epi8(slli256, v1_, mskc_);               \
-        v1_ = tmp;                                                      \
+        xt1 = _mm256_load_si256(&x[t]);                                 \
+        vt1 = _mm256_load_si256(&v[t]);                                 \
+        x2t1= _mm256_load_si256(&x2[t]);                                \
+        if (t == st_) {                                                 \
+            __m256i mskc_ = mskc_ar_v[(st0 - t*32)/16], xr = xt1, vr = vt1, x2r = x2t1; \
+            shf256a = _mm256_shuffle_epi8(xt1, ind256_slli);            \
+            shf256b = _mm256_permute2x128_si256(shf256a, shf256a, 0);   \
+            slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);     \
+            xt1 = _mm256_blendv_epi8(slli256, x1_, mskc_);              \
+            shf256a = _mm256_shuffle_epi8(vt1, ind256_slli);            \
+            shf256b = _mm256_permute2x128_si256(shf256a, shf256a, 0);   \
+            slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);     \
+            vt1 = _mm256_blendv_epi8(slli256, v1_, mskc_);              \
+            shf256a = _mm256_shuffle_epi8(x2t1, ind256_slli);           \
+            shf256b = _mm256_permute2x128_si256(shf256a, shf256a, 0);   \
+            slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);     \
+            x2t1 = _mm256_blendv_epi8(slli256, x21_, mskc_);            \
+            xp = xr, vp = vr, x2p = x2r;                                \
+        } else {                                                        \
+            __m256i xr = xt1, vr = vt1, x2r = x2t1;                     \
+            xt1 = _mm256_alignr_epi8(xr, _mm256_permute2x128_si256(xp, xr, 0x21), 15); \
+            vt1 = _mm256_alignr_epi8(vr, _mm256_permute2x128_si256(vp, vr, 0x21), 15); \
+            x2t1 = _mm256_alignr_epi8(x2r, _mm256_permute2x128_si256(x2p, x2r, 0x21), 15); \
+            xp = xr, vp = vr, x2p = x2r;                                \
+        }                                                               \
         a = _mm256_add_epi8(xt1, vt1);                      /* a <- x[r-1][t-1..t+14] + v[r-1][t-1..t+14] */ \
         ut = _mm256_load_si256(&u[t]);                      /* ut <- u[t..t+15] */ \
         b = _mm256_add_epi8(_mm256_load_si256(&y[t]), ut);     /* b <- y[r-1][t..t+15] + u[r-1][t..t+15] */ \
-        x2t1= _mm256_load_si256(&x2[t]);                                \
-        /*  tmp = _mm_srli_si128(x2t1, 15);*/                           \
-        tmp = _mm256_set1_epi8(((int8_t*)x2)[t*32 + 31]); \
-        /*  x2t1= _mm_or_si128(_mm_slli_si128(x2t1, 1), x21_); */       \
-        shf256a = _mm256_shuffle_epi8(x2t1, ind256_slli);               \
-        shf256b =  _mm256_permute2x128_si256(shf256a, shf256a, 0);         \
-        slli256 = _mm256_blendv_epi8(shf256a, shf256b, mskb_v);       \
-        x2t1 = _mm256_blendv_epi8(slli256, x21_, mskc_);             \
-        x21_= tmp;                                                      \
         a2= _mm256_add_epi8(x2t1, vt1);                                 \
         b2= _mm256_add_epi8(_mm256_load_si256(&y2[t]), ut);
 
@@ -130,11 +131,6 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
         a2= _mm256_sub_epi8(a2, tmp);                                   \
         b2= _mm256_sub_epi8(b2, tmp);
 
-    //__mmask32 msk_ar2[3] = {0xFFFF, 0xFFFF, 0xFFFFFFFF};
-    __m256i msk_ar2_v[3];
-    msk_ar2_v[0] = _mm256_set_epi32(0,0,0,0,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF); 
-    msk_ar2_v[1] = _mm256_set_epi32(0,0,0,0,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF); 
-    msk_ar2_v[2] = _mm256_set_epi32(0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF,0xFFFFFFFF); 
  
 
     
@@ -280,14 +276,13 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 {
                     int ind = (en0 - t + 16)/16;
                     //assert(ind >= 0 && ind < 3);
-		    __m256i msk_v = msk_ar2_v[ind];
 		    //__m256i str = (get_mask_store(msk_v, ((int8_t*)s + t), tmp_256));// msk_ar2_v[ind];
 		    //__m256i str =_mm256_and_si256(get_mask_store(msk_v,(int8_t*)s + t), tmp_256);// msk_ar2_v[ind];
 
 			
                     //_mm256_storeu_si256((__m256i*)((int8_t*)s + t), str);
 		    
-                    _mm256_maskstore_epi32((int32_t *)((int8_t*)s + t), msk_v,  tmp_256);
+                    ksw_store_band(((int8_t*)s + t), ind, tmp_256);
                 }
                 else
                     _mm256_storeu_si256((__m256i*)((int8_t*)s + t), tmp_256);
@@ -323,9 +318,9 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                     int ind = (en0 - t*32 + 16)/16;//doubt
                     // fprintf(stderr, "en0: %d, t: %d, ind: %d, msk: %d\n", en0, t, ind, msk);
                     //_mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
-                    _mm256_maskstore_epi32((int32_t *)&u[t], msk_ar2_v[ind],  _mm256_sub_epi8(z, vt1));
+                    ksw_store_band(&u[t], ind, _mm256_sub_epi8(z, vt1));
                     //_mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind], &v[t], _mm256_sub_epi8(z, ut))));
-                    _mm256_maskstore_epi32((int32_t *)&v[t], msk_ar2_v[ind],  _mm256_sub_epi8(z, ut));
+                    ksw_store_band(&v[t], ind, _mm256_sub_epi8(z, ut));
                     tmp = _mm256_sub_epi8(z, q_);                   
                     a = _mm256_sub_epi8(a, tmp);                    
                     b = _mm256_sub_epi8(b, tmp);                    
@@ -352,13 +347,13 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                     //msk = msk_ar2[ind];
                     // fprintf(stderr, "en0: %d, t: %d, ind: %d, msk: %d\n", en0, t, ind, msk);
                     //_mm256_storeu_si256(&x[t], (get_mask_store(msk_ar2_v[ind], &x[t], _mm256_sub_epi8(_mm256_max_epi8(a,  zero_), qe_))));
-                    _mm256_maskstore_epi32((int32_t *)&x[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_max_epi8(a,  zero_), qe_));
+                    ksw_store_band(&x[t], ind, _mm256_sub_epi8(_mm256_max_epi8(a,  zero_), qe_));
                     //_mm256_storeu_si256(&y[t], (get_mask_store(msk_ar2_v[ind],&y[t],  _mm256_sub_epi8(_mm256_max_epi8(b,  zero_), qe_))));
-                    _mm256_maskstore_epi32((int32_t *)&y[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_max_epi8(b,  zero_), qe_));
+                    ksw_store_band(&y[t], ind, _mm256_sub_epi8(_mm256_max_epi8(b,  zero_), qe_));
                     //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_ar2_v[ind], &x2[t] ,  _mm256_sub_epi8(_mm256_max_epi8(a2, zero_), qe2_))));
-                    _mm256_maskstore_epi32((int32_t *)&x2[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_max_epi8(a2,  zero_), qe2_));
+                    ksw_store_band(&x2[t], ind, _mm256_sub_epi8(_mm256_max_epi8(a2,  zero_), qe2_));
                     //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_ar2_v[ind], &y2[t], _mm256_sub_epi8(_mm256_max_epi8(b2, zero_), qe2_))));                    
-                    _mm256_maskstore_epi32((int32_t *)&y2[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_max_epi8(b2,  zero_), qe2_));
+                    ksw_store_band(&y2[t], ind, _mm256_sub_epi8(_mm256_max_epi8(b2,  zero_), qe2_));
                 }
                 else
                 {
@@ -384,7 +379,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
              	__m256i tmp_mask;
 		__dp_code_block1_pcl;                
 
-                d = _mm256_blendv_epi8(zero_,  one_, _mm256_cmpgt_epi8(a, z));       // d = a  > z? 1 : 0
+                d = _mm256_and_si256(_mm256_cmpgt_epi8(a, z), one_);       // d = a  > z? 1 : 0
                 z = _mm256_max_epi8(z, a);              
                 d = _mm256_blendv_epi8(d, two_,_mm256_cmpgt_epi8(b,  z)); // d = b  > z? 2 : d
                 z = _mm256_max_epi8(z, b);
@@ -403,17 +398,17 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                     a2= _mm256_sub_epi8(a2, tmp);                   
                     b2= _mm256_sub_epi8(b2, tmp);
                     tmp_mask = _mm256_cmpgt_epi8(a, zero_);
-                    _mm256_storeu_si256(&x[t],  _mm256_sub_epi8(_mm256_blendv_epi8(zero_, a, tmp_mask),  qe_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8( zero_, s1_, tmp_mask)); // d = a > 0? 1<<3 : 0
+                    _mm256_storeu_si256(&x[t],  _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a),  qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
                     tmp_mask = _mm256_cmpgt_epi8(b, zero_);
-                    _mm256_storeu_si256(&y[t],  _mm256_sub_epi8(_mm256_blendv_epi8( zero_, b, tmp_mask),  qe_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(zero_, s2_, tmp_mask)); // d = b > 0? 1<<4 : 0
+                    _mm256_storeu_si256(&y[t],  _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b),  qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0
                     tmp_mask = _mm256_cmpgt_epi8(a2, zero_);
-                    _mm256_storeu_si256(&x2[t], _mm256_sub_epi8(_mm256_blendv_epi8(zero_, a2,tmp_mask), qe2_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8( zero_, s3_,tmp_mask)); // d = a > 0? 1<<5 : 0
+                    _mm256_storeu_si256(&x2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0
                     tmp_mask = _mm256_cmpgt_epi8(b2, zero_);
-                    _mm256_storeu_si256(&y2[t], _mm256_sub_epi8(_mm256_blendv_epi8(zero_, b2,tmp_mask), qe2_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(zero_, s4_,tmp_mask)); // d = b > 0? 1<<6 : 0             
+                    _mm256_storeu_si256(&y2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0             
                     _mm256_storeu_si256(&pr[t], d);
             	    _mm_prefetch(pr + 4, _MM_HINT_T0); 
             }
@@ -423,7 +418,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
              	__m256i tmp_mask;
                 __dp_code_block1_pcl;                
 
-                d = _mm256_blendv_epi8(zero_,one_, _mm256_cmpgt_epi8(a, z));       // d = a  > z? 1 : 0
+                d = _mm256_and_si256(_mm256_cmpgt_epi8(a, z), one_);       // d = a  > z? 1 : 0
                 z = _mm256_max_epi8(z, a);              
                 d = _mm256_blendv_epi8(d, two_, _mm256_cmpgt_epi8(b,  z)); // d = b  > z? 2 : d
                 z = _mm256_max_epi8(z, b);
@@ -441,8 +436,8 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                     
                     //_mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
                     //_mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind],&v[t], _mm256_sub_epi8(z, ut))));
-                    _mm256_maskstore_epi32((int32_t *)&u[t], msk_ar2_v[ind],  _mm256_sub_epi8(z, vt1));
-                    _mm256_maskstore_epi32((int32_t *)&v[t], msk_ar2_v[ind],  _mm256_sub_epi8(z, ut));
+                    ksw_store_band(&u[t], ind, _mm256_sub_epi8(z, vt1));
+                    ksw_store_band(&v[t], ind, _mm256_sub_epi8(z, ut));
                     
 
 		    tmp = _mm256_sub_epi8(z, q_);                   
@@ -457,28 +452,27 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                     //__mmask32 msk;
                     int ind = (en0 - t*32 + 16)/16;//doubt
                     //msk = msk_ar2[ind];
-		    __m256i msk_v= msk_ar2_v[ind];
                     off_end[r] -= (2-ind)*16;//doubt
                     
                     tmp_mask = _mm256_cmpgt_epi8(a, zero_);
-                    //_mm256_storeu_si256(&x[t], (get_mask_store(msk_v, &x[t], _mm256_sub_epi8(_mm256_blendv_epi8(zero_, a, tmp_mask), qe_))));
-                    _mm256_maskstore_epi32((int32_t *)&x[t], msk_v,  _mm256_sub_epi8(_mm256_blendv_epi8(zero_, a, tmp_mask), qe_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(zero_, s1_, tmp_mask)); // d = a > 0? 1<<3 : 0
+                    //_mm256_storeu_si256(&x[t], (get_mask_store(msk_v, &x[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a), qe_))));
+                    ksw_store_band(&x[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a), qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
                     
                     tmp_mask = _mm256_cmpgt_epi8(b, zero_);
-                    //_mm256_storeu_si256(&y[t], (get_mask_store(msk_v,&y[t] , _mm256_sub_epi8(_mm256_blendv_epi8(zero_, b, tmp_mask), qe_))));
-                    _mm256_maskstore_epi32((int32_t *)&y[t], msk_v,  _mm256_sub_epi8(_mm256_blendv_epi8(zero_, b, tmp_mask), qe_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(zero_, s2_, tmp_mask)); // d = b > 0? 1<<4 : 0                    
+                    //_mm256_storeu_si256(&y[t], (get_mask_store(msk_v,&y[t] , _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b), qe_))));
+                    ksw_store_band(&y[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b), qe_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0                    
                     tmp_mask = _mm256_cmpgt_epi8(a2, zero_);
-                    //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_v,&x2[t], _mm256_sub_epi8(_mm256_blendv_epi8(zero_, a2, tmp_mask), qe2_))));
-                    _mm256_maskstore_epi32((int32_t *)&x2[t], msk_v,  _mm256_sub_epi8(_mm256_blendv_epi8(zero_, a2, tmp_mask), qe2_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(zero_, s3_, tmp_mask)); // d = a > 0? 1<<5 : 0                    
+                    //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_v,&x2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a2), qe2_))));
+                    ksw_store_band(&x2[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, a2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0                    
                     tmp_mask = _mm256_cmpgt_epi8(b2, zero_);
-                    //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_v,&y2[t], _mm256_sub_epi8(_mm256_blendv_epi8(zero_, b2, tmp_mask), qe2_))));
-                    _mm256_maskstore_epi32((int32_t *)&y2[t], msk_v,  _mm256_sub_epi8(_mm256_blendv_epi8(zero_, b2, tmp_mask), qe2_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(zero_, s4_, tmp_mask)); // d = b > 0? 1<<6 : 0
+                    //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_v,&y2[t], _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b2), qe2_))));
+                    ksw_store_band(&y2[t], ind, _mm256_sub_epi8(_mm256_and_si256(tmp_mask, b2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_and_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0
                     //_mm256_storeu_si256(&pr[t], (get_mask_store(msk_v, &pr[t], d)));
-                    _mm256_maskstore_epi32((int32_t *)&pr[t], msk_v, d);
+                    ksw_store_band(&pr[t], ind, d);
                     //_mm256_mask_storeu_epi8(&pr[t], msk, d);
                 }
             }
@@ -496,7 +490,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 
                 __dp_code_block1_pcl;
                 
-                d = _mm256_blendv_epi8(one_,  zero_, _mm256_cmpgt_epi8(z, a));
+                d = _mm256_andnot_si256(_mm256_cmpgt_epi8(z, a), one_);
                 z = _mm256_max_epi8(z, a);
                 // d = _mm256_blendv_epi8(_mm256_cmpgt_epi8(z, b), _mm256_set1_epi8(2), d);  
                 // d = z > b?  d : 2
@@ -526,21 +520,21 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 
                 {
                     tmp_mask = _mm256_cmpgt_epi8(zero_, a);
-                    _mm256_storeu_si256(&x[t],  _mm256_sub_epi8(_mm256_blendv_epi8(a, zero_,tmp_mask),  qe_));
+                    _mm256_storeu_si256(&x[t],  _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a),  qe_));
                     // d = a > 0? 1<<3 : 0
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(s1_, zero_,tmp_mask)); // d = a > 0? 1<<3 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
                     tmp_mask = _mm256_cmpgt_epi8(zero_, b);
-                    _mm256_storeu_si256(&y[t],  _mm256_sub_epi8(_mm256_blendv_epi8(b, zero_,tmp_mask),  qe_));
+                    _mm256_storeu_si256(&y[t],  _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b),  qe_));
                     // d = b > 0? 1<<4 : 0
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(s2_, zero_,tmp_mask)); // d = b > 0? 1<<4 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0
                     tmp_mask = _mm256_cmpgt_epi8(zero_, a2);
-                    _mm256_storeu_si256(&x2[t], _mm256_sub_epi8(_mm256_blendv_epi8(a2, zero_,tmp_mask), qe2_));
+                    _mm256_storeu_si256(&x2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a2), qe2_));
                     // d = a > 0? 1<<5 : 0
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(s3_, zero_,tmp_mask)); // d = a > 0? 1<<5 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0
                     tmp_mask = _mm256_cmpgt_epi8(zero_, b2);
-                    _mm256_storeu_si256(&y2[t], _mm256_sub_epi8(_mm256_blendv_epi8(b2, zero_,tmp_mask), qe2_));
+                    _mm256_storeu_si256(&y2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b2), qe2_));
                     // d = b > 0? 1<<6 : 0
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(s4_, zero_,tmp_mask)); // d = b > 0? 1<<6 : 0
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0
                     _mm256_storeu_si256(&pr[t], d);
                     
                 }
@@ -553,7 +547,7 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 
                 __dp_code_block1_pcl;
                 
-                d = _mm256_blendv_epi8(one_,  zero_,_mm256_cmpgt_epi8(z, a) );
+                d = _mm256_andnot_si256(_mm256_cmpgt_epi8(z, a), one_);
                 z = _mm256_max_epi8(z, a);
                 // d = z > b?  d : 2
                 d = _mm256_blendv_epi8( two_, d, _mm256_cmpgt_epi8(z, b));  // d = z > b?  d : 2
@@ -577,8 +571,8 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                     
                     //_mm256_storeu_si256(&u[t], (get_mask_store(msk_ar2_v[ind], &u[t], _mm256_sub_epi8(z, vt1))));
                     //_mm256_storeu_si256(&v[t], (get_mask_store(msk_ar2_v[ind], &v[t], _mm256_sub_epi8(z, ut))));
-                    _mm256_maskstore_epi32((int32_t *)&u[t], msk_ar2_v[ind],  _mm256_sub_epi8(z, vt1));
-                    _mm256_maskstore_epi32((int32_t *)&v[t], msk_ar2_v[ind],  _mm256_sub_epi8(z, ut));
+                    ksw_store_band(&u[t], ind, _mm256_sub_epi8(z, vt1));
+                    ksw_store_band(&v[t], ind, _mm256_sub_epi8(z, ut));
                     
 
 		    tmp = _mm256_sub_epi8(z, q_);                   
@@ -592,25 +586,25 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
                 
                     
                     tmp_mask = _mm256_cmpgt_epi8(zero_, a);
-                    //_mm256_storeu_si256(&x[t], (get_mask_store(msk_ar2_v[ind],&x[t], _mm256_sub_epi8(_mm256_blendv_epi8(a, zero_, tmp_mask), qe_))));
-                    _mm256_maskstore_epi32((int32_t *)&x[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_blendv_epi8(a, zero_,tmp_mask), qe_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8( s1_, zero_, tmp_mask)); // d = a > 0? 1<<3 : 0
+                    //_mm256_storeu_si256(&x[t], (get_mask_store(msk_ar2_v[ind],&x[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a), qe_))));
+                    ksw_store_band(&x[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a), qe_));
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s1_)); // d = a > 0? 1<<3 : 0
                     tmp_mask = _mm256_cmpgt_epi8(zero_, b);
-                    //_mm256_storeu_si256(&y[t], (get_mask_store(msk_ar2_v[ind], &y[t], _mm256_sub_epi8(_mm256_blendv_epi8(b, zero_,tmp_mask), qe_))));
-                    _mm256_maskstore_epi32((int32_t *)&y[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_blendv_epi8(b, zero_,tmp_mask), qe_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(s2_, zero_,tmp_mask)); // d = b > 0? 1<<4 : 0
+                    //_mm256_storeu_si256(&y[t], (get_mask_store(msk_ar2_v[ind], &y[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b), qe_))));
+                    ksw_store_band(&y[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b), qe_));
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s2_)); // d = b > 0? 1<<4 : 0
                     tmp_mask = _mm256_cmpgt_epi8(zero_, a2);
-                    //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_ar2_v[ind], &x2[t], _mm256_sub_epi8(_mm256_blendv_epi8(a2, zero_,tmp_mask), qe2_))));
-                    _mm256_maskstore_epi32((int32_t *)&x2[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_blendv_epi8(a2, zero_,tmp_mask), qe2_));
-                    d = _mm256_or_si256(d, _mm256_blendv_epi8(s3_, zero_,tmp_mask)); // d = a > 0? 1<<5 : 0
+                    //_mm256_storeu_si256(&x2[t], (get_mask_store(msk_ar2_v[ind], &x2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a2), qe2_))));
+                    ksw_store_band(&x2[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, a2), qe2_));
+                    d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s3_)); // d = a > 0? 1<<5 : 0
                     tmp_mask = _mm256_cmpgt_epi8(zero_, b2);
-                    //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_ar2_v[ind], &y2[t], _mm256_sub_epi8(_mm256_blendv_epi8(b2, zero_,tmp_mask), qe2_))));
-                    _mm256_maskstore_epi32((int32_t *)&y2[t], msk_ar2_v[ind],  _mm256_sub_epi8(_mm256_blendv_epi8(b2, zero_,tmp_mask), qe2_));
+                    //_mm256_storeu_si256(&y2[t], (get_mask_store(msk_ar2_v[ind], &y2[t], _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b2), qe2_))));
+                    ksw_store_band(&y2[t], ind, _mm256_sub_epi8(_mm256_andnot_si256(tmp_mask, b2), qe2_));
               
-	      		d = _mm256_or_si256(d, _mm256_blendv_epi8(s4_, zero_, tmp_mask)); // d = b > 0? 1<<6 : 0
+	      		d = _mm256_or_si256(d, _mm256_andnot_si256(tmp_mask, s4_)); // d = b > 0? 1<<6 : 0
                     // _mm256_storeu_si256(&pr[t], d);
 //                    _mm256_storeu_si256(&pr[t], (get_mask_store(msk_ar2_v[ind], &pr[t], d)));
-                    _mm256_maskstore_epi32((int32_t *)&pr[t], msk_ar2_v[ind], d);
+                    ksw_store_band(&pr[t], ind, d);
 
                 
             }
@@ -620,92 +614,48 @@ void ksw_extd2_avx2(void *km, int qlen, const uint8_t *query, int tlen, const ui
             int32_t max_H, max_t;
             // compute H[], max_H and max_t
             if (r > 0) {
-                int32_t HH[8], tt[8], en1 = st0 + (en0 - st0) / 8 * 8, i; //doubt
+                int32_t HH[8], tt[8], en1 = st0 + (en0 - st0) / 8 * 8, i;
                 __m256i max_H_, max_t_;
                 max_H = H[en0] = en0 > 0? H[en0-1] + u8[en0] : H[en0] + v8[en0]; // special casing the last element
-
                 max_t = en0;
                 max_H_ = _mm256_set1_epi32(max_H);
-                max_t_ = _mm256_set1_epi32(max_t);
-#if 1
-         //      for (t = st0; t < en1; t +=1) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
-	//		H[t] += v8[t];
-	//	}
-                for (t = st0; t < en1; t += /*4*/8) { // this implements: H[t]+=v8[t]-qe; if(H[t]>max_H) max_H=H[t],max_t=t;
-                    __m256i H1, t_;
-                    H1 = _mm256_loadu_si256((__m256i*)&H[t]);
-                    __m128i t__ = _mm_loadu_si128((__m128i*) &v8[t]);
-                    t_ = _mm256_cvtepi8_epi32(t__);
-               //     t_ = _mm256_setr_epi32(v8[t], v8[t+1], v8[t+2], v8[t+3], v8[t+4], v8[t+5], v8[t+6], v8[t+7]);
-                    H1 = _mm256_add_epi32(H1, t_);
-                    _mm256_storeu_si256((__m256i*)&H[t], H1);
-                    // making it 4 lanes to match accuracy
-                   
-			__m256i shfH, shft, max1, max2;
-                        __m256i tmp_mask_v;
-			t_ = _mm256_set1_epi32(t);
-			t_ = _mm256_add_epi32(t_, bt32_);
-			//shfH = _mm256_shuffle_i32x4(H1, H1, 0x1);//doubt
-			//shft = _mm256_shuffle_i32x4(t_, t_, 0x1);//doubt
-			shfH =  _mm256_permute2x128_si256(H1, H1, 1);
-			shft =  _mm256_permute2x128_si256(t_, t_, 1);
-			tmp_mask_v = _mm256_cmpgt_epi32(shfH, H1);
-			//max1 = _mm256_or_si256(_mm256_and_si256(tmp_mask_v, shfH) , _mm256_andnot_si256(tmp_mask_v, H1));
-			max1 = _mm256_blendv_epi8(H1, shfH, tmp_mask_v);
-			//max2 = _mm256_or_si256(_mm256_and_si256(tmp_mask_v, shft) , _mm256_andnot_si256(tmp_mask_v, t_));
-			max2 = _mm256_blendv_epi8(t_, shft, tmp_mask_v);
-
-/*			//--shfH = _mm256_shuffle_i32x4(max1, max1, 0x2);//doubt
-			//--shft = _mm256_shuffle_i32x4(max2, max2, 0x2);//doubt
-			//--tmp_mask = _mm256_cmpgt_epi32_mask(shfH, max1);
-			//-max1 = _mm256_mask_blend_epi32(tmp_mask, max1, shfH);
-			//--max2 = _mm256_mask_blend_epi32(tmp_mask, max2, shft);
-
-*/
-//			tmp_mask = _mm256_cmpgt_epi32_mask(max1, max_H_);
-//			max_H_ = _mm256_mask_blend_epi32(tmp_mask, max_H_, max1);
-//			max_t_ = _mm256_mask_blend_epi32(tmp_mask, max_t_, max2);
-			tmp_mask_v = _mm256_cmpgt_epi32(max1, max_H_);
-			//max_H_ = _mm256_or_si256(_mm256_and_si256(tmp_mask_v, max1) , _mm256_andnot_si256(tmp_mask_v, max_H_));
-			//max_t_ = _mm256_or_si256(_mm256_and_si256(tmp_mask_v, max2) , _mm256_andnot_si256(tmp_mask_v, max_t_));
-			max_H_ = _mm256_blendv_epi8(max_H_, max1, tmp_mask_v);
-			max_t_ = _mm256_blendv_epi8(max_t_, max2, tmp_mask_v);
-
-
+                // 8 lanes, each with its first maximum (strict >), then lanes i and i+4 folded: the result of
+                // the 4-lane loop of mm2-fast (lane i = positions t with (t - st0) % 4 == i, the first maximum)
+                {
+                    __m256i t_ = _mm256_add_epi32(_mm256_set1_epi32(st0), _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7));
+                    const __m256i eight_ = _mm256_set1_epi32(8);
+                    max_t_ = _mm256_set1_epi32(en0);
+                    for (t = st0; t < en1; t += 8) {
+                        __m256i H1 = _mm256_loadu_si256((__m256i*)&H[t]);
+                        H1 = _mm256_add_epi32(H1, _mm256_cvtepi8_epi32(_mm_loadl_epi64((__m128i*)&v8[t])));
+                        _mm256_storeu_si256((__m256i*)&H[t], H1);
+                        __m256i gt = _mm256_cmpgt_epi32(H1, max_H_);
+                        max_H_ = _mm256_max_epi32(max_H_, H1);
+                        max_t_ = _mm256_blendv_epi8(max_t_, t_, gt);
+                        t_ = _mm256_add_epi32(t_, eight_);
+                    }
+                    int32_t H8[8], t8[8];
+                    _mm256_storeu_si256((__m256i*)H8, max_H_);
+                    _mm256_storeu_si256((__m256i*)t8, max_t_);
+                    for (i = 0; i < 4; ++i) {
+                        int lo = H8[i] > H8[i + 4] || (H8[i] == H8[i + 4] && t8[i] <= t8[i + 4]);
+                        HH[i] = lo? H8[i] : H8[i + 4], tt[i] = lo? t8[i] : t8[i + 4];
+                    }
                 }
-                _mm256_storeu_si256((__m256i*)HH, max_H_);
-                _mm256_storeu_si256((__m256i*)tt, max_t_);
-
                 int rem = (en0 - t) / 4;
-                for (int l=0; l<rem; l++) {
-                    int bt = t;
-                    for (int j=0; j<4; j++) {
+                for (int l = 0; l < rem; l++) {
+                    for (int j = 0; j < 4; j++) {
                         H[t] += (int32_t)v8[t];
-                        if (H[t] > HH[j]) {
-                            HH[j] = H[t];
-                            tt[j] = bt;
-                        }
+                        if (H[t] > HH[j]) HH[j] = H[t], tt[j] = t;
                         t++;
                     }
                 }
-
                 for (i = 0; i < 4; ++i)
-                    if (max_H < HH[i]) max_H = HH[i], max_t = tt[i] + i;
-                for (; t < en0; ++t) { // for the rest of values that haven't been computed with SSE     
+                    if (max_H < HH[i]) max_H = HH[i], max_t = tt[i];
+                for (; t < en0; ++t) { // the rest
                     H[t] += (int32_t)v8[t];
-                    if (H[t] > max_H) {
-                        max_H = H[t], max_t = t;
-                    }
+                    if (H[t] > max_H) max_H = H[t], max_t = t;
                 }
-	#else
-                for (t = st0 ; t < en0; ++t) { // for the rest of values that haven't been computed with SSE     
-                    int32_t tmp = H[t] + v8[t];
-		    H[t] = tmp;
-                    if (tmp > max_H) {
-                        max_H = tmp, max_t = t;
-                    }
-                }
-       #endif                                                                         
             } else H[0] = v8[0] - qe, max_H = H[0], max_t = 0; // special casing r==0
 
             // update ez
