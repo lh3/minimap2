@@ -57,6 +57,12 @@ static int x86_simd(void)
 	return flag;
 }
 
+int ksw_cpu_avx2(void)
+{
+	if (ksw_simd < 0) ksw_simd = x86_simd();
+	return !!(ksw_simd & SIMD_AVX2);
+}
+
 void ksw_extz2_sse(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez)
 {
 	extern void ksw_extz2_sse2(void *km, int qlen, const uint8_t *query, int tlen, const uint8_t *target, int8_t m, const int8_t *mat, int8_t q, int8_t e, int w, int zdrop, int end_bonus, int flag, ksw_extz_t *ez);

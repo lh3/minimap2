@@ -92,10 +92,18 @@ static int mm_test_zdrop(void *km, const mm_mapopt_t *opt, const uint8_t *qseq, 
 			int c = qseq[pos[1][1] - i - 1];
 			qseq2[i] = c >= 4? 4 : 3 - c;
 		}
-		qp = ksw_ll_qinit(km, 2, q_len, qseq2, 5, mat);
-		score = ksw_ll_i16(qp, t_len, tseq + pos[0][0], opt->q, opt->e, &q_off, &t_off);
-		kfree(km, qseq2);
-		kfree(km, qp);
+#ifdef MM_AVX2_DISPATCH
+		if (ksw_cpu_avx2()) { // the same score as ksw_ll_i16(); only the score is used here
+			score = ksw_ll_i16_score_avx2(km, q_len, qseq2, 5, mat, t_len, tseq + pos[0][0], opt->q, opt->e);
+			kfree(km, qseq2);
+		} else
+#endif
+		{
+			qp = ksw_ll_qinit(km, 2, q_len, qseq2, 5, mat);
+			score = ksw_ll_i16(qp, t_len, tseq + pos[0][0], opt->q, opt->e, &q_off, &t_off);
+			kfree(km, qseq2);
+			kfree(km, qp);
+		}
 		if (score >= opt->min_chain_score * opt->a && score >= opt->min_dp_max)
 			return 2; // there is a potential inversion
 	}
