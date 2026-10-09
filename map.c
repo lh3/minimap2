@@ -2,6 +2,7 @@
 #include <string.h>
 #include <assert.h>
 #include <errno.h>
+#include <pthread.h>
 #include "kthread.h"
 #include "kvec.h"
 #include "kalloc.h"
@@ -690,6 +691,133 @@ static mm_bseq_file_t **open_bseqs(int n, const char **fn)
 	return fp;
 }
 
+/* With more than one thread, batches overlap. A reader thread keeps up to OVL_MAX batches read and not written;
+ * the workers take the fragments of the oldest batch that has some left (longest first), then go on to the next
+ * batch, so no worker waits for the last fragments of a batch; the calling thread writes the batches in input
+ * order. Steps 0 and 2 of worker_pipeline() read and write; the records are the same as with kt_pipeline(). */
+#define OVL_MAX 3
+
+typedef struct ovl_batch_s {
+	step_t *s;                 // 0: the end of the input
+	long n, next, n_done;      // fragments; the next one to hand out; the ones mapped
+	struct ovl_batch_s *nxt;
+} ovl_batch_t;
+
+typedef struct {
+	pipeline_t *p;
+	pthread_mutex_t mtx;
+	pthread_cond_t cv;
+	ovl_batch_t *head, *tail;  // batches not written yet, oldest first
+	ovl_batch_t *work;         // the oldest batch with fragments to hand out
+	int n_live;                // batches read and not written
+} ovl_t;
+
+typedef struct {
+	ovl_t *o;
+	int tid;
+} ovl_worker_t;
+
+static void *ovl_reader(void *data)
+{
+	ovl_t *o = (ovl_t*)data;
+	for (;;) {
+		ovl_batch_t *b;
+		pthread_mutex_lock(&o->mtx);
+		while (o->n_live >= OVL_MAX) pthread_cond_wait(&o->cv, &o->mtx);
+		pthread_mutex_unlock(&o->mtx);
+		b = (ovl_batch_t*)calloc(1, sizeof(ovl_batch_t));
+		b->s = (step_t*)worker_pipeline(o->p, 0, 0);
+		if (b->s) {
+			b->n = b->s->n_frag;
+			if (b->n > 1) mm_lpt_order(b->s);
+		}
+		pthread_mutex_lock(&o->mtx);
+		if (o->tail) o->tail->nxt = b;
+		else o->head = b;
+		o->tail = b;
+		if (o->work == 0) o->work = b;
+		++o->n_live;
+		pthread_cond_broadcast(&o->cv);
+		pthread_mutex_unlock(&o->mtx);
+		if (b->s == 0) break;
+	}
+	return 0;
+}
+
+static void *ovl_worker(void *data)
+{
+	ovl_t *o = ((ovl_worker_t*)data)->o;
+	int tid = ((ovl_worker_t*)data)->tid;
+	for (;;) {
+		ovl_batch_t *b;
+		long i;
+		pthread_mutex_lock(&o->mtx);
+		for (;;) {
+			while (o->work && o->work->s && o->work->next == o->work->n) o->work = o->work->nxt;
+			if (o->work) break;
+			pthread_cond_wait(&o->cv, &o->mtx);
+		}
+		b = o->work;
+		if (b->s == 0) { // the end of the input
+			pthread_mutex_unlock(&o->mtx);
+			break;
+		}
+		i = b->next++;
+		if (b->next == b->n) o->work = b->nxt; // the writer may free b once it is done: work never points to it
+		pthread_mutex_unlock(&o->mtx);
+		if (b->s->order) worker_for_lpt(b->s, i, tid);
+		else worker_for(b->s, i, tid);
+		pthread_mutex_lock(&o->mtx);
+		if (++b->n_done == b->n) pthread_cond_broadcast(&o->cv);
+		pthread_mutex_unlock(&o->mtx);
+	}
+	return 0;
+}
+
+static void mm_map_overlap(pipeline_t *p)
+{
+	ovl_t o;
+	pthread_t rd, *wk;
+	ovl_worker_t *wa;
+	int i;
+	memset(&o, 0, sizeof(ovl_t));
+	o.p = p;
+	pthread_mutex_init(&o.mtx, 0);
+	pthread_cond_init(&o.cv, 0);
+	wk = (pthread_t*)calloc(p->n_threads, sizeof(pthread_t));
+	wa = (ovl_worker_t*)calloc(p->n_threads, sizeof(ovl_worker_t));
+	pthread_create(&rd, 0, ovl_reader, &o);
+	for (i = 0; i < p->n_threads; ++i) {
+		wa[i].o = &o, wa[i].tid = i;
+		pthread_create(&wk[i], 0, ovl_worker, &wa[i]);
+	}
+	for (;;) { // this thread writes
+		ovl_batch_t *b;
+		pthread_mutex_lock(&o.mtx);
+		while (o.head == 0 || (o.head->s && o.head->n_done < o.head->n)) pthread_cond_wait(&o.cv, &o.mtx);
+		b = o.head;
+		pthread_mutex_unlock(&o.mtx);
+		if (b->s == 0) break;
+		free(b->s->order);
+		b->s->order = 0;
+		worker_pipeline(p, 2, b->s);
+		pthread_mutex_lock(&o.mtx);
+		if (o.work == b) o.work = b->nxt;
+		if (o.tail == b) o.tail = 0; // the reader links the next batch to the head then
+		o.head = b->nxt;
+		--o.n_live;
+		pthread_cond_broadcast(&o.cv);
+		pthread_mutex_unlock(&o.mtx);
+		free(b);
+	}
+	for (i = 0; i < p->n_threads; ++i) pthread_join(wk[i], 0);
+	pthread_join(rd, 0);
+	free(o.head); // the end marker
+	free(wk); free(wa);
+	pthread_cond_destroy(&o.cv);
+	pthread_mutex_destroy(&o.mtx);
+}
+
 int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_mapopt_t *opt, int n_threads)
 {
 	int i, pl_threads;
@@ -705,7 +833,8 @@ int mm_map_file_frag(const mm_idx_t *idx, int n_segs, const char **fn, const mm_
 	if (opt->split_prefix)
 		pl.fp_split = mm_split_init(opt->split_prefix, idx);
 	pl_threads = n_threads == 1? 1 : (opt->flag&MM_F_2_IO_THREADS)? 3 : 2;
-	kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
+	if (n_threads > 1 && !opt->split_prefix) mm_map_overlap(&pl); // the same records as kt_pipeline()
+	else kt_pipeline(pl_threads, worker_pipeline, &pl, 3);
 
 	free(pl.str.s);
 	if (pl.fp_split) fclose(pl.fp_split);
