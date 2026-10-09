@@ -335,6 +335,26 @@ static inline int32_t comput_sc_simple(const mm128_t *ai, const mm128_t *aj, flo
 	return sc;
 }
 
+// The inner tree of mg_lchain_rmq() is only iterated in key order, so any ordered set of the same elements gives the
+// same result. While the window [st_inner, i0) holds at most RMQ_INNER_HI anchors, there is no inner tree and a query
+// scans the window; above that, a krmq tree is built from the window and kept until the window is below RMQ_INNER_LO.
+#define RMQ_INNER_HI 256
+#define RMQ_INNER_LO 64
+
+static int64_t mm_rmq_inner_scan(const mm128_t *a, int64_t st, int64_t en, int32_t y_hi, int32_t y_lo, uint64_t *buf)
+{ // the anchors of [st, en) with y_lo <= y <= y_hi in descending (y, i) order, as the inner tree iterates them
+	int64_t j, n = 0, k;
+	for (j = en - 1; j >= st; --j) {
+		int32_t y = (int32_t)a[j].y;
+		uint64_t key;
+		if (y > y_hi || y < y_lo) continue;
+		key = (uint64_t)(uint32_t)(y ^ INT32_MIN) << 32 | (uint64_t)j; // y as unsigned in the order of int32_t
+		for (k = n; k > 0 && buf[k - 1] < key; --k) buf[k] = buf[k - 1]; // descending; nearly sorted in practice
+		buf[k] = key, ++n;
+	}
+	return n;
+}
+
 mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_skip, int cap_rmq_size, int min_cnt, int min_sc, float chn_pen_gap, float chn_pen_skip,
 					   int64_t n, mm128_t *a, int *n_u_, uint64_t **_u, void *km)
 {
@@ -359,6 +379,9 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 	v = Kmalloc(km, int32_t, n);
 	mem_mp = km_init2(km, 0x10000);
 	mp = kmp_init_rmq(mem_mp);
+	int hybrid = max_dist_inner > 0 && cap_rmq_size > RMQ_INNER_HI; // the inner tree only for large windows
+	int inner_tree = !hybrid;
+	uint64_t *inner_buf = hybrid? Kmalloc(km, uint64_t, RMQ_INNER_HI + 1) : 0;
 
 	// fill the score and backtrack arrays
 	for (i = i0 = 0; i < n; ++i) {
@@ -372,7 +395,7 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 				q = kmp_alloc_rmq(mp);
 				q->y = (int32_t)a[j].y, q->i = j, q->pri = -(f[j] + 0.5 * chn_pen_gap * ((int32_t)a[j].x + (int32_t)a[j].y));
 				krmq_insert(lc_elem, &root, q, 0);
-				if (max_dist_inner > 0) {
+				if (max_dist_inner > 0 && inner_tree) {
 					r = kmp_alloc_rmq(mp);
 					*r = *q;
 					krmq_insert(lc_elem, &root_inner, r, 0);
@@ -383,20 +406,35 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 		// get rid of active chains out of range
 		while (st < i && (a[i].x>>32 != a[st].x>>32 || a[i].x > a[st].x + max_dist || krmq_size(head, root) > cap_rmq_size)) {
 			s.y = (int32_t)a[st].y, s.i = st;
-			if ((q = krmq_find(lc_elem, root, &s, 0)) != 0) {
-				q = krmq_erase(lc_elem, &root, q, 0);
+			if ((q = krmq_erase(lc_elem, &root, &s, 0)) != 0) // one walk: the same tree as find, then erase
 				kmp_free_rmq(mp, q);
-			}
 			++st;
 		}
-		if (max_dist_inner > 0)  { // similar to the block above, but applied to the inner tree
+		if (max_dist_inner > 0 && !inner_tree) { // no inner tree: the window [st_inner, i0) holds all its elements
+			while (st_inner < i && (a[i].x>>32 != a[st_inner].x>>32 || a[i].x > a[st_inner].x + max_dist_inner || (i0 > st_inner? i0 - st_inner : 0) > cap_rmq_size))
+				++st_inner;
+			if (i0 - st_inner > RMQ_INNER_HI) { // a large window: build the tree from it
+				int64_t j;
+				for (j = st_inner; j < i0; ++j) {
+					r = kmp_alloc_rmq(mp);
+					r->y = (int32_t)a[j].y, r->i = j, r->pri = -(f[j] + 0.5 * chn_pen_gap * ((int32_t)a[j].x + (int32_t)a[j].y));
+					krmq_insert(lc_elem, &root_inner, r, 0);
+				}
+				inner_tree = 1;
+			}
+		} else if (max_dist_inner > 0)  { // similar to the block above, but applied to the inner tree
 			while (st_inner < i && (a[i].x>>32 != a[st_inner].x>>32 || a[i].x > a[st_inner].x + max_dist_inner || krmq_size(head, root_inner) > cap_rmq_size)) {
 				s.y = (int32_t)a[st_inner].y, s.i = st_inner;
-				if ((q = krmq_find(lc_elem, root_inner, &s, 0)) != 0) {
-					q = krmq_erase(lc_elem, &root_inner, q, 0);
+				if ((q = krmq_erase(lc_elem, &root_inner, &s, 0)) != 0)
+					kmp_free_rmq(mp, q);
+				++st_inner;
+			}
+			if (hybrid && i0 - st_inner < RMQ_INNER_LO && (int64_t)krmq_size(head, root_inner) == (i0 > st_inner? i0 - st_inner : 0)) {
+				while (root_inner) { // the window holds every element of the tree: drop the tree
+					q = krmq_erase_first(lc_elem, &root_inner);
 					kmp_free_rmq(mp, q);
 				}
-				++st_inner;
+				inner_tree = 0;
 			}
 		}
 		// RMQ
@@ -408,7 +446,24 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 			assert(q->y >= lo.y && q->y <= hi.y);
 			sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, &exact, &width);
 			if (width <= bw && sc > max_f) max_f = sc, max_j = j;
-			if (!exact && root_inner && (int32_t)a[i].y > 0) {
+			if (!exact && !inner_tree && i0 > st_inner && (int32_t)a[i].y > 0) { // the inner query by a scan of the window
+				int64_t k, nc = mm_rmq_inner_scan(a, st_inner, i0, (int32_t)a[i].y - 1, (int32_t)a[i].y - max_dist_inner, inner_buf);
+				for (k = 0; k < nc; ++k) {
+					int32_t width;
+					j = (uint32_t)inner_buf[k];
+					sc = f[j] + comput_sc_simple(&a[i], &a[j], chn_pen_gap, chn_pen_skip, 0, &width);
+					if (width <= bw) {
+						if (sc > max_f) {
+							max_f = sc, max_j = j;
+							if (n_skip > 0) --n_skip;
+						} else if (t[j] == (int32_t)i) {
+							if (++n_skip > max_chn_skip)
+								break;
+						}
+						if (p[j] >= 0) t[p[j]] = i;
+					}
+				}
+			} else if (!exact && root_inner && (int32_t)a[i].y > 0) {
 				lc_elem_t *lo, *hi;
 				s.y = (int32_t)a[i].y - 1, s.i = n;
 				krmq_interval(lc_elem, root_inner, &s, &lo, &hi);
@@ -444,6 +499,7 @@ mm128_t *mg_lchain_rmq(int max_dist, int max_dist_inner, int bw, int max_chn_ski
 		if (max_rmq_size < krmq_size(head, root)) max_rmq_size = krmq_size(head, root);
 	}
 	km_destroy(mem_mp);
+	kfree(km, inner_buf);
 
 	u = mg_chain_backtrack(km, n, f, p, v, t, min_cnt, min_sc, max_drop, &n_u, &n_v);
 	*n_u_ = n_u, *_u = u; // NB: note that u[] may not be sorted by score here
