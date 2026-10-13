@@ -84,7 +84,7 @@ void mm_mapopt_update(mm_mapopt_t *opt, const mm_idx_t *mi)
 
 void mm_mapopt_max_intron_len(mm_mapopt_t *opt, int max_intron_len)
 {
-	if ((opt->flag & MM_F_SPLICE) && max_intron_len > 0)
+	if ((opt->flag & (MM_F_SPLICE|MM_F_SPLICE_FOR|MM_F_SPLICE_REV)) && max_intron_len > 0) // -u alone enables splice mode in mm_mapopt_update()
 		opt->max_gap_ref = opt->bw = opt->bw_long = max_intron_len;
 }
 

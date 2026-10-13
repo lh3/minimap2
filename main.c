@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	ketopt_t o = KETOPT_INIT;
 	mm_mapopt_t opt;
 	mm_idxopt_t ipt;
-	int i, c, n_threads = 3, n_parts, old_best_n = -1;
+	int i, c, n_threads = 3, n_parts, old_best_n = -1, max_intron_len = -1;
 	float spsc_scale = 0.7f;
 	char *fnw = 0, *rg = 0, *fn_bed_junc = 0, *fn_bed_jump = 0, *fn_bed_pass1 = 0, *fn_spsc = 0, *s, *alt_list = 0;
 	FILE *fp_help = stderr;
@@ -171,7 +171,7 @@ int main(int argc, char *argv[])
 		else if (c == 't') n_threads = atoi(o.arg);
 		else if (c == 'v') mm_verbose = atoi(o.arg);
 		else if (c == 'g') opt.max_gap = (int)mm_parse_num(o.arg);
-		else if (c == 'G') mm_mapopt_max_intron_len(&opt, (int)mm_parse_num(o.arg));
+		else if (c == 'G') max_intron_len = (int)mm_parse_num(o.arg); // applied after the loop
 		else if (c == 'F') opt.max_frag_len = (int)mm_parse_num(o.arg);
 		else if (c == 'N') old_best_n = opt.best_n, opt.best_n = atoi(o.arg);
 		else if (c == 'p') opt.pri_ratio = atof(o.arg);
@@ -349,6 +349,8 @@ int main(int argc, char *argv[])
 			if (*s == ',') opt.e2 = strtol(s + 1, &s, 10);
 		}
 	}
+	if (max_intron_len >= 0) // -G depends on the splice flags, which may be set after it on the command line
+		mm_mapopt_max_intron_len(&opt, max_intron_len);
 	if (!fnw && !(opt.flag&MM_F_CIGAR))
 		ipt.flag |= MM_I_NO_SEQ;
 	if (mm_check_opt(&ipt, &opt) < 0)
