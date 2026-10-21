@@ -2071,11 +2071,13 @@ function paf_splice2bed(args)
 		if (cigar == null) throw Error("missing CIGAR");
 		var m, x0 = 0, x = 0, bs = [], bl = [];
 		while ((m = re.exec(cigar)) != null) {
-			if (m[2] == 'M' || m[2] == 'D') {
+			if (m[2] == 'M' || m[2] == 'D' || m[2] == '=' || m[2] == 'X') {
 				x += parseInt(m[1]);
 			} else if (m[2] == 'N') {
-				bs.push(x0);
-				bl.push(x - x0);
+				if (x > x0) {
+					bs.push(x0);
+					bl.push(x - x0);
+				}
 				x += parseInt(m[1]);
 				x0 = x;
 			}
