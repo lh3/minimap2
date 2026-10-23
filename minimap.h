@@ -263,7 +263,7 @@ mm_idx_reader_t *mm_idx_reader_open(const char *fn, const mm_idxopt_t *opt, cons
  * to traverse the entire index/sequence file.
  *
  * @param r          index reader
- * @param n_threads  number of threads for constructing index
+ * @param n_threads  number of threads for constructing or loading index
  *
  * @return an index on success; NULL if reaching the end of the input file
  */

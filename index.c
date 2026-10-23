@@ -513,10 +513,29 @@ void mm_idx_dump(FILE *fp, const mm_idx_t *mi)
 	fflush(fp);
 }
 
-mm_idx_t *mm_idx_load(FILE *fp)
+static void worker_load(void *g, long i, int tid) // build the hash table from b->a, inserting the (key, value) pairs in file order
+{
+	mm_idx_bucket_t *b = &((mm_idx_bucket_t*)g)[i];
+	idxhash_t *h;
+	size_t j;
+	if (b->a.n == 0) return;
+	b->h = h = kh_init(idx);
+	kh_resize(idx, h, b->a.n);
+	for (j = 0; j < b->a.n; ++j) {
+		khint_t k;
+		int absent;
+		k = kh_put(idx, h, b->a.a[j].x, &absent);
+		assert(absent);
+		kh_val(h, k) = b->a.a[j].y;
+	}
+	free(b->a.a);
+	b->a.n = b->a.m = 0, b->a.a = 0;
+}
+
+static mm_idx_t *mm_idx_load_core(FILE *fp, int n_threads)
 {
 	char magic[4];
-	uint32_t x[5], i;
+	uint32_t x[5], i, j, n;
 	uint64_t sum_len = 0;
 	mm_idx_t *mi;
 
@@ -540,32 +559,32 @@ mm_idx_t *mm_idx_load(FILE *fp)
 		s->is_alt = 0;
 		sum_len += s->len;
 	}
-	for (i = 0; i < 1<<mi->b; ++i) {
-		mm_idx_bucket_t *b = &mi->B[i];
-		uint32_t j, size;
-		khint_t k;
-		idxhash_t *h;
-		fread(&b->n, 4, 1, fp);
-		b->p = (uint64_t*)malloc(b->n * 8);
-		fread(b->p, 8, b->n, fp);
-		fread(&size, 4, 1, fp);
-		if (size == 0) continue;
-		b->h = h = kh_init(idx);
-		kh_resize(idx, h, size);
-		for (j = 0; j < size; ++j) {
-			uint64_t x[2];
-			int absent;
-			fread(x, 8, 2, fp);
-			k = kh_put(idx, h, x[0], &absent);
-			assert(absent);
-			kh_val(h, k) = x[1];
+	for (i = 0; i < 1U<<mi->b; i += n) { // read 256 buckets, and then build their hash tables in parallel
+		n = (1U<<mi->b) - i < 256? (1U<<mi->b) - i : 256;
+		for (j = i; j < i + n; ++j) {
+			mm_idx_bucket_t *b = &mi->B[j];
+			uint32_t size;
+			fread(&b->n, 4, 1, fp);
+			b->p = (uint64_t*)malloc(b->n * 8);
+			fread(b->p, 8, b->n, fp);
+			fread(&size, 4, 1, fp);
+			if (size == 0) continue;
+			b->a.n = b->a.m = size;
+			b->a.a = (mm128_t*)malloc(size * sizeof(mm128_t));
+			fread(b->a.a, sizeof(mm128_t), size, fp);
 		}
+		kt_for(n_threads, worker_load, &mi->B[i], n);
 	}
 	if (!(mi->flag & MM_I_NO_SEQ)) {
 		mi->S = (uint32_t*)malloc((sum_len + 7) / 8 * 4);
 		fread(mi->S, 4, (sum_len + 7) / 8, fp);
 	}
 	return mi;
+}
+
+mm_idx_t *mm_idx_load(FILE *fp)
+{
+	return mm_idx_load_core(fp, 1);
 }
 
 int64_t mm_idx_is_idx(const char *fn)
@@ -622,7 +641,7 @@ mm_idx_t *mm_idx_reader_read(mm_idx_reader_t *r, int n_threads)
 {
 	mm_idx_t *mi;
 	if (r->is_idx) {
-		mi = mm_idx_load(r->fp.idx);
+		mi = mm_idx_load_core(r->fp.idx, n_threads);
 		if (mi && mm_verbose >= 2 && (mi->k != r->opt.k || mi->w != r->opt.w || (mi->flag&MM_I_HPC) != (r->opt.flag&MM_I_HPC)))
 			fprintf(stderr, "[WARNING]\033[1;31m Indexing parameters (-k, -w or -H) overridden by parameters used in the prebuilt index.\033[0m\n");
 	} else
