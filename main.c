@@ -87,6 +87,7 @@ static ko_longopt_t long_options[] = {
 	{ "pass1",          ko_required_argument, 362 },
 	{ "spsc-scale",     ko_required_argument, 363 },
 	{ "spsc0",          ko_required_argument, 364 },
+	{ "adaptive",       ko_no_argument,       365 },
 	{ "dbg-seed-occ",   ko_no_argument,       501 },
 	{ "help",           ko_no_argument,       'h' },
 	{ "max-intron-len", ko_required_argument, 'G' },
@@ -261,6 +262,7 @@ int main(int argc, char *argv[])
 		else if (c == 360) opt.jump_min_match = mm_parse_num(o.arg); // --jump-min-match
 		else if (c == 361) opt.flag |= MM_F_OUT_JUNC | MM_F_CIGAR; // --write-junc
 		else if (c == 362) fn_bed_pass1 = o.arg; // --jump-pass1
+		else if (c == 365) opt.flag |= MM_F_ADAPTIVE; // --adaptive
 		else if (c == 501) mm_dbg_flag |= MM_DBG_SEED_FREQ; // --dbg-seed-occ
 		else if (c == 363) spsc_scale = atof(o.arg); // --spsc-scale
 		else if (c == 358 || c == 364) opt.junc_pen = atoi(o.arg); // --junc-pen or --spsc0

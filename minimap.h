@@ -48,6 +48,8 @@
 #define MM_F_WEAK_PAIRING  (0x4000000000LL)
 #define MM_F_SR_RNA        (0x8000000000LL)
 #define MM_F_OUT_JUNC      (0x10000000000LL)
+#define MM_F_LRHQ_HIFI     (0x20000000000LL)
+#define MM_F_ADAPTIVE      (0x40000000000LL)
 
 #define MM_I_HPC          0x1
 #define MM_I_NO_SEQ       0x2
