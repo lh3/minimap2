@@ -112,6 +112,8 @@ int mm_set_opt(const char *preset, mm_idxopt_t *io, mm_mapopt_t *mo)
 		io->flag = 0, io->k = 19, io->w = 19;
 		mo->max_gap = 10000;
 		mo->min_mid_occ = 50, mo->max_mid_occ = 500;
+		if (strcmp(preset, "lr:hq") == 0 || strcmp(preset, "map-hifi") == 0)
+			mo->flag |= MM_F_LRHQ_HIFI;
 		if (strcmp(preset, "map-hifi") == 0 || strcmp(preset, "map-ccs") == 0) {
 			mo->a = 1, mo->b = 4, mo->q = 6, mo->q2 = 26, mo->e = 2, mo->e2 = 1;
 			mo->min_dp_max = 200;

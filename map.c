@@ -226,7 +226,7 @@ static mm_reg1_t *align_regs(const mm_mapopt_t *opt, const mm_idx_t *mi, void *k
 
 void mm_map_frag_core(const mm_idx_t *mi, int n_segs, const int *qlens, const char **seqs, int *n_regs, mm_reg1_t **regs, mm_tbuf_t *b, const mm_mapopt_t *opt, const char *qname)
 {
-	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos;
+	int i, j, rep_len, qlen_sum, n_regs0, n_mini_pos, v_max_iter, v_max_skip;
 	int max_chain_gap_qry, max_chain_gap_ref, is_splice = !!(opt->flag & MM_F_SPLICE), is_sr = !!(opt->flag & MM_F_SR), is_sr_rna = !!(opt->flag & MM_F_SR_RNA);
 	uint32_t hash;
 	int64_t n_a;
@@ -270,13 +270,83 @@ void mm_map_frag_core(const mm_idx_t *mi, int n_segs, const int *qlens, const ch
 		if (max_chain_gap_ref < opt->max_gap) max_chain_gap_ref = opt->max_gap;
 	} else max_chain_gap_ref = opt->max_gap;
 
+	v_max_iter = opt->max_chain_iter;
+	v_max_skip = opt->max_chain_skip;
+
+	if ((opt->flag & (MM_F_LRHQ_HIFI | MM_F_ADAPTIVE)) == (MM_F_LRHQ_HIFI | MM_F_ADAPTIVE)) {
+		// 1. Compute per-read seed density metrics:
+		//    - anchor_budget: reference anchor scale matching default max_chain_iter (5000).
+		//    - multiplicity: average reference hits per retained query minimizer (repetitiveness).
+		//    - budget_ratio: pre-pruning anchor count relative to anchor_budget.
+		double anchor_budget = 5000;
+		double multiplicity = (double)n_a / (n_mini_pos > 0 ? n_mini_pos : 1);
+		double budget_ratio = (double)n_a / anchor_budget;
+
+		// Fast-path: skip pruning and cap scaling when anchor count is small (n_a <= 500),
+		// avoiding extra pass overhead on short or non-repetitive reads.
+		if (n_a > anchor_budget / 10) {
+
+			// Part 2: Seed multiplicity-aware windowed anchor pruning.
+			// Trigger when the read has repetitive seed hits (multiplicity > 2.0) and a high
+			// anchor count (n_a > 2500). Because collect_seed_hits() sorts anchors by a[i].x
+			// (upper 32 bits: target ID and strand; lower 32 bits: target position), a single
+			// linear pass partitions a[] into contiguous target clusters separated by at most
+			// max_chain_gap_ref and compacts out clusters with fewer than local_min_cnt anchors.
+			if (multiplicity > 2.0 && n_a > anchor_budget / 2 && opt->min_cnt >= 2) {
+				int64_t i, k = 0, start = 0;
+				int32_t window = max_chain_gap_ref;
+				int local_min_cnt = opt->min_cnt;
+
+				// Require denser clusters on highly repetitive reads to filter spurious repeat hits
+				if (multiplicity > 8.0) {
+					local_min_cnt += 2;
+				} else if (multiplicity > 4.0) {
+					local_min_cnt += 1;
+				}
+
+				for (i = 1; i <= n_a; ++i) {
+					if (i == n_a || (a[i].x >> 32) != (a[i - 1].x >> 32) ||
+					    (int32_t)a[i].x - (int32_t)a[i - 1].x > window) {
+						if (i - start >= local_min_cnt) {
+							if (k != start) {
+								int64_t j;
+								for (j = start; j < i; ++j) a[k++] = a[j];
+							} else
+								k = i;
+						}
+						start = i;
+					}
+				}
+				n_a = k;
+			}
+
+			// Part 3: Continuous DP chaining cap decay.
+			// Scale down backward DP lookback (v_max_iter) and skip tolerance (v_max_skip)
+			// using pre-pruning budget_ratio and multiplicity to curb quadratic chaining
+			// cost in repetitive regions, while clamping at 10% of max_chain_iter and
+			// 33% of max_chain_skip to preserve long-read sensitivity across repeat gaps.
+			if (budget_ratio > 0.1) {
+				double decay_factor = 1.0 / (1.0 + budget_ratio * multiplicity * 0.1);
+				int32_t reduced_iter = (int32_t)(opt->max_chain_iter * decay_factor);
+				int32_t min_iter = opt->max_chain_iter / 10; // Floor at 10% of max
+				if (reduced_iter < min_iter) reduced_iter = min_iter;
+				if (reduced_iter < v_max_iter) v_max_iter = reduced_iter;
+
+				int32_t reduced_skip = (int32_t)(opt->max_chain_skip * decay_factor);
+				int32_t min_skip = opt->max_chain_skip / 3; // Floor at ~33% of max
+				if (reduced_skip < min_skip) reduced_skip = min_skip;
+				if (reduced_skip < v_max_skip) v_max_skip = reduced_skip;
+			}
+		}
+	}
+
 	chn_pen_gap  = opt->chain_gap_scale * 0.01 * mi->k;
 	chn_pen_skip = opt->chain_skip_scale * 0.01 * mi->k;
 	if (opt->flag & MM_F_RMQ) {
 		a = mg_lchain_rmq(opt->max_gap, opt->rmq_inner_dist, opt->bw, opt->max_chain_skip, opt->rmq_size_cap, opt->min_cnt, opt->min_chain_score,
 						  chn_pen_gap, chn_pen_skip, n_a, a, &n_regs0, &u, b->km);
 	} else {
-		a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, opt->max_chain_skip, opt->max_chain_iter, opt->min_cnt, opt->min_chain_score,
+		a = mg_lchain_dp(max_chain_gap_ref, max_chain_gap_qry, opt->bw, v_max_skip, v_max_iter, opt->min_cnt, opt->min_chain_score,
 						 chn_pen_gap, chn_pen_skip, is_splice, n_segs, n_a, a, &n_regs0, &u, b->km);
 	}
 
